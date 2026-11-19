@@ -69,7 +69,7 @@ async def update_sales_profile(organization_id:UUID,record_id:UUID,payload:Maste
 @router.get("/{organization_id}/outlet-assignments")
 async def list_outlet_assignments(organization_id:UUID,tenant:TenantContext=Depends(require_api_action("master.assignments.read")),connection:asyncpg.Connection=Depends(get_connection),limit:int=Query(100,ge=1,le=500),offset:int=Query(0,ge=0)):
  if tenant.organization_id!=organization_id: raise APIError(403,"forbidden","Cross-tenant assignment access is denied.")
- return await master_data_service.repository.list_assignments(connection,organization_id,limit,offset)
+ return await master_data_service.list_assignments(connection,organization_id,tenant,limit,offset)
 @router.post("/{organization_id}/outlets/{outlet_id}/assignments",status_code=201)
 async def assign_outlet(organization_id:UUID,outlet_id:UUID,payload:OutletAssignmentCreate,request:Request,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("master.assignments.manage")),connection:asyncpg.Connection=Depends(get_connection)):
  return await master_data_service.assign_outlet(connection,request,principal,tenant,organization_id,outlet_id,payload.sales_profile_id,payload.note)
