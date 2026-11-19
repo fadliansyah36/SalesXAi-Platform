@@ -9,6 +9,7 @@ import type {
   InvitationDeliveryResult,
   InvitationRecord,
   InvitationTokenRequest,
+  LinkedIdentity,
   MemberCreateRequest,
   MemberStatusResponse,
   MemberStatusUpdateRequest,
@@ -243,6 +244,14 @@ export class SalesXApiClient {
       `/api/v1/admin/users/${encodeURIComponent(userId)}/account-status`,
       { method: "PATCH", body: JSON.stringify(payload) },
     );
+  }
+
+  listLinkedIdentities(): Promise<LinkedIdentity[]> {
+    return this.request<LinkedIdentity[]>("/api/v1/auth/identities");
+  }
+
+  unlinkIdentity(identityId: string): Promise<void> {
+    return this.request<void>(`/api/v1/auth/identities/${encodeURIComponent(identityId)}`, { method: "DELETE" });
   }
 
   listSessions(): Promise<SessionDeviceSummary[]> {
