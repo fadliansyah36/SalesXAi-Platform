@@ -57,6 +57,8 @@ export function SalesXAuthProvider({children}:{children:React.ReactNode}) {
       },
     },
   }):null,[client,activeOrganizationId]);
+  const apiClientRef=useRef<SalesXApiClient|null>(null);
+  apiClientRef.current=apiClient;
 
   useEffect(()=>{
     if(!supabaseUrl||!publishableKey||!apiOrigin) {
@@ -77,16 +79,17 @@ export function SalesXAuthProvider({children}:{children:React.ReactNode}) {
   },[]);
 
   const loadContext=useCallback(async(current:AuthSession)=>{
-    if(!apiClient)throw new Error("FastAPI client belum dikonfigurasi.");
-    const next=await apiClient.getAuthContext();
+    const transport=apiClientRef.current;
+    if(!transport)throw new Error("FastAPI client belum dikonfigurasi.");
+    const next=await transport.getAuthContext();
     setContext(next);
     setActiveOrganizationIdState(previous=>
       previous&&next.memberships.some(m=>m.organization_id===previous&&m.status==="active")
         ?previous:next.memberships.find(m=>m.status==="active")?.organization_id??null);
-    await apiClient.registerCurrentSession({platform:"web",device_name:"SalesX-Ai Web Portal"});
+    await transport.registerCurrentSession({platform:"web",device_name:"SalesX-Ai Web Portal"});
     const resolvedSession=client?await client.getSession():null;
     setSession(resolvedSession??current);setStatus("authenticated");setError(null);
-  },[apiClient,client]);
+  },[client]);
 
   const hydrate=useCallback(async(authClient:SalesXAuthClient)=>{
     if(hydrating.current)return;
