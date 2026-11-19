@@ -29,6 +29,7 @@ class RateLimitRule:
 RULES: tuple[tuple[str, str, RateLimitRule], ...] = (
     ("POST", r"^/api/v1/auth/sessions/current$", RateLimitRule("session_register", 20, 60, 300)),
     ("POST", r"^/api/v1/auth/sign-out$", RateLimitRule("auth_signout", 15, 60, 120)),
+    ("POST", r"^/api/v1/auth/identities/link-authorize$", RateLimitRule("identity_link_authorize", 5, 600, 1800)),
     ("DELETE", r"^/api/v1/auth/(identities|sessions)/[^/]+$", RateLimitRule("auth_revoke", 12, 300, 600)),
     ("POST", r"^/api/v1/organizations/[^/]+/invitations$", RateLimitRule("invitation_create", 8, 600, 1800)),
     ("POST", r"^/api/v1/organizations/[^/]+/invitations/[^/]+/resend$", RateLimitRule("invitation_resend", 5, 600, 1800)),
