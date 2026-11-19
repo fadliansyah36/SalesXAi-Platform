@@ -4,7 +4,7 @@ from uuid import UUID
 import asyncpg
 
 RESOURCE_TABLES: dict[str, frozenset[str]] = {
- "branches": frozenset({"code","name","status"}),
+ "branches": frozenset({"code","name","status","city","address","manager_name","phone","latitude","longitude"}),
  "teams": frozenset({"branch_id","parent_team_id","code","name","supervisor_user_id","status"}),
  "territories": frozenset({"branch_id","parent_territory_id","code","name","boundary_geojson","status"}),
  "outlets": frozenset({"branch_id","territory_id","code","name","category","address","city","province","postal_code","phone","pic_name","latitude","longitude","status"}),
@@ -16,7 +16,12 @@ class MasterDataRepository:
   return resource
  async def list(self, connection: asyncpg.Connection, resource: str, organization_id: UUID, limit: int, offset: int) -> list[dict[str, Any]]:
   table=self._table(resource)
-  rows=await connection.fetch(f"select * from public.{table} where organization_id=$1 order by created_at desc limit $2 offset $3",organization_id,limit,offset)
+  if resource=="sales_profiles":
+   rows=await connection.fetch("""select sp.*,p.display_name,p.phone from public.sales_profiles sp
+     join public.profiles p on p.id=sp.user_id where sp.organization_id=$1
+     order by sp.created_at desc limit $2 offset $3""",organization_id,limit,offset)
+  else:
+   rows=await connection.fetch(f"select * from public.{table} where organization_id=$1 order by created_at desc limit $2 offset $3",organization_id,limit,offset)
   return [dict(row) for row in rows]
  async def create(self, connection: asyncpg.Connection, resource: str, organization_id: UUID, values: dict[str, Any]) -> dict[str, Any]:
   table=self._table(resource); allowed=RESOURCE_TABLES[table]
