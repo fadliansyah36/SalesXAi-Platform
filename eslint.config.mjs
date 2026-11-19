@@ -1,11 +1,55 @@
-import { defineConfig } from "eslint/config";
-import next from "eslint-config-next";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
+import js from '@eslint/js';
+import nextPlugin from '@next/eslint-plugin-next';
+import globals from 'globals';
+import tseslint from 'typescript-eslint';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const nextFiles = [
+  'app/**/*.{js,jsx,ts,tsx}',
+  'components/**/*.{js,jsx,ts,tsx}',
+  'hooks/**/*.{js,jsx,ts,tsx}',
+  'lib/**/*.{js,jsx,ts,tsx}',
+  'pages/**/*.{js,jsx,ts,tsx}',
+];
 
-export default defineConfig([{
-    extends: [...next],
-}]);
+export default tseslint.config(
+  {
+    ignores: [
+      '**/node_modules/**',
+      '**/.next/**',
+      '**/dist/**',
+      '**/.expo/**',
+      '**/android/**',
+      '**/ios/**',
+      'packages/design-tokens/generated/**',
+      'coverage/**',
+    ],
+  },
+  {
+    ...js.configs.recommended,
+    files: ['**/*.{js,mjs,cjs,jsx}'],
+    languageOptions: {
+      globals: { ...globals.browser, ...globals.node, ...globals.es2021 },
+    },
+    rules: { 'no-unused-vars': 'warn' },
+  },
+  ...tseslint.configs.recommended,
+  {
+    files: ['**/*.{ts,tsx}'],
+    languageOptions: {
+      globals: { ...globals.browser, ...globals.node, ...globals.es2021 },
+    },
+    rules: {
+      'no-undef': 'off',
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-unused-vars': 'warn',
+    },
+  },
+  {
+    files: nextFiles,
+    plugins: { '@next/next': nextPlugin },
+    rules: {
+      ...nextPlugin.configs.recommended.rules,
+      ...nextPlugin.configs['core-web-vitals'].rules,
+    },
+  },
+);
