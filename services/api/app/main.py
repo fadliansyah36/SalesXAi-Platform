@@ -6,6 +6,7 @@ from fastapi import FastAPI,Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from app.config import get_settings
+from app.db import create_database_pool
 from app.errors import APIError,api_error_handler
 from app.routers import admin,audit,auth,organizations
 from app.security.jwt import SupabaseJWTVerifier
@@ -16,19 +17,20 @@ logger=logging.getLogger("salesx.api")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    settings=get_settings()
-    pool=await asyncpg.create_pool(dsn=settings.database_url.get_secret_value(),
-      min_size=settings.db_pool_min_size,max_size=settings.db_pool_max_size,
-      command_timeout=settings.db_command_timeout_seconds,ssl=True,
-      server_settings={"application_name":"salesx-ai-api"})
-    app.state.settings=settings
-    app.state.db_pool=pool
-    app.state.jwt_verifier=SupabaseJWTVerifier(settings)
-    app.state.supabase_auth=SupabaseAuthService(settings)
+    settings = get_settings()
+    app.state.settings = settings
+    app.state.db_pool = None
+    app.state.jwt_verifier = SupabaseJWTVerifier(settings)
+    app.state.supabase_auth = SupabaseAuthService(settings)
+    pool = None
+    if settings.database_configured:
+        pool = await create_database_pool(settings)
+        app.state.db_pool = pool
     try:
         yield
     finally:
-        await pool.close()
+        if pool is not None:
+            await pool.close()
 
 app=FastAPI(title="SalesX-Ai API",version="1.0.0",
   description="Identity, tenant context and authorization API.",
@@ -66,9 +68,19 @@ async def healthz():
 
 @app.get("/readyz",tags=["operations"])
 async def readyz(request: Request):
-    async with request.app.state.db_pool.acquire() as connection:
-        await connection.fetchval("select 1")
-    return {"status":"ready"}
+    pool = getattr(request.app.state, "db_pool", None)
+    if pool is None:
+        raise APIError(
+            503,
+            "database_not_ready",
+            "DATABASE_URL is not configured for the bound Supabase PostgreSQL project.",
+        )
+    try:
+        async with pool.acquire() as connection:
+            await connection.fetchval("select 1")
+    except (asyncpg.PostgresError, TimeoutError, OSError) as exc:
+        raise APIError(503, "database_unavailable", "Supabase PostgreSQL readiness check failed.") from exc
+    return {"status":"ready","database":"connected"}
 
 app.include_router(auth.router,prefix="/api/v1")
 app.include_router(admin.router,prefix="/api/v1")
