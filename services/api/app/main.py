@@ -13,12 +13,14 @@ from app.security.jwt import SupabaseJWTVerifier
 from app.services.supabase_auth import SupabaseAuthService
 from app.services.invitation_email import SMTPInvitationDelivery
 from app.services.rate_limit import enforce_request_rate_limit
+from app.security.action_matrix import validate_api_action_matrix
 
 logging.basicConfig(level=logging.INFO)
 logger=logging.getLogger("salesx.api")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    validate_api_action_matrix(app.routes)
     settings = get_settings()
     app.state.settings = settings
     app.state.db_pool = None
