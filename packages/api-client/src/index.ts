@@ -367,20 +367,20 @@ export class SalesXApiClient {
 
 
   listOrganizationBranches(organizationId: string): Promise<MasterDataRecord[]> {
-    return this.request(\`/api/v1/admin/organizations/${encodeURIComponent(organizationId)}/branches\`);
+    return this.request(`/api/v1/admin/organizations/${encodeURIComponent(organizationId)}/branches`);
   }
   createOrganizationBranch(organizationId: string, payload: MasterDataWrite): Promise<MasterDataRecord> {
-    return this.request(\`/api/v1/admin/organizations/${encodeURIComponent(organizationId)}/branches\`, { method: "POST", body: JSON.stringify(payload) });
+    return this.request(`/api/v1/admin/organizations/${encodeURIComponent(organizationId)}/branches`, { method: "POST", body: JSON.stringify(payload) });
   }
   updateOrganizationBranch(organizationId: string, branchId: string, payload: MasterDataWrite): Promise<MasterDataRecord> {
-    return this.request(\`/api/v1/admin/organizations/${encodeURIComponent(organizationId)}/branches/${encodeURIComponent(branchId)}\`, { method: "PATCH", body: JSON.stringify(payload) });
+    return this.request(`/api/v1/admin/organizations/${encodeURIComponent(organizationId)}/branches/${encodeURIComponent(branchId)}`, { method: "PATCH", body: JSON.stringify(payload) });
   }
 
   listPlatformOrganizations(): Promise<PlatformOrganization[]> {
     return this.request("/api/v1/admin/organizations");
   }
   updatePlatformOrganization(organizationId: string, payload: PlatformOrganizationStatusUpdate): Promise<PlatformOrganization> {
-    return this.request(\`/api/v1/admin/organizations/${encodeURIComponent(organizationId)}\`, { method: "PATCH", body: JSON.stringify(payload) });
+    return this.request(`/api/v1/admin/organizations/${encodeURIComponent(organizationId)}`, { method: "PATCH", body: JSON.stringify(payload) });
   }
 
   signOut(scope: "local" | "global" | "others" = "local"): Promise<void> {
