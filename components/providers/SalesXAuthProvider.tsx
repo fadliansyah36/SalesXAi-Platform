@@ -164,10 +164,15 @@ export function SalesXAuthProvider({children}:{children:React.ReactNode}) {
       setStatus("loading");
       await loadContext(body.session);
     }catch(cause){
-      setStatus("error");
-      setError(cause instanceof Error?cause.message:"Web session could not be restored.");
+      const status=(cause as {status?:number})?.status;
+      if(status===401||status===403){
+        await invalidateSession();
+      }else{
+        setStatus("error");
+        setError(cause instanceof Error?cause.message:"Web session could not be restored.");
+      }
     }finally{hydrating.current=false;}
-  },[ensureCsrf,loadContext]);
+  },[ensureCsrf,loadContext,invalidateSession]);
 
   useEffect(()=>{
     // Remove the pre-BFF browser token store during the one-time HttpOnly migration.
