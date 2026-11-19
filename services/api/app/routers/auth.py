@@ -2,11 +2,10 @@ from uuid import UUID
 import asyncpg
 from fastapi import APIRouter, Depends, Request
 from app.db import get_connection
-from app.errors import APIError
 from app.schemas.identity import AuthContextResponse, MembershipResponse, ProfileResponse, SessionRegistration, SignOutRequest
 from app.security.dependencies import Principal, require_api_action
 from app.services.session_mutations import session_mutation_service
-from app.services.authorization import authorization_service
+from app.services.identity_mutations import identity_mutation_service
 
 router=APIRouter(prefix="/auth",tags=["identity"])
 
@@ -123,24 +122,4 @@ async def unlink_own_identity(
     principal: Principal = Depends(require_api_action("identity.link.unlink")),
     connection: asyncpg.Connection = Depends(get_connection),
 ) -> None:
-    authorization_service.assert_action_context(request,"identity.link.unlink",principal.user_id)
-    identity = await connection.fetchrow(
-        """select auth_identity_id,provider from public.user_identities
-        where auth_identity_id=$1 and user_id=$2""",
-        identity_id, principal.user_id,
-    )
-    if identity is None:
-        raise APIError(404, "identity_not_found", "Linked identity was not found on the active account.")
-    count = await connection.fetchval(
-        "select count(*) from auth.identities where user_id=$1", principal.user_id
-    )
-    if count is None or count <= 1:
-        raise APIError(409, "last_identity_cannot_be_removed",
-                       "At least one verified sign-in identity must remain.")
-    authorization = request.headers.get("authorization", "")
-    access_token = authorization[7:] if authorization.lower().startswith("bearer ") else ""
-    if not access_token:
-        raise APIError(401, "unauthenticated", "A valid access token is required.")
-    # Supabase Auth validates the caller JWT and ownership of this identity.
-    # The auth.identities mirror trigger writes the immutable audit event.
-    await request.app.state.supabase_auth.unlink_identity(access_token, str(identity_id))
+    await identity_mutation_service.unlink_own_identity(connection,request,principal,identity_id)
