@@ -11,7 +11,7 @@ export interface SessionStorage {
  removeItem(key:string):Promise<void>;
 }
 export interface AuthClientOptions {
- supabaseUrl:string; publishableKey:string; storage:SessionStorage; fetcher?:typeof fetch; storageKey?:string;
+ supabaseUrl:string; publishableKey:string; storage:SessionStorage; oauthStorage?:SessionStorage; fetcher?:typeof fetch; storageKey?:string;
 }
 export class AuthClientError extends Error {
  constructor(message:string,public readonly status:number,public readonly code?:string) {
@@ -108,6 +108,7 @@ export class SalesXAuthClient {
  private readonly baseUrl:string;
  private readonly key:string;
  private readonly storage:SessionStorage;
+ private readonly oauthStorage:SessionStorage;
  private readonly fetcher:typeof fetch;
  private readonly storageKey:string;
  private readonly listeners=new Set<(session:AuthSession|null)=>void>();
@@ -116,6 +117,7 @@ export class SalesXAuthClient {
   this.baseUrl=options.supabaseUrl.replace(/\/$/,"");
   this.key=options.publishableKey;
   this.storage=options.storage;
+  this.oauthStorage=options.oauthStorage??options.storage;
   this.fetcher=options.fetcher??fetch;
   this.storageKey=options.storageKey??"salesx-auth-session";
   if(!this.baseUrl||!this.key)throw new Error("Supabase URL and publishable key are required.");
@@ -179,7 +181,7 @@ export class SalesXAuthClient {
   const verifier=base64Url(secureRandom(32));
   const state=base64Url(secureRandom(32));
   const pending:OAuthPending={state,codeVerifier:verifier,flow,userId,createdAt:Date.now()};
-  await this.storage.setItem(this.storageKey+":oauth-pending",JSON.stringify(pending));
+  await this.oauthStorage.setItem(this.storageKey+":oauth-pending",JSON.stringify(pending));
   return pending;
  }
  async signInWithOAuth(provider:"google",redirectTo:string):Promise<string> {
@@ -211,13 +213,13 @@ export class SalesXAuthClient {
   });
   const data=await response.json().catch(()=>({}));
   if(!response.ok||typeof data.url!=="string"){
-   await this.storage.removeItem(this.storageKey+":oauth-pending");
+   await this.oauthStorage.removeItem(this.storageKey+":oauth-pending");
    throw new AuthClientError("Supabase did not start identity linking.",response.status);
   }
   return data.url;
  }
  async completeOAuthCallback(code:string,state:string|null):Promise<AuthSession> {
-  const raw=await this.storage.getItem(this.storageKey+":oauth-pending");
+  const raw=await this.oauthStorage.getItem(this.storageKey+":oauth-pending");
   if(!raw)throw new AuthClientError("OAuth callback has no matching pending authorization.",400,"oauth_state_missing");
   let pending:OAuthPending;
   try{pending=JSON.parse(raw) as OAuthPending;}catch{
