@@ -1,4 +1,3 @@
-from uuid import UUID
 import asyncpg
 from app.errors import APIError
 from app.schemas.identity import AuthContextResponse,MembershipResponse,ProfileResponse
@@ -10,7 +9,8 @@ class IdentityReadService:
   self.repository=repository or IdentityReadRepository()
  async def get_auth_context(self,connection:asyncpg.Connection,principal:Principal)->AuthContextResponse:
   profile=await self.repository.get_profile(connection,principal.user_id)
-  if profile is None: raise APIError(404,"profile_not_found","The authenticated profile was not found.")
+  if profile is None:
+   raise APIError(404,"profile_not_found","The authenticated profile was not found.")
   rows=await self.repository.list_memberships(connection,principal.user_id)
   memberships=[]
   for row in rows:
