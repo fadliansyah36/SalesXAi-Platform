@@ -23,7 +23,7 @@ export interface SupabaseAuthSession {
 }
 
 export function supabaseUrl(): string {
-  const value = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+  const value = process.env.SUPABASE_URL ?? "";
   if (!value || new URL(value).hostname !== "eyofuiyxalbehbqoaeny.supabase.co") {
     throw new Error("Supabase Auth server configuration is unavailable for the bound SalesX-Ai project.");
   }
@@ -31,11 +31,11 @@ export function supabaseUrl(): string {
 }
 
 export function publishableKey(): string {
-  return process.env.SUPABASE_PUBLISHABLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "";
+  return process.env.SUPABASE_PUBLISHABLE_KEY ?? "";
 }
 
 export function apiUrl(): string {
-  return (process.env.SALESX_API_URL ?? process.env.NEXT_PUBLIC_SALESX_API_URL ?? "").replace(/\/$/, "");
+  return (process.env.SALESX_API_URL ?? "").replace(/\/$/, "");
 }
 
 export function appOrigin(request: NextRequest): string {
