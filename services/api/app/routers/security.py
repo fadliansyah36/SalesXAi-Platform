@@ -140,3 +140,8 @@ async def enforce_bff_rate_limit(payload: ExternalRateLimitRequest, request: Req
             "The distributed security rate-limit store is unavailable.",
         ) from exc
     return {"allowed": True}
+
+
+# The startup action-matrix validator requires explicit IDs for BFF-only routes.
+authorize_session_refresh.__api_action_id__ = "security.refresh.authorize"
+enforce_bff_rate_limit.__api_action_id__ = "security.auth.rate_limit"
