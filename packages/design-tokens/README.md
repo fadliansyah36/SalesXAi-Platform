@@ -1,38 +1,18 @@
 # SalesX-Ai Canonical Design Tokens
 
-This package is the single visual-token source for existing Web portals and the React Native Expo Sales application.
+This package is the single visual-token source for existing Web portals and the React Native Expo Sales app.
 
-## Canonical sources
+Edit only the nine JSON files declared by \`tokens/index.json\`: color primitives, semantic light/dark, typography, spacing/layout, radius, elevation, motion and breakpoints.
 
-Edit only JSON files in `tokens/`:
-- primitives and brand colors;
-- semantic light and dark colors;
-- typography, spacing, radius, elevation, motion and breakpoints.
+Brand identity: Light Blue \`#ADD8E6\`, Powder Blue \`#B0E0E6\`, Sky Blue \`#87CEEB\`.
 
-Brand identity colors remain:
-- Light Blue: `#ADD8E6`
-- Powder Blue: `#B0E0E6`
-- Sky Blue: `#87CEEB`
+## Generate and verify
 
-## Generate
+\`\`\`sh
+bun run tokens:build
+bun run tokens:check
+\`\`\`
 
-Run from this directory:
+The Node.js generator validates the source manifest, semantic roles, brand values, token groups, references and duplicate CSS variable names. It writes \`generated/web.css\`, \`generated/native.ts\`, and \`generated/tokens.d.ts\`. Generated files must never be edited manually.
 
-```sh
-bun run build
-# or
-node ./scripts/build-tokens.mjs
-```
-
-The generator uses Node.js built-ins only and writes:
-- `generated/web.css`
-- `generated/native.ts`
-
-Generated files must never be edited manually. Web and native consumers must import these outputs rather than creating independent token values. Semantic aliases are resolved by the generator and unresolved/circular references fail generation.
-
-## Integration
-
-- Web: import `@salesx-ai/design-tokens/web.css` from the existing application stylesheet when wiring the shared package.
-- Expo: import `salesxTokens` from `@salesx-ai/design-tokens/native`.
-
-No Supabase schema is needed for static design tokens. Persisted tenant/user theme preferences, if later approved, belong to the Identity/settings phase and require an API, migration and RLS.
+Web imports generated CSS in \`app/globals.css\`. Native imports \`@salesx-ai/design-tokens/native\` through the shared Native design system. Static tokens do not require a Supabase migration or Realtime.

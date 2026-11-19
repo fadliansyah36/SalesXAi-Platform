@@ -5,6 +5,7 @@
   "type": "module",
   "types": "./generated/tokens.d.ts",
   "exports": {
+    ".": "./generated/native.ts",
     "./native": "./generated/native.ts",
     "./web.css": "./generated/web.css",
     "./tokens.d.ts": "./generated/tokens.d.ts"
