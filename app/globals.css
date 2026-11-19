@@ -1,118 +1,37 @@
+@import "../packages/design-tokens/generated/web.css";
+@import "../packages/design-system/src/styles.css";
 @import "tailwindcss";
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  --brand-50: #F3FAFC;
-  --brand-100: #E5F4F8;
-  --brand-200: #ADD8E6;
-  --brand-300: #B0E0E6;
-  --brand-400: #87CEEB;
-  --brand-500: #5BAFD0;
-  --brand-600: #348CB2;
-  --brand-700: #236D91;
-  --brand-800: #194F70;
-  --brand-900: #123A54;
-
-  --neutral-0: #FFFFFF;
-  --neutral-50: #F8FAFC;
-  --neutral-100: #F1F5F9;
-  --neutral-200: #E2E8F0;
-  --neutral-300: #CBD5E1;
-  --neutral-400: #94A3B8;
-  --neutral-500: #64748B;
-  --neutral-600: #475569;
-  --neutral-700: #334155;
-  --neutral-800: #1E293B;
-  --neutral-900: #0F172A;
-
-  --color-background: var(--neutral-50);
-  --color-surface: var(--neutral-0);
-  --color-surface-raised: var(--neutral-0);
-  --color-surface-muted: var(--neutral-100);
-  --color-text-primary: var(--neutral-900);
-  --color-text-secondary: var(--neutral-600);
-  --color-text-muted: var(--neutral-500);
-  --color-border: var(--neutral-200);
-  --color-border-strong: var(--neutral-300);
-  --color-primary: var(--brand-600);
-  --color-primary-hover: var(--brand-700);
-  --color-primary-subtle: var(--brand-50);
-
-  --color-cta-orange: #F97316;
-  --color-cta-orange-hover: #EA580C;
-  --color-ai-violet: #7C3AED;
-
-  --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.04);
-  --shadow-sm: 0 2px 8px rgba(15, 23, 42, 0.06);
-  --shadow-md: 0 8px 24px rgba(15, 23, 42, 0.08);
-  --shadow-lg: 0 16px 40px rgba(15, 23, 42, 0.12);
-
-  --sidebar-width: 248px;
-  --header-height: 64px;
+  --brand-50: var(--salesx-color-brand-50); --brand-100: var(--salesx-color-brand-100);
+  --brand-200: var(--salesx-color-brand-200); --brand-300: var(--salesx-color-brand-300);
+  --brand-400: var(--salesx-color-brand-400); --brand-500: var(--salesx-color-brand-500);
+  --brand-600: var(--salesx-color-brand-600); --brand-700: var(--salesx-color-brand-700);
+  --brand-800: var(--salesx-color-brand-800); --brand-900: var(--salesx-color-brand-900);
+  --neutral-0: var(--salesx-color-neutral-0); --neutral-50: var(--salesx-color-neutral-50);
+  --neutral-100: var(--salesx-color-neutral-100); --neutral-200: var(--salesx-color-neutral-200);
+  --neutral-300: var(--salesx-color-neutral-300); --neutral-400: var(--salesx-color-neutral-400);
+  --neutral-500: var(--salesx-color-neutral-500); --neutral-600: var(--salesx-color-neutral-600);
+  --neutral-700: var(--salesx-color-neutral-700); --neutral-800: var(--salesx-color-neutral-800);
+  --neutral-900: var(--salesx-color-neutral-900);
+  --color-background: var(--salesx-color-background); --color-surface: var(--salesx-color-surface);
+  --color-surface-raised: var(--salesx-color-surface-raised); --color-surface-muted: var(--salesx-color-surface-muted);
+  --color-text-primary: var(--salesx-color-text-primary); --color-text-secondary: var(--salesx-color-text-secondary);
+  --color-text-muted: var(--salesx-color-text-muted); --color-border: var(--salesx-color-border);
+  --color-border-strong: var(--salesx-color-border-strong); --color-primary: var(--salesx-color-primary);
+  --color-primary-hover: var(--salesx-color-primary-hover); --color-primary-subtle: var(--salesx-color-primary-subtle);
+  --color-cta-orange: #F97316; --color-cta-orange-hover: #EA580C; --color-ai-violet: #7C3AED;
+  --shadow-xs: var(--salesx-shadow-xs); --shadow-sm: var(--salesx-shadow-sm);
+  --shadow-md: var(--salesx-shadow-md); --shadow-lg: var(--salesx-shadow-lg);
+  --sidebar-width: var(--salesx-layout-sidebar-width); --header-height: var(--salesx-layout-header-height);
 }
-
-.dark {
-  --color-background: #0B1220;
-  --color-surface: #111C2D;
-  --color-surface-raised: #172438;
-  --color-surface-muted: #1A2A3F;
-  --color-text-primary: #F8FAFC;
-  --color-text-secondary: #CBD5E1;
-  --color-text-muted: #94A3B8;
-  --color-border: #26374B;
-  --color-border-strong: #3A506A;
-  --color-primary: #87CEEB;
-  --color-primary-hover: #ADD8E6;
-  --color-primary-subtle: #19394B;
-}
-
 @layer base {
-  html {
-    scroll-behavior: smooth;
-    font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
-  }
-
-  body {
-    background-color: var(--color-background);
-    color: var(--color-text-primary);
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-  }
+  html { scroll-behavior: smooth; font-family: var(--font-sans), system-ui, -apple-system, sans-serif; }
+  body { background-color: var(--color-background); color: var(--color-text-primary); -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+  :focus-visible { outline: 3px solid var(--salesx-color-focus); outline-offset: 2px; }
+  button, a, input, select, textarea, [role="button"] { touch-action: manipulation; }
 }
-
-.tabular-nums {
-  font-variant-numeric: tabular-nums;
-}
-
-/* Official Google Sign-In styling helper */
-.gsi-material-button {
-  background-color: #ffffff;
-  border: 1px solid #cbd5e1;
-  border-radius: 10px;
-  color: #0f172a;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 600;
-  height: 44px;
-  padding: 0 16px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  transition: background-color 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
-}
-
-.gsi-material-button:hover {
-  background-color: #f8fafc;
-  border-color: #94a3b8;
-}
-
-.dark .gsi-material-button {
-  background-color: #172438;
-  border-color: #3a506a;
-  color: #f8fafc;
-}
-
-.dark .gsi-material-button:hover {
-  background-color: #1a2a3f;
-}
+.tabular-nums { font-variant-numeric: tabular-nums; }
+.gsi-material-button { background-color: var(--color-surface); border: 1px solid var(--color-border-strong); border-radius: 10px; color: var(--color-text-primary); cursor: pointer; font-size: 14px; font-weight: 600; min-height: 44px; padding: 0 16px; display: inline-flex; align-items: center; justify-content: center; gap: 10px; transition: background-color 150ms ease, border-color 150ms ease, box-shadow 150ms ease; }
+.gsi-material-button:hover { background-color: var(--color-surface-muted); border-color: var(--color-text-muted); }

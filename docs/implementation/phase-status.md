@@ -6,40 +6,68 @@ Supabase project ref: `eyofuiyxalbehbqoaeny`
 
 ## Phase 00 — Repository Bootstrap & Governance
 
-Status: IN_PROGRESS
+Status: IMPLEMENTED
 
-- [x] Root engineering instructions and canonical Docs baseline established.
+- [x] Root AGENTS.md and canonical Docs baseline established.
 - [x] Cross-platform vertical-slice flow documented.
-- [x] Repository README and contribution ownership conventions added.
-- [ ] Workspace/toolchain conventions reconciled with the existing Bun-based Next.js application.
-- [ ] Deployment boundary registry and service/app README baseline completed.
-- [x] Initial private schema boundary migration applied (no business tables or tenant data introduced).
-- [ ] Record final bootstrap evidence and close remaining structure tasks.
+- [x] Existing root Next.js application preserved in place.
+- [x] Bun retained as sole JavaScript package manager; root bun.lock remains the only JS lockfile and workspace metadata covers packages/*.
+- [x] Contribution conventions and CODEOWNERS established.
+- [x] Monorepo architecture and independent deployment boundaries documented.
+- [x] Native Sales and each service ownership README established; later-phase runtime code remains explicitly deferred.
+- [x] Python 3.12+ conventions and Ruff/mypy configuration established.
+- [x] Supabase migration, backup and forward-rollback workflow documented.
+- [x] No Phase 02 business schema or tenant data introduced.
 
-Database:
-- Migration file: `supabase/migrations/20261119101638_p00_create_private_schema.sql`
-- Migration history: `20261119101638 / p00_create_private_schema`
+Supabase:
+- Migration: `supabase/migrations/20261119101638_p00_create_private_schema.sql`
+- History: `20261119101638 / p00_create_private_schema`
 - Target: `eyofuiyxalbehbqoaeny`
-- Applied: confirmed in Supabase migration history
-- Schema verification: `app_private` exists; no SalesXAi business tables introduced
-- Security advisor: pre-existing warning on `public.rls_auto_enable()` (SECURITY DEFINER callable by anon/authenticated); not modified in Phase 00 because ownership/intent must be investigated in a dedicated security change.
-- Realtime: no application events exist in this phase; no publication/subscription added.
+- Applied: confirmed in Supabase migration history.
+- Schema: `app_private` exists; no SalesX-Ai business tables introduced.
+- Realtime: not applicable; no application events exist in Phase 00.
+- Pre-existing advisor warning on `public.rls_auto_enable()` (SECURITY DEFINER callable by anon/authenticated) remains recorded; no unrelated database behavior was modified.
+
+Evidence:
+- `docs/architecture/monorepo.md`
+- `docs/deployment/README.md`
+- `docs/engineering/repository-governance.md`
+- `docs/engineering/supabase-migrations.md`
+- `apps/mobile-sales/README.md`
+- `services/*/README.md`
 
 ## Phase 01 — Canonical Design System & Design Tokens
 
-Status: IN_PROGRESS
+Status: IMPLEMENTED
 
-- [x] Canonical primitive, semantic light/dark, typography, spacing, radius, elevation, motion and breakpoint JSON sources exist.
-- [x] Add deterministic CSS and React Native token generator.
-- [ ] Generate Web CSS and native TypeScript exports from the same JSON sources.
-- [ ] Add shared design-system foundation and theme contract.
-- [ ] Connect generated token artifacts to Web and Expo consumers without redesigning existing UI.
-- [x] No Supabase schema change required for static canonical tokens; user-configurable theme preferences are not being introduced in this phase.
+- [x] Canonical primitive, semantic light/dark, typography, spacing, radius, elevation, motion and breakpoint JSON retained as the single source.
+- [x] Deterministic generator validates required brand colors and semantic references.
+- [x] Generator supports build and generated-artifact check modes.
+- [x] Generated Web CSS, Native TypeScript and declaration exports committed.
+- [x] Shared design-system package exports ThemeProvider, useTheme, ThemeToggle and responsive primitives.
+- [x] Light is default; dark mode uses the canonical semantic token mapping.
+- [x] Existing Web stylesheet consumes generated tokens; existing theme hook remains compatible through re-export.
+- [x] Native token adapter consumes the generated Native export.
+- [x] Focus-visible, reduced-motion and 44px interactive target foundations included.
+- [x] Static tokens require no Supabase migration or Realtime event.
 
-Database:
-- Migration: not applicable (static tokens only; no user/tenant theme preferences).
-- Realtime: not applicable (static token assets are versioned code).
+Supabase:
+- Migration: not applicable; static theme state is presentation preference, not tenant business data.
+- Realtime: not applicable.
 
-## Evidence policy
+Evidence:
+- Sources: `packages/design-tokens/tokens/`
+- Generator: `packages/design-tokens/scripts/build-tokens.mjs`
+- Generated: `packages/design-tokens/generated/web.css`, `native.ts`, `tokens.d.ts`
+- Shared system: `packages/design-system/`
+- Web: `app/globals.css`, `components/providers/AppProviders.tsx`
+- Native adapter: `apps/mobile-sales/src/theme/tokens.ts`
 
-Statuses distinguish implemented in repository, applied to Supabase, integrated into consumers and deployed. Do not infer one status from another. This file is updated as each phase slice is completed.
+Validation/deployment:
+- Generated artifacts are assembled from the canonical token JSON sources in this change.
+- Bun/Node generator execution, Next build/typecheck and Expo build were not executed in this repository operation; do not infer them from committed source/artifacts.
+- No deployment is claimed.
+
+## Next phase
+
+Phase 02 — Identity, Tenant & Authorization Foundation. Start only after reconciling this phase evidence and available engineering validation.

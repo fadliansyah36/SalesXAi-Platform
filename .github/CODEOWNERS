@@ -1,8 +1,10 @@
-# SalesX-Ai ownership baseline
+# Default owner
 * @fadliansyah36
 /AGENTS.md @fadliansyah36
 /Docs/ @fadliansyah36
-/supabase/ @fadliansyah36
-/services/ @fadliansyah36
-/apps/mobile-sales/ @fadliansyah36
+/docs/ @fadliansyah36
+/.github/ @fadliansyah36
 /packages/ @fadliansyah36
+/apps/mobile-sales/ @fadliansyah36
+/services/ @fadliansyah36
+/supabase/ @fadliansyah36

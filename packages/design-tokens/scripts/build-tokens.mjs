@@ -5,113 +5,72 @@ import { fileURLToPath } from "node:url";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const tokenDir = path.join(root, "tokens");
 const outputDir = path.join(root, "generated");
-const sources = [
-  "primitives.json",
-  "semantic-light.json",
-  "semantic-dark.json",
-  "typography.json",
-  "spacing.json",
-  "radius.json",
-  "elevation.json",
-  "motion.json",
-  "breakpoints.json",
-];
-
-const documents = Object.fromEntries(
-  await Promise.all(sources.map(async (name) => [
-    name,
-    JSON.parse(await readFile(path.join(tokenDir, name), "utf8")),
-  ])),
-);
-
-const primitives = documents["primitives.json"];
-const semanticLight = documents["semantic-light.json"];
-const semanticDark = documents["semantic-dark.json"];
-const merged = {
-  color: primitives.color,
-  spacing: primitives.spacing,
-  radius: primitives.radius,
-  ...Object.fromEntries(
-    Object.entries(documents).flatMap(([name, value]) =>
-      Object.entries(value).filter(([key]) =>
-        ["fontFamily", "fontSize", "lineHeight", "fontWeight", "shadow", "motion", "breakpoint", "layout"].includes(key),
-      ),
-    ),
-  ),
-};
-
-function resolve(value, seen = new Set()) {
-  if (Array.isArray(value)) return value.map((item) => resolve(item, seen));
-  if (!value || typeof value !== "object") return value;
-  if (typeof value.$value === "string" && /^\{[^{}]+\}$/.test(value.$value)) {
-    const ref = value.$value.slice(1, -1).split(".");
-    const key = ref.join(".");
-    if (seen.has(key)) throw new Error(`Circular token reference: ${key}`);
-    let target = merged;
-    for (const part of ref) target = target?.[part];
-    if (target === undefined) throw new Error(`Unresolved token reference: ${key}`);
-    return resolve(target, new Set([...seen, key]));
-  }
-  return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, resolve(item, seen)]));
+const sourceFiles = ["primitives.json","semantic-light.json","semantic-dark.json","typography.json","spacing.json","radius.json","elevation.json","motion.json","breakpoints.json"];
+const docs = Object.fromEntries(await Promise.all(sourceFiles.map(async file => [file.replace(".json",""), JSON.parse(await readFile(path.join(tokenDir,file),"utf8"))])));
+const primitives=docs.primitives, light=docs["semantic-light"], dark=docs["semantic-dark"];
+const spacing=docs.spacing, radius=docs.radius, elevation=docs.elevation, motion=docs.motion, breakpoints=docs.breakpoints, typography=docs.typography;
+for (const [step,expected] of Object.entries({200:"#ADD8E6",300:"#B0E0E6",400:"#87CEEB"})) {
+  if (primitives.color?.brand?.[step]?.$value !== expected) throw new Error(`Canonical brand color mismatch: ${step}`);
 }
-
-function flattenTokens(node, prefix = [], output = []) {
-  for (const [key, value] of Object.entries(node ?? {})) {
-    if (value && typeof value === "object" && "$value" in value) {
-      output.push({ path: [...prefix, key], value: resolve(value).$value });
-    } else if (value && typeof value === "object" && !Array.isArray(value)) {
-      flattenTokens(value, [...prefix, key], output);
+for (const semantic of [light.color,dark.color]) for (const key of ["background","surface","textPrimary","textSecondary","border","primary","focus"]) {
+  if (!semantic?.[key]?.$value) throw new Error(`Missing semantic color: ${key}`);
+}
+const merged={color:primitives.color,spacing:spacing.spacing,radius:radius.radius,shadow:elevation.shadow,motion:motion.motion,breakpoint:breakpoints.breakpoint,layout:spacing.layout,fontFamily:typography.fontFamily,fontSize:typography.fontSize,lineHeight:typography.lineHeight,fontWeight:typography.fontWeight};
+function resolve(node,seen=new Set()) {
+  if(Array.isArray(node)) return node.map(v=>resolve(v,seen));
+  if(!node||typeof node!=="object") return node;
+  if(Object.prototype.hasOwnProperty.call(node,"$value")) {
+    const raw=node.$value;
+    if(typeof raw==="string" && /^\\{[^{}]+\\}$/.test(raw)) {
+      const key=raw.slice(1,-1); if(seen.has(key)) throw new Error(`Circular token: ${key}`);
+      let target=merged; for(const part of key.split(".")) target=target?.[part];
+      if(target===undefined) throw new Error(`Unresolved token: ${key}`);
+      const value=resolve(target,new Set([...seen,key])); return {...node,$value:value?.$value??value};
     }
+    return {...node,$value:resolve(raw,seen)};
   }
-  return output;
+  return Object.fromEntries(Object.entries(node).map(([k,v])=>[k,resolve(v,seen)]));
 }
-
-function cssName(parts) {
-  return `--salesx-${parts.join("-").replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase()}`;
+function flatten(node,prefix=[],out=[]) {
+  for(const [key,value] of Object.entries(node??{})) {
+    if(value&&typeof value==="object"&&!Array.isArray(value)&&"$value" in value) out.push({path:[...prefix,key],value:value.$value});
+    else if(value&&typeof value==="object"&&!Array.isArray(value)) flatten(value,[...prefix,key],out);
+  }
+  return out;
 }
-
-const primitiveCss = flattenTokens(merged)
-  .map(({ path: tokenPath, value }) => `  ${cssName(tokenPath)}: ${String(value)};`)
-  .join("\n");
-const lightCss = flattenTokens(semanticLight)
-  .map(({ path: tokenPath, value }) => `  ${cssName(tokenPath)}: ${String(value)};`)
-  .join("\n");
-const darkCss = flattenTokens(semanticDark)
-  .map(({ path: tokenPath, value }) => `  ${cssName(tokenPath)}: ${String(value)};`)
-  .join("\n");
-
-const css = `/* Generated by scripts/build-tokens.mjs. Do not edit by hand. */
+const cssName=parts=>`--salesx-${parts.join("-").replace(/([a-z0-9])([A-Z])/g,"$1-$2").toLowerCase()}`;
+const cssBlock=items=>items.map(({path:parts,value})=>`  ${cssName(parts)}: ${Array.isArray(value)?value.join(", "):String(value)};`).join("\\n");
+const css=`/* Generated by scripts/build-tokens.mjs. Do not edit by hand. */
 :root {
-${primitiveCss}
-${lightCss}
+${cssBlock(flatten(merged))}
+${cssBlock(flatten(resolve(light)))}
 }
 .dark, [data-theme="dark"] {
-${darkCss}
+${cssBlock(flatten(resolve(dark)))}
 }
 `;
-
-const native = {
-  primitives: resolve(primitives),
-  semanticLight: resolve(semanticLight),
-  semanticDark: resolve(semanticDark),
-  typography: resolve(documents["typography.json"]),
-  spacing: resolve(documents["spacing.json"]),
-  radius: resolve(documents["radius.json"]),
-  elevation: resolve(documents["elevation.json"]),
-  motion: resolve(documents["motion.json"]),
-  breakpoints: resolve(documents["breakpoints.json"]),
-};
-const nativeTs = `/* Generated by scripts/build-tokens.mjs. Do not edit by hand. */
-export const salesxTokens = ${JSON.stringify(native, null, 2)} as const;
+const native={primitives:resolve(primitives),semanticLight:resolve(light),semanticDark:resolve(dark),typography:resolve(typography),spacing:resolve(spacing),radius:resolve(radius),elevation:resolve(elevation),motion:resolve(motion),breakpoints:resolve(breakpoints)};
+const nativeTs=`/* Generated by scripts/build-tokens.mjs. Do not edit by hand. */
+export const salesxTokens = ${JSON.stringify(native,null,2)} as const;
 
 export type SalesXTokens = typeof salesxTokens;
 export const semanticLight = salesxTokens.semanticLight;
 export const semanticDark = salesxTokens.semanticDark;
 `;
-
-await mkdir(outputDir, { recursive: true });
-await Promise.all([
-  writeFile(path.join(outputDir, "web.css"), css),
-  writeFile(path.join(outputDir, "native.ts"), nativeTs),
-]);
-console.log(`Generated Web and Native tokens from ${sources.length} canonical JSON files.`);
+const types=`/* Generated by scripts/build-tokens.mjs. Do not edit by hand. */
+export { salesxTokens, semanticLight, semanticDark } from "./native";
+export type { SalesXTokens } from "./native";
+`;
+const outputs=new Map([["web.css",css],["native.ts",nativeTs],["tokens.d.ts",types]]);
+const check=process.argv.includes("--check");
+if(check) {
+  for(const [name,expected] of outputs) {
+    let actual; try { actual=await readFile(path.join(outputDir,name),"utf8"); } catch { throw new Error(`Missing generated artifact ${name}; run build.`); }
+    if(actual!==expected) throw new Error(`Stale generated artifact: ${name}`);
+  }
+  console.log(`Verified ${outputs.size} generated artifacts from ${sourceFiles.length} canonical sources.`);
+} else {
+  await mkdir(outputDir,{recursive:true});
+  await Promise.all([...outputs].map(([name,content])=>writeFile(path.join(outputDir,name),content)));
+  console.log(`Generated ${outputs.size} artifacts from ${sourceFiles.length} canonical sources.`);
+}

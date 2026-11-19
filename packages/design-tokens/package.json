@@ -3,12 +3,14 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
+  "types": "./generated/tokens.d.ts",
   "exports": {
     "./native": "./generated/native.ts",
-    "./web.css": "./generated/web.css"
+    "./web.css": "./generated/web.css",
+    "./tokens.d.ts": "./generated/tokens.d.ts"
   },
   "scripts": {
     "build": "node ./scripts/build-tokens.mjs",
-    "check": "node --check ./scripts/build-tokens.mjs && node ./scripts/build-tokens.mjs"
+    "check": "node ./scripts/build-tokens.mjs --check"
   }
 }
