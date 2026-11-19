@@ -4,14 +4,14 @@ from fastapi import APIRouter, Depends, Request, Response
 from app.db import get_connection
 from app.errors import APIError
 from app.schemas.identity import AuthContextResponse, MembershipResponse, ProfileResponse, SessionRegistration, SignOutRequest
-from app.security.dependencies import Principal, get_current_principal, require_self_permission
+from app.security.dependencies import Principal, require_api_action
 from app.services.audit import write_audit
 
 router=APIRouter(prefix="/auth",tags=["identity"])
 
 @router.get("/me",response_model=AuthContextResponse)
 async def get_auth_context(
-    principal: Principal=Depends(get_current_principal),
+    principal: Principal=Depends(require_api_action("identity.context.read")),
     connection: asyncpg.Connection=Depends(get_connection),
 )->AuthContextResponse:
     profile=await connection.fetchrow("select id,email,display_name,status from public.profiles where id=$1",principal.user_id)
@@ -57,7 +57,7 @@ async def get_auth_context(
 @router.post("/sessions/current",status_code=204)
 async def register_current_session(
     request: Request,payload: SessionRegistration,
-    principal: Principal=Depends(get_current_principal),
+    principal: Principal=Depends(require_api_action("identity.session.register")),
     connection: asyncpg.Connection=Depends(get_connection),
 )->None:
     auth_session=await connection.fetchrow(
@@ -81,7 +81,7 @@ async def register_current_session(
 
 @router.get("/sessions")
 async def list_sessions(
-    principal: Principal=Depends(require_self_permission("profile:read:self")),
+    principal: Principal=Depends(require_api_action("identity.session.list")),
     connection: asyncpg.Connection=Depends(get_connection),
 )->list[dict]:
     rows=await connection.fetch(
@@ -93,7 +93,7 @@ async def list_sessions(
 @router.delete("/sessions/{session_id}",status_code=204)
 async def revoke_session(
     session_id: UUID,request: Request,
-    principal: Principal=Depends(require_self_permission("profile:update:self")),
+    principal: Principal=Depends(require_api_action("identity.session.revoke")),
     connection: asyncpg.Connection=Depends(get_connection),
 )->None:
     exists=await connection.fetchval("select exists(select 1 from auth.sessions where id=$1 and user_id=$2)",session_id,principal.user_id)
@@ -113,7 +113,7 @@ async def sign_out(
     payload: SignOutRequest,
     request: Request,
     response: Response,
-    principal: Principal = Depends(get_current_principal),
+    principal: Principal = Depends(require_api_action("identity.session.signout")),
     connection: asyncpg.Connection = Depends(get_connection),
 ) -> None:
     authorization = request.headers.get("authorization", "")
@@ -158,14 +158,14 @@ async def sign_out(
 
 @router.post("/identities/link-authorize",status_code=204)
 async def authorize_identity_link(
-    principal: Principal = Depends(require_self_permission("identity:link:self")),
+    principal: Principal = Depends(require_api_action("identity.link.authorize")),
 ) -> None:
     return None
 
 
 @router.get("/identities")
 async def list_linked_identities(
-    principal: Principal = Depends(require_self_permission("identity:read:self")),
+    principal: Principal = Depends(require_api_action("identity.link.list")),
     connection: asyncpg.Connection = Depends(get_connection),
 ) -> list[dict]:
     rows = await connection.fetch(
@@ -180,7 +180,7 @@ async def list_linked_identities(
 async def unlink_own_identity(
     identity_id: UUID,
     request: Request,
-    principal: Principal = Depends(require_self_permission("identity:unlink:self")),
+    principal: Principal = Depends(require_api_action("identity.link.unlink")),
     connection: asyncpg.Connection = Depends(get_connection),
 ) -> None:
     identity = await connection.fetchrow(
