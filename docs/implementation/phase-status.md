@@ -75,7 +75,7 @@ Status: PARTIAL
 - Realtime: not applicable; authorization re-reads PostgreSQL state on each protected request.
 
 ### Engineering evidence
-- Previous implementation baseline: 7d5c916d2b6fdb623b71afe1a773456f0dacb6fd. Current Phase 02 code head before documentation commits: 8570bffbdbc6167b930a69b0f263ff366cc4349e.
+- Previous implementation baseline: 7d5c916d2b6fdb623b71afe1a773456f0dacb6fd. Current Phase 02 code head before documentation commits: fbcab8eb4ee832158eb41fe09cbb459421ba1e47.
 - Phase 02 CI: https://github.com/fadliansyah36/SalesXAi-Platform/actions/runs/44527586864.
 - Bun/Web/Expo CI: https://github.com/fadliansyah36/SalesXAi-Platform/actions/runs/44527586969.
 - FastAPI source: services/api/app/.
@@ -149,7 +149,7 @@ Phase 02 remains in progress. Phase 03 is not authorized until Phase 02 reaches 
 - Supabase JWT/JWKS issuer/audience defaults remain derived from the bound project. Root and API environment examples now list all DB, Auth, CORS, public URL and SMTP variable definitions as placeholders; no secrets were populated.
 - Shared AuthClient now performs Google OAuth PKCE S256, callback-bound random oauth_state validation, pending-flow expiry checks, one-time code exchange and same-user validation for identity linking. Web and Expo callbacks consume the PKCE code/state path; Expo uses the same shared client and SecureStore.
 - Manual identity linking now uses Supabase Auth's user/identities/authorize endpoint rather than the former authorize?link_identity=true pattern.
-- Added packages/api-client and wired it into the Web auth provider and Expo native auth hook. It imports canonical AuthContext and SessionDeviceRegistration from packages/api-contracts; both Web and Expo now use its typed /auth/me and current-session registration methods. It centralizes bearer token, platform, active organization, one refresh/retry and session invalidation handling. Added package workspace entries and Bun lock references.
+- Added packages/api-client and wired it into the Web auth provider and Expo native auth hook. It imports canonical AuthContext, session, organization, member, role, invitation, account-status and error contracts from packages/api-contracts; both Web and Expo use typed /auth/me and current-session registration methods, and the client now exposes typed Phase 02 organization/invitation/member/session/account-status operations. It centralizes bearer token, platform, active organization, one refresh/retry and session invalidation handling. Added package workspace entries and Bun lock references.
 - AuthContext shared contract now includes platform_permissions. /api/v1/auth/me only returns tenant roles/permissions for active memberships.
 - Invitation delivery now has an InvitationDelivery provider interface and SMTP implementation. Create persists the invitation before delivery; verified existing identities use SMTP, unverified identities use Supabase Auth signup verification resend, and new identities use Auth Admin invite. Provider failures are audited; failed new Auth Admin invites are revoked. Resend uses the matching delivery path.
 - Invitation acceptance revalidates active branch and organization scope. Invitation role hierarchy is checked on create and resend. Organization creation remains guarded by platform organization:create.
@@ -189,6 +189,12 @@ Phase 02 remains in progress. Phase 03 is not authorized until Phase 02 reaches 
   - 61b325185177a6e8515d69836f8320a7f6643dd8 — cycle-safe role resolution in auth context.
   - bf4fa05b24591622c8eaac560e9881a8b201d7b3 — validate default and requested branch scope before authorization.
   - 8570bffbdbc6167b930a69b0f263ff366cc4349e — omit inactive branch permissions from auth context.
+  - eaf300be54c0dab91c0c03b36cabcc7259d4a516 — add Phase 02 identity/organization request and response contracts.
+  - 64f178223960f8c47910f134f70930c5864ce255 — align organization list contract.
+  - cdf9644c0d33868511c31f788e315c884990a6ce — add account status response contract.
+  - 3aecaf9e98253a83f72e445bccac999d3818fc46 — add typed platform account status API method.
+  - 1c9693c0abfb8cf7394fc48d47f8d5913a7fc025 — add typed organization/invitation/member/session API methods.
+  - fbcab8eb4ee832158eb41fe09cbb459421ba1e47 — use typed invitation acceptance in Expo callback.
 - The GitHub workflow-run query returned no runs for the new code commits; no fresh Web/Expo typecheck, FastAPI compileall/Ruff or API contract suite is claimed for this continuation.
 - No OAuth provider round-trip, /readyz, authenticated /api/v1/auth/me, SMTP delivery, Auth Admin operation or remote session revocation was executed.
 - The live Supabase migration ledger remains at nine versions through 20261119131809_p02_add_missing_foreign_key_indexes. No schema delta was required for these application/package changes; no migration was applied in this continuation.
