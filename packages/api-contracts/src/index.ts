@@ -27,6 +27,9 @@ export interface MyOrganizationSummary {
   id:UUID;slug:string;name:string;status:OrganizationStatus;
   membership_id:UUID;membership_status:MembershipStatus;
 }
+export interface LinkedIdentity {
+  id:UUID;provider:string;email:string|null;is_primary:boolean;created_at:ISODateTime;
+}
 export interface SessionDeviceRegistration {
   device_id?:string|null;device_name?:string|null;platform:ApiPlatform;user_agent?:string|null;
 }
