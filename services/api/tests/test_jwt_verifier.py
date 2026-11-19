@@ -13,7 +13,6 @@ class SupabaseJWTVerifierTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self.settings=Settings(
             supabase_url="https://eyofuiyxalbehbqoaeny.supabase.co",
-            database_url="postgresql://salesx:local@127.0.0.1:5432/salesx",
             supabase_jwt_secret=SECRET,
             jwt_clock_skew_seconds=0,
         )
