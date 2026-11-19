@@ -10,6 +10,7 @@ from app.schemas.identity import MemberCreate,MemberStatusUpdate,OrganizationCre
 from app.security.dependencies import Principal,TenantContext,get_current_principal,require_api_action
 from app.security.policy import abac_conditions_match
 from app.services.audit import write_audit
+from app.services.authorization import authorization_service
 
 router=APIRouter(prefix="/organizations",tags=["organizations"])
 
@@ -111,6 +112,7 @@ async def create_organization(
     principal: Principal=Depends(require_api_action("organization.create")),
     connection: asyncpg.Connection=Depends(get_connection),
 )->OrganizationResponse:
+    authorization_service.assert_action_context(request,"organization.create",principal.user_id)
     async with connection.transaction():
         org=await connection.fetchrow(
           """insert into public.organizations(slug,name,legal_name,created_by)
@@ -149,6 +151,7 @@ async def add_existing_member(
     tenant: TenantContext=Depends(require_api_action("organization.members.invite")),
     connection: asyncpg.Connection=Depends(get_connection),
 )->dict:
+    authorization_service.assert_action_context(request,"organization.members.invite",principal.user_id,organization_id)
     if tenant.organization_id!=organization_id:
         raise APIError(403,"forbidden","Cross-tenant membership access is denied.")
     if not await connection.fetchval("select exists(select 1 from auth.users where id=$1)",payload.user_id):
@@ -173,6 +176,7 @@ async def update_member_status(
     tenant: TenantContext=Depends(require_api_action("organization.members.update")),
     connection: asyncpg.Connection=Depends(get_connection),
 )->dict:
+    authorization_service.assert_action_context(request,"organization.members.update",principal.user_id,organization_id)
     if tenant.organization_id!=organization_id:
         raise APIError(403,"forbidden","Cross-tenant membership access is denied.")
     if user_id==principal.user_id and payload.status!="active":
@@ -229,6 +233,7 @@ async def assign_member_role(
     tenant: TenantContext=Depends(require_api_action("organization.roles.assign")),
     connection: asyncpg.Connection=Depends(get_connection),
 )->dict:
+    authorization_service.assert_action_context(request,"organization.roles.assign",principal.user_id,organization_id)
     if tenant.organization_id!=organization_id:
         raise APIError(403,"forbidden","Cross-tenant role assignment is denied.")
     async with connection.transaction():
@@ -278,7 +283,8 @@ async def list_assignable_roles(
     principal: Principal = Depends(get_current_principal),
     tenant: TenantContext = Depends(require_api_action("organization.roles.assignable")),
     connection: asyncpg.Connection = Depends(get_connection),
-) -> list[dict]:
+ ) -> list[dict]:
+    authorization_service.assert_action_context(request,"organization.invitations.read",principal.user_id,organization_id)
     if tenant.organization_id != organization_id:
         raise APIError(403,"forbidden","Cross-tenant role catalog access is denied.")
     selected_branch_id=tenant.branch_id
@@ -368,7 +374,8 @@ async def create_invitation(
     principal: Principal = Depends(get_current_principal),
     tenant: TenantContext = Depends(require_api_action("organization.invitations.create")),
     connection: asyncpg.Connection = Depends(get_connection),
-) -> dict:
+ ) -> dict:
+    authorization_service.assert_action_context(request,"organization.invitations.create",principal.user_id,organization_id)
     if tenant.organization_id != organization_id:
         raise APIError(403, "forbidden", "Cross-tenant invitation access is denied.")
     email = payload.email.strip().lower()
@@ -479,7 +486,8 @@ async def accept_invitation(
     request: Request,
     principal: Principal = Depends(require_api_action("organization.invitations.accept")),
     connection: asyncpg.Connection = Depends(get_connection),
-) -> dict:
+ ) -> dict:
+    authorization_service.assert_action_context(request,"organization.invitations.accept",principal.user_id)
     expired = False
     result: dict | None = None
     async with connection.transaction():
@@ -572,7 +580,8 @@ async def reject_invitation(
     request: Request,
     principal: Principal = Depends(require_api_action("organization.invitations.reject")),
     connection: asyncpg.Connection = Depends(get_connection),
-) -> dict:
+ ) -> dict:
+    authorization_service.assert_action_context(request,"organization.invitations.reject",principal.user_id)
     async with connection.transaction():
         row = await connection.fetchrow(
             """update public.organization_invitations i
@@ -598,7 +607,8 @@ async def revoke_invitation(
     principal: Principal = Depends(get_current_principal),
     tenant: TenantContext = Depends(require_api_action("organization.invitations.revoke")),
     connection: asyncpg.Connection = Depends(get_connection),
-) -> dict:
+ ) -> dict:
+    authorization_service.assert_action_context(request,"organization.invitations.revoke",principal.user_id,organization_id)
     if tenant.organization_id != organization_id:
         raise APIError(403,"forbidden","Cross-tenant invitation access is denied.")
     async with connection.transaction():
@@ -621,7 +631,8 @@ async def resend_invitation(
     principal: Principal = Depends(get_current_principal),
     tenant: TenantContext = Depends(require_api_action("organization.invitations.resend")),
     connection: asyncpg.Connection = Depends(get_connection),
-) -> dict:
+ ) -> dict:
+    authorization_service.assert_action_context(request,"organization.invitations.resend",principal.user_id,organization_id)
     if tenant.organization_id != organization_id:
         raise APIError(403,"forbidden","Cross-tenant invitation access is denied.")
     token = secrets.token_urlsafe(40)
