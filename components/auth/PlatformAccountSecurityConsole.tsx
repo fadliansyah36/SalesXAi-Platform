@@ -13,11 +13,8 @@ export function PlatformAccountSecurityConsole(){
  async function update(event:React.FormEvent){
   event.preventDefault();setBusy(true);setMessage("");
   try{
-   const response=await auth.apiFetch("/api/v1/admin/users/"+encodeURIComponent(userId)+"/account-status",{
-    method:"PATCH",body:JSON.stringify({status}),
-   });
-   const body=await response.json().catch(()=>({}));
-   if(!response.ok)throw new Error(body?.error?.message??"Status akun gagal diperbarui.");
+   if(!auth.apiClient)throw new Error("FastAPI client belum dikonfigurasi.");
+   const body=await auth.apiClient.updateAccountStatus(userId,{status});
    setMessage("Status akun: "+body.status+". Supabase Auth ban: "+String(body.supabase_auth_ban_applied)+".");
   }catch(e){setMessage(e instanceof Error?e.message:"Operasi gagal.");}
   finally{setBusy(false);}
