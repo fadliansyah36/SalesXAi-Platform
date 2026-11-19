@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   ACCESS_COOKIE, EXPIRY_COOKIE, authError, clearSessionCookies, csrfIsValid,
-  refreshAuthSession, setSessionCookies,
+  enforceBffRateLimit, refreshAuthSession, setSessionCookies, type SupabaseAuthSession,
 } from "@/lib/auth/web-session";
 
 export const runtime = "nodejs";
@@ -24,8 +24,10 @@ async function proxy(request: NextRequest, context: RouteContext): Promise<Respo
 
   let accessToken = request.cookies.get(ACCESS_COOKIE)?.value ?? "";
   const expiry = Number(request.cookies.get(EXPIRY_COOKIE)?.value ?? 0);
-  let refreshed = null;
+  let refreshed: SupabaseAuthSession | null = null;
   if (!accessToken || expiry <= Math.floor(Date.now() / 1000) + 45) {
+    const limited = await enforceBffRateLimit(request, "refresh");
+    if (limited) return limited;
     refreshed = await refreshAuthSession(request);
     if (!refreshed) {
       const response = NextResponse.json({ error: { code: "unauthenticated", message: "An authenticated session is required." } }, { status: 401, headers: { "Cache-Control": "no-store" } });
@@ -56,6 +58,8 @@ async function proxy(request: NextRequest, context: RouteContext): Promise<Respo
   let body = await upstream.clone().json().catch(() => ({})) as { error?: { code?: string } };
   const terminalCodes = ["session_revoked", "account_inactive", "identity_unverified"];
   if (upstream.status === 401 && !terminalCodes.includes(body.error?.code ?? "") && !refreshed) {
+    const limited = await enforceBffRateLimit(request, "refresh");
+    if (limited) return limited;
     refreshed = await refreshAuthSession(request);
     if (refreshed) {
       accessToken = refreshed.access_token;
