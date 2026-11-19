@@ -190,14 +190,11 @@ export function useMobileSalesAuth(){
    const current=await client.getSession();
    if(!current)remoteConfirmed=true;
    if(current){
-    try{
-     const response=await fetch(apiOrigin+"/api/v1/auth/sign-out",{
-      method:"POST",headers:{Authorization:"Bearer "+current.access_token,"Content-Type":"application/json","X-Client-Platform":Platform.OS==="ios"?"ios":"android"},
-      body:JSON.stringify({scope}),cache:"no-store",
-     });
-     if(!response.ok)throw new Error("FastAPI tidak mengonfirmasi remote logout.");
-     remoteConfirmed=true;
-    }catch{
+    const transport=apiClientRef.current;
+    if(transport){
+     try{await transport.signOut(scope);remoteConfirmed=true;}
+     catch{try{await client.signOut(scope);remoteConfirmed=true;}catch{remoteConfirmed=false;}}
+    }else{
      try{await client.signOut(scope);remoteConfirmed=true;}catch{remoteConfirmed=false;}
     }
    }
