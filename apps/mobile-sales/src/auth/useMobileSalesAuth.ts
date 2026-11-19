@@ -105,7 +105,7 @@ export function useMobileSalesAuth(){
     throw new AuthClientError(params.get("error_description")??"OAuth provider authorization was denied.",400,oauthError);
    }
    let next:AuthSession|null=null;
-   if(code)next=await client.completeOAuthCallback(code,params.get("state"));
+   if(code)next=await client.completeOAuthCallback(code,params.get("oauth_state")??params.get("state"));
    else next=await client.acceptOAuthCallback(url.includes("#")?url.slice(url.indexOf("#")+1):"");
    if(!next&&tokenHash){
     next=await client.verifyEmailToken(tokenHash,
