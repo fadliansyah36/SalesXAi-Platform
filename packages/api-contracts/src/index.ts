@@ -83,3 +83,13 @@ export interface AccountStatusUpdateResponse {
 export interface ApiErrorEnvelope {
   error:{code:string;message:string;correlation_id:string|null};
 }
+
+export interface PlatformRole {
+  id:UUID;
+  key:string;
+  name:string;
+  scope_type:"platform"|"tenant"|"branch";
+  hierarchy_level:number;
+  permissions:string[];
+  assigned_users:number;
+}
