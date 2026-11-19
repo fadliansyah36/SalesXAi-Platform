@@ -11,6 +11,7 @@ from app.security.dependencies import Principal,TenantContext,get_current_princi
 from app.security.policy import abac_conditions_match
 from app.services.audit import write_audit
 from app.services.authorization import authorization_service
+from app.services.organization_mutations import organization_mutation_service
 
 router=APIRouter(prefix="/organizations",tags=["organizations"])
 
@@ -112,22 +113,9 @@ async def create_organization(
     principal: Principal=Depends(require_api_action("organization.create")),
     connection: asyncpg.Connection=Depends(get_connection),
 )->OrganizationResponse:
-    authorization_service.assert_action_context(request,"organization.create",principal.user_id)
-    async with connection.transaction():
-        org=await connection.fetchrow(
-          """insert into public.organizations(slug,name,legal_name,created_by)
-          values ($1,$2,$3,$4) returning id,slug,name,status,created_at""",
-          payload.slug,payload.name.strip(),payload.legal_name,principal.user_id)
-        member=await connection.fetchrow(
-          """insert into public.organization_memberships(organization_id,user_id,status,joined_at,title)
-          values ($1,$2,'active',now(),'Owner') returning id""",org["id"],principal.user_id)
-        role_id=await connection.fetchval("select id from public.roles where key='tenant_owner'")
-        await connection.execute(
-          """insert into public.user_role_assignments(user_id,membership_id,role_id,scope_type,scope_id,assigned_by)
-          values ($1,$2,$3,'tenant',$4,$1)""",principal.user_id,member["id"],role_id,org["id"])
-        await write_audit(connection,request,principal,"organization.created","organization",
-          str(org["id"]),metadata={"slug":payload.slug})
-    return OrganizationResponse(**dict(org))
+    row=await organization_mutation_service.create_organization(connection,request,principal,payload)
+    return OrganizationResponse(**row)
+
 
 @router.get("/{organization_id}/members")
 async def list_members(
@@ -151,23 +139,10 @@ async def add_existing_member(
     tenant: TenantContext=Depends(require_api_action("organization.members.invite")),
     connection: asyncpg.Connection=Depends(get_connection),
 )->dict:
-    authorization_service.assert_action_context(request,"organization.members.invite",principal.user_id,organization_id)
-    if tenant.organization_id!=organization_id:
-        raise APIError(403,"forbidden","Cross-tenant membership access is denied.")
-    if not await connection.fetchval("select exists(select 1 from auth.users where id=$1)",payload.user_id):
-        raise APIError(404,"identity_not_found","The Supabase Auth identity does not exist.")
-    async with connection.transaction():
-        row=await connection.fetchrow(
-          """insert into public.organization_memberships(organization_id,user_id,status,title)
-          values ($1,$2,'invited',$3)
-          on conflict(organization_id,user_id) do update set title=excluded.title,
-          status=case when public.organization_memberships.status='removed' then 'invited'
-          else public.organization_memberships.status end,updated_at=now()
-          returning id,user_id,organization_id,status,title""",
-          organization_id,payload.user_id,payload.title)
-        await write_audit(connection,request,principal,"organization.member.invited",
-          "organization_membership",str(row["id"]),tenant,metadata={"member_user_id":str(payload.user_id)})
-    return dict(row)
+    return await organization_mutation_service.add_member(
+        connection,request,principal,tenant,organization_id,payload.user_id,payload.title
+    )
+
 
 @router.patch("/{organization_id}/members/{user_id}")
 async def update_member_status(
