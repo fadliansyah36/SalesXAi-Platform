@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
-  ACCESS_COOKIE, REFRESH_COOKIE, EXPIRY_COOKIE,
+  ACCESS_COOKIE, REFRESH_COOKIE, EXPIRY_COOKIE, CSRF_COOKIE,
   OAUTH_STATE_COOKIE, OAUTH_VERIFIER_COOKIE, OAUTH_FLOW_COOKIE, OAUTH_USER_COOKIE, OAUTH_CREATED_COOKIE,
   appOrigin, authError, clearOAuthCookies, clearSessionCookies, csrfCookieOptions, csrfIsValid,
   enforceBffRateLimit, pkceChallenge, randomToken, refreshAuthSession, safeSession,
@@ -32,7 +32,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const { action } = await context.params;
   const route = action.join("/");
   if (route === "csrf") {
-    const token = randomToken(32);
+    const token = request.cookies.get(CSRF_COOKIE)?.value || randomToken(32);
     const response = NextResponse.json({ csrfToken: token }, { headers: { "Cache-Control": "no-store" } });
     setCsrfCookie(response, token);
     return response;
@@ -53,7 +53,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
   }
   const user = await userForAccessToken(accessToken);
   if (!user.ok) {
-    if (user.status === 401 || user.status === 403) {
+    if (!refreshed && (user.status === 401 || user.status === 403)) {
+      const limited = await enforceBffRateLimit(request, "refresh");
+      if (limited) return limited;
       const retry = await refreshAuthSession(request);
       if (retry) {
         const verified = await userForAccessToken(retry.access_token);
@@ -288,10 +290,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
     const response = NextResponse.json({ signed_out: true }, { headers: { "Cache-Control": "no-store" } });
     if (scope !== "others") clearSessionCookies(response);
+    clearOAuthCookies(response);
     return response;
   }
 
   if (route === "refresh") {
+    const limited = await enforceBffRateLimit(request, "refresh");
+    if (limited) return limited;
     const limited = await enforceBffRateLimit(request, "refresh");
     if (limited) return limited;
     const refreshed = await refreshAuthSession(request);
