@@ -19,9 +19,10 @@ export default function AcceptInvitationPage(){
   if(!token)return;
   setBusy(true);setMessage("");
   try{
-   if(!auth.apiClient)throw new Error("FastAPI client belum dikonfigurasi.");
-   if(kind==="accept")await auth.apiClient.acceptInvitation({token});
-   else await auth.apiClient.rejectInvitation({token});
+   const api=auth.apiClient;
+   if(!api)throw new Error("FastAPI client belum dikonfigurasi.");
+   if(kind==="accept")await api.acceptInvitation({token});
+   else await api.rejectInvitation({token});
    setMessage(kind==="accept"?"Undangan diterima. Membership organisasi aktif.":"Undangan ditolak.");
    if(kind==="accept")router.replace("/portal/access");
   }catch(e){setMessage(e instanceof Error?e.message:"Undangan gagal diproses.");}
