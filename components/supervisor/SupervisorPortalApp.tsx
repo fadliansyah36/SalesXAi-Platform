@@ -14,7 +14,6 @@ import {
   Pause,
   RotateCcw,
   Target,
-  TrendingUp,
   AlertTriangle,
   Bot,
   Settings,

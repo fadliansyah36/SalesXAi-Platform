@@ -49,7 +49,7 @@ export function NativeText({ variant = 'body', weight = 'regular', mono = false,
 type NativeButtonProps = Omit<PressableProps, 'style'> & { children: React.ReactNode; style?: StyleProp<ViewStyle> };
 export function NativeButton({ children, style, disabled, ...props }: NativeButtonProps) {
   const { colors, tokens } = useNativeTheme();
-  return <Pressable {...props} disabled={disabled} accessibilityRole="button" accessibilityState={{ disabled }} style={[{ minHeight: 44, minWidth: 44, paddingHorizontal: tokens.spacing[4], paddingVertical: tokens.spacing[3], alignItems: 'center', justifyContent: 'center', borderRadius: tokens.radius.md, borderWidth: 1, borderColor: colors.borderStrong, backgroundColor: colors.surface, opacity: disabled ? 0.5 : 1 }, style]} />;
+  return <Pressable {...props} disabled={disabled} accessibilityRole="button" accessibilityState={{ disabled }} style={[{ minHeight: 44, minWidth: 44, paddingHorizontal: tokens.spacing[4], paddingVertical: tokens.spacing[3], alignItems: 'center', justifyContent: 'center', borderRadius: tokens.radius.md, borderWidth: 1, borderColor: colors.borderStrong, backgroundColor: colors.surface, opacity: disabled ? 0.5 : 1 }, style]}>{children}</Pressable>;
 }
 export function NativeThemeToggle() {
   const { theme, toggleTheme, colors } = useNativeTheme();

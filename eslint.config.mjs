@@ -18,6 +18,7 @@ export default tseslint.config(
       '**/.next/**',
       '**/dist/**',
       '**/.expo/**',
+      '**/*.d.ts',
       '**/android/**',
       '**/ios/**',
       'packages/design-tokens/generated/**',

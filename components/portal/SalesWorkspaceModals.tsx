@@ -24,7 +24,6 @@ import {
   Store,
   AlertCircle,
   X,
-  Gift,
   Award,
   ShieldCheck,
   HelpCircle,

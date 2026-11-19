@@ -8,7 +8,6 @@ import {
   ShoppingCart,
   Gift,
   Zap,
-  Sparkles,
   Layers,
   ShieldCheck,
   Target,

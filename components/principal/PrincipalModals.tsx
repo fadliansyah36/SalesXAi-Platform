@@ -6,7 +6,6 @@ import {
   Plus,
   Building2,
   ShieldCheck,
-  Mail,
   MessageSquarePlus,
   Download,
   Bell,

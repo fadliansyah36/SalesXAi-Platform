@@ -17,7 +17,6 @@ import {
   Building2,
   ShieldCheck,
   SlidersHorizontal,
-  Users,
   Megaphone,
   AlertTriangle,
   RefreshCw,
