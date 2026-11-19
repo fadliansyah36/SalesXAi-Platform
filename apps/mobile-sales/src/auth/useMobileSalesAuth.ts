@@ -225,12 +225,16 @@ export function useMobileSalesAuth(){
  },[apiClient]);
 
  const unlinkIdentity=useCallback(async(identityId:string)=>{
-  return apiRequest("/api/v1/auth/identities/"+encodeURIComponent(identityId),{method:"DELETE"});
- },[apiRequest]);
+  const transport=apiClientRef.current;
+  if(!transport)throw new Error("FastAPI client belum dikonfigurasi.");
+  return transport.unlinkIdentity(identityId);
+ },[]);
 
  const acceptInvitation=useCallback(async(token:string)=>{
-  return apiRequest("/api/v1/organizations/invitations/accept",{method:"POST",body:JSON.stringify({token})});
- },[apiRequest]);
+  const transport=apiClientRef.current;
+  if(!transport)throw new Error("FastAPI client belum dikonfigurasi.");
+  return transport.acceptInvitation({token});
+ },[]);
 
  const hasPermission=useCallback((permission:string)=>{
   const tenantPermissions=context?.memberships.find(m=>m.organization_id===activeOrganizationId)?.permissions??[];
