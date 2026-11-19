@@ -123,11 +123,10 @@ export function SalesXAuthProvider({children}:{children:React.ReactNode}) {
     authMode:"cookie",
     auth:{
       getAccessToken:async()=>null,
-      refreshAccessToken:async()=>{
-        try{
-          await authRequest("refresh");
-          return "http-only-cookie-session";
-        }catch{return null;}
+      refreshAccessToken:async()=>null,
+      refreshCookieSession:async()=>{
+        try{await authRequest("refresh");return true;}
+        catch{return false;}
       },
       getOrganizationId:()=>activeOrganizationId,
       onSessionInvalidated:invalidateSession,
