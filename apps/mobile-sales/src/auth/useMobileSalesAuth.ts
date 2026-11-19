@@ -80,10 +80,10 @@ export function useMobileSalesAuth(){
  const handleAuthUrl=useCallback(async(url:string|null|undefined)=>{
   if(!url||!client)return;
   try{
-   const parsed=Linking.parse(url);
-   const params=parsed.queryParams??{};
-   const tokenHash=typeof params.token_hash==="string"?params.token_hash:null;
-   const flowType=typeof params.type==="string"?params.type:typeof params.flow==="string"?params.flow:"signup";
+   const parsedUrl=new URL(url);
+   const params=parsedUrl.searchParams;
+   const tokenHash=params.get("token_hash");
+   const flowType=params.get("type")??params.get("flow")??"signup";
    let next:AuthSession|null=await client.acceptOAuthCallback(url.includes("#")?url.slice(url.indexOf("#")+1):"");
    if(!next&&tokenHash){
     next=await client.verifyEmailToken(tokenHash,
@@ -240,10 +240,6 @@ export function useMobileSalesAuth(){
   if(response.status===204)return undefined as T;
   return response.json() as Promise<T>;
  },[client,activeOrganizationId]);
-
- const unlinkIdentity=useCallback(async(identityId:string)=>{
-  return apiRequest("/api/v1/auth/identities/"+encodeURIComponent(identityId),{method:"DELETE"});
- },[apiRequest]);
 
  const unlinkIdentity=useCallback(async(identityId:string)=>{
   return apiRequest("/api/v1/auth/identities/"+encodeURIComponent(identityId),{method:"DELETE"});

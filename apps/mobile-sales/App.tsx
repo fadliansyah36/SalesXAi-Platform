@@ -27,7 +27,7 @@ function Field({value,onChangeText,placeholder,secureTextEntry=false,keyboardTyp
 function Action({label,onPress,disabled=false,secondary=false}:{label:string;onPress:()=>void;disabled?:boolean;secondary?:boolean}){
  const {colors}=useNativeTheme();
  return <Pressable disabled={disabled} onPress={onPress} style={{padding:14,borderRadius:12,backgroundColor:secondary?colors.surface:colors.primary,borderWidth:secondary?1:0,borderColor:colors.border,opacity:disabled?0.45:1}}>
-  <NativeText weight="semibold" color={secondary?colors.text:colors.surface}>{label}</NativeText>
+  <NativeText weight="semibold" color={secondary?colors.textPrimary:colors.surface}>{label}</NativeText>
  </Pressable>;
 }
 
