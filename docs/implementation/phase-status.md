@@ -42,7 +42,11 @@ Status: PARTIAL
 - [ ] Expo requires real sign-in/session lifecycle and a platform SecureStore adapter; current app remains the Phase 01 shell.
 - [ ] Manual identity linking and provider configuration must be wired; automatic Auth linking and DB identity mirror exist.
 - [ ] FastAPI deployment environment is not configured/verified. Required: exact Supabase DATABASE_URL, signing/JWKS configuration, CORS origins and API origin.
-- [ ] End-to-end JWT/API checks and cross-consumer build validation are not evidenced.
+- [x] JWT signature, issuer, audience, expiry and required-claim unit tests plus ABAC condition tests passed (10 tests).
+- [x] Python compileall and Ruff static checks passed.
+- [x] API validation workflow 44516446974 passed on source commit ed296b261604fad676bb87c22f8a1b4db9471543: https://github.com/fadliansyah36/SalesXAi-Platform/actions/runs/44516446974.
+- [x] Bun workspace/lock and Web/Expo foundation verification passed on commit b00a8743854e0d28c000024521f7ead345c33f83: https://github.com/fadliansyah36/SalesXAi-Platform/actions/runs/44516027878.
+- [ ] Live Supabase JWT/session/API checks and cross-consumer auth integration build validation remain unevidenced.
 - [ ] Remote Auth Admin session revocation is not implemented; local API revocation denies requests but does not revoke the Auth refresh token itself.
 - [ ] Membership invitation delivery and account status administration endpoints remain to be integrated.
 
