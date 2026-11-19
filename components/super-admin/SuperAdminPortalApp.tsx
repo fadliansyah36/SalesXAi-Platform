@@ -3494,7 +3494,7 @@ export function SuperAdminPortalApp() {
         open={pluginsModalOpen}
         onClose={() => setPluginsModalOpen(false)}
         portalName="Super Admin Portal"
-        outlets={PLATFORM_TENANT_OUTLETS}
+        outlets={[]}
         defaultTab={pluginDefaultTab}
         prefillEmailTo="admin@salesx-ai.com"
       />
