@@ -24,16 +24,18 @@ async def get_auth_context(
         roles=await connection.fetch(
           """select distinct r.key from public.user_role_assignments ura join public.roles r on r.id=ura.role_id
           where ura.user_id=$1 and ura.membership_id=$2 and $3='active' and ura.revoked_at is null
-          and ura.starts_at<=now() and (ura.expires_at is null or ura.expires_at>now()) order by r.key""",
-          principal.user_id,row["id"],row["status"])
+          and ura.starts_at<=now() and (ura.expires_at is null or ura.expires_at>now())
+          and (r.scope_type<>'branch' or exists(select 1 from public.branches b where b.id=ura.scope_id and b.organization_id=$4 and b.status='active')) order by r.key""",
+          principal.user_id,row["id"],row["status"],row["organization_id"])
         permissions=await connection.fetch(
           """with recursive role_tree(role_id,parent_role_id) as (
             select r.id,r.parent_role_id from public.user_role_assignments ura join public.roles r on r.id=ura.role_id
             where ura.user_id=$1 and ura.membership_id=$2 and $3='active' and ura.revoked_at is null
               and ura.starts_at<=now() and (ura.expires_at is null or ura.expires_at>now())
+              and (r.scope_type<>'branch' or exists(select 1 from public.branches b where b.id=ura.scope_id and b.organization_id=$4 and b.status='active'))
             union select p.id,p.parent_role_id from role_tree rt join public.roles p on p.id=rt.parent_role_id)
           select distinct rp.permission_key from role_tree rt join public.role_permissions rp on rp.role_id=rt.role_id
-          order by rp.permission_key""",principal.user_id,row["id"],row["status"])
+          order by rp.permission_key""",principal.user_id,row["id"],row["status"],row["organization_id"])
         memberships.append(MembershipResponse(
           id=row["id"],organization_id=row["organization_id"],organization_name=row["organization_name"],
           status=row["status"],branch_id=row["branch_id"],roles=[x["key"] for x in roles],
