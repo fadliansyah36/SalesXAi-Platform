@@ -38,3 +38,5 @@ const portalPermission:Record<PortalKey,Permission>={
 export function canAccessPortal(values:readonly string[]|null|undefined,portal:PortalKey):boolean {
  return hasPermission(values,portalPermission[portal]);
 }
+
+export * from "./action-matrix";
