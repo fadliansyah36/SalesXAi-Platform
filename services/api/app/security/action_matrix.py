@@ -70,6 +70,9 @@ API_ACTION_MATRIX: tuple[ApiActionContract, ...] = (
     ApiActionContract("master.sales_profiles.update", "PATCH", "/api/v1/organizations/{organization_id}/sales-profiles/{record_id}", "master_data", "update_sales_profile", "sales_profile", "tenant_permission:sales_profile:manage", "sales_profile:manage", "tenant", "tenant_permission_and_resource_tenant_match"),
     ApiActionContract("master.assignments.read", "GET", "/api/v1/organizations/{organization_id}/outlet-assignments", "master_data", "read_outlet_assignments", "outlet_assignment", "tenant_permission:assignment:read", "assignment:read", "tenant", "tenant_permission_and_organization_match"),
     ApiActionContract("master.assignments.manage", "POST", "/api/v1/organizations/{organization_id}/outlets/{outlet_id}/assignments", "master_data", "assign_outlet", "outlet_assignment", "tenant_permission:assignment:manage", "assignment:manage", "tenant", "tenant_permission_and_resource_tenant_match"),
+
+    ApiActionContract("platform.organizations.list", "GET", "/api/v1/admin/organizations", "platform_tenant_management", "list_organizations", "organization", "platform_permission:organization:read", "organization:read", "platform", "platform_permission"),
+    ApiActionContract("platform.organizations.update", "PATCH", "/api/v1/admin/organizations/{organization_id}", "platform_tenant_management", "update_organization_status", "organization", "platform_permission:organization:update", "organization:update", "platform", "platform_permission_and_resource_existence"),
 )
 
 
