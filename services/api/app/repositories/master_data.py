@@ -37,7 +37,7 @@ class MasterDataRepository:
   if not clean: raise ValueError("At least one mutable field is required")
   assignments=",".join(f"{key}=" + "$" + str(index) for index,key in enumerate(clean,1))
   args=[*clean.values(),resource_id,organization_id]
-  row=await connection.fetchrow(f"update public.{table} set {assignments},updated_at=now() where id=$" + str(len(clean)+1) + " and organization_id=$" + str(len(clean)+2) returning *",*args)
+  row=await connection.fetchrow(f"update public.{table} set {assignments},updated_at=now() where id=$" + str(len(clean)+1) + " and organization_id=$" + str(len(clean)+2) + " returning *",*args)
   return dict(row) if row else None
  async def assign_outlet(self, connection: asyncpg.Connection, organization_id: UUID, outlet_id: UUID, sales_profile_id: UUID, actor_id: UUID, note: str | None) -> dict[str, Any]:
   row=await connection.fetchrow("""with closed as (
