@@ -65,3 +65,10 @@ The repository connector can verify project metadata and SQL schema but does not
 - Invitation delivery is routed through InvitationDelivery; SMTP is the current configurable adapter. Unverified existing identities use Supabase Auth signup-verification resend; new identities use Auth Admin invite.
 - FastAPI runtime and database pool can be imported/started with secrets intentionally unset. /readyz remains unavailable until the target DATABASE_URL is supplied; this is readiness behavior, not a successful database connection claim.
 - No provider credentials, OAuth provider settings, runtime deployment variables or Supabase project configuration were changed by these code changes.
+
+
+## Authorization hardening continuation
+
+- Recursive role inheritance uses deduplicating UNION semantics so malformed cyclic parent-role references cannot cause unbounded recursive queries.
+- Permission resolution validates both an explicitly selected resource branch and the membership's default branch against the active organization and active branch state before resolving scoped roles.
+- The auth context omits tenant permissions for invited/suspended/removed memberships and excludes branch-scoped permissions when the referenced branch is inactive.
