@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "ai-studio-applet",
+      "name": "salesx-ai-platform",
       "dependencies": {
         "@google/genai": "^3.6.1",
         "@hookform/resolvers": "^5.2.1",
