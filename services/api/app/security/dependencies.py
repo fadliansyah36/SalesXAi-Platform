@@ -107,6 +107,7 @@ def require_permission(permission_key: str):
                 branch_id=UUID(raw_branch)
             except ValueError as exc:
                 raise APIError(400,"invalid_tenant_context","Resource branch identifier is invalid.") from exc
+        if branch_id is not None:
             branch_is_in_tenant=await connection.fetchval(
                 "select exists(select 1 from public.branches where id=$1 and organization_id=$2 and status='active')",
                 branch_id,tenant.organization_id)
