@@ -308,6 +308,17 @@ async def create_invitation(
     elif payload.branch_id is not None:
         raise APIError(400, "invalid_branch_scope", "Tenant-scoped roles cannot carry a branch ID.")
 
+    existing_membership_status = await connection.fetchval(
+        """select m.status from public.organization_memberships m
+        join auth.users u on u.id=m.user_id
+        where m.organization_id=$1 and lower(u.email)=lower($2)
+        limit 1""",
+        organization_id,email,
+    )
+    if existing_membership_status == "active":
+        raise APIError(409,"member_already_active","This identity is already an active organization member.")
+    if existing_membership_status == "suspended":
+        raise APIError(409,"membership_suspended","A suspended membership must be reinstated by an organization administrator.")
     duplicate = await connection.fetchval(
         """select exists(select 1 from public.organization_invitations
         where organization_id=$1 and email=$2 and status='pending' and expires_at>now())""",
@@ -539,6 +550,18 @@ async def resend_invitation(
         role = await connection.fetchrow(
             "select scope_type,hierarchy_level from public.roles where key=$1",row["role_key"]
         )
+        if role is None:
+            raise APIError(409,"invitation_role_unavailable","The invitation role is no longer available.")
+        if role["scope_type"] == "branch":
+            branch_active = await connection.fetchval(
+                """select exists(select 1 from public.branches
+                where id=$1 and organization_id=$2 and status='active')""",
+                row["branch_id"],organization_id,
+            )
+            if row["branch_id"] is None or not branch_active:
+                raise APIError(409,"invitation_scope_invalid","The invitation branch is no longer active in this organization.")
+        elif row["branch_id"] is not None:
+            raise APIError(409,"invitation_scope_invalid","A tenant-scoped invitation cannot include a branch.")
         actor_level = await _delegation_hierarchy_level(
             connection,principal.user_id,tenant.membership_id,organization_id,
             row["branch_id"] if role and role["scope_type"]=="branch" else None)
