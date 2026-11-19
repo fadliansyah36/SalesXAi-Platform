@@ -1,3 +1,4 @@
+export type { PlatformRole, PlatformUserSummary } from "@salesx-ai/api-contracts";
 import type {
   AccountStatusUpdateRequest,
   AccountStatusUpdateResponse,
