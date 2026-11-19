@@ -50,3 +50,93 @@ class DistributedRateLimitRuleTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class RefreshAuthorizationGateTests(unittest.IsolatedAsyncioTestCase):
+    async def _authorize(self, *, revoked_at=None, session_id="7d3f65c4-9d7e-4b7f-bb17-1a65c3d6c002",
+                         account_status="active", session_revoked_at=None, device_id="device-1",
+                         bff_secret="s" * 32):
+        from datetime import UTC, datetime, timedelta
+        from types import SimpleNamespace
+        from pydantic import SecretStr
+        from app.errors import APIError
+        from app.routers.security import authorize_session_refresh
+
+        now = datetime.now(UTC)
+        row = {
+            "status": account_status,
+            "session_revoked_at": session_revoked_at,
+            "email_confirmed_at": now,
+            "phone_confirmed_at": None,
+            "session_id": session_id,
+            "not_after": now + timedelta(days=1),
+            "device_id": device_id,
+            "revoked_at": revoked_at,
+            "expires_at": now + timedelta(days=1),
+        }
+
+        class Connection:
+            async def fetchrow(self, *_args):
+                return row
+
+        class Acquire:
+            async def __aenter__(self):
+                return Connection()
+
+            async def __aexit__(self, *_args):
+                return None
+
+        class Pool:
+            def acquire(self):
+                return Acquire()
+
+        class Verifier:
+            async def verify(self, token, *, allow_expired=False):
+                self.token = token
+                self.allow_expired = allow_expired
+                return {
+                    "sub": "8d3f65c4-9d7e-4b7f-bb17-1a65c3d6c001",
+                    "session_id": session_id,
+                    "iat": now.timestamp() - 3600,
+                }
+
+        settings = SimpleNamespace(salesx_bff_shared_secret=SecretStr("s" * 32))
+        verifier = Verifier()
+        request = SimpleNamespace(
+            app=SimpleNamespace(state=SimpleNamespace(
+                settings=settings, jwt_verifier=verifier, db_pool=Pool()
+            )),
+            headers={
+                "x-salesx-bff-secret": bff_secret,
+                "authorization": "Bearer signed-expired-access-token",
+            },
+        )
+        return await authorize_session_refresh(request)
+
+    async def test_active_registered_session_can_refresh_with_expired_access_token(self):
+        response = await self._authorize()
+        self.assertEqual(response.status_code, 204)
+
+    async def test_revoked_device_cannot_refresh(self):
+        from app.errors import APIError
+        with self.assertRaises(APIError) as raised:
+            await self._authorize(revoked_at=__import__("datetime").datetime.now(__import__("datetime").UTC))
+        self.assertEqual(raised.exception.code, "session_revoked")
+
+    async def test_unregistered_device_cannot_refresh(self):
+        from app.errors import APIError
+        with self.assertRaises(APIError) as raised:
+            await self._authorize(device_id=None)
+        self.assertEqual(raised.exception.code, "session_revoked")
+
+    async def test_inactive_account_cannot_refresh(self):
+        from app.errors import APIError
+        with self.assertRaises(APIError) as raised:
+            await self._authorize(account_status="suspended")
+        self.assertEqual(raised.exception.code, "account_inactive")
+
+    async def test_refresh_gate_requires_internal_bff_secret(self):
+        from app.errors import APIError
+        with self.assertRaises(APIError) as raised:
+            await self._authorize(bff_secret="incorrect")
+        self.assertEqual(raised.exception.status_code, 404)
