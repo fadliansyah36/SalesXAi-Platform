@@ -61,7 +61,7 @@ async def register_current_session(
     connection: asyncpg.Connection=Depends(get_connection),
 )->None:
     auth_session=await connection.fetchrow(
-        "select expires_at from auth.sessions where id=$1 and user_id=$2",
+        "select not_after as expires_at from auth.sessions where id=$1 and user_id=$2",
         principal.session_id,principal.user_id)
     if auth_session is None:
         raise APIError(401,"session_revoked","The Supabase Auth session is no longer active.")
