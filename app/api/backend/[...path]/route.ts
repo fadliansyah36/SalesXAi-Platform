@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
-  ACCESS_COOKIE, EXPIRY_COOKIE, authError, clearSessionCookies, csrfIsValid,
+  ACCESS_COOKIE, EXPIRY_COOKIE, appOrigin, authError, clearSessionCookies, csrfIsValid,
   enforceBffRateLimit, refreshAuthSession, setSessionCookies, type SupabaseAuthSession,
 } from "@/lib/auth/web-session";
 
@@ -20,7 +20,12 @@ async function proxy(request: NextRequest, context: RouteContext): Promise<Respo
   const apiPath = "/" + path.map(segment => encodeURIComponent(segment)).join("/");
   if (!apiPath.startsWith("/api/v1/")) return authError(404, "not_found", "Resource not found.");
   const mutating = !["GET", "HEAD"].includes(request.method);
-  if (mutating && !csrfIsValid(request)) return authError(403, "csrf_validation_failed", "The request origin or CSRF token is invalid.");
+  if (mutating) {
+    try { appOrigin(request); } catch {
+      return authError(503,"app_origin_not_configured","APP_PUBLIC_URL is deployment-pending.");
+    }
+    if (!csrfIsValid(request)) return authError(403, "csrf_validation_failed", "The request origin or CSRF token is invalid.");
+  }
 
   let accessToken = request.cookies.get(ACCESS_COOKIE)?.value ?? "";
   const expiry = Number(request.cookies.get(EXPIRY_COOKIE)?.value ?? 0);
