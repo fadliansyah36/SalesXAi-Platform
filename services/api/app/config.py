@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     db_connect_timeout_seconds: float = 10.0
     db_max_inactive_connection_lifetime: float = 300.0
     db_statement_timeout_ms: int = 30000
+    max_request_body_bytes: int = 1048576
     cors_origins: str = ""
     jwt_clock_skew_seconds: int = 30
     smtp_host: str | None = None
@@ -142,6 +143,13 @@ class Settings(BaseSettings):
     def validate_statement_timeout(cls, value: int) -> int:
         if value < 1000 or value > 300000:
             raise ValueError("Database statement timeout must be between 1000 and 300000 ms")
+        return value
+
+    @field_validator("max_request_body_bytes")
+    @classmethod
+    def validate_request_body_limit(cls, value: int) -> int:
+        if value < 1024 or value > 10485760:
+            raise ValueError("MAX_REQUEST_BODY_BYTES must be between 1 KiB and 10 MiB")
         return value
 
     @field_validator("db_pool_min_size", "db_pool_max_size")
