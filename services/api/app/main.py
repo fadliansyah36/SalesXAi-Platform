@@ -48,9 +48,33 @@ if settings.allowed_origins:
 async def correlation_id_middleware(request: Request,call_next):
     correlation_id=request.headers.get("x-correlation-id") or str(uuid4())
     request.state.correlation_id=correlation_id
-    response=await call_next(request)
+    content_length=request.headers.get("content-length")
+    if content_length is not None:
+        try:
+            declared_length=int(content_length)
+        except ValueError:
+            response=JSONResponse(status_code=400,content={"error":{"code":"invalid_content_length",
+              "message":"Content-Length must be a valid non-negative integer.","correlation_id":correlation_id}})
+        else:
+            if declared_length<0:
+                response=JSONResponse(status_code=400,content={"error":{"code":"invalid_content_length",
+                  "message":"Content-Length must be a valid non-negative integer.","correlation_id":correlation_id}})
+            elif declared_length>settings.max_request_body_bytes:
+                response=JSONResponse(status_code=413,content={"error":{"code":"request_too_large",
+                  "message":"The request body exceeds the configured API limit.","correlation_id":correlation_id}})
+            else:
+                response=await call_next(request)
+    else:
+        response=await call_next(request)
     response.headers["X-Correlation-ID"]=correlation_id
     response.headers["Cache-Control"]="no-store"
+    response.headers["X-Content-Type-Options"]="nosniff"
+    response.headers["X-Frame-Options"]="DENY"
+    response.headers["Referrer-Policy"]="no-referrer"
+    response.headers["Permissions-Policy"]="camera=(), microphone=(), geolocation=()"
+    response.headers["Cross-Origin-Resource-Policy"]="same-site"
+    if request.url.scheme=="https":
+        response.headers["Strict-Transport-Security"]="max-age=31536000; includeSubDomains"
     return response
 
 @app.exception_handler(APIError)
