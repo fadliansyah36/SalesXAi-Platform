@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   ACCESS_COOKIE, EXPIRY_COOKIE, appOrigin, authError, clearSessionCookies, csrfIsValid,
-  enforceBffRateLimit, refreshAuthSession, setSessionCookies, type SupabaseAuthSession,
+  enforceBffRateLimit, refreshAuthSession, setSessionCookies, tokenFingerprint, type SupabaseAuthSession,
 } from "@/lib/auth/web-session";
 
 export const runtime = "nodejs";
@@ -31,7 +31,7 @@ async function proxy(request: NextRequest, context: RouteContext): Promise<Respo
   const expiry = Number(request.cookies.get(EXPIRY_COOKIE)?.value ?? 0);
   let refreshed: SupabaseAuthSession | null = null;
   if (!accessToken || expiry <= Math.floor(Date.now() / 1000) + 45) {
-    const limited = await enforceBffRateLimit(request, "refresh");
+    const limited = await enforceBffRateLimit(request, "refresh", tokenFingerprint(request.cookies.get("salesx_refresh")?.value ?? ""));
     if (limited) return limited;
     refreshed = await refreshAuthSession(request);
     if (!refreshed) {
