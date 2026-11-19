@@ -23,6 +23,7 @@ class DistributedRateLimitRuleTests(unittest.TestCase):
         self.assertEqual(rule_for_request("GET", "/api/v1/auth/identities").name, "identity_list")
         self.assertEqual(rule_for_request("GET", "/api/v1/admin/users").name, "admin_user_list")
         self.assertEqual(rule_for_request("GET", "/api/v1/admin/roles").name, "admin_role_list")
+        self.assertEqual(rule_for_request("GET", "/api/v1/admin/audit").name, "admin_audit_list")
 
     def test_bucket_keys_are_stable_and_do_not_expose_identifiers(self):
         first = _bucket_key("auth:ip", "203.0.113.10")
