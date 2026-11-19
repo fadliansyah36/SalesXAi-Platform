@@ -229,146 +229,22 @@ def _invitation_callback_url(request: Request, token: str) -> str:
 
 @router.get("/{organization_id}/invitations")
 async def list_invitations(
-    organization_id: UUID,
-    request: Request,
+    organization_id: UUID, request: Request,
     tenant: TenantContext = Depends(require_api_action("organization.invitations.read")),
     principal: Principal = Depends(get_current_principal),
     connection: asyncpg.Connection = Depends(get_connection),
 ) -> list[dict]:
-    if tenant.organization_id != organization_id:
-        raise APIError(403, "forbidden", "Cross-tenant invitation access is denied.")
-    async with connection.transaction():
-        expired = await connection.fetch(
-            """update public.organization_invitations
-            set status='expired',updated_at=now()
-            where organization_id=$1 and status='pending' and expires_at<=now()
-            returning id,email""", organization_id,
-        )
-        for item in expired:
-            await write_audit(connection, request, principal, "organization.invitation.expired",
-                               "organization_invitation", str(item["id"]), tenant,
-                               metadata={"email": item["email"]})
-    rows = await connection.fetch(
-        """select id,email,title,branch_id,role_key,status,expires_at,accepted_at,
-        rejected_at,revoked_at,resent_at,resend_count,created_at
-        from public.organization_invitations where organization_id=$1
-        order by created_at desc limit 200""", organization_id,
-    )
-    return [dict(row) for row in rows]
+    return await invitation_mutation_service.list_invitations(connection,request,principal,tenant,organization_id)
 
 
 @router.post("/{organization_id}/invitations", status_code=201)
 async def create_invitation(
-    organization_id: UUID,
-    payload: InvitationCreate,
-    request: Request,
+    organization_id: UUID, payload: InvitationCreate, request: Request,
     principal: Principal = Depends(get_current_principal),
     tenant: TenantContext = Depends(require_api_action("organization.invitations.create")),
     connection: asyncpg.Connection = Depends(get_connection),
- ) -> dict:
-    authorization_service.assert_action_context(request,"organization.invitations.create",principal.user_id,organization_id)
-    if tenant.organization_id != organization_id:
-        raise APIError(403, "forbidden", "Cross-tenant invitation access is denied.")
-    email = payload.email.strip().lower()
-    role = await connection.fetchrow(
-        "select id,key,scope_type,hierarchy_level from public.roles where key=$1",
-        payload.role_key,
-    )
-    if role is None or role["scope_type"] not in {"tenant", "branch"} or role["key"] == "tenant_owner":
-        raise APIError(400, "invalid_role", "Only delegable tenant- or branch-scoped roles can be invited.")
-    actor_level = await _delegation_hierarchy_level(
-        connection,principal.user_id,tenant.membership_id,organization_id,
-        "organization:invitations:manage",
-        payload.branch_id if role["scope_type"]=="branch" else None,
-        getattr(request.state,"resource_attributes",{}))
-    if actor_level is None or role["hierarchy_level"] <= actor_level:
-        raise APIError(403, "privilege_escalation_denied",
-                       "You cannot invite an equal- or higher-privilege role.")
-    if role["scope_type"] == "branch":
-        if payload.branch_id is None:
-            raise APIError(400, "branch_scope_required", "A branch ID is required for this role.")
-        valid_branch = await connection.fetchval(
-            "select exists(select 1 from public.branches where id=$1 and organization_id=$2 and status='active')",
-            payload.branch_id, organization_id,
-        )
-        if not valid_branch:
-            raise APIError(403, "invalid_branch_scope", "The selected branch is outside this organization.")
-    elif payload.branch_id is not None:
-        raise APIError(400, "invalid_branch_scope", "Tenant-scoped roles cannot carry a branch ID.")
-
-    existing_membership_status = await connection.fetchval(
-        """select m.status from public.organization_memberships m
-        join auth.users u on u.id=m.user_id
-        where m.organization_id=$1 and lower(u.email)=lower($2)
-        limit 1""",
-        organization_id,email,
-    )
-    if existing_membership_status == "active":
-        raise APIError(409,"member_already_active","This identity is already an active organization member.")
-    if existing_membership_status == "suspended":
-        raise APIError(409,"membership_suspended","A suspended membership must be reinstated by an organization administrator.")
-    duplicate = await connection.fetchval(
-        """select exists(select 1 from public.organization_invitations
-        where organization_id=$1 and email=$2 and status='pending' and expires_at>now())""",
-        organization_id, email,
-    )
-    if duplicate:
-        raise APIError(409, "pending_invitation_exists", "A pending invitation already exists for this email.")
-
-    token = secrets.token_urlsafe(40)
-    invite_url = _invitation_url(request, token)
-    identity = await connection.fetchrow(
-        "select email_confirmed_at from auth.users where lower(email)=lower($1) limit 1", email
-    )
-    async with connection.transaction():
-        invitation = await connection.fetchrow(
-            """insert into public.organization_invitations
-            (organization_id,email,title,branch_id,role_key,token_hash,status,invited_by,expires_at)
-            values ($1,$2,$3,$4,$5,$6,'pending',$7,now()+interval '7 days')
-            returning id,email,role_key,status,expires_at,created_at""",
-            organization_id,email,payload.title,payload.branch_id,payload.role_key,
-            _invitation_hash(token),principal.user_id,
-        )
-        await write_audit(connection,request,principal,"organization.invitation.created",
-            "organization_invitation",str(invitation["id"]),tenant,
-            metadata={"email":email,"role_key":payload.role_key})
-    if identity and identity["email_confirmed_at"] is not None:
-        try:
-            await request.app.state.invitation_delivery.send(
-                recipient=email,
-                organization_name=tenant.organization_name,
-                role_key=payload.role_key,
-                invitation_url=invite_url,
-            )
-        except Exception:
-            async with connection.transaction():
-                await write_audit(connection,request,principal,"organization.invitation.delivery_failed",
-                    "organization_invitation",str(invitation["id"]),tenant,
-                    metadata={"delivery_provider":"smtp"})
-            raise
-        delivery_status = "smtp_email_sent"
-    else:
-        callback_url = _invitation_callback_url(request, token)
-        provider = "supabase_auth_verification" if identity else "supabase_auth_invite"
-        try:
-            if identity:
-                await request.app.state.supabase_auth.resend_signup_confirmation(email, callback_url)
-                delivery_status = "supabase_auth_verification_sent"
-            else:
-                await request.app.state.supabase_auth.invite_user(email, callback_url)
-                delivery_status = "supabase_auth_invite_sent"
-        except Exception:
-            async with connection.transaction():
-                await connection.execute(
-                    """update public.organization_invitations
-                    set status='revoked',revoked_at=now(),updated_at=now() where id=$1 and status='pending'""",
-                    invitation["id"],
-                )
-                await write_audit(connection,request,principal,"organization.invitation.delivery_failed",
-                    "organization_invitation",str(invitation["id"]),tenant,
-                    metadata={"delivery_provider":provider})
-            raise
-    return {**dict(invitation),"invitation_url":invite_url,"delivery_status":delivery_status}
+) -> dict:
+    return await invitation_mutation_service.create_invitation(connection,request,principal,tenant,organization_id,payload)
 
 
 @router.post("/invitations/accept")
