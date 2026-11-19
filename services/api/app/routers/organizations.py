@@ -296,12 +296,19 @@ async def create_invitation(
             "organization_invitation",str(invitation["id"]),tenant,
             metadata={"email":email,"role_key":payload.role_key})
     if identity and identity["email_confirmed_at"] is not None:
-        await request.app.state.invitation_delivery.send(
-            recipient=email,
-            organization_name=tenant.organization_name,
-            role_key=payload.role_key,
-            invitation_url=invite_url,
-        )
+        try:
+            await request.app.state.invitation_delivery.send(
+                recipient=email,
+                organization_name=tenant.organization_name,
+                role_key=payload.role_key,
+                invitation_url=invite_url,
+            )
+        except Exception:
+            async with connection.transaction():
+                await write_audit(connection,request,principal,"organization.invitation.delivery_failed",
+                    "organization_invitation",str(invitation["id"]),tenant,
+                    metadata={"delivery_provider":"smtp"})
+            raise
         delivery_status = "smtp_email_sent"
     else:
         callback_url = invite_url.replace(
@@ -510,22 +517,29 @@ async def resend_invitation(
     identity = await connection.fetchrow(
         "select email_confirmed_at from auth.users where lower(email)=lower($1) limit 1",row["email"]
     )
-    if identity and identity["email_confirmed_at"] is not None:
-        await request.app.state.invitation_delivery.send(
-            recipient=row["email"],
-            organization_name=tenant.organization_name,
-            role_key=row["role_key"],
-            invitation_url=invite_url,
-        )
-        delivery_status = "smtp_email_sent"
-    else:
-        callback_url = invite_url.replace(
-            "/auth/accept-invitation?", "/auth/callback?organization_invite="
-        )
-        if identity:
-            await request.app.state.supabase_auth.resend_signup_confirmation(row["email"], callback_url)
-            delivery_status = "supabase_auth_verification_sent"
+    try:
+        if identity and identity["email_confirmed_at"] is not None:
+            await request.app.state.invitation_delivery.send(
+                recipient=row["email"],
+                organization_name=tenant.organization_name,
+                role_key=row["role_key"],
+                invitation_url=invite_url,
+            )
+            delivery_status = "smtp_email_sent"
         else:
-            await request.app.state.supabase_auth.invite_user(row["email"], callback_url)
-            delivery_status = "supabase_auth_invite_sent"
+            callback_url = invite_url.replace(
+                "/auth/accept-invitation?", "/auth/callback?organization_invite="
+            )
+            if identity:
+                await request.app.state.supabase_auth.resend_signup_confirmation(row["email"], callback_url)
+                delivery_status = "supabase_auth_verification_sent"
+            else:
+                await request.app.state.supabase_auth.invite_user(row["email"], callback_url)
+                delivery_status = "supabase_auth_invite_sent"
+    except Exception:
+        async with connection.transaction():
+            await write_audit(connection,request,principal,"organization.invitation.delivery_failed",
+                "organization_invitation",str(row["id"]),tenant,
+                metadata={"delivery_provider":"smtp_or_supabase_auth"})
+        raise
     return {**dict(row),"invitation_url":invite_url,"delivery_status":delivery_status}
