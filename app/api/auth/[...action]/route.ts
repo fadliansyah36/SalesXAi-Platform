@@ -88,6 +88,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
 export async function POST(request: NextRequest, context: RouteContext) {
   const { action } = await context.params;
   const route = action.join("/");
+  try { appOrigin(request); } catch {
+    return authError(503,"app_origin_not_configured","APP_PUBLIC_URL is deployment-pending.");
+  }
   if (!requestCsrf(request)) return authError(403, "csrf_validation_failed", "The request origin or CSRF token is invalid.");
   const payload = await request.json().catch(() => ({})) as Record<string, unknown>;
   const accessToken = request.cookies.get(ACCESS_COOKIE)?.value ?? "";
