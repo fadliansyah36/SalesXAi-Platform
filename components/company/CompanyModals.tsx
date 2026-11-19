@@ -1889,105 +1889,104 @@ export function AttendanceDetailModal({
 
 export function EditUserAssignmentModal({
   member,
-  branches,
+  teams,
+  supervisors,
   onClose,
   onSave,
 }: {
   member: TeamMemberItem | null;
-  branches: BranchItem[];
+  teams: Array<{ id: string; name: string; branchId: string }>;
+  supervisors: Array<{ userId: string; name: string }>;
   onClose: () => void;
-  onSave: (updated: TeamMemberItem) => void;
+  onSave: (updated: TeamMemberItem) => Promise<void>;
 }) {
-  const [role, setRole] = useState<TeamMemberItem['role']>(
-    member?.role || 'Sales Rep'
-  );
-  const [branchId, setBranchId] = useState(
-    member?.branchId || branches[0]?.id || 'br-1'
-  );
-  const [area, setArea] = useState(member?.area || '');
-  const [status, setStatus] = useState<TeamMemberItem['status']>(
-    member?.status || 'Online'
-  );
+  const [teamId, setTeamId] = useState(member?.teamId || teams[0]?.id || '');
+  const [managerUserId, setManagerUserId] = useState(member?.managerUserId || '');
+  const [status, setStatus] = useState<TeamMemberItem['status']>(member?.status || 'Offline');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   if (!member) return null;
+  const selectedTeam = teams.find((team) => team.id === teamId);
 
   return (
     <Modal
       open={Boolean(member)}
       onClose={onClose}
-      title={`Penugasan & Peran: ${member.name}`}
-      subtitle="Atur RBAC role, penempatan cabang, dan area kerja personel"
+      title={\`Penugasan Tim: \${member.name}\`}
+      subtitle="Hubungkan sales profile ke tim dan supervisor yang aktif pada organisasi ini"
       maxWidthClass="max-w-md"
     >
       <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          onSave({
-            ...member,
-            role,
-            branchId,
-            area: area.trim() || member.area,
-            status,
-          });
-          onClose();
+        onSubmit={async (event) => {
+          event.preventDefault();
+          if (!selectedTeam || saving) return;
+          setSaving(true);
+          setError(null);
+          try {
+            await onSave({
+              ...member,
+              teamId: selectedTeam.id,
+              managerUserId: managerUserId || undefined,
+              branchId: selectedTeam.branchId,
+              area: selectedTeam.name,
+              status,
+            });
+            onClose();
+          } catch (submitError) {
+            setError(submitError instanceof Error ? submitError.message : 'Penugasan gagal diperbarui.');
+          } finally {
+            setSaving(false);
+          }
         }}
         className="space-y-3.5 text-xs"
       >
+        <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] p-3">
+          <p className="font-semibold">Role saat ini</p>
+          <p className="mt-1 text-xs text-[var(--color-text-muted)]">{member.role} · Pengubahan RBAC dilakukan melalui Access Console.</p>
+        </div>
         <div>
-          <label className="block font-semibold mb-1">Peran RBAC</label>
+          <label className="block font-semibold mb-1">Tim</label>
           <select
-            value={role}
-            onChange={(e) => setRole(e.target.value as TeamMemberItem['role'])}
+            required
+            value={teamId}
+            onChange={(event) => setTeamId(event.target.value)}
             className="w-full rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 py-2"
           >
-            <option value="Direktur Operasional">Direktur Operasional</option>
-            <option value="Area Manager">Area Manager</option>
-            <option value="Supervisor">Supervisor</option>
-            <option value="Sales Rep">Sales Rep</option>
+            <option value="">Pilih tim</option>
+            {teams.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}
           </select>
         </div>
         <div>
-          <label className="block font-semibold mb-1">Cabang Penugasan</label>
+          <label className="block font-semibold mb-1">Supervisor / Manager</label>
           <select
-            value={branchId}
-            onChange={(e) => setBranchId(e.target.value)}
+            value={managerUserId}
+            onChange={(event) => setManagerUserId(event.target.value)}
             className="w-full rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 py-2"
           >
-            {branches.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.name} ({b.city})
-              </option>
-            ))}
+            <option value="">Belum ditetapkan</option>
+            {supervisors.map((person) => <option key={person.userId} value={person.userId}>{person.name}</option>)}
           </select>
-        </div>
-        <div>
-          <label className="block font-semibold mb-1">Wilayah / Teritori</label>
-          <input
-            type="text"
-            value={area}
-            onChange={(e) => setArea(e.target.value)}
-            className="w-full rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3.5 py-2"
-          />
         </div>
         <div className="flex items-center justify-between rounded-xl border border-[var(--color-border)] p-3">
-          <span className="font-semibold">Status Operasional</span>
+          <span className="font-semibold">Status Sales Profile</span>
           <button
             type="button"
-            onClick={() => setStatus((s) => (s === 'Online' ? 'Offline' : 'Online'))}
-            className={`rounded-lg px-3 py-1 font-bold cursor-pointer ${
-              status === 'Online'
-                ? 'bg-[#ECFDF5] text-[#047857]'
-                : 'bg-[var(--color-surface-muted)] text-[var(--color-text-muted)]'
-            }`}
+            onClick={() => setStatus((current) => current === 'Online' ? 'Offline' : 'Online')}
+            className={\`rounded-lg px-3 py-1 font-bold cursor-pointer \${
+              status === 'Online' ? 'bg-[#ECFDF5] text-[#047857]' : 'bg-[var(--color-surface-muted)] text-[var(--color-text-muted)]'
+            }\`}
           >
             {status}
           </button>
         </div>
+        {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700 dark:bg-red-950 dark:text-red-200">{error}</p>}
         <button
           type="submit"
-          className="w-full rounded-xl bg-[#348CB2] hover:bg-[#236D91] py-2.5 text-sm font-bold text-white cursor-pointer"
+          disabled={saving || !selectedTeam}
+          className="w-full rounded-xl bg-[#348CB2] hover:bg-[#236D91] py-2.5 text-sm font-bold text-white cursor-pointer disabled:opacity-50"
         >
-          Simpan Penugasan
+          {saving ? 'Menyimpan…' : 'Simpan Penugasan'}
         </button>
       </form>
     </Modal>
