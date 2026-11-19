@@ -30,6 +30,7 @@ interface SalesXAuthValue {
   hasPermission(permission:string):boolean;
   canAccessPortal(portal:PortalKey):boolean;
   apiFetch(path:string,init?:RequestInit):Promise<Response>;
+  apiClient:SalesXApiClient|null;
 }
 const SalesXAuthContext=createContext<SalesXAuthValue|null>(null);
 const supabaseUrl=process.env.NEXT_PUBLIC_SUPABASE_URL??"";
@@ -270,8 +271,8 @@ export function SalesXAuthProvider({children}:{children:React.ReactNode}) {
     status,session,context,activeMembership,activeOrganizationId,error,
     signInWithPassword,signUp,signInWithOAuth,linkIdentity,unlinkIdentity,
     requestPasswordReset,updatePassword,signInWithOtp,verifyOtp,signOut,completeAuthCallback,switchAccount,
-    setActiveOrganization,hasPermission,canAccessPortal,apiFetch,
-  }),[status,session,context,activeMembership,activeOrganizationId,error,signInWithPassword,
+    setActiveOrganization,hasPermission,canAccessPortal,apiFetch,apiClient,
+  }),[status,session,context,activeMembership,activeOrganizationId,error,apiClient,signInWithPassword,
     signUp,signInWithOAuth,linkIdentity,unlinkIdentity,requestPasswordReset,updatePassword,
     signInWithOtp,verifyOtp,signOut,completeAuthCallback,switchAccount,setActiveOrganization,hasPermission,canAccessPortal,apiFetch]);
   return <SalesXAuthContext.Provider value={value}>
