@@ -148,29 +148,35 @@ export async function enforceBffRateLimit(
   if (!origin || !secret) {
     return Response.json({ error: { code: "rate_limit_store_unavailable", message: "The server-side authentication rate limiter is not configured." } }, { status: 503 });
   }
-  const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
-    ?? request.headers.get("x-real-ip")?.trim()
+  // Vercel/ingress must overwrite X-Real-IP; do not trust a client-supplied X-Forwarded-For chain.
+  const clientIp = request.headers.get("x-real-ip")?.trim()
     ?? (process.env.NODE_ENV !== "production" ? "127.0.0.1" : "");
-  const response = await fetch(origin + "/api/v1/security/rate-limit", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-SalesX-BFF-Secret": secret,
-      "X-Rate-Limit-IP": forwarded,
-    },
-    body: JSON.stringify({ action, identifier: identifier?.trim().slice(0, 320) || null }),
-    cache: "no-store",
-  });
-  if (response.ok) return null;
-  const body = await response.text();
-  return new Response(body, {
-    status: response.status,
-    headers: {
-      "Content-Type": response.headers.get("content-type") ?? "application/json",
-      ...(response.headers.get("retry-after") ? { "Retry-After": response.headers.get("retry-after")! } : {}),
-      "Cache-Control": "no-store",
-    },
-  });
+  if (!clientIp) return Response.json({ error: { code: "rate_limit_ip_unavailable", message: "Trusted ingress client IP is unavailable." } }, { status: 503 });
+  try {
+    const response = await fetch(origin + "/api/v1/security/rate-limit", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-SalesX-BFF-Secret": secret,
+        "X-Rate-Limit-IP": clientIp,
+      },
+      body: JSON.stringify({ action, identifier: identifier?.trim().slice(0, 320) || null }),
+      cache: "no-store",
+      signal: AbortSignal.timeout(5000),
+    });
+    if (response.ok) return null;
+    const body = await response.text();
+    return new Response(body, {
+      status: response.status,
+      headers: {
+        "Content-Type": response.headers.get("content-type") ?? "application/json",
+        ...(response.headers.get("retry-after") ? { "Retry-After": response.headers.get("retry-after")! } : {}),
+        "Cache-Control": "no-store",
+      },
+    });
+  } catch {
+    return Response.json({ error: { code: "rate_limit_store_unavailable", message: "The distributed security rate-limit store is unavailable." } }, { status: 503 });
+  }
 }
 
 export async function refreshAuthSession(request: NextRequest): Promise<SupabaseAuthSession | null> {
