@@ -39,7 +39,7 @@ class MasterDataRepository:
   return dict(row)
  async def update(self, connection: asyncpg.Connection, resource: str, organization_id: UUID, resource_id: UUID, values: dict[str, Any]) -> dict[str, Any] | None:
   table=self._table(resource)
-  clean={key:value for key,value in values.items() if key in RESOURCE_TABLES[table] and value is not None}
+  clean={key:value for key,value in values.items() if key in RESOURCE_TABLES[table]}
   if not clean:
       raise ValueError("At least one mutable field is required")
   assignments=",".join(f"{key}=" + "$" + str(index) for index,key in enumerate(clean,1))
