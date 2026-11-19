@@ -1,4 +1,5 @@
 import logging
+import asyncpg
 from contextlib import asynccontextmanager
 from uuid import uuid4
 from fastapi import FastAPI,Request
