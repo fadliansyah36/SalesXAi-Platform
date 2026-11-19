@@ -113,6 +113,13 @@ class Settings(BaseSettings):
     def empty_secret_to_none(cls,value):
         return None if value == "" else value
 
+    @field_validator("salesx_bff_shared_secret")
+    @classmethod
+    def validate_bff_shared_secret(cls, value: SecretStr | None) -> SecretStr | None:
+        if value is not None and len(value.get_secret_value()) < 32:
+            raise ValueError("SALESX_BFF_SHARED_SECRET must contain at least 32 characters")
+        return value
+
     @field_validator("auth_admin_timeout_seconds")
     @classmethod
     def validate_auth_timeout(cls,value:float)->float:
