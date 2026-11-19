@@ -60,17 +60,22 @@ async def register_current_session(
     principal: Principal=Depends(get_current_principal),
     connection: asyncpg.Connection=Depends(get_connection),
 )->None:
+    auth_session=await connection.fetchrow(
+        "select expires_at from auth.sessions where id=$1 and user_id=$2",
+        principal.session_id,principal.user_id)
+    if auth_session is None:
+        raise APIError(401,"session_revoked","The Supabase Auth session is no longer active.")
     async with connection.transaction():
         existing=await connection.fetchrow("select revoked_at from public.session_devices where auth_session_id=$1",principal.session_id)
         if existing and existing["revoked_at"] is not None:
             raise APIError(401,"session_revoked","This device session has been revoked.")
         await connection.execute(
-          """insert into public.session_devices(auth_session_id,user_id,device_id,device_name,platform,user_agent,last_seen_at)
-          values ($1,$2,$3,$4,$5,$6,now())
+          """insert into public.session_devices(auth_session_id,user_id,device_id,device_name,platform,user_agent,expires_at,last_seen_at)
+          values ($1,$2,$3,$4,$5,$6,$7,now())
           on conflict(auth_session_id) do update set device_id=excluded.device_id,device_name=excluded.device_name,
-          platform=excluded.platform,user_agent=excluded.user_agent,last_seen_at=now()""",
+          platform=excluded.platform,user_agent=excluded.user_agent,expires_at=excluded.expires_at,last_seen_at=now()""",
           principal.session_id,principal.user_id,payload.device_id,payload.device_name,payload.platform,
-          payload.user_agent or request.headers.get("user-agent","")[:512])
+          payload.user_agent or request.headers.get("user-agent","")[:512],auth_session["expires_at"])
         await write_audit(connection,request,principal,"auth.session.registered","auth_session",
           str(principal.session_id),metadata={"platform":payload.platform})
 
