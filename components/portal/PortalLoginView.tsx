@@ -20,7 +20,7 @@ import {
 import { BrandLogo } from '@/components/common/BrandLogo';
 import { Modal } from '@/components/common/Modal';
 import { SALES_REP_PROFILE } from '@/lib/salesx-data';
-import { signInWithGoogleWorkspace } from '@/lib/firebase-workspace';
+import { useSalesXAuth } from '@/components/providers/AppProviders';
 
 export type OnboardingStep = 'login' | 'gps' | 'shift';
 
@@ -36,9 +36,10 @@ interface PortalLoginViewProps {
 }
 
 export function PortalLoginView({ onCompleteLogin }: PortalLoginViewProps) {
+  const auth = useSalesXAuth();
   const [step, setStep] = useState<OnboardingStep>('login');
-  const [identifier, setIdentifier] = useState('budi.santoso@salesx.ai');
-  const [password, setPassword] = useState('SalesX2025!');
+  const [identifier, setIdentifier] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [loginError, setLoginError] = useState<string | null>(null);
@@ -58,42 +59,52 @@ export function PortalLoginView({ onCompleteLogin }: PortalLoginViewProps) {
 
   // Modals for OTP & Forgot Password
   const [otpModalOpen, setOtpModalOpen] = useState(false);
-  const [otpPhone, setOtpPhone] = useState('0812-8899-2025');
+  const [otpPhone, setOtpPhone] = useState('');
   const [otpCode, setOtpCode] = useState('');
   const [otpSent, setOtpSent] = useState(false);
   const [forgotModalOpen, setForgotModalOpen] = useState(false);
-  const [forgotEmail, setForgotEmail] = useState('budi.santoso@salesx.ai');
+  const [forgotEmail, setForgotEmail] = useState('');
   const [forgotSubmitted, setForgotSubmitted] = useState(false);
 
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!identifier.trim() || !password.trim()) {
-      setLoginError('Masukkan Email / No. HP dan kata sandi Anda.');
+      setLoginError('Masukkan email dan kata sandi Anda.');
       return;
     }
     setLoginError(null);
-    setStep('gps');
+    try {
+      await auth.signInWithPassword(identifier, password);
+      setStep('gps');
+    } catch (err) {
+      setLoginError(err instanceof Error ? err.message : 'Login gagal. Periksa kredensial Anda.');
+    }
   };
 
   const handleGoogleSignIn = async () => {
     setWorkspaceLoading(true);
     setLoginError(null);
     try {
-      const { user } = await signInWithGoogleWorkspace();
-      setWorkspaceInfo({
-        name: user.displayName || SALES_REP_PROFILE.name,
-        email: user.email || identifier,
-      });
-      setStep('gps');
+      await auth.signInWithOAuth('google');
     } catch (err) {
-      setLoginError(
-        err instanceof Error
-          ? err.message
-          : 'Autentikasi Google Workspace dibatalkan atau gagal.'
-      );
-    } finally {
+      setLoginError(err instanceof Error ? err.message : 'Autentikasi Google Supabase gagal.');
       setWorkspaceLoading(false);
     }
+  };
+
+  const handleSendOtp = async () => {
+    if (!otpPhone.trim()) { setLoginError('Masukkan nomor telepon dengan kode negara.'); return; }
+    try { await auth.signInWithOtp(otpPhone); setOtpSent(true); setLoginError(null); }
+    catch (err) { setLoginError(err instanceof Error ? err.message : 'OTP tidak dapat dikirim.'); }
+  };
+
+  const handleVerifyOtp = async () => {
+    try {
+      await auth.verifyOtp(otpPhone, otpCode);
+      setOtpModalOpen(false);
+      setStep('gps');
+      setLoginError(null);
+    } catch (err) { setLoginError(err instanceof Error ? err.message : 'OTP tidak valid.'); }
   };
 
   const handleRequestGps = () => {
@@ -276,6 +287,23 @@ export function PortalLoginView({ onCompleteLogin }: PortalLoginViewProps) {
                 className="w-full rounded-xl bg-[#348CB2] hover:bg-[#236D91] py-3 text-sm font-bold text-white shadow-sm transition-colors cursor-pointer"
               >
                 Masuk
+              </button>
+              <button
+                type="button"
+                disabled={!identifier.includes('@') || password.length < 12}
+                onClick={async () => {
+                  try {
+                    const verificationRequired = await auth.signUp(identifier, password);
+                    setLoginError(verificationRequired
+                      ? 'Akun dibuat. Periksa email untuk verifikasi sebelum masuk.'
+                      : 'Akun dibuat. Pilih organisasi atau terima undangan setelah verifikasi.');
+                  } catch (err) {
+                    setLoginError(err instanceof Error ? err.message : 'Pendaftaran gagal.');
+                  }
+                }}
+                className="w-full rounded-xl border border-[#348CB2] py-2.5 text-sm font-semibold text-[#236D91] dark:text-[#87CEEB] disabled:opacity-40 cursor-pointer"
+              >
+                Buat akun baru
               </button>
             </form>
 
@@ -511,7 +539,7 @@ export function PortalLoginView({ onCompleteLogin }: PortalLoginViewProps) {
           {!otpSent ? (
             <button
               type="button"
-              onClick={() => setOtpSent(true)}
+              onClick={() => void handleSendOtp()}
               className="w-full rounded-xl bg-[#348CB2] py-2.5 text-sm font-bold text-white hover:bg-[#236D91] cursor-pointer"
             >
               Kirim Kode OTP
@@ -532,10 +560,7 @@ export function PortalLoginView({ onCompleteLogin }: PortalLoginViewProps) {
               />
               <button
                 type="button"
-                onClick={() => {
-                  setOtpModalOpen(false);
-                  setStep('gps');
-                }}
+                onClick={() => void handleVerifyOtp()}
                 disabled={otpCode.trim().length < 4}
                 className="w-full rounded-xl bg-[#348CB2] disabled:opacity-50 py-2.5 text-sm font-bold text-white hover:bg-[#236D91] cursor-pointer"
               >
@@ -569,7 +594,7 @@ export function PortalLoginView({ onCompleteLogin }: PortalLoginViewProps) {
             </div>
             <button
               type="button"
-              onClick={() => setForgotSubmitted(true)}
+              onClick={() => { void auth.requestPasswordReset(forgotEmail).then(() => setForgotSubmitted(true)).catch(err => setLoginError(err instanceof Error ? err.message : 'Permintaan reset gagal.')); }}
               className="w-full rounded-xl bg-[#348CB2] py-2.5 text-sm font-bold text-white hover:bg-[#236D91] cursor-pointer"
             >
               Kirim Tautan Reset

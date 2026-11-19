@@ -29,46 +29,57 @@ Status: COMPLETED
 Status: PARTIAL
 
 ### Implemented and applied
-- [x] Supabase Auth remains the sole credential and identity provider; database profile and provider identity mirror triggers are installed.
-- [x] Organization and branch identity tables, profiles, identity mapping, memberships, role/permission catalogs, scoped role assignments, device metadata and append-only audit schema are applied.
-- [x] RLS is enabled on all 11 Phase 02 tables. Own-profile/identity/membership and active-member organization/branch reads are scoped; all client writes and sensitive tables are denied.
-- [x] Existing postgres-owned public.rls_auto_enable() and ensure_rls event trigger were inspected and preserved; anon/authenticated cannot execute the function.
-- [x] FastAPI JWT verifier, live Supabase session check, profile/account status check, tenant resolver, recursive RBAC/ABAC policy dependency and stable error envelope are implemented.
-- [x] Organization bootstrap, member status, scoped role assignment, session/device registry and tenant audit endpoints are implemented.
-- [x] Shared identity types, API contracts, permission helpers and Supabase Auth REST client package are added.
+- [x] Supabase Auth remains the sole credential/identity authority; profile and provider-identity mirror triggers are installed.
+- [x] Organization, branch, profile, identity mapping, membership, role/permission, scoped assignment, session device and audit schema are applied to the bound Supabase project.
+- [x] RLS is enabled on all 11 Phase 02 public tables; client writes and sensitive table access are denied.
+- [x] FastAPI JWT verifier checks signing algorithm/signature, issuer, audience, expiry, issued-at, subject and session_id.
+- [x] FastAPI principal resolver checks verified email/phone, profile status, live auth.sessions, device revocation and the profiles.session_revoked_at epoch on every protected request.
+- [x] Tenant resolver and recursive database RBAC/ABAC checks remain authoritative; X-Organization-ID is only a selector.
+- [x] FastAPI source now includes remote Auth sign-out scopes (local/global/others), own identity list/unlink, full invitation create/accept/reject/expire/revoke/resend lifecycle, and platform-scoped account status administration.
+- [x] Web shared Auth provider is wired to existing Sales, Customer, Company, Distributor, Principal, Supervisor and Super Admin portals; it calls GET /api/v1/auth/me, registers device sessions, refreshes expired sessions, and supplies tenant/permission context.
+- [x] Web login, signup, email verification callback, password recovery/reset, Google OAuth, SMS OTP, identity linking/unlinking, account switching and invitation acceptance UI are connected to the shared Auth provider source.
+- [x] Organization access UI and platform account security UI are available under /portal/access.
+- [x] Server environment examples and identity/session security documentation are updated.
+- [x] Supabase Security Advisor returned zero lints after Phase 02 migrations.
+- [x] Supabase project metadata verified: ACTIVE_HEALTHY, PostgreSQL 17.12, region ap-northeast-1.
 
 ### Remaining — phase completion blockers
-- [ ] Existing Web portal login/logout/recovery/verification flows still use local demo state and must be migrated to shared Auth client and FastAPI context without redesign.
-- [ ] Expo requires real sign-in/session lifecycle and a platform SecureStore adapter; current app remains the Phase 01 shell.
-- [ ] Manual identity linking and provider configuration must be wired; automatic Auth linking and DB identity mirror exist.
-- [ ] FastAPI deployment environment is not configured/verified. Required: exact Supabase DATABASE_URL, signing/JWKS configuration, CORS origins and API origin.
-- [x] JWT signature, issuer, audience, expiry and required-claim unit tests plus ABAC condition tests passed (10 tests).
-- [x] Python compileall and Ruff static checks passed.
-- [x] API validation workflow 44516446974 passed on source commit ed296b261604fad676bb87c22f8a1b4db9471543: https://github.com/fadliansyah36/SalesXAi-Platform/actions/runs/44516446974.
-- [x] Bun workspace/lock and Web/Expo foundation verification passed on commit b00a8743854e0d28c000024521f7ead345c33f83: https://github.com/fadliansyah36/SalesXAi-Platform/actions/runs/44516027878.
-- [ ] Live Supabase JWT/session/API checks and cross-consumer auth integration build validation remain unevidenced.
-- [ ] Remote Auth Admin session revocation is not implemented; local API revocation denies requests but does not revoke the Auth refresh token itself.
-- [ ] Membership invitation delivery and account status administration endpoints remain to be integrated.
+- [ ] Expo native auth lifecycle and native secure storage are not yet implemented. apps/mobile-sales still needs a pinned expo-secure-store dependency, Bun lock update, SecureStore adapter, session restoration, auth/me integration, account switching and permission-aware native navigation.
+- [ ] Supabase manual identity linking provider setting and Google OAuth callback/provider configuration are not verified in the target project.
+- [ ] Existing-user invitation email delivery is not connected to a transactional email provider: create/resend returns a one-time URL for authorized delivery. New unregistered identities receive Supabase Auth Admin invite email only when SUPABASE_SECRET_KEY is configured.
+- [ ] Permission-aware navigation is wired as portal-level UX guards; action-level visibility across every existing feature is not yet exhaustively mapped. FastAPI remains the authorization boundary.
+- [ ] FastAPI runtime is not configured/verified. DATABASE_URL (database password/session-pooler URL), SUPABASE_PUBLISHABLE_KEY, SUPABASE_SECRET_KEY, APP_PUBLIC_URL, exact CORS origins and API deployment secrets are not present in repository/runtime.
+- [ ] Account status endpoint requires SUPABASE_SECRET_KEY for Auth Admin ban/unban; this secret is not available through the repository or database connector.
+- [ ] Live FastAPI /readyz, authenticated /api/v1/auth/me, remote sign-out, invitation email delivery and Auth Admin ban checks remain unevidenced.
+- [ ] Cross-portal TypeScript/lint/build validation for the new Web Auth provider is pending CI.
+- [x] Source files for all 8 applied migration versions are now present in the GitHub migration directory. The 20261119115701, 20261119120627 and 20261119120742 SQL files were restored as idempotent source mirrors from the live schema and applied migration evidence; no migration was re-applied during this continuation.
+- [ ] Specific remote refresh-token revocation for a different device cannot be claimed from DELETE /auth/sessions/{id}; this endpoint denies that session at FastAPI only. Supabase global/others/local logout are remotely invoked when the active session is available.
 
 ### Supabase evidence
-- Project eyofuiyxalbehbqoaeny, PostgreSQL 17.12, status ACTIVE_HEALTHY.
-- Applied migration history:
+- Project ref: eyofuiyxalbehbqoaeny; status ACTIVE_HEALTHY; PostgreSQL 17.12.
+- Applied migrations:
+  - 20261119101638 p00_create_private_schema
+  - 20261119103355 p00_restrict_rls_auto_enable_execution
   - 20261119112132 p02_identity_tenant_authorization
   - 20261119112853 p02_audit_retention_and_private_function_grants
   - 20261119112941 p02_explicit_deny_policies_and_role_scope_guard
-- All 11 Phase 02 public tables report RLS enabled.
-- Privilege check: anon profile SELECT false; authenticated profile SELECT true; authenticated roles SELECT false; authenticated audit SELECT false; anon/authenticated EXECUTE on public.rls_auto_enable() false; authenticated EXECUTE on app_private.is_active_org_member(uuid) true.
-- Security Advisor: zero findings after explicit deny policies were added.
-- Realtime: not applicable; authorization re-reads authoritative PostgreSQL state per request.
+  - 20261119115701 p02_invitation_lifecycle_and_session_revocation_epoch
+  - 20261119120627 p02_restrict_account_status_to_platform_admin
+  - 20261119120742 p02_auth_identity_link_audit_trigger
+- RLS enabled on all 11 Phase 02 public tables.
+- Security Advisor: zero lints.
+- Realtime: not applicable; authorization re-reads PostgreSQL state on each protected request.
 
 ### Engineering evidence
 - FastAPI source: services/api/app/.
 - Shared packages: packages/shared-types, packages/api-contracts, packages/permissions, packages/auth-client.
-- API static validation workflow: .github/workflows/phase-02-api-checks.yml.
-- Security architecture: docs/engineering/identity-and-authorization.md.
+- Web consumer entry: components/providers/SalesXAuthProvider.tsx.
+- Organization access UI: app/portal/access/.
+- Auth/security architecture: docs/engineering/identity-and-authorization.md.
+- API workflow: .github/workflows/phase-02-api-checks.yml.
 
-Phase 02 remains PARTIAL until Web and Expo consumers are integrated, server configuration is verified and essential JWT/API checks are recorded.
-
+Phase 02 remains PARTIAL until Expo, server runtime credentials, migration-source parity and essential integration validation are complete.
+ 
 ## Next phase
 
 Phase 02 remains in progress. Phase 03 is not authorized until Phase 02 reaches COMPLETED.

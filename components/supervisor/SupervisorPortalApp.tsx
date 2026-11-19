@@ -51,7 +51,9 @@ import { KpiMetricCard } from '@/components/design-system/KpiMetricCard';
 import { StatusTag } from '@/components/design-system/StatusTag';
 import { PluginActivationModal } from '@/components/design-system/PluginActivationModal';
 import { PortalAiCoachModal } from '@/components/design-system/PortalAiCoachModal';
-import { signInWithGoogleWorkspace } from '@/lib/firebase-workspace';
+import { useSalesXAuth } from '@/components/providers/AppProviders';
+import { PortalSignupAction } from '@/components/auth/PortalSignupAction';
+import { SupabaseOtpLoginModal } from '@/components/auth/SupabaseOtpLoginModal';
 import {
   formatRupiah,
   INITIAL_NOTIFICATIONS,
@@ -76,7 +78,6 @@ import {
   type SupervisorAlertItem,
 } from '@/lib/salesx-portals-data';
 import {
-  OtpLoginModal,
   AddTeamRosterModal,
   ShiftDetailModal,
   VisitEvidenceSupervisorModal,
@@ -108,12 +109,13 @@ export type SupervisorTab =
   | 'settings';
 
 export function SupervisorPortalApp() {
+  const auth = useSalesXAuth();
   const { theme, toggleTheme } = useTheme();
 
   // Auth
-  const [authenticated, setAuthenticated] = useState(false);
-  const [loginEmail, setLoginEmail] = useState(SUPERVISOR_PROFILE.email);
-  const [loginPassword, setLoginPassword] = useState('Supervisor2026!');
+  const authenticated = auth.status === 'authenticated';
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [authNotice, setAuthNotice] = useState<string | null>(null);
@@ -312,20 +314,14 @@ export function SupervisorPortalApp() {
   const handleGoogleLogin = async () => {
     setOauthBusy(true);
     setAuthNotice(null);
-    try {
-      const session = await signInWithGoogleWorkspace();
-      setLoginEmail(session.user?.email || loginEmail);
-      setAuthenticated(true);
-    } catch (err) {
-      setAuthNotice(
-        err instanceof Error ? err.message : 'Login Google Workspace dibatalkan.'
-      );
-    } finally {
-      setOauthBusy(false);
-    }
+    try { await auth.signInWithOAuth('google'); }
+    catch (err) { setAuthNotice(err instanceof Error ? err.message : 'Autentikasi Google Supabase gagal.'); setOauthBusy(false); }
   };
 
   /* -------------------- SCREEN 1: LOGIN / MASUK -------------------- */
+  if (authenticated && !auth.canAccessPortal('supervisor')) {
+    return <main className="flex min-h-screen items-center justify-center p-6"><section className="max-w-md rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 text-center"><h1 className="text-lg font-bold">Akses portal tidak tersedia</h1><p className="mt-2 text-sm text-[var(--color-text-secondary)]">Role aktif tidak memiliki permission untuk portal ini.</p><button onClick={() => void auth.signOut('local')} className="mt-4 rounded-lg bg-[#236D91] px-4 py-2 text-white">Keluar</button></section></main>;
+  }
   if (!authenticated) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-[#F3FAFC] via-[#E5F4F8] to-white dark:from-[#0B1220] dark:via-[#111C2D] dark:to-[#0B1220] flex flex-col justify-between p-4 sm:p-8">
@@ -366,7 +362,8 @@ export function SupervisorPortalApp() {
                 return;
               }
               setAuthNotice(null);
-              setAuthenticated(true);
+              try { await auth.signInWithPassword(loginEmail, loginPassword); }
+    catch (err) { setAuthNotice(err instanceof Error ? err.message : 'Login gagal.'); }
             }}
             className="mt-6 space-y-3.5 text-sm"
           >
@@ -411,9 +408,7 @@ export function SupervisorPortalApp() {
               </label>
               <button
                 type="button"
-                onClick={() =>
-                  setAuthNotice('Link pemulihan password dikirim ke email Supervisor.')
-                }
+                onClick={() => { void auth.requestPasswordReset(loginEmail).then(() => setAuthNotice('Instruksi pemulihan dikirim jika email terdaftar.')).catch(err => setAuthNotice(err instanceof Error ? err.message : 'Reset password gagal.')); }}
                 className="font-semibold text-[#348CB2] hover:underline cursor-pointer"
               >
                 Lupa password?
@@ -458,17 +453,19 @@ export function SupervisorPortalApp() {
                 {oauthBusy ? 'Menghubungkan...' : 'Masuk dengan Google Workspace'}
               </span>
             </button>
-          </form>
+          
+            <PortalSignupAction email={loginEmail} password={loginPassword} onMessage={setAuthNotice} />
+</form>
         </div>
 
         <p className="text-center text-xs text-[var(--color-text-muted)]">
           © 2026 SalesX-Ai · Supervisor Portal
         </p>
 
-        <OtpLoginModal
+        <SupabaseOtpLoginModal
           open={otpModalOpen}
           onClose={() => setOtpModalOpen(false)}
-          onSuccess={() => setAuthenticated(true)}
+          onSuccess={() => setAuthNotice('OTP pada modal ini belum terhubung ke Supabase Auth. Gunakan metode OTP terverifikasi melalui endpoint Auth.')}
         />
       </div>
     );
@@ -494,7 +491,7 @@ export function SupervisorPortalApp() {
         setAiCoachOpen(true);
       }}
       aiAssistantLabel="AI Sales Coach"
-      onRequestLogout={() => setAuthenticated(false)}
+      onRequestLogout={() => void auth.signOut('local')}
       currentPortalPath="/supervisor"
     >
       {toastMsg && (
@@ -2017,7 +2014,7 @@ export function SupervisorPortalApp() {
 
           <button
             type="button"
-            onClick={() => setAuthenticated(false)}
+            onClick={() => void auth.signOut('local')}
             className="w-full inline-flex items-center justify-center gap-2 rounded-2xl border border-red-200 dark:border-red-900/60 bg-[var(--color-surface)] py-3 text-sm font-bold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 cursor-pointer"
           >
             <LogOut className="h-4 w-4" />

@@ -9,5 +9,5 @@ export interface OrganizationMembership {
  id:UUID; organization_id:UUID; organization_name:string; status:MembershipStatus;
  branch_id:UUID|null; roles:string[]; permissions:string[];
 }
-export interface AuthContext { user:IdentityProfile; session_id:UUID; memberships:OrganizationMembership[]; }
+export interface AuthContext { user:IdentityProfile; session_id:UUID; memberships:OrganizationMembership[]; platform_permissions:string[]; }
 export interface ApiErrorEnvelope { error:{code:string;message:string;correlation_id:string|null}; }

@@ -52,7 +52,7 @@ import {
 import { BrandLogo } from '@/components/common/BrandLogo';
 import { PWAInstallButton } from '@/components/common/PWAInstallButton';
 import { Modal } from '@/components/common/Modal';
-import { useTheme } from '@/components/providers/AppProviders';
+import { useTheme, useSalesXAuth } from '@/components/providers/AppProviders';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { SalesGoogleMap } from '@/components/maps/SalesGoogleMap';
 import { PortalLoginView } from '@/components/portal/PortalLoginView';
@@ -118,10 +118,11 @@ type LainnyaSubTab =
 
 export function SalesPortalApp() {
   const { theme, toggleTheme } = useTheme();
+  const auth = useSalesXAuth();
   const isOnline = useOnlineStatus();
 
   // Auth & Shift State
-  const [authenticated, setAuthenticated] = useState(false);
+  const authenticated = auth.status === 'authenticated';
   const [shiftActive, setShiftActive] = useState(false);
   const [shiftStartTime, setShiftStartTime] = useState<string>('08:01 WIB');
   const [checkInTime, setCheckInTime] = useState<string | null>('08:01');
@@ -421,6 +422,10 @@ export function SalesPortalApp() {
     }, 600);
   };
 
+  if (authenticated && !auth.canAccessPortal('sales')) {
+    return <main className="flex min-h-screen items-center justify-center p-6"><section className="max-w-md rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 text-center"><h1 className="text-lg font-bold">Akses Sales Portal tidak tersedia</h1><p className="mt-2 text-sm text-[var(--color-text-secondary)]">Membership aktif tidak memiliki permission untuk Sales Portal.</p><button onClick={() => void auth.signOut('local')} className="mt-4 rounded-lg bg-[#236D91] px-4 py-2 text-white">Keluar</button></section></main>;
+  }
+
   if (!authenticated) {
     return (
       <PortalLoginView
@@ -436,7 +441,7 @@ export function SalesPortalApp() {
             setShiftStartTime(`${label} WIB`);
             setCheckInTime(label);
           }
-          setAuthenticated(true);
+          // Supabase Auth session is already verified by the shared provider.
         }}
       />
     );
@@ -3403,7 +3408,7 @@ export function SalesPortalApp() {
               type="button"
               onClick={() => {
                 setLogoutModalOpen(false);
-                setAuthenticated(false);
+                void auth.signOut('local');
               }}
               className="rounded-xl bg-red-600 hover:bg-red-700 px-4 py-2 font-bold text-white cursor-pointer"
             >

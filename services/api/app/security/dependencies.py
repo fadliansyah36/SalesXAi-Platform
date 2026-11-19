@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
 import asyncpg
@@ -41,7 +42,7 @@ async def get_current_principal(
         raise APIError(401, "invalid_token", "Token identity claims are malformed.") from exc
     row = await connection.fetchrow(
         """
-        select p.email,p.display_name,p.status,u.email_confirmed_at,u.phone_confirmed_at,
+        select p.email,p.display_name,p.status,p.session_revoked_at,u.email_confirmed_at,u.phone_confirmed_at,
                (s.id is not null) session_exists,sd.revoked_at device_revoked_at
         from public.profiles p join auth.users u on u.id=p.id
         left join auth.sessions s on s.id=$2 and s.user_id=p.id
@@ -55,7 +56,9 @@ async def get_current_principal(
         raise APIError(403, "account_inactive", "This account is not active.")
     if row["email_confirmed_at"] is None and row["phone_confirmed_at"] is None:
         raise APIError(403, "identity_unverified", "Verify the account email or phone before continuing.")
-    if not row["session_exists"] or row["device_revoked_at"] is not None:
+    issued_at = datetime.fromtimestamp(float(claims["iat"]), tz=timezone.utc)
+    if (not row["session_exists"] or row["device_revoked_at"] is not None
+            or (row["session_revoked_at"] is not None and issued_at <= row["session_revoked_at"])):
         raise APIError(401, "session_revoked", "This Supabase Auth session is no longer active.")
     return Principal(user_id,row["email"],row["display_name"],session_id,claims)
 
@@ -132,4 +135,36 @@ def require_permission(permission_key: str):
             raise APIError(403,"forbidden","The requested action is not permitted in this tenant context.")
         request.state.authorized_permission=permission_key
         return tenant
+    return dependency
+
+
+def require_platform_permission(permission_key: str):
+    async def dependency(
+        principal: Principal = Depends(get_current_principal),
+        connection: asyncpg.Connection = Depends(get_connection),
+    ) -> Principal:
+        allowed = await connection.fetchval(
+            """
+            with recursive role_tree(role_id,parent_role_id) as (
+              select r.id,r.parent_role_id
+              from public.user_role_assignments ura
+              join public.roles r on r.id=ura.role_id
+              where ura.user_id=$1 and ura.scope_type='platform'
+                and ura.membership_id is null and ura.scope_id is null
+                and ura.revoked_at is null and ura.starts_at<=now()
+                and (ura.expires_at is null or ura.expires_at>now())
+              union all
+              select parent.id,parent.parent_role_id
+              from role_tree child join public.roles parent on parent.id=child.parent_role_id
+            )
+            select exists(
+              select 1 from role_tree tree
+              join public.role_permissions rp on rp.role_id=tree.role_id
+              where rp.permission_key=$2
+            )
+            """, principal.user_id, permission_key,
+        )
+        if not allowed:
+            raise APIError(403,"forbidden","A platform-scoped permission is required.")
+        return principal
     return dependency

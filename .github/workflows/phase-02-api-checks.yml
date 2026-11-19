@@ -5,10 +5,24 @@ on:
     branches: [main]
     paths:
       - "services/api/**"
+      - "components/**"
+      - "app/**"
+      - "packages/auth-client/**"
+      - "packages/shared-types/**"
+      - "packages/permissions/**"
+      - "package.json"
+      - "bun.lock"
       - ".github/workflows/phase-02-api-checks.yml"
   pull_request:
     paths:
       - "services/api/**"
+      - "components/**"
+      - "app/**"
+      - "packages/auth-client/**"
+      - "packages/shared-types/**"
+      - "packages/permissions/**"
+      - "package.json"
+      - "bun.lock"
       - ".github/workflows/phase-02-api-checks.yml"
 
 permissions:
@@ -31,3 +45,15 @@ jobs:
       - run: python -m unittest discover -s tests -v
       - run: python -m compileall -q app
       - run: ruff check app
+
+
+  web-auth-static:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.5
+      - run: bun install --frozen-lockfile
+      - run: bun run typecheck
+      - run: bun run lint

@@ -45,7 +45,10 @@
     "react-markdown": "^10.1.0",
     "tailwind-merge": "^3.3.1",
     "@salesx-ai/design-system": "workspace:*",
-    "@salesx-ai/design-tokens": "workspace:*"
+    "@salesx-ai/design-tokens": "workspace:*",
+    "@salesx-ai/auth-client": "workspace:*",
+    "@salesx-ai/permissions": "workspace:*",
+    "@salesx-ai/shared-types": "workspace:*"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "4.1.11",

@@ -46,7 +46,9 @@ import { StatusTag } from '@/components/design-system/StatusTag';
 import { PluginActivationModal } from '@/components/design-system/PluginActivationModal';
 import { PortalAiCoachModal } from '@/components/design-system/PortalAiCoachModal';
 import { SalesGoogleMap } from '@/components/maps/SalesGoogleMap';
-import { signInWithGoogleWorkspace } from '@/lib/firebase-workspace';
+import { useSalesXAuth } from '@/components/providers/AppProviders';
+import { PortalSignupAction } from '@/components/auth/PortalSignupAction';
+import { SupabaseOtpLoginModal } from '@/components/auth/SupabaseOtpLoginModal';
 import {
   formatRupiah,
   INITIAL_NOTIFICATIONS,
@@ -111,12 +113,13 @@ export type PrincipalTab =
   | 'ai_settings';
 
 export function PrincipalPortalApp() {
+  const auth = useSalesXAuth();
   const { theme, toggleTheme } = useTheme();
 
   // Auth
-  const [authenticated, setAuthenticated] = useState(false);
-  const [loginEmail, setLoginEmail] = useState(PRINCIPAL_PROFILE.email);
-  const [loginPassword, setLoginPassword] = useState('Principal2026!');
+  const authenticated = auth.status === 'authenticated';
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [authNotice, setAuthNotice] = useState<string | null>(null);
@@ -384,20 +387,14 @@ export function PrincipalPortalApp() {
   const handleGoogleLogin = async () => {
     setOauthBusy(true);
     setAuthNotice(null);
-    try {
-      const session = await signInWithGoogleWorkspace();
-      setLoginEmail(session.user?.email || loginEmail);
-      setAuthenticated(true);
-    } catch (err) {
-      setAuthNotice(
-        err instanceof Error ? err.message : 'Login Google Workspace dibatalkan.'
-      );
-    } finally {
-      setOauthBusy(false);
-    }
+    try { await auth.signInWithOAuth('google'); }
+    catch (err) { setAuthNotice(err instanceof Error ? err.message : 'Autentikasi Google Supabase gagal.'); setOauthBusy(false); }
   };
 
   /* -------------------- SCREEN 1: LOGIN / MASUK -------------------- */
+  if (authenticated && !auth.canAccessPortal('principal')) {
+    return <main className="flex min-h-screen items-center justify-center p-6"><section className="max-w-md rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 text-center"><h1 className="text-lg font-bold">Akses portal tidak tersedia</h1><p className="mt-2 text-sm text-[var(--color-text-secondary)]">Role aktif tidak memiliki permission untuk portal ini.</p><button onClick={() => void auth.signOut('local')} className="mt-4 rounded-lg bg-[#236D91] px-4 py-2 text-white">Keluar</button></section></main>;
+  }
   if (!authenticated) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-[#F3FAFC] via-[#E5F4F8] to-white dark:from-[#0B1220] dark:via-[#111C2D] dark:to-[#0B1220] flex flex-col justify-between p-4 sm:p-8">
@@ -435,7 +432,8 @@ export function PrincipalPortalApp() {
                 return;
               }
               setAuthNotice(null);
-              setAuthenticated(true);
+              try { await auth.signInWithPassword(loginEmail, loginPassword); }
+    catch (err) { setAuthNotice(err instanceof Error ? err.message : 'Login gagal.'); }
             }}
             className="mt-6 space-y-3.5 text-sm"
           >
@@ -480,9 +478,7 @@ export function PrincipalPortalApp() {
               </label>
               <button
                 type="button"
-                onClick={() =>
-                  setAuthNotice('Instruksi pemulihan sandi telah dikirim ke email Principal.')
-                }
+                onClick={() => { void auth.requestPasswordReset(loginEmail).then(() => setAuthNotice('Instruksi pemulihan dikirim jika email terdaftar.')).catch(err => setAuthNotice(err instanceof Error ? err.message : 'Reset password gagal.')); }}
                 className="font-semibold text-[#348CB2] hover:underline cursor-pointer"
               >
                 Lupa password?
@@ -531,7 +527,9 @@ export function PrincipalPortalApp() {
             <div className="rounded-xl bg-[#F3FAFC] dark:bg-[#172438] p-2.5 text-center text-[11px] font-medium text-[#194F70] dark:text-[#87CEEB]">
               Akses Khusus untuk Principal / Pemilik Produk
             </div>
-          </form>
+          
+            <PortalSignupAction email={loginEmail} password={loginPassword} onMessage={setAuthNotice} />
+</form>
         </div>
 
         <p className="text-center text-xs text-[var(--color-text-muted)]">
@@ -564,7 +562,7 @@ export function PrincipalPortalApp() {
       }}
       onOpenAiAssistant={() => setAiCoachOpen(true)}
       aiAssistantLabel="AI Business Insight"
-      onRequestLogout={() => setAuthenticated(false)}
+      onRequestLogout={() => void auth.signOut('local')}
       currentPortalPath="/principal"
     >
       {toastMsg && (

@@ -56,7 +56,9 @@ import { KpiMetricCard } from '@/components/design-system/KpiMetricCard';
 import { StatusTag } from '@/components/design-system/StatusTag';
 import { PluginActivationModal } from '@/components/design-system/PluginActivationModal';
 import { PortalAiCoachModal } from '@/components/design-system/PortalAiCoachModal';
-import { signInWithGoogleWorkspace } from '@/lib/firebase-workspace';
+import { useSalesXAuth } from '@/components/providers/AppProviders';
+import { PortalSignupAction } from '@/components/auth/PortalSignupAction';
+import { SupabaseOtpLoginModal } from '@/components/auth/SupabaseOtpLoginModal';
 import { INITIAL_NOTIFICATIONS, type NotificationItem, type Outlet } from '@/lib/salesx-data';
 import {
   SUPER_ADMIN_PROFILE,
@@ -161,12 +163,13 @@ export type SuperAdminTab =
   | 'more';
 
 export function SuperAdminPortalApp() {
+  const auth = useSalesXAuth();
   const { theme, toggleTheme } = useTheme();
 
   // Auth State
-  const [authenticated, setAuthenticated] = useState(false);
-  const [loginEmail, setLoginEmail] = useState(SUPER_ADMIN_PROFILE.email);
-  const [loginPassword, setLoginPassword] = useState('SuperAdmin2026!');
+  const authenticated = auth.status === 'authenticated';
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [authNotice, setAuthNotice] = useState<string | null>(null);
@@ -488,20 +491,14 @@ export function SuperAdminPortalApp() {
   const handleGoogleLogin = async () => {
     setOauthBusy(true);
     setAuthNotice(null);
-    try {
-      const session = await signInWithGoogleWorkspace();
-      setLoginEmail(session.user?.email || loginEmail);
-      setAuthenticated(true);
-    } catch (err) {
-      setAuthNotice(
-        err instanceof Error ? err.message : 'Login Google Workspace dibatalkan.'
-      );
-    } finally {
-      setOauthBusy(false);
-    }
+    try { await auth.signInWithOAuth('google'); }
+    catch (err) { setAuthNotice(err instanceof Error ? err.message : 'Autentikasi Google Supabase gagal.'); setOauthBusy(false); }
   };
 
   /* -------------------- SCREEN 1: LOGIN / MASUK -------------------- */
+  if (authenticated && !auth.canAccessPortal('super_admin')) {
+    return <main className="flex min-h-screen items-center justify-center p-6"><section className="max-w-md rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 text-center"><h1 className="text-lg font-bold">Akses portal tidak tersedia</h1><p className="mt-2 text-sm text-[var(--color-text-secondary)]">Role aktif tidak memiliki permission untuk portal ini.</p><button onClick={() => void auth.signOut('local')} className="mt-4 rounded-lg bg-[#236D91] px-4 py-2 text-white">Keluar</button></section></main>;
+  }
   if (!authenticated) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-[#F3FAFC] via-[#E5F4F8] to-white dark:from-[#0B1220] dark:via-[#111C2D] dark:to-[#0B1220] flex flex-col justify-between p-4 sm:p-8">
@@ -571,7 +568,8 @@ export function SuperAdminPortalApp() {
                 return;
               }
               setAuthNotice(null);
-              setAuthenticated(true);
+              try { await auth.signInWithPassword(loginEmail, loginPassword); }
+    catch (err) { setAuthNotice(err instanceof Error ? err.message : 'Login gagal.'); }
             }}
             className="mt-6 space-y-3.5 text-sm"
           >
@@ -617,9 +615,7 @@ export function SuperAdminPortalApp() {
               </label>
               <button
                 type="button"
-                onClick={() =>
-                  setAuthNotice('Instruksi reset password dikirim ke email Super Admin.')
-                }
+                onClick={() => { void auth.requestPasswordReset(loginEmail).then(() => setAuthNotice('Instruksi reset dikirim jika email terdaftar.')).catch(err => setAuthNotice(err instanceof Error ? err.message : 'Reset password gagal.')); }}
                 className="font-semibold text-[#348CB2] hover:underline cursor-pointer"
               >
                 Lupa password?
@@ -664,7 +660,9 @@ export function SuperAdminPortalApp() {
                 {oauthBusy ? 'Menghubungkan...' : 'Masuk dengan Google Workspace'}
               </span>
             </button>
-          </form>
+          
+            <PortalSignupAction email={loginEmail} password={loginPassword} onMessage={setAuthNotice} />
+</form>
 
           <div className="mt-5 rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] p-3 flex items-center gap-3 text-xs">
             <ShieldCheck className="h-5 w-5 text-[#194F70] dark:text-[#87CEEB] shrink-0" />
@@ -686,7 +684,7 @@ export function SuperAdminPortalApp() {
         <SuperAdminOtpModal
           open={otpModalOpen}
           onClose={() => setOtpModalOpen(false)}
-          onSuccess={() => setAuthenticated(true)}
+          onSuccess={() => setAuthNotice('OTP pada modal ini belum terhubung ke Supabase Auth. Gunakan metode OTP terverifikasi melalui endpoint Auth.')}
         />
       </div>
     );
@@ -709,7 +707,7 @@ export function SuperAdminPortalApp() {
       }}
       onOpenAiAssistant={() => setAiCoachOpen(true)}
       aiAssistantLabel="AI Platform Coach"
-      onRequestLogout={() => setAuthenticated(false)}
+      onRequestLogout={() => void auth.signOut('local')}
       currentPortalPath="/super-admin"
     >
       {toastMsg && (

@@ -1,9 +1,12 @@
 import asyncpg
+import hashlib
+import secrets
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, Request
 from uuid import UUID
 from app.db import get_connection
 from app.errors import APIError
-from app.schemas.identity import MemberCreate,MemberStatusUpdate,OrganizationCreate,OrganizationResponse,RoleAssignmentCreate
+from app.schemas.identity import MemberCreate,MemberStatusUpdate,OrganizationCreate,OrganizationResponse,RoleAssignmentCreate,InvitationCreate,InvitationToken
 from app.security.dependencies import Principal,TenantContext,get_current_principal,require_permission
 from app.services.audit import write_audit
 
@@ -154,3 +157,307 @@ async def assign_member_role(
           "user_role_assignment",str(assignment["id"]),tenant,
           metadata={"member_user_id":str(user_id),"role_key":role["key"]})
     return dict(assignment)
+
+
+@router.get("/{organization_id}/assignable-roles")
+async def list_assignable_roles(
+    organization_id: UUID,
+    principal: Principal = Depends(get_current_principal),
+    tenant: TenantContext = Depends(require_permission("organization:invitations:manage")),
+    connection: asyncpg.Connection = Depends(get_connection),
+) -> list[dict]:
+    if tenant.organization_id != organization_id:
+        raise APIError(403,"forbidden","Cross-tenant role catalog access is denied.")
+    actor_level = await connection.fetchval(
+        """select min(r.hierarchy_level) from public.user_role_assignments ura
+        join public.roles r on r.id=ura.role_id
+        where ura.user_id=$1 and ura.membership_id=$2 and ura.revoked_at is null
+          and ura.starts_at<=now() and (ura.expires_at is null or ura.expires_at>now())""",
+        principal.user_id,tenant.membership_id,
+    )
+    if actor_level is None:
+        raise APIError(403,"forbidden","An active scoped role is required to delegate access.")
+    rows = await connection.fetch(
+        """select key,name,scope_type,hierarchy_level from public.roles
+        where scope_type in ('tenant','branch') and key<>'tenant_owner'
+          and hierarchy_level>$1 order by hierarchy_level desc,name""",
+        actor_level,
+    )
+    return [dict(row) for row in rows]
+
+
+def _invitation_hash(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def _invitation_url(request: Request, token: str) -> str:
+    settings = request.app.state.settings
+    base = str(settings.app_public_url).rstrip("/") if settings.app_public_url else ""
+    if not base:
+        raise APIError(503, "app_public_url_not_configured",
+                       "APP_PUBLIC_URL is required to create an invitation URL.")
+    return base + "/auth/accept-invitation?token=" + token
+
+
+@router.get("/{organization_id}/invitations")
+async def list_invitations(
+    organization_id: UUID,
+    request: Request,
+    tenant: TenantContext = Depends(require_permission("organization:invitations:manage")),
+    principal: Principal = Depends(get_current_principal),
+    connection: asyncpg.Connection = Depends(get_connection),
+) -> list[dict]:
+    if tenant.organization_id != organization_id:
+        raise APIError(403, "forbidden", "Cross-tenant invitation access is denied.")
+    async with connection.transaction():
+        expired = await connection.fetch(
+            """update public.organization_invitations
+            set status='expired',updated_at=now()
+            where organization_id=$1 and status='pending' and expires_at<=now()
+            returning id,email""", organization_id,
+        )
+        for item in expired:
+            await write_audit(connection, request, principal, "organization.invitation.expired",
+                               "organization_invitation", str(item["id"]), tenant,
+                               metadata={"email": item["email"]})
+    rows = await connection.fetch(
+        """select id,email,title,branch_id,role_key,status,expires_at,accepted_at,
+        rejected_at,revoked_at,resent_at,resend_count,created_at
+        from public.organization_invitations where organization_id=$1
+        order by created_at desc limit 200""", organization_id,
+    )
+    return [dict(row) for row in rows]
+
+
+@router.post("/{organization_id}/invitations", status_code=201)
+async def create_invitation(
+    organization_id: UUID,
+    payload: InvitationCreate,
+    request: Request,
+    principal: Principal = Depends(get_current_principal),
+    tenant: TenantContext = Depends(require_permission("organization:invitations:manage")),
+    connection: asyncpg.Connection = Depends(get_connection),
+) -> dict:
+    if tenant.organization_id != organization_id:
+        raise APIError(403, "forbidden", "Cross-tenant invitation access is denied.")
+    email = payload.email.strip().lower()
+    role = await connection.fetchrow(
+        "select id,key,scope_type,hierarchy_level from public.roles where key=$1",
+        payload.role_key,
+    )
+    if role is None or role["scope_type"] not in {"tenant", "branch"} or role["key"] == "tenant_owner":
+        raise APIError(400, "invalid_role", "Only delegable tenant- or branch-scoped roles can be invited.")
+    actor_level = await connection.fetchval(
+        """select min(r.hierarchy_level) from public.user_role_assignments ura
+        join public.roles r on r.id=ura.role_id
+        where ura.user_id=$1 and ura.membership_id=$2 and ura.revoked_at is null
+        and ura.starts_at<=now() and (ura.expires_at is null or ura.expires_at>now())""",
+        principal.user_id, tenant.membership_id,
+    )
+    if actor_level is None or role["hierarchy_level"] <= actor_level:
+        raise APIError(403, "privilege_escalation_denied",
+                       "You cannot invite an equal- or higher-privilege role.")
+    if role["scope_type"] == "branch":
+        if payload.branch_id is None:
+            raise APIError(400, "branch_scope_required", "A branch ID is required for this role.")
+        valid_branch = await connection.fetchval(
+            "select exists(select 1 from public.branches where id=$1 and organization_id=$2 and status='active')",
+            payload.branch_id, organization_id,
+        )
+        if not valid_branch:
+            raise APIError(403, "invalid_branch_scope", "The selected branch is outside this organization.")
+    elif payload.branch_id is not None:
+        raise APIError(400, "invalid_branch_scope", "Tenant-scoped roles cannot carry a branch ID.")
+
+    duplicate = await connection.fetchval(
+        """select exists(select 1 from public.organization_invitations
+        where organization_id=$1 and email=$2 and status='pending' and expires_at>now())""",
+        organization_id, email,
+    )
+    if duplicate:
+        raise APIError(409, "pending_invitation_exists", "A pending invitation already exists for this email.")
+
+    token = secrets.token_urlsafe(40)
+    invite_url = _invitation_url(request, token)
+    existing_identity = await connection.fetchval(
+        "select exists(select 1 from auth.users where lower(email)=lower($1))", email
+    )
+    if not existing_identity:
+        # Supabase sends the identity verification email. The one-time organization token
+        # is carried through the trusted callback and is still checked by this API.
+        await request.app.state.supabase_auth.invite_user(
+            email, invite_url.replace("/auth/accept-invitation?", "/auth/callback?organization_invite=")
+        )
+
+    async with connection.transaction():
+        invitation = await connection.fetchrow(
+            """insert into public.organization_invitations
+            (organization_id,email,title,branch_id,role_key,token_hash,status,invited_by,expires_at)
+            values ($1,$2,$3,$4,$5,$6,'pending',$7,now()+interval '7 days')
+            returning id,email,role_key,status,expires_at,created_at""",
+            organization_id,email,payload.title,payload.branch_id,payload.role_key,
+            _invitation_hash(token),principal.user_id,
+        )
+        await write_audit(connection,request,principal,"organization.invitation.created",
+            "organization_invitation",str(invitation["id"]),tenant,
+            metadata={"email":email,"role_key":payload.role_key})
+    return {**dict(invitation),"invitation_url":invite_url}
+
+
+@router.post("/invitations/accept")
+async def accept_invitation(
+    payload: InvitationToken,
+    request: Request,
+    principal: Principal = Depends(get_current_principal),
+    connection: asyncpg.Connection = Depends(get_connection),
+) -> dict:
+    expired = False
+    result: dict | None = None
+    async with connection.transaction():
+        invitation = await connection.fetchrow(
+            """select i.*,u.email auth_email,u.email_confirmed_at
+            from public.organization_invitations i
+            join auth.users u on u.id=$2
+            where i.token_hash=$1 and i.status='pending'
+            for update of i""",
+            _invitation_hash(payload.token),principal.user_id,
+        )
+        if invitation is None:
+            raise APIError(404,"invitation_not_found","Invitation is invalid, used or revoked.")
+        if invitation["expires_at"] <= datetime.now(timezone.utc):
+            await connection.execute(
+                "update public.organization_invitations set status='expired',updated_at=now() where id=$1",
+                invitation["id"],
+            )
+            expired = True
+        elif not invitation["auth_email"] or invitation["auth_email"].lower() != invitation["email"]:
+            raise APIError(403,"invitation_email_mismatch",
+                           "Sign in with the verified email address that received this invitation.")
+        else:
+            role = await connection.fetchrow(
+                "select id,key,scope_type from public.roles where key=$1",invitation["role_key"]
+            )
+            if role is None:
+                raise APIError(409,"invitation_role_unavailable","The invitation role is no longer available.")
+            if role["scope_type"] == "branch" and invitation["branch_id"] is None:
+                raise APIError(409,"invitation_scope_invalid","The invitation is missing its required branch scope.")
+            member = await connection.fetchrow(
+                """insert into public.organization_memberships
+                (organization_id,user_id,branch_id,status,title,joined_at)
+                values ($1,$2,$3,'active',$4,now())
+                on conflict(organization_id,user_id) do update
+                set status='active',branch_id=excluded.branch_id,title=excluded.title,
+                    joined_at=coalesce(public.organization_memberships.joined_at,now()),updated_at=now()
+                where public.organization_memberships.status in ('invited','removed','active')
+                returning id,organization_id,user_id,status,branch_id""",
+                invitation["organization_id"],principal.user_id,invitation["branch_id"],invitation["title"],
+            )
+            if member is None:
+                raise APIError(409,"membership_not_eligible","A suspended membership must be reinstated by an organization administrator.")
+            scope_id = invitation["branch_id"] if role["scope_type"] == "branch" else invitation["organization_id"]
+            exists = await connection.fetchval(
+                """select exists(select 1 from public.user_role_assignments
+                where user_id=$1 and membership_id=$2 and role_id=$3 and scope_type=$4
+                  and scope_id=$5 and revoked_at is null
+                  and (expires_at is null or expires_at>now()))""",
+                principal.user_id,member["id"],role["id"],role["scope_type"],scope_id,
+            )
+            if not exists:
+                await connection.execute(
+                    """insert into public.user_role_assignments
+                    (user_id,membership_id,role_id,scope_type,scope_id,assigned_by)
+                    values ($1,$2,$3,$4,$5,$6)""",
+                    principal.user_id,member["id"],role["id"],role["scope_type"],scope_id,
+                    invitation["invited_by"],
+                )
+            await connection.execute(
+                """update public.organization_invitations
+                set status='accepted',accepted_by=$2,accepted_at=now(),updated_at=now()
+                where id=$1""",invitation["id"],principal.user_id,
+            )
+            result = {"membership_id":str(member["id"]),
+                      "organization_id":str(member["organization_id"]),
+                      "status":member["status"]}
+            await write_audit(connection,request,principal,"organization.invitation.accepted",
+                "organization_invitation",str(invitation["id"]),
+                metadata={"organization_id":str(invitation["organization_id"])})
+    if expired:
+        raise APIError(410,"invitation_expired","Invitation has expired. Ask the organization administrator to resend it.")
+    return result or {}
+
+
+@router.post("/invitations/reject")
+async def reject_invitation(
+    payload: InvitationToken,
+    request: Request,
+    principal: Principal = Depends(get_current_principal),
+    connection: asyncpg.Connection = Depends(get_connection),
+) -> dict:
+    async with connection.transaction():
+        row = await connection.fetchrow(
+            """update public.organization_invitations i
+            set status='rejected',rejected_at=now(),updated_at=now()
+            from auth.users u
+            where i.token_hash=$1 and i.status='pending' and u.id=$2
+              and lower(u.email)=i.email and i.expires_at>now()
+            returning i.id,i.organization_id,i.email""",
+            _invitation_hash(payload.token),principal.user_id,
+        )
+        if row is None:
+            raise APIError(404,"invitation_not_found","Invitation is invalid, expired or not addressed to this account.")
+        await write_audit(connection,request,principal,"organization.invitation.rejected",
+            "organization_invitation",str(row["id"]),
+            metadata={"organization_id":str(row["organization_id"])})
+    return {"id":str(row["id"]),"status":"rejected"}
+
+
+@router.post("/{organization_id}/invitations/{invitation_id}/revoke")
+async def revoke_invitation(
+    organization_id: UUID,invitation_id: UUID,request: Request,
+    principal: Principal = Depends(get_current_principal),
+    tenant: TenantContext = Depends(require_permission("organization:invitations:manage")),
+    connection: asyncpg.Connection = Depends(get_connection),
+) -> dict:
+    if tenant.organization_id != organization_id:
+        raise APIError(403,"forbidden","Cross-tenant invitation access is denied.")
+    async with connection.transaction():
+        row = await connection.fetchrow(
+            """update public.organization_invitations
+            set status='revoked',revoked_at=now(),updated_at=now()
+            where id=$1 and organization_id=$2 and status='pending'
+            returning id,email""",invitation_id,organization_id,
+        )
+        if row is None:
+            raise APIError(404,"invitation_not_found","Pending invitation was not found.")
+        await write_audit(connection,request,principal,"organization.invitation.revoked",
+            "organization_invitation",str(row["id"]),tenant,metadata={"email":row["email"]})
+    return {"id":str(row["id"]),"status":"revoked"}
+
+
+@router.post("/{organization_id}/invitations/{invitation_id}/resend")
+async def resend_invitation(
+    organization_id: UUID,invitation_id: UUID,request: Request,
+    principal: Principal = Depends(get_current_principal),
+    tenant: TenantContext = Depends(require_permission("organization:invitations:manage")),
+    connection: asyncpg.Connection = Depends(get_connection),
+) -> dict:
+    if tenant.organization_id != organization_id:
+        raise APIError(403,"forbidden","Cross-tenant invitation access is denied.")
+    token = secrets.token_urlsafe(40)
+    invite_url = _invitation_url(request,token)
+    async with connection.transaction():
+        row = await connection.fetchrow(
+            """update public.organization_invitations
+            set token_hash=$3,expires_at=now()+interval '7 days',resent_at=now(),
+                resend_count=resend_count+1,updated_at=now()
+            where id=$1 and organization_id=$2 and status='pending'
+            returning id,email,role_key,expires_at""",
+            invitation_id,organization_id,_invitation_hash(token),
+        )
+        if row is None:
+            raise APIError(404,"invitation_not_found","Pending invitation was not found.")
+        await write_audit(connection,request,principal,"organization.invitation.resent",
+            "organization_invitation",str(row["id"]),tenant,metadata={"email":row["email"]})
+    # Existing identities receive the rotated one-time link through the authorized portal.
+    # New identity delivery is handled by Supabase Auth Admin during invitation creation.
+    return {**dict(row),"invitation_url":invite_url}

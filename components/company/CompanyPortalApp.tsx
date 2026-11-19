@@ -44,7 +44,8 @@ import { BrandLogo } from '@/components/common/BrandLogo';
 import { Modal } from '@/components/common/Modal';
 import { PWAInstallButton } from '@/components/common/PWAInstallButton';
 import { SalesGoogleMap } from '@/components/maps/SalesGoogleMap';
-import { signInWithGoogleWorkspace } from '@/lib/firebase-workspace';
+import { useSalesXAuth } from '@/components/providers/AppProviders';
+import { PortalSignupAction } from '@/components/auth/PortalSignupAction';
 import {
   COMPANY_PROFILE,
   COMPANY_MONTHLY_TRENDS,
@@ -167,11 +168,12 @@ const SIDEBAR_GROUPS: Array<{
 ];
 
 export function CompanyPortalApp() {
+  const auth = useSalesXAuth();
   // Authentication & Theme
-  const [authenticated, setAuthenticated] = useState(false);
+  const authenticated = auth.status === 'authenticated';
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
-  const [loginEmail, setLoginEmail] = useState(COMPANY_PROFILE.email);
-  const [loginPassword, setLoginPassword] = useState('CompanyX2025!');
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [loginError, setLoginError] = useState<string | null>(null);
@@ -362,30 +364,22 @@ export function CompanyPortalApp() {
       return;
     }
     setLoginError(null);
-    setAuthenticated(true);
+    void auth.signInWithPassword(loginEmail, loginPassword).catch(err => setLoginError(err instanceof Error ? err.message : 'Login gagal.'));
   };
 
   const handleGoogleLogin = async () => {
     setWorkspaceAuthLoading(true);
     setLoginError(null);
-    try {
-      const { user } = await signInWithGoogleWorkspace();
-      if (user.email) setLoginEmail(user.email);
-      setAuthenticated(true);
-    } catch (err) {
-      setLoginError(
-        err instanceof Error
-          ? err.message
-          : 'Autentikasi Google Workspace dibatalkan.'
-      );
-    } finally {
-      setWorkspaceAuthLoading(false);
-    }
+    try { await auth.signInWithOAuth('google'); }
+    catch (err) { setLoginError(err instanceof Error ? err.message : 'Autentikasi Google Supabase gagal.'); setWorkspaceAuthLoading(false); }
   };
 
   /* ========================================================================
    * SCREEN 1: COMPANY PORTAL LOGIN
    * ======================================================================== */
+  if (authenticated && !auth.canAccessPortal('company')) {
+    return <main className="flex min-h-screen items-center justify-center p-6"><section className="max-w-md rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 text-center"><h1 className="text-lg font-bold">Akses portal tidak tersedia</h1><p className="mt-2 text-sm text-[var(--color-text-secondary)]">Role aktif tidak memiliki permission untuk portal ini.</p><button onClick={() => void auth.signOut('local')} className="mt-4 rounded-lg bg-[#236D91] px-4 py-2 text-white">Keluar</button></section></main>;
+  }
   if (!authenticated) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-[#E5F4F8] via-[#F3FAFC] to-[#F8FAFC] dark:from-[#0B1220] dark:via-[#111C2D] dark:to-[#0B1220] flex flex-col justify-between px-4 py-6 sm:px-6">
@@ -528,7 +522,9 @@ export function CompanyPortalApp() {
             >
               Masuk
             </button>
-          </form>
+          
+            <PortalSignupAction email={loginEmail} password={loginPassword} onMessage={setLoginError} />
+</form>
 
           <div className="my-4 flex items-center gap-3 text-xs text-[var(--color-text-muted)]">
             <div className="h-px flex-1 bg-[var(--color-border)]" />
@@ -612,7 +608,7 @@ export function CompanyPortalApp() {
             ) : (
               <button
                 type="button"
-                onClick={() => setForgotSent(true)}
+                onClick={() => { void auth.requestPasswordReset(loginEmail).then(() => setForgotSent(true)).catch(err => setLoginError(err instanceof Error ? err.message : 'Reset password gagal.')); }}
                 className="w-full rounded-xl bg-[#348CB2] py-2.5 font-bold text-white cursor-pointer"
               >
                 Kirim Tautan Pemulihan
@@ -3337,7 +3333,7 @@ export function CompanyPortalApp() {
             type="button"
             onClick={() => {
               setLogoutConfirmOpen(false);
-              setAuthenticated(false);
+              void auth.signOut('local');
             }}
             className="rounded-xl bg-red-600 px-4 py-2 font-bold text-white cursor-pointer"
           >

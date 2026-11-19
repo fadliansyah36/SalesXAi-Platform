@@ -22,12 +22,28 @@ class AuthContextResponse(BaseModel):
     user: ProfileResponse
     session_id: UUID
     memberships: list[MembershipResponse]
+    platform_permissions: list[str] = Field(default_factory=list)
 
 class SessionRegistration(BaseModel):
     device_id: str | None = Field(default=None,max_length=160)
     device_name: str | None = Field(default=None,max_length=160)
     platform: Literal["web","android","ios","unknown"] = "unknown"
     user_agent: str | None = Field(default=None,max_length=512)
+
+class SignOutRequest(BaseModel):
+    scope: Literal["local","global","others"] = "local"
+
+class InvitationCreate(BaseModel):
+    email: str = Field(min_length=3,max_length=320)
+    role_key: str = Field(min_length=2,max_length=80)
+    branch_id: UUID | None = None
+    title: str | None = Field(default=None,max_length=120)
+
+class InvitationToken(BaseModel):
+    token: str = Field(min_length=32,max_length=256)
+
+class AccountStatusUpdate(BaseModel):
+    status: Literal["active","suspended","deactivated"]
 
 class OrganizationCreate(BaseModel):
     name: str = Field(min_length=2,max_length=160)

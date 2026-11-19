@@ -15,6 +15,10 @@ Health/readiness: /healthz and /readyz.
 - SUPABASE_JWT_ISSUER: optional override; defaults to {SUPABASE_URL}/auth/v1.
 - SUPABASE_JWT_AUDIENCE: defaults to authenticated.
 - SUPABASE_JWT_SECRET: optional server-only legacy HS256 verifier. Prefer asymmetric signing keys/JWKS.
+- SUPABASE_PUBLISHABLE_KEY: project publishable key for caller-authorized remote Auth logout.
+- SUPABASE_SECRET_KEY: server-only Supabase secret key for Auth Admin invite and account ban operations.
+- APP_PUBLIC_URL: canonical Web origin used for invitation and Auth callback URLs.
+- AUTH_ADMIN_TIMEOUT_SECONDS, DB_POOL_MIN_SIZE, DB_POOL_MAX_SIZE, DB_COMMAND_TIMEOUT_SECONDS: bounded runtime controls.
 - CORS_ORIGINS: comma-separated exact portal origins; no wildcard with credentials.
 
 The service requires DATABASE_URL at startup. Do not add service-role credentials to Web or Expo. Authorization data is read from PostgreSQL, never user-editable JWT metadata or client-supplied role claims.
@@ -23,14 +27,25 @@ The service requires DATABASE_URL at startup. Do not add service-role credential
 - GET /api/v1/auth/me
 - POST /api/v1/auth/sessions/current
 - GET /api/v1/auth/sessions
-- DELETE /api/v1/auth/sessions/{session_id}
+- POST /api/v1/auth/sign-out (local/global/others remote Supabase Auth logout plus FastAPI audit/epoch)
+- GET /api/v1/auth/identities
+- DELETE /api/v1/auth/identities/{identity_id} (owner-only, cannot unlink last identity)
+- DELETE /api/v1/auth/sessions/{session_id} (FastAPI session deny-list; not a remote refresh-token revocation for another device)
 - GET /api/v1/organizations
 - POST /api/v1/organizations
 - GET /api/v1/organizations/{organization_id}/members
+- GET /api/v1/organizations/{organization_id}/assignable-roles (role catalog filtered by delegable hierarchy)
+- GET /api/v1/organizations/{organization_id}/invitations
+- POST /api/v1/organizations/{organization_id}/invitations
+- POST /api/v1/organizations/invitations/accept
+- POST /api/v1/organizations/invitations/reject
+- POST /api/v1/organizations/{organization_id}/invitations/{invitation_id}/revoke
+- POST /api/v1/organizations/{organization_id}/invitations/{invitation_id}/resend
 - POST /api/v1/organizations/{organization_id}/members
 - PATCH /api/v1/organizations/{organization_id}/members/{user_id}
 - POST /api/v1/organizations/{organization_id}/members/{user_id}/roles
 - GET /api/v1/organizations/{organization_id}/audit
+- PATCH /api/v1/admin/users/{user_id}/account-status (platform-scoped permission; requires SUPABASE_SECRET_KEY)
 
 Tenant context is resolved from verified active membership. X-Organization-ID is only a selector; it is never trusted without a membership lookup. A missing selector is accepted only when exactly one active membership exists. Multiple memberships require an explicit selector. RBAC uses active database assignments with recursive parent-role inheritance and default-deny.
 

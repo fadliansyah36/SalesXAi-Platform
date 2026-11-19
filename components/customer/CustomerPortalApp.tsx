@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
   Home,
@@ -50,7 +50,8 @@ import {
 import { BrandLogo } from '@/components/common/BrandLogo';
 import { Modal } from '@/components/common/Modal';
 import { PWAInstallButton } from '@/components/common/PWAInstallButton';
-import { signInWithGoogleWorkspace } from '@/lib/firebase-workspace';
+import { useSalesXAuth } from '@/components/providers/AppProviders';
+import { PortalSignupAction } from '@/components/auth/PortalSignupAction';
 import {
   CUSTOMER_OUTLET_PROFILE,
   CUSTOMER_CONTRACT_PRICES,
@@ -104,13 +105,19 @@ export type CustomerTabId =
   | 'more';
 
 export function CustomerPortalApp() {
+  const auth = useSalesXAuth();
   // Screen 1 (Splash) -> Screen 2 (Login) -> Authenticated
   const [authStage, setAuthStage] = useState<'splash' | 'login' | 'app'>(
     'splash'
   );
+  useEffect(() => {
+    if (auth.status === 'authenticated') setAuthStage('app');
+    else if (auth.status === 'unauthenticated' && authStage === 'app') setAuthStage('login');
+  }, [auth.status, authStage]);
+
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
-  const [loginId, setLoginId] = useState(CUSTOMER_OUTLET_PROFILE.email);
-  const [loginPassword, setLoginPassword] = useState('MakmurJaya2026!');
+  const [loginId, setLoginId] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [loginError, setLoginError] = useState<string | null>(null);
@@ -466,6 +473,10 @@ export function CustomerPortalApp() {
   /* ========================================================================
    * SCREEN 1: SPLASH / WELCOME
    * ======================================================================== */
+  if (auth.status === 'authenticated' && !auth.canAccessPortal('customer')) {
+    return <main className="flex min-h-screen items-center justify-center p-6"><section className="max-w-md rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 text-center"><h1 className="text-lg font-bold">Akses Customer Portal tidak tersedia</h1><p className="mt-2 text-sm text-[var(--color-text-secondary)]">Membership aktif tidak memiliki permission untuk Customer Portal.</p><button onClick={() => void auth.signOut('local')} className="mt-4 rounded-lg bg-[#236D91] px-4 py-2 text-white">Keluar</button></section></main>;
+  }
+
   if (authStage === 'splash') {
     return (
       <div className="min-h-screen bg-gradient-to-b from-[#E5F4F8] via-[#F3FAFC] to-[#FFFFFF] dark:from-[#0B1220] dark:via-[#111C2D] dark:to-[#0B1220] flex flex-col justify-between px-4 py-6 sm:px-6">
@@ -596,7 +607,9 @@ export function CustomerPortalApp() {
                 return;
               }
               setLoginError(null);
-              setAuthStage('app');
+              void auth.signInWithPassword(loginId, loginPassword)
+                .then(() => setAuthStage('app'))
+                .catch(err => setLoginError(err instanceof Error ? err.message : 'Login gagal.'));
             }}
             className="mt-6 space-y-4"
           >
@@ -670,7 +683,9 @@ export function CustomerPortalApp() {
             >
               Masuk
             </button>
-          </form>
+          
+            <PortalSignupAction email={loginId} password={loginPassword} onMessage={setLoginError} />
+</form>
 
           <div className="my-4 flex items-center gap-3 text-xs text-[var(--color-text-muted)]">
             <div className="h-px flex-1 bg-[var(--color-border)]" />
@@ -693,9 +708,7 @@ export function CustomerPortalApp() {
                 setWsLoading(true);
                 setLoginError(null);
                 try {
-                  const { user } = await signInWithGoogleWorkspace();
-                  if (user.email) setOutletEmail(user.email);
-                  setAuthStage('app');
+                  await auth.signInWithOAuth('google');
                 } catch (err) {
                   setLoginError(
                     err instanceof Error
@@ -769,7 +782,7 @@ export function CustomerPortalApp() {
             ) : (
               <button
                 type="button"
-                onClick={() => setForgotSent(true)}
+                onClick={() => { void auth.requestPasswordReset(loginId).then(() => setForgotSent(true)).catch(err => setLoginError(err instanceof Error ? err.message : 'Permintaan reset gagal.')); }}
                 className="w-full rounded-xl bg-[#348CB2] py-2.5 font-bold text-white cursor-pointer"
               >
                 Kirim Tautan Pemulihan
@@ -2956,7 +2969,7 @@ export function CustomerPortalApp() {
             type="button"
             onClick={() => {
               setLogoutConfirmOpen(false);
-              setAuthStage('splash');
+              void auth.signOut('local').then(() => setAuthStage('splash'));
             }}
             className="rounded-xl bg-red-600 px-4 py-2 font-bold text-white cursor-pointer"
           >

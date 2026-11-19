@@ -7,8 +7,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from app.config import get_settings
 from app.errors import APIError,api_error_handler
-from app.routers import audit,auth,organizations
+from app.routers import admin,audit,auth,organizations
 from app.security.jwt import SupabaseJWTVerifier
+from app.services.supabase_auth import SupabaseAuthService
 
 logging.basicConfig(level=logging.INFO)
 logger=logging.getLogger("salesx.api")
@@ -17,11 +18,13 @@ logger=logging.getLogger("salesx.api")
 async def lifespan(app: FastAPI):
     settings=get_settings()
     pool=await asyncpg.create_pool(dsn=settings.database_url.get_secret_value(),
-      min_size=1,max_size=10,command_timeout=30,ssl=True,
+      min_size=settings.db_pool_min_size,max_size=settings.db_pool_max_size,
+      command_timeout=settings.db_command_timeout_seconds,ssl=True,
       server_settings={"application_name":"salesx-ai-api"})
     app.state.settings=settings
     app.state.db_pool=pool
     app.state.jwt_verifier=SupabaseJWTVerifier(settings)
+    app.state.supabase_auth=SupabaseAuthService(settings)
     try:
         yield
     finally:
@@ -34,7 +37,7 @@ settings=get_settings()
 if settings.allowed_origins:
     app.add_middleware(CORSMiddleware,allow_origins=settings.allowed_origins,allow_credentials=True,
       allow_methods=["GET","POST","PATCH","PUT","DELETE","OPTIONS"],
-      allow_headers=["Authorization","Content-Type","X-Organization-ID","X-Correlation-ID","X-Resource-Branch-ID"],
+      allow_headers=["Authorization","Content-Type","X-Organization-ID","X-Correlation-ID","X-Resource-Branch-ID","X-Client-Platform"],
       expose_headers=["X-Correlation-ID"])
 
 @app.middleware("http")
@@ -68,5 +71,6 @@ async def readyz(request: Request):
     return {"status":"ready"}
 
 app.include_router(auth.router,prefix="/api/v1")
+app.include_router(admin.router,prefix="/api/v1")
 app.include_router(organizations.router,prefix="/api/v1")
 app.include_router(audit.router,prefix="/api/v1")
