@@ -77,7 +77,7 @@ async def assign_member_role(
 @router.get("/{organization_id}/assignable-roles")
 async def list_assignable_roles(
     organization_id: UUID, request: Request,
-    principal: Principal=Depends(require_api_action("organization.roles.assignable")),
+    principal: Principal=Depends(get_current_principal),
     tenant: TenantContext=Depends(require_api_action("organization.roles.assignable")),
     connection: asyncpg.Connection=Depends(get_connection),
 )->list[dict]:
