@@ -217,7 +217,7 @@ export class SalesXAuthClient {
   url.searchParams.set("code_challenge_method","s256");
   url.searchParams.set("skip_http_redirect","true");
   const response=await this.fetcher(url.toString(),{
-   headers:{apikey:this.key,Authorization:"Bearer "+session.access_token},
+   headers:{...(this.key?{apikey:this.key}:{}),Authorization:"Bearer "+session.access_token},
    redirect:"follow",
   });
   const data=await response.json().catch(()=>({}));
