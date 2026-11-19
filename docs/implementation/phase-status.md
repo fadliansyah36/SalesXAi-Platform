@@ -1,115 +1,70 @@
 # SalesX-Ai Phase Status
 
-Target repository: `fadliansyah36/SalesXAi-Platform`  
-Branch: `main`  
-Supabase project ref: `eyofuiyxalbehbqoaeny`
+Target repository: fadliansyah36/SalesXAi-Platform
+Branch: main
+Supabase project ref: eyofuiyxalbehbqoaeny
 
 ## Phase 00 — Repository Bootstrap & Governance
 
 Status: COMPLETED
 
-- [x] Root `AGENTS.md`, Master PRD, Engineering Execution Master Plan and cross-platform implementation flow remain canonical engineering sources.
-- [x] Existing root Next.js application preserved in place; no UI redesign or route migration.
-- [x] Bun 1.4.5 is the only JavaScript package manager; root `packageManager` metadata is `bun@1.4.5`.
-- [x] Bun workspaces cover `apps/*` and `packages/*`; the root `bun.lock` is the only JavaScript lockfile.
-- [x] Turborepo task graph configured for build, lint and typecheck; `build:all` runs the monorepo build graph.
-- [x] Node.js 22.16.0 baseline recorded in `.nvmrc`; minimum Node.js 22.13+ required by Expo SDK 58.
-- [x] ESLint 9 flat configuration, TypeScript workspace configuration and package boundaries finalized.
-- [x] CODEOWNERS, contribution conventions, root README and canonical documentation links finalized.
-- [x] Monorepo architecture, deployment boundaries, service/app READMEs and repository governance documented.
-- [x] Python 3.12+ Ruff/mypy conventions retained in root `pyproject.toml`.
-- [x] Supabase migration workflow, migration history, backup/restore and forward-fix rollback guidance documented.
-- [x] No Phase 02 identity, tenant or business-domain tables were introduced.
-
-### Supabase evidence
-
-- Target: `eyofuiyxalbehbqoaeny`.
-- Applied migration: `20261119101638_p00_create_private_schema`.
-- Applied migration: `20261119103355_p00_restrict_rls_auto_enable_execution`.
-- Live migration history returns both versions on the bound project.
-- `app_private` remains a private schema; no Phase 02 business tables or tenant data were introduced.
-- Live privilege check: `anon` EXECUTE = false; `authenticated` EXECUTE = false; `service_role` EXECUTE = true for `public.rls_auto_enable()`.
-- The postgres-owned `ensure_rls` DDL event trigger remains enabled.
-- Supabase Security Advisor after remediation: no security lints.
-- Realtime: not applicable; Phase 00 creates no application events.
-
-### Evidence
-
-- `AGENTS.md`, `README.md`, `CONTRIBUTING.md`, `.github/CODEOWNERS`.
-- `docs/adr/0001-bun-workspaces.md`.
-- `docs/architecture/monorepo.md`.
-- `docs/engineering/repository-governance.md`.
-- `docs/engineering/supabase-migrations.md`.
-- `docs/deployment/README.md`.
-- `services/*/README.md`, `apps/mobile-sales/README.md`.
-- Root Bun workspace configuration, `bun.lock`, `turbo.json`, `.nvmrc`, `.editorconfig`.
+- Root AGENTS.md, Master PRD, Engineering Execution Master Plan and cross-platform implementation flow remain canonical.
+- Bun 1.4.5 is the only JavaScript package manager; Bun workspaces and Turborepo remain canonical.
+- Existing Next.js portals and routes are preserved.
+- Applied migrations: 20261119101638_p00_create_private_schema and 20261119103355_p00_restrict_rls_auto_enable_execution.
+- The postgres-owned public.rls_auto_enable() SECURITY DEFINER function and ensure_rls event trigger remain intact; application roles cannot execute the function directly.
+- No Phase 02 schema was introduced in Phase 00.
 
 ## Phase 01 — Canonical Design System & Design Tokens
 
 Status: COMPLETED
 
-- [x] Nine canonical JSON sources retained as the single source of truth: primitives, semantic light, semantic dark, typography, spacing, radius, elevation, motion and breakpoints.
-- [x] Manifest-driven deterministic generator validates source manifest, brand colors, semantic roles, token groups, references and duplicate CSS custom properties.
-- [x] Generator build and check commands both execute successfully.
-- [x] Generated Web CSS, Native TypeScript and TypeScript declaration artifacts committed and reproducible.
-- [x] Shared Design System public exports finalized for Web and Native without importing React Native into the Web entrypoint.
-- [x] Web `ThemeProvider`, `useTheme`, `ThemeToggle`, `PageShell`, `Stack`, `Inline` and `Surface` available.
-- [x] Native `NativeThemeProvider`, `useNativeTheme`, `useNativeBreakpoint`, `NativePageShell`, `NativeStack`, `NativeInline`, `NativeSurface`, `NativeText`, `NativeButton` and `NativeThemeToggle` available through `@salesx-ai/design-system/native`.
-- [x] Light default and dark theme use canonical semantic token mapping.
-- [x] Native typography uses bundled Plus Jakarta Sans and JetBrains Mono assets; font sizes, line-height and weights come from canonical typography tokens.
-- [x] Native spacing, radius, elevation adapter, motion duration/easing and responsive breakpoints derive from canonical tokens.
-- [x] Web consumes generated CSS custom properties in `app/globals.css`; existing Web theme hook and theme controls remain compatible.
-- [x] Web layout/PWA metadata colors read canonical token exports.
-- [x] Expo Sales app is a real Bun workspace and runnable React Native consumer, not a README-only placeholder.
-- [x] Expo app includes SDK configuration, entry point, Babel preset, TypeScript config, scripts, EAS preview/production profiles and Metro startup verifier.
-- [x] Native app consumes the shared Native Design System and generated canonical Native tokens.
-- [x] Focus-visible, reduced-motion and minimum 44px touch-target foundations retained for the Web system; Native controls expose accessible roles/labels and 44px minimum target.
-- [x] No Supabase theme preference schema/API or Realtime channel was introduced; static theme state is presentation-only.
+- Nine canonical JSON token sources and deterministic Web/Native generation remain complete.
+- Shared Web/Native Design System and runnable Expo SDK 58 application remain complete.
+- Existing Web presentation and routes are preserved.
+- Static theme does not require Supabase persistence or Realtime.
 
-### Implementation evidence
+## Phase 02 — Identity, Tenant & Authorization Foundation
 
-- Canonical sources: `packages/design-tokens/tokens/`.
-- Generator: `packages/design-tokens/scripts/build-tokens.mjs`.
-- Generated outputs: `packages/design-tokens/generated/web.css`, `native.ts`, `tokens.d.ts`.
-- Web shared system: `packages/design-system/src/`, `app/globals.css`, `app/layout.tsx`, `app/manifest.ts`, `components/providers/AppProviders.tsx`.
-- Native shared system: `packages/design-system/src/native/`.
-- Runnable Expo consumer: `apps/mobile-sales/App.tsx`, `index.ts`, `app.config.ts`, `package.json`, `tsconfig.json`, `eas.json`, `scripts/verify-start.mjs`.
+Status: PARTIAL
 
-### Engineering validation evidence
+### Implemented and applied
+- [x] Supabase Auth remains the sole credential and identity provider; database profile and provider identity mirror triggers are installed.
+- [x] Organization and branch identity tables, profiles, identity mapping, memberships, role/permission catalogs, scoped role assignments, device metadata and append-only audit schema are applied.
+- [x] RLS is enabled on all 11 Phase 02 tables. Own-profile/identity/membership and active-member organization/branch reads are scoped; all client writes and sensitive tables are denied.
+- [x] Existing postgres-owned public.rls_auto_enable() and ensure_rls event trigger were inspected and preserved; anon/authenticated cannot execute the function.
+- [x] FastAPI JWT verifier, live Supabase session check, profile/account status check, tenant resolver, recursive RBAC/ABAC policy dependency and stable error envelope are implemented.
+- [x] Organization bootstrap, member status, scoped role assignment, session/device registry and tenant audit endpoints are implemented.
+- [x] Shared identity types, API contracts, permission helpers and Supabase Auth REST client package are added.
 
-**GitHub Actions — SUCCESS**
+### Remaining — phase completion blockers
+- [ ] Existing Web portal login/logout/recovery/verification flows still use local demo state and must be migrated to shared Auth client and FastAPI context without redesign.
+- [ ] Expo requires real sign-in/session lifecycle and a platform SecureStore adapter; current app remains the Phase 01 shell.
+- [ ] Manual identity linking and provider configuration must be wired; automatic Auth linking and DB identity mirror exist.
+- [ ] FastAPI deployment environment is not configured/verified. Required: exact Supabase DATABASE_URL, signing/JWKS configuration, CORS origins and API origin.
+- [ ] End-to-end JWT/API checks and cross-consumer build validation are not evidenced.
+- [ ] Remote Auth Admin session revocation is not implemented; local API revocation denies requests but does not revoke the Auth refresh token itself.
+- [ ] Membership invitation delivery and account status administration endpoints remain to be integrated.
 
-- Workflow: [SalesX-Ai Phase 00-01 Foundation Verification](https://github.com/fadliansyah36/SalesXAi-Platform/actions/runs/44511297656).
-- Tested source HEAD: `87d562d5efcae12d93ef1dbbb09b6f52d4ded780`.
-- Runtime: Node.js 22.16.0 and Bun 1.4.5.
-- PASS — `bun install` across root, app and package workspaces.
-- PASS — `bun install --frozen-lockfile`.
-- PASS — `bun run tokens:build`.
-- PASS — `bun run tokens:check` (three generated artifacts match nine canonical JSON sources).
-- PASS — Web TypeScript: `bun run typecheck`.
-- PASS — Web lint: `bun run lint`.
-- PASS — Native TypeScript: `bun run mobile:typecheck`.
-- PASS — Expo SDK dependency compatibility: `expo install --check`.
-- PASS — Expo config resolution: `expo config --type public`.
-- PASS — Expo Metro startup: local `/status` returned `packager-status:running`.
-- PASS — Android JavaScript bundle export: `expo export --platform android`.
-- PASS — iOS JavaScript bundle export: `expo export --platform ios`.
-- PASS — Turborepo monorepo build: `bun run build:all`.
-- No EAS native binary build or production deployment is claimed; neither is required by this phase's runnable Expo consumer definition of done.
+### Supabase evidence
+- Project eyofuiyxalbehbqoaeny, PostgreSQL 17.12, status ACTIVE_HEALTHY.
+- Applied migration history:
+  - 20261119112132 p02_identity_tenant_authorization
+  - 20261119112853 p02_audit_retention_and_private_function_grants
+  - 20261119112941 p02_explicit_deny_policies_and_role_scope_guard
+- All 11 Phase 02 public tables report RLS enabled.
+- Privilege check: anon profile SELECT false; authenticated profile SELECT true; authenticated roles SELECT false; authenticated audit SELECT false; anon/authenticated EXECUTE on public.rls_auto_enable() false; authenticated EXECUTE on app_private.is_active_org_member(uuid) true.
+- Security Advisor: zero findings after explicit deny policies were added.
+- Realtime: not applicable; authorization re-reads authoritative PostgreSQL state per request.
 
-### Supabase
+### Engineering evidence
+- FastAPI source: services/api/app/.
+- Shared packages: packages/shared-types, packages/api-contracts, packages/permissions, packages/auth-client.
+- API static validation workflow: .github/workflows/phase-02-api-checks.yml.
+- Security architecture: docs/engineering/identity-and-authorization.md.
 
-- Migration: not applicable to Phase 01; design tokens and theme state are static presentation configuration.
-- Realtime: not applicable.
-
-### Commit evidence
-
-- Verified implementation HEAD: `87d562d5efcae12d93ef1dbbb09b6f52d4ded780`.
-- Workflow run: `44511297656` — completed successfully.
-- This tracker update is committed separately to `main`; its resulting SHA is the final repository HEAD.
+Phase 02 remains PARTIAL until Web and Expo consumers are integrated, server configuration is verified and essential JWT/API checks are recorded.
 
 ## Next phase
 
-**Phase 02 — Identity, Tenant & Authorization Foundation.**
-
-Phase 00 and Phase 01 are complete. Phase 02 is the next authorized implementation scope; do not pull Phase 02 business schema or identity features backward into the completed foundation phases.
+Phase 02 remains in progress. Phase 03 is not authorized until Phase 02 reaches COMPLETED.
