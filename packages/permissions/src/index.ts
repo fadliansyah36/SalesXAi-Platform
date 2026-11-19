@@ -1,5 +1,6 @@
 type PortalKey="sales"|"company"|"customer"|"distributor"|"principal"|"supervisor"|"super_admin";
 export const PERMISSIONS=[
+  "account:read",
   "account:status:manage",
   "audit:read",
   "branch:manage",
@@ -23,6 +24,7 @@ export const PERMISSIONS=[
   "profile:read:self",
   "profile:update:self",
   "role:assign",
+  "role:read",
 ] as const;
 export type Permission=(typeof PERMISSIONS)[number];
 /** UX helper only; FastAPI remains the authorization authority. */
