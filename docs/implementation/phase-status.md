@@ -217,3 +217,48 @@ Phase 02 remains in progress. Phase 03 is not authorized until Phase 02 reaches 
 ### Documentation synchronization commits
 - `c8c239d16ce8c284de13d39cf5483899acdb0ceb` — phase tracker synchronized with typed identity API integration.
 - `53e8534a48e8228d2ab33c194c11355c447874ba` — identity/security architecture synchronized with linked identity API methods.
+
+
+## Phase 02 — final implementation continuation (2026-11-19)
+
+### Additional code blockers closed in this continuation
+
+- Google OAuth and manual identity linking now generate an independent cryptographically random OIDC nonce and send it to the Supabase Auth authorize endpoint alongside PKCE S256. Supabase Auth is responsible for validating the upstream provider ID-token nonce; Google credentials and provider enablement remain deployment-dependent.
+- Corrected the organization invitation callback URL for both create and resend. The callback now carries the raw token as `organization_invite=<token>`; the previous string replacement incorrectly generated `organization_invite=token=<token>`. The Web callback continues to route the verified user to the explicit accept/reject screen; Expo completes acceptance through the typed FastAPI client after verification.
+- Added one cycle-safe inherited role hierarchy resolver for invitation create/resend, member role assignment and assignable-role discovery. Delegation is evaluated against platform, tenant and exact target-branch scope, and no longer relies only on directly assigned roles.
+- Invitation create now rejects an already-active or suspended membership. Invitation resend revalidates that the stored branch scope is still active and belongs to the same organization.
+- Web portal descendants are remounted when the account or active organization changes. Expo exposes a context epoch and remounts the native Sales screen on account/tenant changes. This clears in-memory screen state without changing the existing UI design.
+- No database schema delta was introduced by these changes; no migration was required or applied.
+
+### Latest code commits
+
+- `fb9511cf5472d2ad433fb2460c0129e73d97a4c2` — add OIDC nonce to Google OAuth sign-in and identity-link authorization.
+- `9cf0d118432f4ca99311143c19daa9edbe5d661a` — cycle-safe inherited delegation hierarchy and corrected initial invitation callback.
+- `50e39f4821e0378b93510526bf71618b4f2ace1d` — correct invitation callback token on resend.
+- `41ad908e3e15e37996939cd99681c5cab249d256` — remount Web portal consumers on tenant/account context changes.
+- `8bf6a955143c10139133534c8490b04f26638051` — expose native auth context epoch.
+- `67e612b6a7c505a13fbd81b93a8753b613a67c61` — remount native Sales screen when tenant context changes.
+- `0bcbd483d7d8e5e2db7a45c8f3e0eba3416b5809` — apply inherited scope-aware delegation checks on invitation resend.
+- `2f396dcb914dcb4410b4703a81586546349031a5` — reject duplicate active/suspended memberships and stale branch scope during invitation resend.
+- `eb966f68926c88a31fd0872587057ea562d3fd75` — preserve the explicit Web invitation accept/reject screen after callback verification.
+- Latest verified code/documentation head for this continuation: `eb966f68926c88a31fd0872587057ea562d3fd75`.
+
+### Current validation evidence
+
+- Supabase project `eyofuiyxalbehbqoaeny`: `ACTIVE_HEALTHY`, PostgreSQL 17.12, region `ap-northeast-1`.
+- Migration ledger remains at 9 applied versions through `20261119131809_p02_add_missing_foreign_key_indexes`; no migration was needed for this application-layer continuation.
+- Read-only SQL confirms 12 public tables, 12/12 RLS enabled, and one explicit policy on each of the 12 tables.
+- Security Advisor: zero lints.
+- Performance Advisor: informational `unused_index` notices only (24 findings on the low-activity schema); no FK-index regression was reported. Existing FK indexes are retained.
+- GitHub combined commit status for the latest code head returned no status entries; the workflow-run query returned no runs for the latest code head. Therefore no fresh typecheck/build, FastAPI compileall/Ruff, or API contract test is claimed for these additional commits.
+- No live `/readyz`, authenticated `/api/v1/auth/me`, Google OAuth round-trip, SMTP delivery, Supabase Auth Admin ban/invite, or device revocation operation was executed.
+
+### Revocation boundary and remaining blockers
+
+- FastAPI checks the Supabase `auth.sessions` row, `session_devices.revoked_at`, profile account status and `session_revoked_at` on protected requests. A session revoked through `DELETE /api/v1/auth/sessions/{session_id}` is denied by the backend; the shared API client clears the local session/context when it receives the explicit revoked-session response.
+- Supabase Auth's supported sign-out scopes remain `local`, `global` and `others` for the authenticated session. Supabase does not expose a supported operation to revoke only an arbitrary other device's refresh token by session ID. The per-device FastAPI deny-list therefore enforces product API revocation, but does not revoke that remote Supabase refresh token. This is an explicit unresolved provider-level blocker; it is not reported as complete.
+- Google OAuth provider credentials, callback allowlist and manual identity-linking settings remain unconfigured in Supabase Auth.
+- Deployment secrets remain intentionally unset: `DATABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `APP_PUBLIC_URL`, exact `CORS_ORIGINS`, and SMTP credentials. Runtime DB readiness, Auth Admin operations and invitation email delivery remain deployment-dependent.
+- Full permission-aware visibility/action mapping across every existing portal feature screen is not yet evidenced exhaustively. FastAPI remains the authoritative default-deny boundary for the Phase 02 protected endpoints.
+
+**Official status remains IN PROGRESS / PARTIAL. Phase 03 remains LOCKED and has not been started.**
