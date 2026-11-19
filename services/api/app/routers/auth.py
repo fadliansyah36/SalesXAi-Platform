@@ -31,7 +31,7 @@ async def get_auth_context(
             select r.id,r.parent_role_id from public.user_role_assignments ura join public.roles r on r.id=ura.role_id
             where ura.user_id=$1 and ura.membership_id=$2 and $3='active' and ura.revoked_at is null
               and ura.starts_at<=now() and (ura.expires_at is null or ura.expires_at>now())
-            union all select p.id,p.parent_role_id from role_tree rt join public.roles p on p.id=rt.parent_role_id)
+            union select p.id,p.parent_role_id from role_tree rt join public.roles p on p.id=rt.parent_role_id)
           select distinct rp.permission_key from role_tree rt join public.role_permissions rp on rp.role_id=rt.role_id
           order by rp.permission_key""",principal.user_id,row["id"],row["status"])
         memberships.append(MembershipResponse(
@@ -45,7 +45,7 @@ async def get_auth_context(
         where ura.user_id=$1 and ura.scope_type='platform' and ura.membership_id is null
           and ura.scope_id is null and ura.revoked_at is null and ura.starts_at<=now()
           and (ura.expires_at is null or ura.expires_at>now())
-        union all select p.id,p.parent_role_id from role_tree rt join public.roles p on p.id=rt.parent_role_id)
+        union select p.id,p.parent_role_id from role_tree rt join public.roles p on p.id=rt.parent_role_id)
       select distinct rp.permission_key from role_tree rt
       join public.role_permissions rp on rp.role_id=rt.role_id order by rp.permission_key""",
       principal.user_id)
