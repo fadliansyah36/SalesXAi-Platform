@@ -73,6 +73,10 @@ export interface RoleAssignmentResponse {
   scope_type:"tenant"|"branch";scope_id:UUID;created_at:ISODateTime;
 }
 export interface AccountStatusUpdateRequest {status:"active"|"suspended"|"deactivated";}
+export interface AccountStatusUpdateResponse {
+  user_id:UUID;status:AccountStatus;session_revoked_at:ISODateTime|null;
+  supabase_auth_ban_applied:boolean;api_session_epoch_enforced:boolean;
+}
 export interface ApiErrorEnvelope {
   error:{code:string;message:string;correlation_id:string|null};
 }
