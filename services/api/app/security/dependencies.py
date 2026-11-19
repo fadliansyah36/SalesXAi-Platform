@@ -97,6 +97,52 @@ async def resolve_tenant_context(
     request.state.tenant_context=context
     return context
 
+def require_self_permission(permission_key: str):
+    """Authorize an account-owned action from active platform/tenant/branch assignments."""
+    async def dependency(
+        request: Request,
+        principal: Principal = Depends(get_current_principal),
+        connection: asyncpg.Connection = Depends(get_connection),
+    ) -> Principal:
+        rows = await connection.fetch(
+            """
+            with recursive role_tree(role_id,parent_role_id,attributes) as (
+              select r.id,r.parent_role_id,ura.attributes
+              from public.user_role_assignments ura
+              join public.roles r on r.id=ura.role_id
+              left join public.organization_memberships m on m.id=ura.membership_id
+              left join public.organizations o on o.id=m.organization_id
+              left join public.branches b on b.id=ura.scope_id
+              where ura.user_id=$1 and ura.revoked_at is null
+                and ura.starts_at<=now() and (ura.expires_at is null or ura.expires_at>now())
+                and (
+                  (ura.scope_type='platform' and ura.membership_id is null and ura.scope_id is null)
+                  or (ura.scope_type='tenant' and m.user_id=$1 and m.status='active'
+                      and o.status='active' and ura.scope_id=o.id)
+                  or (ura.scope_type='branch' and m.user_id=$1 and m.status='active'
+                      and o.status='active' and b.organization_id=o.id and b.status='active'
+                      and ura.scope_id=b.id)
+                )
+              union
+              select parent.id,parent.parent_role_id,child.attributes
+              from role_tree child join public.roles parent on parent.id=child.parent_role_id
+            )
+            select distinct tree.attributes
+            from role_tree tree
+            join public.role_permissions rp on rp.role_id=tree.role_id
+            where rp.permission_key=$2
+            """,
+            principal.user_id,permission_key,
+        )
+        resource={"owner_user_id":str(principal.user_id)}
+        if not any(abac_conditions_match(row["attributes"],resource) for row in rows):
+            raise APIError(403,"forbidden","The requested self-scoped identity action is not permitted.")
+        request.state.authorized_permission=permission_key
+        request.state.resource_attributes=resource
+        return principal
+    return dependency
+
+
 def require_permission(permission_key: str):
     async def dependency(
         request: Request,
