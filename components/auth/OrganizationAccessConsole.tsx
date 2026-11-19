@@ -25,6 +25,9 @@ export function OrganizationAccessConsole(){
  const canManageInvites=auth.hasPermission("organization:invitations:manage");
  const canReadMembers=auth.hasPermission("organization:members:read");
  const canManageMembers=auth.hasPermission("organization:members:manage");
+ const canReadIdentity=auth.hasPermission("identity:read:self");
+ const canLinkIdentity=auth.hasPermission("identity:link:self");
+ const canUnlinkIdentity=auth.hasPermission("identity:unlink:self");
 
  const load=useCallback(async()=>{
   if(!org||!auth.apiClient)return;
@@ -39,12 +42,14 @@ export function OrganizationAccessConsole(){
    if(roles.length)setRole(previous=>roles.some(item=>item.key===previous)?previous:roles[0].key);
    setInvitations(await api.listInvitations(org));
   })());
-  jobs.push((async()=>{
+  if(canReadIdentity)jobs.push((async()=>{
    setIdentities(await api.listLinkedIdentities());
+  })());
+  jobs.push((async()=>{
    setSessions(await api.listSessions());
   })());
   await Promise.all(jobs);
- },[org,canReadMembers,canManageInvites,auth.apiClient]);
+ },[org,canReadMembers,canManageInvites,canReadIdentity,auth.apiClient]);
 
  useEffect(()=>{void load().catch(e=>setMessage(e instanceof Error?e.message:"Gagal memuat akses organisasi."));},[load]);
 
@@ -113,11 +118,11 @@ export function OrganizationAccessConsole(){
     {!session.current&&!session.revoked_at&&<button disabled={busy} onClick={()=>void revokeDeviceSession(session.auth_session_id).catch(e=>setMessage(e instanceof Error?e.message:"Sesi tidak dapat dicabut."))} className="text-xs font-semibold text-red-600">Cabut akses</button>}
    </div>)}</div>
   </section>
-  <section className="space-y-3 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+  {canReadIdentity&&<section className="space-y-3 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
    <h2 className="text-lg font-semibold">Identitas login</h2>
-   <button onClick={()=>void linkGoogle()} className="rounded-lg border border-[var(--color-border)] px-3 py-2 text-sm font-semibold">Hubungkan Google identity</button>
-   <div className="space-y-2">{identities.map(identity=><div key={identity.id} className="flex items-center justify-between gap-3 rounded-lg border border-[var(--color-border)] p-3"><div><p className="font-medium">{identity.provider}</p><p className="text-xs text-[var(--color-text-muted)]">{identity.email??identity.id}{identity.is_primary?" · Primary":""}</p></div><button disabled={identity.is_primary||identities.length<=1} onClick={()=>void unlink(identity.id)} className="text-xs font-semibold text-red-600 disabled:opacity-40">Unlink</button></div>)}</div>
-  </section>
+   {canLinkIdentity&&<button onClick={()=>void linkGoogle()} className="rounded-lg border border-[var(--color-border)] px-3 py-2 text-sm font-semibold">Hubungkan Google identity</button>}
+   <div className="space-y-2">{identities.map(identity=><div key={identity.id} className="flex items-center justify-between gap-3 rounded-lg border border-[var(--color-border)] p-3"><div><p className="font-medium">{identity.provider}</p><p className="text-xs text-[var(--color-text-muted)]">{identity.email??identity.id}{identity.is_primary?" · Primary":""}</p></div>{canUnlinkIdentity&&<button disabled={identity.is_primary||identities.length<=1} onClick={()=>void unlink(identity.id)} className="text-xs font-semibold text-red-600 disabled:opacity-40">Unlink</button>}</div>)}</div>
+  </section>}
   {org&&canManageInvites&&<section className="space-y-3">
    <h2 className="text-lg font-semibold">Undangan anggota</h2>
    <form onSubmit={createInvite} className="grid gap-3 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 md:grid-cols-4">
