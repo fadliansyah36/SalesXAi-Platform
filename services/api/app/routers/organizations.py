@@ -507,10 +507,10 @@ async def resend_invitation(
             raise APIError(403,"privilege_escalation_denied","You cannot resend an equal- or higher-privilege invitation.")
         await write_audit(connection,request,principal,"organization.invitation.resent",
             "organization_invitation",str(row["id"]),tenant,metadata={"email":row["email"]})
-    existing_identity = await connection.fetchval(
-        "select exists(select 1 from auth.users where lower(email)=lower($1))",row["email"]
+    identity = await connection.fetchrow(
+        "select email_confirmed_at from auth.users where lower(email)=lower($1) limit 1",row["email"]
     )
-    if existing_identity:
+    if identity and identity["email_confirmed_at"] is not None:
         await request.app.state.invitation_delivery.send(
             recipient=row["email"],
             organization_name=tenant.organization_name,
@@ -519,8 +519,13 @@ async def resend_invitation(
         )
         delivery_status = "smtp_email_sent"
     else:
-        await request.app.state.supabase_auth.invite_user(
-            row["email"], invite_url.replace("/auth/accept-invitation?", "/auth/callback?organization_invite=")
+        callback_url = invite_url.replace(
+            "/auth/accept-invitation?", "/auth/callback?organization_invite="
         )
-        delivery_status = "supabase_auth_invite_sent"
+        if identity:
+            await request.app.state.supabase_auth.resend_signup_confirmation(row["email"], callback_url)
+            delivery_status = "supabase_auth_verification_sent"
+        else:
+            await request.app.state.supabase_auth.invite_user(row["email"], callback_url)
+            delivery_status = "supabase_auth_invite_sent"
     return {**dict(row),"invitation_url":invite_url,"delivery_status":delivery_status}
