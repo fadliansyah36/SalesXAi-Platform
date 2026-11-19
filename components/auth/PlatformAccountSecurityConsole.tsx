@@ -13,8 +13,9 @@ export function PlatformAccountSecurityConsole(){
  async function update(event:React.FormEvent){
   event.preventDefault();setBusy(true);setMessage("");
   try{
-   if(!auth.apiClient)throw new Error("FastAPI client belum dikonfigurasi.");
-   const body=await auth.apiClient.updateAccountStatus(userId,{status});
+   const api=auth.apiClient;
+   if(!api)throw new Error("FastAPI client belum dikonfigurasi.");
+   const body=await api.updateAccountStatus(userId,{status});
    setMessage("Status akun: "+body.status+". Supabase Auth ban: "+String(body.supabase_auth_ban_applied)+".");
   }catch(e){setMessage(e instanceof Error?e.message:"Operasi gagal.");}
   finally{setBusy(false);}
