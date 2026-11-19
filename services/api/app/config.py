@@ -40,6 +40,26 @@ class Settings(BaseSettings):
             raise ValueError("SUPABASE_URL must reference the bound SalesX-Ai project eyofuiyxalbehbqoaeny")
         return value
 
+    @field_validator("app_public_url")
+    @classmethod
+    def validate_app_public_url(cls, value: str | None) -> str | None:
+        if value is None or not value.strip():
+            return None
+        parsed = urlsplit(value.strip().rstrip("/"))
+        if (
+            parsed.scheme not in {"http", "https"}
+            or not parsed.netloc
+            or parsed.username
+            or parsed.password
+            or parsed.path
+            or parsed.query
+            or parsed.fragment
+        ):
+            raise ValueError("APP_PUBLIC_URL must be an exact HTTP(S) origin without credentials, path, query or fragment")
+        if parsed.scheme != "https" and parsed.hostname not in {"localhost", "127.0.0.1", "::1"}:
+            raise ValueError("APP_PUBLIC_URL must use HTTPS outside local development")
+        return f"{parsed.scheme}://{parsed.netloc}"
+
     @field_validator("supabase_jwks_url")
     @classmethod
     def validate_jwks_project(cls, value: AnyHttpUrl | None) -> AnyHttpUrl | None:
@@ -164,6 +184,8 @@ class Settings(BaseSettings):
     def validate_pool_bounds(self):
         if self.db_pool_min_size > self.db_pool_max_size:
             raise ValueError("DB_POOL_MIN_SIZE cannot exceed DB_POOL_MAX_SIZE")
+        if self.app_public_url and self.allowed_origins and self.app_public_url not in self.allowed_origins:
+            raise ValueError("APP_PUBLIC_URL must also be present in CORS_ORIGINS")
         return self
 
     @property
