@@ -43,4 +43,18 @@ class SessionMutationService:
    await write_audit(connection,request,principal,"auth.session.remote_signed_out","auth_session",str(principal.session_id),
     metadata={"scope":payload.scope,"supabase_auth_confirmed":True})
 
+ async def authorize_refresh(self,connection:asyncpg.Connection,user_id:UUID,session_id:UUID,issued_at)->None:
+  from datetime import UTC,datetime
+  row=await self.repository.get_refresh_context(connection,user_id,session_id)
+  if row is None or row["status"]!="active":
+   raise APIError(403,"account_inactive","This account is not active.")
+  if row["email_confirmed_at"] is None and row["phone_confirmed_at"] is None:
+   raise APIError(403,"identity_unverified","Verify the account before refreshing this session.")
+  now=datetime.now(UTC)
+  if (row["session_id"] is None or row["device_id"] is None or row["revoked_at"] is not None
+      or (row["not_after"] is not None and row["not_after"]<=now)
+      or (row["expires_at"] is not None and row["expires_at"]<=now)
+      or (row["session_revoked_at"] is not None and issued_at<=row["session_revoked_at"])):
+   raise APIError(401,"session_revoked","This device session is no longer authorized to refresh.")
+
 session_mutation_service=SessionMutationService()
