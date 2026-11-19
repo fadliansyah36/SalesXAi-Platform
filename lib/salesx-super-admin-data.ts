@@ -39,7 +39,7 @@ export interface PlatformUserRecord {
   tenantId: string;
   tenantName: string;
   role: string;
-  status: 'Aktif' | 'Suspended';
+  status: 'Aktif' | 'Suspended' | 'Pending' | 'Deactivated';
   mfaEnabled: boolean;
   lastActive: string;
 }
