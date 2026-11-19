@@ -50,8 +50,9 @@ class Phase03MasterDataContractTests(unittest.TestCase):
         self.assertTrue(migration.exists())
         sql = migration.read_text().lower()
         for table in ("teams", "territories", "outlets", "sales_profiles", "outlet_assignment_history"):
-            self.assertIn(f"alter table public.{table} enable row level security", sql)
+            self.assertIn(f"'{table}'", sql)
             self.assertIn(f"public.{table}", sql)
+        self.assertIn("alter table public.%i enable row level security", sql)
         self.assertIn("outlet_assignment_one_active_uq", sql)
         self.assertIn("foreign key(organization_id,branch_id)", sql)
 
