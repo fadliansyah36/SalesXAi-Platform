@@ -6,8 +6,7 @@ import { SalesXApiClient } from "@salesx-ai/api-client";
 import type { AuthContext } from "@salesx-ai/shared-types";
 
 export type MobileAuthStatus="loading"|"unauthenticated"|"authenticated"|"configuration_error"|"error";
-const supabaseUrl=process.env.EXPO_PUBLIC_SUPABASE_URL??"";
-const publishableKey=process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY??"";
+const authBffUrl=(process.env.EXPO_PUBLIC_AUTH_BFF_URL??"").replace(/\/$/,"");
 const apiOrigin=(process.env.EXPO_PUBLIC_SALESX_API_URL??"").replace(/\/$/,"");
 const redirectUrl="salesxai://auth/callback";
 
@@ -40,8 +39,8 @@ export function useMobileSalesAuth(){
  apiClientRef.current=apiClient;
 
  useEffect(()=>{
-  if(!supabaseUrl||!publishableKey||!apiOrigin){
-   setError("EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY dan EXPO_PUBLIC_SALESX_API_URL wajib dikonfigurasi.");
+  if(!authBffUrl||!apiOrigin){
+   setError("EXPO_PUBLIC_AUTH_BFF_URL dan EXPO_PUBLIC_SALESX_API_URL wajib dikonfigurasi.");
    setStatus("configuration_error");return;
   }
   const storage:SessionStorage={
@@ -49,7 +48,10 @@ export function useMobileSalesAuth(){
    setItem:(key,value)=>SecureStore.setItemAsync(key,value,{keychainAccessible:SecureStore.AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY}),
    removeItem:key=>SecureStore.deleteItemAsync(key),
   };
-  setClient(new SalesXAuthClient({supabaseUrl,publishableKey,storage,storageKey:"salesx-mobile-auth-v1"}));
+  setClient(new SalesXAuthClient({
+   supabaseUrl:authBffUrl,publishableKey:"",authProxy:true,
+   storage,storageKey:"salesx-mobile-auth-v1",
+  }));
  },[]);
 
  const loadContext=useCallback(async(current:AuthSession)=>{
@@ -169,6 +171,10 @@ export function useMobileSalesAuth(){
 
  const linkIdentity=useCallback(async()=>{
   if(!client)throw new Error("Supabase Auth belum siap.");
+  const transport=apiClientRef.current;
+  if(!transport)throw new Error("FastAPI client belum dikonfigurasi.");
+  const authorization=await transport.fetch("/api/v1/auth/identities/link-authorize",{method:"POST"});
+  if(!authorization.ok)throw new Error("Identity linking tidak diizinkan untuk akun ini.");
   const authorizationUrl=await client.beginIdentityLink("google",redirectUrl);
   await Linking.openURL(authorizationUrl);
  },[client]);
