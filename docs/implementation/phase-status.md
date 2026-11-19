@@ -17,7 +17,7 @@ Status: IN_PROGRESS
 - [ ] Record final bootstrap evidence and close remaining structure tasks.
 
 Database:
-- Migration file: `supabase/migrations/20261119180000_p00_create_private_schema.sql`
+- Migration file: `supabase/migrations/20261119101638_p00_create_private_schema.sql`
 - Migration history: `20261119101638 / p00_create_private_schema`
 - Target: `eyofuiyxalbehbqoaeny`
 - Applied: confirmed in Supabase migration history
