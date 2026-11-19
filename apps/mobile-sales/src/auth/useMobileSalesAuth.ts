@@ -55,15 +55,15 @@ export function useMobileSalesAuth(){
  const loadContext=useCallback(async(current:AuthSession)=>{
   const transport=apiClientRef.current;
   if(!transport)throw new Error("FastAPI client belum dikonfigurasi.");
+  await transport.registerCurrentSession({
+   platform:Platform.OS==="ios"?"ios":"android",
+   device_name:"SalesX-Ai Mobile Sales",
+  });
   const next=await transport.getAuthContext();
   setContext(next);
   setActiveOrganizationIdState(previous=>
    previous&&next.memberships.some(m=>m.organization_id===previous&&m.status==="active")
     ?previous:next.memberships.find(m=>m.status==="active")?.organization_id??null);
-  await transport.registerCurrentSession({
-   platform:Platform.OS==="ios"?"ios":"android",
-   device_name:"SalesX-Ai Mobile Sales",
-  });
   const resolvedSession=client?await client.getSession():null;
   setSession(resolvedSession??current);setStatus("authenticated");setError(null);
  },[client]);
