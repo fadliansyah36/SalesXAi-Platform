@@ -401,7 +401,7 @@ DATABASE_URL, SUPABASE_PUBLISHABLE_KEY, SUPABASE_SECRET_KEY, SALESX_API_URL, SAL
   - Expo app config and Metro startup passed.
   - Android and iOS JS bundle exports passed.
   - Turborepo workspace build passed.
-- The follow-up commit `4b4b411e8258af68fb5a70722e110551d0eec975` additionally makes BFF-only API action IDs return false from the client resolver. Its new push workflow was still running at the time of this record; do not treat that commit as independently validated until its run concludes.
+- The follow-up commit `4b4b411e8258af68fb5a70722e110551d0eec975` makes BFF-only API action IDs return false from the client resolver. API workflow **44572989578** on this commit completed SUCCESS, including API tests, compileall, Ruff, Web TypeScript and Web lint. The separate foundation workflow **44572989593** was still running its Expo/native verification at the time of this update.
 - No live Auth provider, SMTP, runtime DB, deployment, or real-world behavior is claimed.
 
 **Official Phase 02 status remains IN PROGRESS / PARTIAL. Phase 03 status remains independently tracked and does not change Phase 02 closure criteria.**
