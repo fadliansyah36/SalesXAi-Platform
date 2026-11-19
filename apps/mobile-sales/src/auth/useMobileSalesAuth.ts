@@ -33,6 +33,8 @@ export function useMobileSalesAuth(){
    },
   },
  }):null,[client,activeOrganizationId]);
+ const apiClientRef=useRef<SalesXApiClient|null>(null);
+ apiClientRef.current=apiClient;
 
  useEffect(()=>{
   if(!supabaseUrl||!publishableKey||!apiOrigin){
@@ -48,19 +50,20 @@ export function useMobileSalesAuth(){
  },[]);
 
  const loadContext=useCallback(async(current:AuthSession)=>{
-  if(!apiClient)throw new Error("FastAPI client belum dikonfigurasi.");
-  const next=await apiClient.getAuthContext();
+  const transport=apiClientRef.current;
+  if(!transport)throw new Error("FastAPI client belum dikonfigurasi.");
+  const next=await transport.getAuthContext();
   setContext(next);
   setActiveOrganizationIdState(previous=>
    previous&&next.memberships.some(m=>m.organization_id===previous&&m.status==="active")
     ?previous:next.memberships.find(m=>m.status==="active")?.organization_id??null);
-  await apiClient.registerCurrentSession({
+  await transport.registerCurrentSession({
    platform:Platform.OS==="ios"?"ios":"android",
    device_name:"SalesX-Ai Mobile Sales",
   });
   const resolvedSession=client?await client.getSession():null;
   setSession(resolvedSession??current);setStatus("authenticated");setError(null);
- },[apiClient,client]);
+ },[client]);
 
  const hydrate=useCallback(async(authClient:SalesXAuthClient)=>{
   if(busy.current)return;
@@ -109,8 +112,9 @@ export function useMobileSalesAuth(){
     setRecoveryPending(flowType==="recovery");
     await loadContext(next);
     if(invitationToken){
-     if(!apiClient)throw new Error("FastAPI client belum dikonfigurasi.");
-     await apiClient.request("/api/v1/organizations/invitations/accept",{
+     const transport=apiClientRef.current;
+     if(!transport)throw new Error("FastAPI client belum dikonfigurasi.");
+     await transport.request("/api/v1/organizations/invitations/accept",{
       method:"POST",
       body:JSON.stringify({token:invitationToken}),
      });
@@ -118,7 +122,7 @@ export function useMobileSalesAuth(){
     }
    }
   }catch(cause){setError(cause instanceof Error?cause.message:"Callback autentikasi tidak valid.");setStatus("error");}
- },[client,loadContext,apiClient]);
+ },[client,loadContext]);
 
  useEffect(()=>{
   if(!client)return;
