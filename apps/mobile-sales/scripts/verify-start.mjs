@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
 const port = Number(process.env.EXPO_PORT ?? 8081);
-const child = spawn('bun', ['x', 'expo', 'start', '--offline', '--non-interactive', '--localhost', '--port', String(port)], { stdio: 'inherit', env: { ...process.env, CI: '1' } });
+const child = spawn('bun', ['x', 'expo', 'start', '--localhost', '--port', String(port)], { stdio: 'inherit', env: { ...process.env, CI: '1' } });
 let exited = false;
 let exitCode = 0;
 child.once('exit', code => { exited = true; exitCode = code ?? 1; });
