@@ -97,6 +97,7 @@ export function useMobileSalesAuth(){
    const parsedUrl=new URL(url);
    const params=parsedUrl.searchParams;
    const tokenHash=params.get("token_hash");
+   const invitationToken=params.get("organization_invite");
    const flowType=params.get("type")??params.get("flow")??"signup";
    const oauthError=params.get("error");
    const code=params.get("code");
@@ -114,6 +115,17 @@ export function useMobileSalesAuth(){
    if(next){
     setRecoveryPending(flowType==="recovery");
     await loadContext(next);
+    if(invitationToken){
+     const response=await fetch(apiOrigin+"/api/v1/organizations/invitations/accept",{
+      method:"POST",
+      headers:{Authorization:"Bearer "+next.access_token,"Content-Type":"application/json","X-Client-Platform":Platform.OS==="ios"?"ios":"android"},
+      body:JSON.stringify({token:invitationToken}),
+      cache:"no-store",
+     });
+     const body=await response.json().catch(()=>({}));
+     if(!response.ok)throw new AuthClientError(body?.error?.message??"Undangan organisasi tidak dapat diterima.",response.status,body?.error?.code);
+     await loadContext(next);
+    }
    }
   }catch(cause){setError(cause instanceof Error?cause.message:"Callback autentikasi tidak valid.");setStatus("error");}
  },[client,loadContext]);
