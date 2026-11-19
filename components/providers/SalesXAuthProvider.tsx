@@ -68,7 +68,12 @@ export function SalesXAuthProvider({children}:{children:React.ReactNode}) {
       setItem:async(key,value)=>window.localStorage.setItem(key,value),
       removeItem:async key=>window.localStorage.removeItem(key),
     };
-    setClient(new SalesXAuthClient({supabaseUrl,publishableKey,storage,storageKey:"salesx-web-auth"}));
+    const oauthStorage:SessionStorage={
+      getItem:async key=>window.sessionStorage.getItem(key),
+      setItem:async(key,value)=>window.sessionStorage.setItem(key,value),
+      removeItem:async key=>window.sessionStorage.removeItem(key),
+    };
+    setClient(new SalesXAuthClient({supabaseUrl,publishableKey,storage,oauthStorage,storageKey:"salesx-web-auth"}));
   },[]);
 
   const loadContext=useCallback(async(current:AuthSession)=>{
