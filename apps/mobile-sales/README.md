@@ -16,4 +16,4 @@ The app imports `@salesx-ai/design-system/native`, which reads the generated `@s
 
 The Native foundation includes semantic light/dark colors, Plus Jakarta Sans and JetBrains Mono font assets, typography scales, spacing, radius, elevation adapters, motion durations/easing and responsive breakpoints. Theme defaults to light and can be toggled through an accessible control.
 
-Authentication, secure session storage, API client, offline outbox, GPS and business feature modules remain in their assigned domain phases.
+Authentication uses the shared @salesx-ai/auth-client, native Expo SecureStore (iOS Keychain / Android Keystore), FastAPI GET /api/v1/auth/me, tenant-scoped API requests, session refresh/revocation, SMS OTP, Google OAuth deep links, email verification/recovery callbacks, and permission-aware organization selection. Business feature modules, offline outbox and GPS workflows remain in their assigned domain phases.

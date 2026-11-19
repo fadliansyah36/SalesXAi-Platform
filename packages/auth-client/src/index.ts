@@ -142,7 +142,7 @@ export class SalesXAuthClient {
      method:"POST",body:JSON.stringify({refresh_token:token}),
     });
     await this.saveSession(session);return session;
-   } catch(error){await this.clearSession();throw error;}
+   } catch(error){if(error instanceof AuthClientError&&[400,401,403].includes(error.status))await this.clearSession();throw error;}
   })();
   try{return await this.refreshInFlight;}finally{this.refreshInFlight=null;}
  }

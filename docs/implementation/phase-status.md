@@ -44,14 +44,15 @@ Status: PARTIAL
 - [x] Supabase project metadata verified: ACTIVE_HEALTHY, PostgreSQL 17.12, region ap-northeast-1.
 
 ### Remaining — phase completion blockers
-- [ ] Expo native auth lifecycle and native secure storage are not yet implemented. apps/mobile-sales still needs a pinned expo-secure-store dependency, Bun lock update, SecureStore adapter, session restoration, auth/me integration, account switching and permission-aware native navigation.
+- [ ] Expo native auth source now uses Expo SecureStore, shared AuthClient, Supabase signup/login/verification/recovery/OTP/Google OAuth, session restoration/refresh, FastAPI auth/me and tenant context, account switching, identity link/unlink and remote logout. Final frozen-lockfile/typecheck/Expo SDK/Android+iOS bundle validation for the new SecureStore dependency is pending CI.
 - [ ] Supabase manual identity linking provider setting and Google OAuth callback/provider configuration are not verified in the target project.
 - [ ] Existing-user invitation email delivery is not connected to a transactional email provider: create/resend returns a one-time URL for authorized delivery. New unregistered identities receive Supabase Auth Admin invite email only when SUPABASE_SECRET_KEY is configured.
 - [ ] Permission-aware navigation is wired as portal-level UX guards; action-level visibility across every existing feature is not yet exhaustively mapped. FastAPI remains the authorization boundary.
 - [ ] FastAPI runtime is not configured/verified. DATABASE_URL (database password/session-pooler URL), SUPABASE_PUBLISHABLE_KEY, SUPABASE_SECRET_KEY, APP_PUBLIC_URL, exact CORS origins and API deployment secrets are not present in repository/runtime.
 - [ ] Account status endpoint requires SUPABASE_SECRET_KEY for Auth Admin ban/unban; this secret is not available through the repository or database connector.
 - [ ] Live FastAPI /readyz, authenticated /api/v1/auth/me, remote sign-out, invitation email delivery and Auth Admin ban checks remain unevidenced.
-- [ ] Cross-portal TypeScript/lint/build validation for the new Web Auth provider is pending CI.
+- [x] Web TypeScript and lint passed in GitHub Actions run 44525783030 (head 7d7932ca22ea670300efd1ab0d2edb7291feb330).
+- [ ] Native SecureStore dependency and final Expo SDK/Android+iOS bundle validation are pending CI.
 - [x] Source files for all 8 applied migration versions are now present in the GitHub migration directory. The 20261119115701, 20261119120627 and 20261119120742 SQL files were restored as idempotent source mirrors from the live schema and applied migration evidence; no migration was re-applied during this continuation.
 - [ ] Specific remote refresh-token revocation for a different device cannot be claimed from DELETE /auth/sessions/{id}; this endpoint denies that session at FastAPI only. Supabase global/others/local logout are remotely invoked when the active session is available.
 

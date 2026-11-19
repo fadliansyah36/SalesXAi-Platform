@@ -30,6 +30,10 @@ Account suspension/deactivation requires SUPABASE_SECRET_KEY for the Auth Admin 
 
 Organization invitations are stored as SHA-256 token hashes, expire after seven days and are bound to the verified Auth email. Create, accept, reject, expire, revoke and resend operations are tenant-scoped and audited. Role assignment is checked against the inviter's hierarchy and the invited role's tenant/branch scope. New Auth identities require Supabase Auth Admin invitation email; existing identities receive the one-time invitation URL through the authorized organization workflow.
 
+## Expo native session storage
+
+The Expo app uses the shared Auth REST client with an Expo SecureStore adapter. Supabase access/refresh tokens are stored in the platform secure store, not AsyncStorage or plaintext files. The app restores sessions on launch, refreshes expired sessions, handles OAuth/email verification/password-recovery deep links, uses FastAPI auth context and tenant selection, and invokes server-backed remote logout before clearing local secure storage. If the device is offline, local credentials are cleared but the UI explicitly reports that remote revocation could not be confirmed.
+
 ## Runtime environment
 
 FastAPI requires DATABASE_URL for the exact Supabase project, TLS, Supabase issuer/JWKS/audience configuration, exact CORS origins, APP_PUBLIC_URL, SUPABASE_PUBLISHABLE_KEY for remote logout and SUPABASE_SECRET_KEY for Auth Admin operations. Values are provided only through server environment/secrets. The committed .env.example files contain placeholders only.
