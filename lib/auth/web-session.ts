@@ -196,7 +196,10 @@ export async function enforceBffRateLimit(
 export async function authorizeBffRefresh(accessToken: string): Promise<Response | null> {
   const origin = apiUrl();
   const secret = process.env.SALESX_BFF_SHARED_SECRET ?? "";
-  if (!origin || secret.length < 32 || !accessToken) {
+  if (!accessToken) {
+    return Response.json({ error: { code: "session_token_missing", message: "A prior device session is required before refresh." } }, { status: 401 });
+  }
+  if (!origin || secret.length < 32) {
     return Response.json({ error: { code: "refresh_authorization_unavailable", message: "The registered session refresh gate is not configured." } }, { status: 503 });
   }
   try {
