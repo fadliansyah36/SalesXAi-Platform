@@ -123,6 +123,7 @@ export interface PlatformAuditLog {
 
 export interface MasterDataWrite {
   code?: string;
+  branch_type?: "head_office" | "branch" | "warehouse";
   name?: string;
   status?: "active" | "inactive" | "archived" | "suspended";
   branch_id?: UUID | null;
