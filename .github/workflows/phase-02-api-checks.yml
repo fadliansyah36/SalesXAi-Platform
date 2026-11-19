@@ -11,6 +11,9 @@ on:
       - "packages/auth-client/**"
       - "packages/shared-types/**"
       - "packages/permissions/**"
+      - "packages/api-client/**"
+      - "packages/api-contracts/**"
+      - "supabase/migrations/**"
       - "package.json"
       - "bun.lock"
       - ".github/workflows/phase-02-api-checks.yml"
@@ -19,12 +22,17 @@ on:
       - "services/api/**"
       - "components/**"
       - "app/**"
+      - "apps/mobile-sales/**"
       - "packages/auth-client/**"
       - "packages/shared-types/**"
       - "packages/permissions/**"
+      - "packages/api-client/**"
+      - "packages/api-contracts/**"
+      - "supabase/migrations/**"
       - "package.json"
       - "bun.lock"
       - ".github/workflows/phase-02-api-checks.yml"
+  workflow_dispatch:
 
 permissions:
   contents: read
