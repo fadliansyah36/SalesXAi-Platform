@@ -306,3 +306,44 @@ Phase 02 remains in progress. Phase 03 is not authorized until Phase 02 reaches 
 - `e7c31b8374d4b19e4017009999dfc8c036f80459` — phase tracker records final hardening, current validation evidence and all remaining blockers.
 - `da727c5247599623c957a55b5d4a92bfed4bfa3a` — identity/authorization engineering document synchronized with final code.
 - Latest repository head after documentation synchronization: `da727c5247599623c957a55b5d4a92bfed4bfa3a`.
+
+
+## Phase 02 — final implementation continuation and evidence (2026-11-19)
+
+**Current official status: PARTIAL — Phase 03 remains LOCKED.** This addendum supersedes earlier historical notes above where they state that rate limiting and the Web HttpOnly migration were still outstanding.
+
+### Implementation committed to main
+
+- **Session/device revocation:** FastAPI retains the per-device session_devices registry and checks live auth.sessions, not_after, device revocation, profile status and the session_revoked_at epoch on protected requests. Added BFF-only POST /api/v1/security/refresh-authorize: it verifies the prior JWT signature/issuer/audience with expiry ignored only for this gate, then requires an active, verified account, live Auth session, registered non-revoked device and a current revocation epoch. Web and Expo Auth BFFs call this gate before submitting a refresh token to Supabase Auth. This prevents a revoked device from refreshing through SalesX-Ai or using protected APIs. It does not revoke an arbitrary other device's provider refresh token; Supabase does not expose that individual operation.
+- **Distributed rate limiting:** services/api/app/services/rate_limit.py enforces PostgreSQL-backed atomic fixed-window buckets for sensitive FastAPI routes, with IP/account/identifier partitions, HMAC pseudonymous bucket keys when the BFF secret is configured, fail-closed storage errors, Retry-After responses, security logs and bounded cleanup. The server-only POST /api/v1/security/rate-limit applies the same shared store to Web and Expo Auth BFF actions: login, signup, OTP send/verify, email verification, password recovery/update, OAuth start/complete, identity link, refresh and sign-out. No in-memory limiter is used as the production source of truth.
+- **Web session hardening:** lib/auth/web-session.ts, app/api/auth/[...action]/route.ts, app/api/backend/[...path]/route.ts and middleware.ts implement the server-side Auth BFF, HttpOnly access/refresh cookies, Secure production cookies, SameSite policy, CSRF/origin checks, server-side refresh, tokenless browser session view and API proxy. Legacy browser localStorage/sessionStorage auth material is purged on provider initialization. Existing portal UI is preserved.
+- **Expo and shared API:** Expo uses expo-secure-store, the shared AuthClient and typed API client. The native Auth BFF applies distributed rate limits and the session refresh gate. Auth context, current-session registration, tenant selection, invitation acceptance, identity linking/unlinking, session list/revocation, sign-out and account-switch state clearing use shared FastAPI contracts.
+- **OAuth/invitation:** PKCE S256, callback-bound state, independent OIDC nonce, ten-minute transaction lifetime, one-time code exchange and original-user identity-link binding remain implemented. Invitation create/send/resend/accept/reject/expire/revoke and scope-safe role delegation remain implemented. Google provider activation/callback allowlist and SMTP/Auth Admin credentials are deployment configuration.
+- **Authorization:** central FastAPI RBAC/ABAC, tenant/branch ownership checks, self-scoped identity permissions and Super Admin navigation permission filtering are implemented. The full feature-action matrix across every business screen, button, menu and native business action is not yet exhaustive. No future business API is represented as protected until it has an explicit permission/resource-ownership dependency. This is the remaining code-level Phase 02 blocker.
+
+### Latest static validation evidence
+
+- API workflow 44568450839 on fddf5a61676eabc1f6fcba6c1e693b3db8a8f083: Python unit tests, compileall, Ruff, Web typecheck and Web lint passed.
+- API workflow 44568637366 on b846a4cd77496cefd997c5d12ab4806bbcafea42: API unit tests, compileall, Ruff, Web typecheck and Web lint passed.
+- API workflow 44568750746 on 1b9aaece24a6a8c4a983535e4a0da9fe7062be8c: adds targeted refresh-gate tests for active registered sessions, revoked/unregistered devices, inactive accounts and BFF-secret enforcement; status must be read from the completed run before final sign-off.
+- Foundation workflow 44568637437 on b846a4cd77496cefd997c5d12ab4806bbcafea42: Bun workspace install/frozen lockfile, canonical token build/check, Web TypeScript/lint, Expo TypeScript/dependency compatibility/config/Metro, Android/iOS export and Turborepo workspace build; status must be read from the completed run before final sign-off.
+- No staging, production deployment, real-world test or live Auth/SMTP provider verification was run.
+
+### Bound Supabase evidence
+
+- Target: eyofuiyxalbehbqoaeny, PostgreSQL 17.12.
+- Applied migration ledger: **13 versions**, through 20261119150146_p02_rate_limit_deny_client_policy. The four added Phase 02 migrations are 20261119143440_p02_distributed_rate_limit_buckets, 20261119145000_p02_identity_link_permission_and_self_scopes, 20261119145850_p02_rate_limit_table_rls, and 20261119150146_p02_rate_limit_deny_client_policy.
+- Public schema: 12/12 tables have RLS enabled and exactly one explicit policy each. The private rate-limit table also has RLS enabled and one explicit deny-client policy. No anon/authenticated grants exist on app_private.api_rate_limit_buckets.
+- Supabase Security Advisor: zero lints. Performance Advisor: 25 informational unused-index notices only; no security or unindexed-FK finding.
+- No Phase 02 tables are included in supabase_realtime; Realtime impact is N/A because authorization and session state are re-read from PostgreSQL synchronously for every protected request.
+- No schema migration was required for the latest refresh-gate code; it uses the existing auth.sessions and session_devices columns.
+
+### DEPLOYMENT_PENDING — intentionally not configured
+
+DATABASE_URL, SUPABASE_PUBLISHABLE_KEY, SUPABASE_SECRET_KEY, SALESX_API_URL, SALESX_BFF_SHARED_SECRET (32+ random characters), APP_PUBLIC_URL, exact CORS_ORIGINS, Expo Auth BFF/API origins, Google OAuth provider credentials/enablement/callback allowlist/manual identity-linking setting, and SMTP credentials. No credentials were requested, populated, committed or inferred. No live runtime, OAuth callback, SMTP delivery, Auth Admin operation or provider refresh-token revocation is claimed.
+
+### Remaining Phase 02 closure gate
+
+- Full permission-aware feature-screen/action mapping across all existing Web and Expo business actions remains incomplete. The centralized backend policy layer exists, but the current product screens include business capabilities whose corresponding domain APIs/permission contracts are not yet implemented. Phase 02 must remain PARTIAL until the required existing action matrix is explicitly mapped and its server enforcement exists.
+- Await completion of the latest API and foundation workflows above, then record their actual final status and commit SHA.
+- Phase 03 remains LOCKED and has not been started.
