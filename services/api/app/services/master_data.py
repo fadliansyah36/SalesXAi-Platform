@@ -17,8 +17,21 @@ class MasterDataService:
  async def list(self, connection: asyncpg.Connection, resource: str, organization_id: UUID, tenant: TenantContext, limit: int, offset: int) -> list[dict[str,Any]]:
   self._tenant(organization_id,tenant)
   return await self.repository.list(connection,resource,organization_id,limit,offset)
+ async def _validate_references(self, connection: asyncpg.Connection, organization_id: UUID, resource: str, values: dict[str,Any]) -> None:
+  allowed_status = {"active","inactive","suspended"} if resource=="sales_profiles" else {"active","inactive","archived"}
+  if values.get("status") is not None and values["status"] not in allowed_status:
+   raise APIError(422,"invalid_master_data_status","The status is not supported for this resource.")
+  for field in ("user_id","supervisor_user_id","manager_user_id"):
+   user_id=values.get(field)
+   if user_id is not None:
+    member=await connection.fetchval("select exists(select 1 from public.organization_memberships where organization_id=$1 and user_id=$2 and status='active')",organization_id,user_id)
+    if not member: raise APIError(422,"tenant_member_required","Assigned users must have an active membership in this organization.")
+ async def list_assignments(self, connection: asyncpg.Connection, organization_id: UUID, tenant: TenantContext, limit: int, offset: int) -> list[dict[str,Any]]:
+  self._tenant(organization_id,tenant)
+  return await self.repository.list_assignments(connection,organization_id,limit,offset)
  async def create(self, connection: asyncpg.Connection, request: Request, principal: Principal, tenant: TenantContext, resource: str, organization_id: UUID, values: dict[str,Any]) -> dict[str,Any]:
   self._tenant(organization_id,tenant)
+  await self._validate_references(connection,organization_id,resource,values)
   try:
    async with connection.transaction():
     row=await self.repository.create(connection,resource,organization_id,values)
@@ -32,6 +45,7 @@ class MasterDataService:
    raise APIError(422,"invalid_master_data_reference","A referenced branch, team, territory or user is not valid for this tenant.") from exc
  async def update(self, connection: asyncpg.Connection, request: Request, principal: Principal, tenant: TenantContext, resource: str, organization_id: UUID, resource_id: UUID, values: dict[str,Any]) -> dict[str,Any]:
   self._tenant(organization_id,tenant)
+  await self._validate_references(connection,organization_id,resource,values)
   try:
    async with connection.transaction():
     row=await self.repository.update(connection,resource,organization_id,resource_id,values)
@@ -47,6 +61,9 @@ class MasterDataService:
  async def assign_outlet(self, connection: asyncpg.Connection, request: Request, principal: Principal, tenant: TenantContext, organization_id: UUID, outlet_id: UUID, sales_profile_id: UUID, note: str | None) -> dict[str,Any]:
   self._tenant(organization_id,tenant)
   try:
+   valid=await connection.fetchval("""select exists(select 1 from public.outlets where id=$1 and organization_id=$2 and status='active')
+     and exists(select 1 from public.sales_profiles where id=$3 and organization_id=$2 and status='active')""",outlet_id,organization_id,sales_profile_id)
+   if not valid: raise APIError(422,"invalid_assignment_target","An active tenant outlet and active sales profile are required.")
    async with connection.transaction():
     row=await self.repository.assign_outlet(connection,organization_id,outlet_id,sales_profile_id,principal.user_id,note)
     await write_audit(connection,request,principal,"outlet.assignment.created","outlet_assignment",str(row["id"]),tenant,{"outlet_id":str(outlet_id),"sales_profile_id":str(sales_profile_id)})
