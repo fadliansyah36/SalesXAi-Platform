@@ -563,9 +563,7 @@ async def resend_invitation(
             )
             delivery_status = "smtp_email_sent"
         else:
-            callback_url = invite_url.replace(
-                "/auth/accept-invitation?", "/auth/callback?organization_invite="
-            )
+            callback_url = _invitation_callback_url(request, token)
             if identity:
                 await request.app.state.supabase_auth.resend_signup_confirmation(row["email"], callback_url)
                 delivery_status = "supabase_auth_verification_sent"
