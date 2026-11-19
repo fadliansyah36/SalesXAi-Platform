@@ -54,9 +54,9 @@ The repository connector can verify project metadata and SQL schema but does not
 ## Shared API contract and consumer integration
 
 - The AuthContext response includes platform_permissions in both FastAPI's Pydantic response schema and packages/api-contracts.
-- The shared @salesx-ai/api-client transport is consumed by the Web auth provider and Expo native auth hook. It adds the bearer token, client platform and active organization, performs one refresh/retry, and clears client session/context when FastAPI explicitly rejects a revoked/inactive session.
+- The shared @salesx-ai/api-client transport is consumed by the Web auth provider and Expo native auth hook. It imports canonical AuthContext and SessionDeviceRegistration contracts from packages/api-contracts; /auth/me and current-session registration now use this typed transport. It adds the bearer token, client platform and active organization, performs one refresh/retry, and clears client session/context when FastAPI explicitly rejects a revoked/inactive session.
 - Web portals continue to share the root SalesXAuthProvider; no UI redesign was introduced. Expo continues to use expo-secure-store for auth session storage and the same shared AuthClient/API client contracts.
-- Account switching clears the current Supabase session and active organization/membership context. No separate persistent business cache is introduced by the auth layer.
+- Account switching clears the current Supabase session, pending OAuth verifier/state and active organization/membership context. Native invitation callback accepts organization_invite through the same FastAPI API client after Supabase email verification. No separate persistent business cache is introduced by the auth layer.
 - Client-side permission helpers are navigation/action visibility hints only. Every protected API mutation still uses FastAPI dependencies and server-derived tenant/resource context.
 
 ## Code-ready OAuth, invitation and runtime implementation — 2026-11-19
