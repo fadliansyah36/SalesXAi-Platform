@@ -77,7 +77,7 @@ Status: COMPLETED
 
 ### Engineering validation evidence
 
-<badge>GitHub Actions — SUCCESS</badge>
+**GitHub Actions — SUCCESS**
 
 - Workflow: [SalesX-Ai Phase 00-01 Foundation Verification](https://github.com/fadliansyah36/SalesXAi-Platform/actions/runs/44511297656).
 - Tested source HEAD: `87d562d5efcae12d93ef1dbbb09b6f52d4ded780`.
