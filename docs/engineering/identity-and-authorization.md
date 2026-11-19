@@ -24,7 +24,7 @@ The browser adapter persists Supabase session material in browser local storage.
 - DELETE /api/v1/auth/sessions/{session_id} is a server-side API deny-list operation for that session. It cannot revoke another device's Supabase refresh token because the server does not possess that device's access token. The revoked session is denied by FastAPI.
 - Revoked access JWTs are cryptographically valid until exp; Supabase documents this behavior. FastAPI rejects old JWTs by checking the session row, device registry and profile revocation epoch on every request.
 
-Account suspension/deactivation requires SUPABASE_SECRET_KEY for the Auth Admin ban. The API applies the ban before changing profile state; a missing admin secret returns a configuration error and does not claim a remote ban.
+Account suspension/deactivation first commits the database deny state, advances the revocation epoch and revokes registered device rows, then calls Supabase Auth Admin. If Auth Admin credentials/provider calls fail, FastAPI still denies the account and writes a failed-ban audit event; the endpoint does not claim that the provider ban succeeded. Reactivation preserves the prior session revocation epoch so old JWTs remain invalid.
 
 ## Invitation lifecycle
 
@@ -93,3 +93,16 @@ The Web Auth provider increments a consumer epoch on account invalidation/logout
 ### Session revocation boundary
 
 FastAPI checks the live Supabase Auth session, device revocation record, profile status and JWT revocation epoch for every protected request. The per-device session registry prevents a revoked device session from accessing SalesX-Ai APIs even if its already-issued JWT has not expired. Supabase remote sign-out remains available for its supported `local`, `global` and `others` scopes. Supabase does not expose a supported API to revoke an arbitrary other device's refresh token by session ID; this remains a provider-level limitation and must not be described as remote provider revocation.
+
+
+## Final consumer, session and authorization hardening — 2026-11-19
+
+- Pending OAuth state is stored/read/cleared exclusively through the injected OAuth storage adapter. Web uses tab-scoped sessionStorage; Expo uses SecureStore. Error/denial callbacks must present the matching callback-bound state before pending state is cleared. Successful PKCE exchange and account switching clear the same adapter.
+- Google OAuth sign-in and manual identity linking include a separate random OIDC nonce. Supabase Auth performs upstream OIDC nonce verification; application credentials/provider settings remain deployment-dependent.
+- The delegation hierarchy resolver is permission-specific and ABAC-aware: it considers only roles that grant the action permission, carries assignment attributes through parent-role inheritance, and limits branch assignments to the target branch. Membership status changes compare actor and target hierarchy, protect platform-scoped identities, and revoke assignments when membership is removed.
+- Invitation callback token handling is consistent for create/resend. Invitation acceptance cannot reactivate an already-active membership or change its branch through an old invitation; active/suspended membership conflicts and stale branch invitations are rejected.
+- Platform account status changes commit the API deny state before attempting Auth Admin ban/unban, so an Auth Admin failure cannot leave a suspended identity authorized by FastAPI.
+- Device session registration stores the actual Auth `not_after` timestamp as the device registry expiry. Principal resolution enforces that expiry in addition to live `auth.sessions`, device revocation and profile revocation epoch.
+- The Web access console and native Sales app expose session list/revocation through typed API client methods. The revoke action is explicitly an API deny-list operation; it is not described as arbitrary remote Supabase refresh-token revocation.
+- FastAPI security middleware sets security response headers, enforces the configured declared Content-Length maximum and rejects chunked request bodies. `APP_PUBLIC_URL` is validated as an exact origin and must be included in CORS origins when CORS is configured.
+- API rate limiting and broader abuse controls are still outstanding. The current middleware is not a rate limiter. Fresh static CI/typecheck/build evidence is also outstanding for the latest code head.
