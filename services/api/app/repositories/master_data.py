@@ -4,7 +4,7 @@ from uuid import UUID
 import asyncpg
 
 RESOURCE_TABLES: dict[str, frozenset[str]] = {
- "branches": frozenset({"code","name","status","city","address","manager_name","phone","latitude","longitude"}),
+ "branches": frozenset({"code","name","status","city","address","manager_name","phone","latitude","longitude","branch_type"}),
  "teams": frozenset({"branch_id","parent_team_id","code","name","supervisor_user_id","status"}),
  "territories": frozenset({"branch_id","parent_territory_id","code","name","boundary_geojson","status"}),
  "outlets": frozenset({"branch_id","territory_id","code","name","category","address","city","province","postal_code","phone","pic_name","latitude","longitude","status"}),
