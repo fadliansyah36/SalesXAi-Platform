@@ -5,6 +5,7 @@ import smtplib
 import ssl
 from email.message import EmailMessage
 from html import escape
+from typing import Protocol
 
 from app.config import Settings
 from app.errors import APIError
@@ -86,3 +87,37 @@ async def send_organization_invitation(
             "invitation_email_delivery_failed",
             "The invitation could not be delivered. The administrator can retry after checking the SMTP provider.",
         ) from exc
+
+
+class InvitationDelivery(Protocol):
+    async def send(
+        self,
+        *,
+        recipient: str,
+        organization_name: str,
+        role_key: str,
+        invitation_url: str,
+    ) -> None: ...
+
+
+class SMTPInvitationDelivery:
+    """Configurable delivery adapter; provider credentials are injected at runtime."""
+
+    def __init__(self, settings: Settings) -> None:
+        self.settings = settings
+
+    async def send(
+        self,
+        *,
+        recipient: str,
+        organization_name: str,
+        role_key: str,
+        invitation_url: str,
+    ) -> None:
+        await send_organization_invitation(
+            self.settings,
+            recipient=recipient,
+            organization_name=organization_name,
+            role_key=role_key,
+            invitation_url=invitation_url,
+        )
