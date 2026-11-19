@@ -132,12 +132,12 @@ export function SalesXAuthProvider({children}:{children:React.ReactNode}) {
   const loadContext=useCallback(async(current:WebSession)=>{
     const transport=apiClientRef.current;
     if(!transport)throw new Error("FastAPI cookie transport belum siap.");
+    await transport.registerCurrentSession({platform:"web",device_name:"SalesX-Ai Web Portal"});
     const next=await transport.getAuthContext();
     setContext(next);
     setActiveOrganizationIdState(previous=>
       previous&&next.memberships.some(m=>m.organization_id===previous&&m.status==="active")
         ?previous:next.memberships.find(m=>m.status==="active")?.organization_id??null);
-    await transport.registerCurrentSession({platform:"web",device_name:"SalesX-Ai Web Portal"});
     setSession(browserSession(current));setStatus("authenticated");setError(null);
   },[]);
 
