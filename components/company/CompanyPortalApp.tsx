@@ -1635,6 +1635,7 @@ export function CompanyPortalApp() {
                       {teams.map((team) => {
                         const supervisor = organizationMembers.find((member) => member.user_id === asText(team.supervisor_user_id));
                         const parent = teams.find((candidate) => asText(candidate.id) === asText(team.parent_team_id));
+                        const branch = branches.find((candidate) => candidate.id === asText(team.branch_id));
                         return (
                           <div key={asText(team.id)} className="rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] p-4">
                             <p className="text-sm font-bold">{asText(team.name)}</p>
