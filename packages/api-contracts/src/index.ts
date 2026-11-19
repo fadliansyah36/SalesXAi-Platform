@@ -23,6 +23,9 @@ export interface OrganizationCreateRequest {name:string;slug:string;legal_name?:
 export interface OrganizationSummary {
   id:UUID;slug:string;name:string;status:OrganizationStatus;created_at:ISODateTime;
 }
+export interface MyOrganizationSummary extends OrganizationSummary {
+  membership_id:UUID;membership_status:MembershipStatus;
+}
 export interface SessionDeviceRegistration {
   device_id?:string|null;device_name?:string|null;platform:ApiPlatform;user_agent?:string|null;
 }
@@ -43,8 +46,10 @@ export interface InvitationRecord {
   rejected_at?:ISODateTime|null;revoked_at?:ISODateTime|null;resent_at?:ISODateTime|null;
   resend_count?:number;created_at:ISODateTime;
 }
-export interface InvitationDeliveryResult extends InvitationRecord {
-  invitation_url:string;delivery_status:InvitationDeliveryStatus;
+export interface InvitationDeliveryResult {
+  id:UUID;email:string;role_key:string;status?:InvitationStatus;branch_id?:UUID|null;
+  expires_at:ISODateTime;created_at?:ISODateTime;invitation_url:string;
+  delivery_status:InvitationDeliveryStatus;
 }
 export interface InvitationAcceptResponse {
   membership_id:UUID;organization_id:UUID;status:MembershipStatus;
@@ -63,8 +68,8 @@ export interface MemberStatusUpdateRequest {status:"active"|"suspended"|"removed
 export interface MemberStatusResponse {id:UUID;user_id:UUID;organization_id:UUID;status:MembershipStatus;}
 export interface RoleAssignmentRequest {role_key:string;branch_id?:UUID|null;}
 export interface RoleAssignmentResponse {
-  id:UUID;user_id:UUID;membership_id:UUID;role_id:UUID;role_key:string;
-  scope_type:"tenant"|"branch";scope_id:UUID;branch_id:UUID|null;
+  id:UUID;user_id:UUID;membership_id:UUID;role_id:UUID;
+  scope_type:"tenant"|"branch";scope_id:UUID;created_at:ISODateTime;
 }
 export interface AccountStatusUpdateRequest {status:"active"|"suspended"|"deactivated";}
 export interface ApiErrorEnvelope {
