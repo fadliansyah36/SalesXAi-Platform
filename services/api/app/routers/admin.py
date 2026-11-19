@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, Query, Request
 from app.db import get_connection
 from app.errors import APIError
 from app.schemas.identity import AccountStatusUpdate
-from app.security.dependencies import Principal, require_platform_permission
+from app.security.dependencies import Principal, require_api_action
 from app.services.audit import write_audit
 
 router = APIRouter(prefix="/admin", tags=["platform-security"])
@@ -17,7 +17,7 @@ async def list_platform_users(
     q: str | None = Query(default=None,max_length=160),
     limit: int = Query(default=100,ge=1,le=500),
     offset: int = Query(default=0,ge=0,le=100000),
-    principal: Principal = Depends(require_platform_permission("account:status:manage")),
+    principal: Principal = Depends(require_api_action("platform.users.list")),
     connection: asyncpg.Connection = Depends(get_connection),
 ) -> list[dict]:
     rows = await connection.fetch(
@@ -85,7 +85,7 @@ async def list_platform_users(
 
 @router.get("/roles")
 async def list_platform_roles(
-    principal: Principal = Depends(require_platform_permission("role:assign")),
+    principal: Principal = Depends(require_api_action("platform.roles.list")),
     connection: asyncpg.Connection = Depends(get_connection),
 ) -> list[dict]:
     rows = await connection.fetch(
@@ -124,7 +124,7 @@ async def update_account_status(
     user_id: UUID,
     payload: AccountStatusUpdate,
     request: Request,
-    principal: Principal = Depends(require_platform_permission("account:status:manage")),
+    principal: Principal = Depends(require_api_action("platform.users.status")),
     connection: asyncpg.Connection = Depends(get_connection),
 ) -> dict:
     if user_id == principal.user_id:
