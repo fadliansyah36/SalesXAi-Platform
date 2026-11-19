@@ -75,7 +75,7 @@ Status: PARTIAL
 - Realtime: not applicable; authorization re-reads PostgreSQL state on each protected request.
 
 ### Engineering evidence
-- Previous implementation baseline: 7d5c916d2b6fdb623b71afe1a773456f0dacb6fd. Current Phase 02 code head before documentation commits: 7520edd62c577f16aef7f5a6cbe4138df6a0c636.
+- Previous implementation baseline: 7d5c916d2b6fdb623b71afe1a773456f0dacb6fd. Current Phase 02 code head before documentation commits: d96a045bbca18333c169bc2963796a499deea538.
 - Phase 02 CI: https://github.com/fadliansyah36/SalesXAi-Platform/actions/runs/44527586864.
 - Bun/Web/Expo CI: https://github.com/fadliansyah36/SalesXAi-Platform/actions/runs/44527586969.
 - FastAPI source: services/api/app/.
@@ -183,6 +183,7 @@ Phase 02 remains in progress. Phase 03 is not authorized until Phase 02 reaches 
   - 88edc6236f70772fbbd23e86231f489ad9f6bae8 — store Web PKCE verifier/state in tab-scoped sessionStorage.
   - fc326b6ed67620fa88e064b43dc82642441d87b0 — stabilize native deep-link callback during tenant context updates.
   - 7520edd62c577f16aef7f5a6cbe4138df6a0c636 — stabilize Web auth hydration during tenant context updates.
+  - d96a045bbca18333c169bc2963796a499deea538 — deduplicate Expo initial/event auth deep-link callbacks.
 - The GitHub workflow-run query returned no runs for the new code commits; no fresh Web/Expo typecheck, FastAPI compileall/Ruff or API contract suite is claimed for this continuation.
 - No OAuth provider round-trip, /readyz, authenticated /api/v1/auth/me, SMTP delivery, Auth Admin operation or remote session revocation was executed.
 - The live Supabase migration ledger remains at nine versions through 20261119131809_p02_add_missing_foreign_key_indexes. No schema delta was required for these application/package changes; no migration was applied in this continuation.
