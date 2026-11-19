@@ -21,9 +21,13 @@ class Phase03MasterDataContractTests(unittest.TestCase):
             "master.outlets.read", "master.outlets.create", "master.outlets.update",
             "master.sales_profiles.read", "master.sales_profiles.create", "master.sales_profiles.update",
             "master.assignments.read", "master.assignments.manage",
+            "platform.organizations.list", "platform.organizations.update",
+            "platform.organizations.branches.read", "platform.organizations.branches.create",
+            "platform.organizations.branches.update",
         }
         self.assertTrue(expected.issubset(contracts))
-        self.assertEqual(len(expected), sum(item.id.startswith("master.") for item in API_ACTION_MATRIX))
+        actual = {item.id for item in API_ACTION_MATRIX if item.id.startswith("master.") or item.id.startswith("platform.organizations.")}
+        self.assertEqual(expected, actual)
 
     def test_typescript_action_registry_mirrors_master_data_ids(self) -> None:
         root = Path(__file__).resolve().parents[3]
@@ -55,6 +59,8 @@ class Phase03MasterDataContractTests(unittest.TestCase):
         self.assertIn("alter table public.%i enable row level security", sql)
         self.assertIn("outlet_assignment_one_active_uq", sql)
         self.assertIn("foreign key(organization_id,branch_id)", sql)
+        self.assertTrue((root / "supabase/migrations/20261119180611_p03_branch_contact_location_fields.sql").exists())
+        self.assertTrue((root / "supabase/migrations/20261119181929_p03_branch_type.sql").exists())
 
 
 if __name__ == "__main__":
