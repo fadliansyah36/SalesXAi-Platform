@@ -3097,15 +3097,17 @@ export function SuperAdminPortalApp() {
         tenant={selectedTenantDetail}
         onClose={() => setSelectedTenantDetail(null)}
         onUpdateTenant={(id, patch) => {
-          setTenants((prev) =>
-            prev.map((t) => (t.id === id ? { ...t, ...patch } : t))
-          );
-          appendAudit(
-            'Ubah Governance Tenant',
-            'Manajemen Tenant',
-            `Tenant ${id} diperbarui: paket ${patch.plan}, status ${patch.status}.`
-          );
-          showToast(`Governance tenant ${id} disimpan.`);
+          if (!auth.apiClient || !auth.canPerformApiAction('platform.organizations.update') || !patch.status) {
+            setOrganizationsError('Aksi perubahan status tenant tidak diizinkan.');
+            return;
+          }
+          const status = patch.status === 'Aktif' || patch.status === 'Trial' ? 'active' : 'suspended';
+          void auth.apiClient.updatePlatformOrganization(id, { status })
+            .then(() => {
+              setOrganizationsRefreshKey((value) => value + 1);
+              showToast('Status tenant ' + id + ' diperbarui melalui FastAPI.');
+            })
+            .catch((error: unknown) => setOrganizationsError(error instanceof Error ? error.message : 'Status tenant gagal diperbarui.'));
         }}
         onOpenOrganizations={(tid) => {
           setSelectedOrgTenantId(tid);
