@@ -44,7 +44,7 @@ export function RegisterCompanyModal({
   onSuccess: (companyName: string, email: string) => void;
 }) {
   const [companyName, setCompanyName] = useState('PT Distribusi Nusantara');
-  const [city, setCity] = useState('Kota Bogor');
+  const [city, setCity] = useState('');
   const [picName, setPicName] = useState('Hendra Wijaya');
   const [email, setEmail] = useState('admin@distribusinusantara.co.id');
   const [phone, setPhone] = useState('0811-2233-4455');
@@ -202,7 +202,7 @@ export function AddBranchModal({
   onAdd: (branch: BranchItem) => void;
 }) {
   const [name, setName] = useState('');
-  const [city, setCity] = useState('Kota Karawang');
+  const [city, setCity] = useState('');
   const [address, setAddress] = useState('');
   const [managerName, setManagerName] = useState('');
   const [target, setTarget] = useState('120000000');
@@ -222,10 +222,10 @@ export function AddBranchModal({
           onAdd({
             id: `br-${Date.now()}`,
             name: name.trim(),
-            city: city.trim() || 'Kota Karawang',
-            address: address.trim() || 'Jl. Ahmad Yani No. 15',
-            managerName: managerName.trim() || 'Kepala Cabang Baru',
-            phone: '0267-412-900',
+            city: city.trim(),
+            address: address.trim(),
+            managerName: managerName.trim(),
+            phone: '',
             salesCount: 6,
             outletCount: 85,
             monthlyTarget: Number(target) || 120_000_000,
@@ -318,10 +318,12 @@ export function BranchDetailModal({
   branch,
   onClose,
   onToggleStatus,
+  canToggleStatus = true,
 }: {
   branch: BranchItem | null;
   onClose: () => void;
   onToggleStatus: (branchId: string) => void;
+  canToggleStatus?: boolean;
 }) {
   if (!branch) return null;
   const pct =
@@ -370,6 +372,7 @@ export function BranchDetailModal({
           <button
             type="button"
             onClick={() => onToggleStatus(branch.id)}
+            disabled={!canToggleStatus}
             className="rounded-xl border border-[var(--color-border-strong)] px-4 py-2 font-semibold hover:bg-[var(--color-surface-muted)] cursor-pointer"
           >
             {branch.status === 'Aktif' ? 'Nonaktifkan Cabang' : 'Aktifkan Cabang'}
@@ -659,18 +662,18 @@ export function AddOutletCompanyModal({
           onAdd({
             id: `out-${Date.now()}`,
             name: name.trim(),
-            city: city.trim() || 'Kota Bogor',
-            address: address.trim() || 'Jl. Sudirman No. 40',
-            distanceKm: 4.2,
-            isPriority: true,
-            visitToday: true,
+            city: city.trim(),
+            address: address.trim(),
+            distanceKm: 0,
+            isPriority: false,
+            visitToday: false,
             status: 'Aktif',
             category,
-            picName: picName.trim() || 'Owner Outlet',
-            phone: phone.trim() || '0812-3000-4000',
-            email: `${name.toLowerCase().replace(/[^a-z0-9]/g, '')}@example.com`,
-            lat: -6.596,
-            lng: 106.805,
+            picName: picName.trim(),
+            phone: phone.trim(),
+            email: '',
+            lat: 0,
+            lng: 0,
             lastOrderTotal: 0,
             lastVisitDate: 'Baru Terdaftar',
           });
