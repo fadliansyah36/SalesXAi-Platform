@@ -51,7 +51,6 @@ import {
   COMPANY_MONTHLY_TRENDS,
   COMPANY_ORDER_COMPOSITION,
   COMPANY_REPORTS_LIST,
-  INITIAL_TEAM_MEMBERS,
   INITIAL_PRODUCTS,
   INITIAL_VISITS,
   INITIAL_COMPANY_ORDERS,
@@ -119,6 +118,13 @@ export type CompanyTabId =
 const asText = (value: unknown): string => typeof value === 'string' ? value : '';
 const asNumber = (value: unknown): number => typeof value === 'number' && Number.isFinite(value) ? value : 0;
 const masterCode = (value: string): string => value.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'MASTER';
+type OrganizationMemberRecord = { user_id: string; display_name?: string | null; email?: string | null; phone?: string | null; title?: string | null; status?: string; branch_id?: string | null };
+type TeamRecord = Record<string, unknown>;
+const EMPTY_TEAM_MEMBER: TeamMemberItem = {
+  id: '', name: 'Belum ada personel', role: 'Sales Rep', area: '', branchId: '', phone: '',
+  status: 'Offline', currentLocation: 'Belum tersedia', speedKmh: 0, accuracyM: 0,
+  lastUpdate: 'Belum tersedia', lat: 0, lng: 0, monthlyOrderValue: 0, visitsToday: 0, targetVisits: 0,
+};
 
 const SIDEBAR_GROUPS: Array<{
   group: string;
@@ -205,8 +211,9 @@ export function CompanyPortalApp() {
   const [branches, setBranches] = useState<BranchItem[]>([]);
   const [territories, setTerritories] =
     useState<TerritoryItem[]>([]);
-  const [teamMembers, setTeamMembers] =
-    useState<TeamMemberItem[]>(INITIAL_TEAM_MEMBERS);
+  const [teamMembers, setTeamMembers] = useState<TeamMemberItem[]>([]);
+  const [teams, setTeams] = useState<TeamRecord[]>([]);
+  const [organizationMembers, setOrganizationMembers] = useState<OrganizationMemberRecord[]>([]);
   const [outlets, setOutlets] = useState<Outlet[]>([]);
   const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
   const [orders, setOrders] = useState<CompanyOrderItem[]>(
@@ -246,12 +253,8 @@ export function CompanyPortalApp() {
     'Realtime'
   );
   const [gpsAuditOpen, setGpsAuditOpen] = useState(false);
-  const [selectedTeamId, setSelectedTeamId] = useState(
-    INITIAL_TEAM_MEMBERS[0].id
-  );
-  const [historyStaffId, setHistoryStaffId] = useState(
-    INITIAL_TEAM_MEMBERS[0].id
-  );
+  const [selectedTeamId, setSelectedTeamId] = useState('');
+  const [historyStaffId, setHistoryStaffId] = useState('');
   const [historyDate, setHistoryDate] = useState('2025-06-24');
   const [visitSubTab, setVisitSubTab] = useState<
     'Jadwal' | 'Realisasi' | 'Peta'
@@ -325,6 +328,9 @@ export function CompanyPortalApp() {
       setBranches([]);
       setTerritories([]);
       setOutlets([]);
+      setTeams([]);
+      setTeamMembers([]);
+      setOrganizationMembers([]);
       setMasterDataLoading(false);
       return;
     }
@@ -335,7 +341,10 @@ export function CompanyPortalApp() {
       auth.canPerformApiAction('master.branches.read') ? api.listBranches(organizationId) : Promise.resolve([]),
       auth.canPerformApiAction('master.territories.read') ? api.listTerritories(organizationId) : Promise.resolve([]),
       auth.canPerformApiAction('master.outlets.read') ? api.listOutlets(organizationId) : Promise.resolve([]),
-    ]).then(([branchRows, territoryRows, outletRows]) => {
+      auth.canPerformApiAction('master.teams.read') ? api.listTeams(organizationId) : Promise.resolve([]),
+      auth.canPerformApiAction('master.sales_profiles.read') ? api.listSalesProfiles(organizationId) : Promise.resolve([]),
+      auth.canPerformApiAction('organization.members.read') ? api.listOrganizationMembers(organizationId) : Promise.resolve([]),
+    ]).then(([branchRows, territoryRows, outletRows, teamRows, profileRows, memberRows]) => {
       if (cancelled) return;
       const nextBranches: BranchItem[] = branchRows.map((row) => ({
         id: String(row.id), name: asText(row.name), city: asText(row.city),
@@ -360,9 +369,36 @@ export function CompanyPortalApp() {
         phone: asText(row.phone), email: '', lat: asNumber(row.latitude),
         lng: asNumber(row.longitude), lastOrderTotal: 0, lastVisitDate: '',
       }));
+      const nextTeams = teamRows as TeamRecord[];
+      const members = memberRows as OrganizationMemberRecord[];
+      const membersById = new Map(members.map((member) => [member.user_id, member]));
+      const teamsById = new Map(nextTeams.map((team) => [asText(team.id), team]));
+      const nextTeamMembers: TeamMemberItem[] = (profileRows as Array<Record<string, unknown>>).map((profile) => {
+        const userId = asText(profile.user_id);
+        const member = membersById.get(userId);
+        const team = teamsById.get(asText(profile.team_id));
+        const title = asText(member?.title).toLowerCase();
+        const role: TeamMemberItem['role'] = title.includes('supervisor') ? 'Supervisor'
+          : title.includes('area manager') ? 'Area Manager'
+          : title.includes('direktur') ? 'Direktur Operasional' : 'Sales Rep';
+        const branchId = asText(team?.branch_id);
+        const branch = nextBranches.find((item) => item.id === branchId);
+        return {
+          id: asText(profile.id), name: asText(profile.display_name) || asText(member?.display_name) || asText(member?.email) || 'User',
+          role, area: asText(team?.name) || 'Belum ditempatkan ke tim', branchId,
+          phone: asText(profile.phone) || asText(member?.phone), status: profile.status === 'active' ? 'Online' : 'Offline',
+          currentLocation: 'Belum tersedia', speedKmh: 0, accuracyM: 0, lastUpdate: 'Belum tersedia',
+          lat: 0, lng: 0, monthlyOrderValue: 0, visitsToday: 0, targetVisits: 0,
+        };
+      });
       setBranches(nextBranches);
       setTerritories(nextTerritories);
       setOutlets(nextOutlets);
+      setTeams(nextTeams);
+      setOrganizationMembers(members);
+      setTeamMembers(nextTeamMembers);
+      setSelectedTeamId((current) => current || nextTeamMembers[0]?.id || '');
+      setHistoryStaffId((current) => current || nextTeamMembers[0]?.id || '');
     }).catch((error: unknown) => {
       if (!cancelled) setMasterDataError(error instanceof Error ? error.message : 'Master data gagal dimuat dari FastAPI.');
     }).finally(() => {
@@ -438,9 +474,9 @@ export function CompanyPortalApp() {
   };
 
   const selectedTeamMember =
-    teamMembers.find((m) => m.id === selectedTeamId) || teamMembers[0];
+    teamMembers.find((m) => m.id === selectedTeamId) || teamMembers[0] || EMPTY_TEAM_MEMBER;
   const historyStaff =
-    teamMembers.find((m) => m.id === historyStaffId) || teamMembers[0];
+    teamMembers.find((m) => m.id === historyStaffId) || teamMembers[0] || EMPTY_TEAM_MEMBER;
 
   const territoryOutletsForMap: Outlet[] = useMemo(
     () =>
@@ -1532,6 +1568,17 @@ export function CompanyPortalApp() {
             </div>
           )}
 
+          {activeTab === 'gps_live' && teamMembers.length === 0 && (
+            <div className="rounded-2xl border border-dashed border-[var(--color-border-strong)] bg-[var(--color-surface)] p-8 text-center text-sm text-[var(--color-text-muted)]">
+              Belum ada sales profile aktif. Tambahkan personel melalui master data sebelum membuka telemetry.
+            </div>
+          )}
+          {activeTab === 'gps_history' && teamMembers.length === 0 && (
+            <div className="rounded-2xl border border-dashed border-[var(--color-border-strong)] bg-[var(--color-surface)] p-8 text-center text-sm text-[var(--color-text-muted)]">
+              Histori perjalanan belum tersedia karena belum ada sales profile yang terhubung.
+            </div>
+          )}
+
           {/* ================================================================
            * SCREEN 6 (7): MANAJEMEN TIM
            * ================================================================ */}
@@ -1565,51 +1612,40 @@ export function CompanyPortalApp() {
               </div>
 
               {teamSubTab === 'Struktur Tim' ? (
-                <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 flex flex-col items-center space-y-6">
-                  {/* Top Node */}
-                  <div className="rounded-2xl border border-[#348CB2] bg-[#F3FAFC] dark:bg-[#172438] px-6 py-3.5 text-center shadow-xs">
-                    <p className="text-sm font-bold text-[#123A54] dark:text-white">
-                      Direktur Operasional
-                    </p>
-                    <p className="text-xs text-[var(--color-text-muted)]">
-                      Kantor Pusat Bogor
-                    </p>
-                  </div>
-
-                  {/* Connector Lines */}
-                  <div className="w-full max-w-md border-t-2 border-x-2 border-[#ADD8E6] h-5" />
-
-                  {/* Middle Tier */}
-                  <div className="grid grid-cols-2 gap-4 w-full max-w-lg">
-                    <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-background)] p-4 text-center">
-                      <p className="text-sm font-bold text-[var(--color-text-primary)]">
-                        Area Manager (2)
-                      </p>
-                      <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
-                        Jabodetabek & Jawa Barat
-                      </p>
+                <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 space-y-3">
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div className="rounded-xl bg-[var(--color-background)] p-3">
+                      <p className="text-xl font-bold">{teams.length}</p><p className="text-[11px] text-[var(--color-text-muted)]">Tim</p>
                     </div>
-                    <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-background)] p-4 text-center">
-                      <p className="text-sm font-bold text-[var(--color-text-primary)]">
-                        Supervisor (5)
-                      </p>
-                      <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
-                        1 Supervisor per Cabang
-                      </p>
+                    <div className="rounded-xl bg-[var(--color-background)] p-3">
+                      <p className="text-xl font-bold">{branches.length}</p><p className="text-[11px] text-[var(--color-text-muted)]">Cabang</p>
+                    </div>
+                    <div className="rounded-xl bg-[var(--color-background)] p-3">
+                      <p className="text-xl font-bold">{teamMembers.length}</p><p className="text-[11px] text-[var(--color-text-muted)]">Sales Profile</p>
                     </div>
                   </div>
-
-                  <div className="w-0.5 h-5 bg-[#ADD8E6]" />
-
-                  {/* Bottom Tier */}
-                  <div className="rounded-2xl border border-[#348CB2]/40 bg-[#E5F4F8] dark:bg-[#19394B] px-8 py-4 text-center">
-                    <p className="text-sm font-bold text-[#123A54] dark:text-white tabular-nums">
-                      Tim Sales ({teamMembers.length + 37})
+                  {teams.length === 0 ? (
+                    <p className="rounded-xl border border-dashed border-[var(--color-border-strong)] p-5 text-center text-xs text-[var(--color-text-muted)]">
+                      Belum ada struktur tim pada organisasi aktif. Buat tim dan tetapkan cabang serta supervisor.
                     </p>
-                    <p className="text-xs text-[#236D91] dark:text-[#87CEEB] mt-0.5">
-                      Seluruh Area Distribusi Aktif
-                    </p>
-                  </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {teams.map((team) => {
+                        const supervisor = organizationMembers.find((member) => member.user_id === asText(team.supervisor_user_id));
+                        const parent = teams.find((candidate) => asText(candidate.id) === asText(team.parent_team_id));
+                        const branch = branches.find((candidate) => candidate.id === asText(team.branch_id));
+                        return (
+                          <div key={asText(team.id)} className="rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] p-4">
+                            <p className="text-sm font-bold">{asText(team.name)}</p>
+                            <p className="mt-1 text-xs text-[var(--color-text-muted)]">
+                              {branch?.name || 'Cabang belum ditetapkan'} · Supervisor: {asText(supervisor?.display_name) || 'Belum ditetapkan'}
+                            </p>
+                            {parent && <p className="mt-1 text-[11px] text-[var(--color-text-muted)]">Parent: {asText(parent.name)}</p>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="space-y-2.5">
@@ -2130,7 +2166,7 @@ export function CompanyPortalApp() {
           {/* ================================================================
            * SCREEN 11 (13): GPS MONITORING (REALTIME)
            * ================================================================ */}
-          {activeTab === 'gps_live' && (
+          {activeTab === 'gps_live' && teamMembers.length > 0 && (
             <div className="space-y-5">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="grid grid-cols-2 gap-1.5 rounded-xl bg-[var(--color-surface-muted)] p-1 w-full max-w-xs">
@@ -2306,7 +2342,7 @@ export function CompanyPortalApp() {
           {/* ================================================================
            * SCREEN 12 (14): GPS HISTORY
            * ================================================================ */}
-          {activeTab === 'gps_history' && (
+          {activeTab === 'gps_history' && teamMembers.length > 0 && (
             <div className="space-y-5">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
