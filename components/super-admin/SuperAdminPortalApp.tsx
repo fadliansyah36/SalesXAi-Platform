@@ -48,7 +48,7 @@ import {
   Filter,
   Film,
 } from 'lucide-react';
-import type { PlatformRole } from '@salesx-ai/api-contracts';
+import type { PlatformRole, PlatformUserSummary } from '@salesx-ai/api-contracts';
 import { BrandLogo } from '@/components/common/BrandLogo';
 import { useTheme } from '@/components/providers/AppProviders';
 import { SalesGoogleMap } from '@/components/maps/SalesGoogleMap';
@@ -67,7 +67,6 @@ import {
   INITIAL_PLATFORM_TENANTS,
   PLATFORM_TENANT_OUTLETS,
   INITIAL_ORG_NODES,
-  INITIAL_PLATFORM_USERS,
   INITIAL_MASTER_DATA,
   INITIAL_SERVICES_REGISTRY,
   INITIAL_DOMAINS,
@@ -114,8 +113,6 @@ import {
   TenantDetailModal,
   AddOrganizationModal,
   OrganizationNodeDetailModal,
-  AddPlatformUserModal,
-  PlatformUserDetailModal,
   MasterDataCrudModal,
   ServiceDetailModal,
   AddDomainModal,
@@ -183,9 +180,10 @@ export function SuperAdminPortalApp() {
   // Core Domain State
   const [tenants, setTenants] = useState<PlatformTenant[]>(INITIAL_PLATFORM_TENANTS);
   const [orgNodes, setOrgNodes] = useState<OrganizationNode[]>(INITIAL_ORG_NODES);
-  const [platformUsers, setPlatformUsers] = useState<PlatformUserRecord[]>(
-    INITIAL_PLATFORM_USERS
-  );
+  const [platformUsers,setPlatformUsers]=useState<PlatformUserRecord[]>([]);
+  const [usersLoading,setUsersLoading]=useState(false);
+  const [usersError,setUsersError]=useState<string|null>(null);
+  const [userStatusBusyId,setUserStatusBusyId]=useState<string|null>(null);
   const [masterData, setMasterData] = useState<MasterDataCategory[]>(INITIAL_MASTER_DATA);
   const [services, setServices] = useState<ServiceRegistryItem[]>(
     INITIAL_SERVICES_REGISTRY
@@ -235,6 +233,36 @@ export function SuperAdminPortalApp() {
       .then(rows=>{if(active)setPlatformRoles(rows);})
       .catch(error=>{if(active)setRolesError(error instanceof Error?error.message:"Katalog role tidak dapat dimuat.");})
       .finally(()=>{if(active)setRolesLoading(false);});
+    return()=>{active=false;};
+  },[activeTab,auth.apiClient,auth.hasPermission]);
+
+  useEffect(()=>{
+    if(activeTab!=="users")return;
+    if(!auth.hasPermission("account:status:manage")||!auth.apiClient){
+      setPlatformUsers([]);
+      setUsersError("Akses direktori pengguna platform tidak diizinkan.");
+      return;
+    }
+    let active=true;
+    setUsersLoading(true);
+    setUsersError(null);
+    void auth.apiClient.listPlatformUsers()
+      .then((rows:PlatformUserSummary[])=>{
+        if(!active)return;
+        setPlatformUsers(rows.map(user=>({
+          id:user.id,
+          name:user.name,
+          email:user.email,
+          tenantId:user.tenant_id,
+          tenantName:user.tenant_name||"Belum terhubung",
+          role:user.role,
+          status:user.status==="active"?"Aktif":user.status==="suspended"?"Suspended":user.status==="pending"?"Pending":"Deactivated",
+          mfaEnabled:user.mfa_enabled,
+          lastActive:user.last_active?new Date(user.last_active).toLocaleString("id-ID"):"Belum ada aktivitas",
+        })));
+      })
+      .catch(error=>{if(active)setUsersError(error instanceof Error?error.message:"Direktori pengguna tidak dapat dimuat.");})
+      .finally(()=>{if(active)setUsersLoading(false);});
     return()=>{active=false;};
   },[activeTab,auth.apiClient,auth.hasPermission]);
 
@@ -289,9 +317,6 @@ export function SuperAdminPortalApp() {
   const [selectedOrgNode, setSelectedOrgNode] = useState<OrganizationNode | null>(
     null
   );
-  const [addUserOpen, setAddUserOpen] = useState(false);
-  const [selectedPlatformUser, setSelectedPlatformUser] =
-    useState<PlatformUserRecord | null>(null);
   const [activeMasterCategoryId, setActiveMasterCategoryId] = useState<string | null>(
     null
   );
@@ -400,7 +425,7 @@ export function SuperAdminPortalApp() {
         u.name.toLowerCase().includes(q) ||
         u.email.toLowerCase().includes(q) ||
         u.tenantName.toLowerCase().includes(q);
-      const matchRole = userRoleFilter === 'Semua' || u.role === userRoleFilter;
+      const matchRole = userRoleFilter === 'Semua' || u.role.split(',').some(role=>role.trim()===userRoleFilter);
       return matchSearch && matchRole;
     });
   }, [platformUsers, userSearch, userRoleFilter]);
@@ -1208,45 +1233,23 @@ export function SuperAdminPortalApp() {
                 className="rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 py-2 text-xs font-semibold"
               >
                 <option value="Semua">Semua Role</option>
-                <option value="platform_super_admin">platform_super_admin</option>
-                <option value="platform_support">platform_support</option>
-                <option value="tenant_owner">tenant_owner</option>
-                <option value="company_admin">company_admin</option>
-                <option value="principal_admin">principal_admin</option>
-                <option value="distributor_admin">distributor_admin</option>
-                <option value="area_manager">area_manager</option>
-                <option value="supervisor">supervisor</option>
-                <option value="sales">sales</option>
-                <option value="customer">customer</option>
-                <option value="finance">finance</option>
-                <option value="analyst">analyst</option>
-                <option value="content_manager">content_manager</option>
+                {Array.from(new Set(platformUsers.flatMap(user=>user.role.split(",").map(role=>role.trim()).filter(Boolean)))).sort().map(role=><option key={role} value={role}>{role}</option>)}
               </select>
             </div>
-            <button
-              type="button"
-              onClick={() => setAddUserOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-[#194F70] px-4 py-2.5 text-xs font-bold text-white cursor-pointer"
-            >
-              <Plus className="h-4 w-4" />
-              <span>Tambah Pengguna</span>
-            </button>
+            <Link href="/portal/access" className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--color-border)] px-4 py-2.5 text-xs font-bold text-[#194F70] dark:text-[#87CEEB]">
+              <Users className="h-4 w-4" />
+              <span>Kelola undangan organisasi</span>
+            </Link>
           </div>
 
           <div className="space-y-2.5">
+            {usersLoading&&<p className="text-xs text-[var(--color-text-muted)]">Memuat direktori pengguna…</p>}
+            {usersError&&<p role="alert" className="text-xs text-red-600">{usersError}</p>}
+            {!usersLoading&&!usersError&&filteredUsers.length===0&&<p className="text-xs text-[var(--color-text-muted)]">Tidak ada pengguna yang cocok dengan filter.</p>}
             {filteredUsers.map((usr) => (
               <div
                 key={usr.id}
-                role="button"
-                tabIndex={0}
-                onClick={() => setSelectedPlatformUser(usr)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    setSelectedPlatformUser(usr);
-                  }
-                }}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 hover:border-[#348CB2] transition-colors cursor-pointer"
+                className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4"
               >
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#194F70] text-xs font-bold text-white shrink-0">
@@ -1277,24 +1280,24 @@ export function SuperAdminPortalApp() {
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const nextStatus = usr.status === 'Aktif' ? 'Suspended' : 'Aktif';
-                      setPlatformUsers((prev) =>
-                        prev.map((p) =>
-                          p.id === usr.id ? { ...p, status: nextStatus } : p
-                        )
-                      );
-                      appendAudit(
-                        'Ubah Status Akun Pengguna',
-                        'User Administration',
-                        `Akun ${usr.email} diubah menjadi ${nextStatus}.`
-                      );
-                      showToast(`Status akun ${usr.name}: ${nextStatus}`);
+                    disabled={userStatusBusyId===usr.id}
+                    onClick={()=>{
+                      const api=auth.apiClient;
+                      if(!api)return;
+                      const nextStatus=usr.status==="Aktif"?"suspended":"active";
+                      setUserStatusBusyId(usr.id);
+                      void api.updateAccountStatus(usr.id,{status:nextStatus})
+                        .then(result=>{
+                          const label=result.status==="active"?"Aktif":result.status==="suspended"?"Suspended":result.status==="pending"?"Pending":"Deactivated";
+                          setPlatformUsers(previous=>previous.map(user=>user.id===usr.id?{...user,status:label}:user));
+                          showToast(`Status akun ${usr.name}: ${label}`);
+                        })
+                        .catch(error=>showToast(error instanceof Error?error.message:"Status akun gagal diperbarui."))
+                        .finally(()=>setUserStatusBusyId(null));
                     }}
-                    className="cursor-pointer"
+                    className="cursor-pointer disabled:opacity-50"
                   >
-                    <StatusTag label={usr.status} />
+                    <StatusTag label={userStatusBusyId===usr.id?"Memproses…":usr.status} />
                   </button>
                   <ChevronRight className="h-4 w-4 text-[var(--color-text-muted)]" />
                 </div>
@@ -3016,22 +3019,6 @@ export function SuperAdminPortalApp() {
         }}
       />
 
-      <AddPlatformUserModal
-        open={addUserOpen}
-        onClose={() => setAddUserOpen(false)}
-        tenants={tenants}
-        onAddUser={(u) => {
-          setPlatformUsers((prev) => [u, ...prev]);
-          appendAudit(
-            'Tambah Pengguna Platform',
-            'User Administration',
-            `${u.email} diundang dengan role ${u.role}.`,
-            'success'
-          );
-          showToast(`Pengguna ${u.name} berhasil ditambahkan.`);
-        }}
-      />
-
       <MasterDataCrudModal
         category={activeMasterCategory}
         onClose={() => setActiveMasterCategoryId(null)}
@@ -3235,27 +3222,6 @@ export function SuperAdminPortalApp() {
             `Unit ${id} diperbarui: ${patch.name ?? ''} (${patch.status ?? ''}).`
           );
           showToast('Detail unit organisasi diperbarui.');
-        }}
-      />
-
-      <PlatformUserDetailModal
-        user={selectedPlatformUser}
-        onClose={() => setSelectedPlatformUser(null)}
-        onUpdate={(id, patch, revokeSessions) => {
-          setPlatformUsers((prev) =>
-            prev.map((u) => (u.id === id ? { ...u, ...patch } : u))
-          );
-          appendAudit(
-            revokeSessions ? 'Cabut Sesi & Ubah User' : 'Ubah Governance User',
-            'User Administration',
-            `User ${id} diubah: role ${patch.role}, MFA=${patch.mfaEnabled ? 'On' : 'Off'}${revokeSessions ? ', seluruh sesi aktif dicabut' : ''}.`,
-            revokeSessions ? 'warning' : 'info'
-          );
-          showToast(
-            revokeSessions
-              ? 'Semua sesi aktif pengguna dicabut & akun diperbarui.'
-              : 'Governance pengguna berhasil diperbarui.'
-          );
         }}
       />
 
