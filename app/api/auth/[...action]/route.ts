@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   ACCESS_COOKIE, REFRESH_COOKIE, EXPIRY_COOKIE, CSRF_COOKIE,
   OAUTH_STATE_COOKIE, OAUTH_VERIFIER_COOKIE, OAUTH_FLOW_COOKIE, OAUTH_USER_COOKIE, OAUTH_CREATED_COOKIE,
-  apiUrl, appOrigin, authError, clearOAuthCookies, clearSessionCookies, csrfCookieOptions, csrfIsValid,
+  apiUrl, appOrigin, authError, authorizeBffRefresh, clearOAuthCookies, clearSessionCookies, csrfCookieOptions, csrfIsValid,
   enforceBffRateLimit, pkceChallenge, randomToken, refreshAuthSession, safeSession,
   setCsrfCookie, setSessionCookies, subjectFromJwt, tokenFingerprint, supabaseAuthRequest, supabaseUrl, type SupabaseAuthSession,
 } from "@/lib/auth/web-session";
@@ -46,6 +46,12 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const limited = await enforceBffRateLimit(request, "refresh",
       tokenFingerprint(request.cookies.get(REFRESH_COOKIE)?.value ?? ""));
     if (limited) return limited;
+    const authorized = await authorizeBffRefresh(accessToken);
+    if (authorized) {
+      const response = new NextResponse(authorized.body, { status: authorized.status, headers: authorized.headers });
+      clearSessionCookies(response);
+      return response;
+    }
     refreshed = await refreshAuthSession(request);
     if (!refreshed) {
       const response = NextResponse.json({ session: null }, { headers: { "Cache-Control": "no-store" } });
@@ -57,8 +63,14 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const user = await userForAccessToken(accessToken);
   if (!user.ok) {
     if (!refreshed && (user.status === 401 || user.status === 403)) {
-      const limited = await enforceBffRateLimit(request, "refresh");
+      const limited = await enforceBffRateLimit(request, "refresh", tokenFingerprint(request.cookies.get(REFRESH_COOKIE)?.value ?? ""));
       if (limited) return limited;
+      const authorized = await authorizeBffRefresh(accessToken);
+      if (authorized) {
+        const response = new NextResponse(authorized.body, { status: authorized.status, headers: authorized.headers });
+        clearSessionCookies(response);
+        return response;
+      }
       const retry = await refreshAuthSession(request);
       if (retry) {
         const verified = await userForAccessToken(retry.access_token);
@@ -318,6 +330,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const limited = await enforceBffRateLimit(request, "refresh",
       tokenFingerprint(request.cookies.get(REFRESH_COOKIE)?.value ?? ""));
     if (limited) return limited;
+    const authorized = await authorizeBffRefresh(request.cookies.get(ACCESS_COOKIE)?.value ?? "");
+    if (authorized) {
+      const response = new NextResponse(authorized.body, { status: authorized.status, headers: authorized.headers });
+      clearSessionCookies(response);
+      return response;
+    }
     const refreshed = await refreshAuthSession(request);
     if (!refreshed) {
       const response = NextResponse.json({ session: null }, { status: 401, headers: { "Cache-Control": "no-store" } });
