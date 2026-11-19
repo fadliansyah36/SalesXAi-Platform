@@ -1,3 +1,4 @@
+from datetime import datetime
 from uuid import UUID
 
 import asyncpg
@@ -5,7 +6,7 @@ from fastapi import APIRouter, Depends, Query, Request
 
 from app.db import get_connection
 from app.errors import APIError
-from app.schemas.identity import AccountStatusUpdate
+from app.schemas.identity import AccountStatusUpdate, PlatformAuditLogResponse
 from app.security.dependencies import Principal, require_api_action
 from app.services.audit import write_audit
 
@@ -197,3 +198,28 @@ async def update_account_status(
         "supabase_auth_ban_applied": True,
         "api_session_epoch_enforced": payload.status != "active",
     }
+
+
+@router.get("/audit", response_model=list[PlatformAuditLogResponse])
+async def list_platform_audit_logs(
+    before: datetime | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=100),
+    principal: Principal = Depends(require_api_action("platform.audit.read")),
+    connection: asyncpg.Connection = Depends(get_connection),
+) -> list[PlatformAuditLogResponse]:
+    rows = await connection.fetch(
+        """
+        select l.id,l.actor_user_id,l.organization_id,l.action,l.resource_type,
+          l.resource_id,l.correlation_id,l.occurred_at,l.metadata,
+          coalesce(nullif(p.display_name,''),nullif(p.email,''),
+            case when l.actor_user_id is null then 'System' else l.actor_user_id::text end) actor_label
+        from public.admin_audit_logs l
+        left join public.profiles p on p.id=l.actor_user_id
+        where l.organization_id is null
+          and ($1::timestamptz is null or l.occurred_at<$1)
+        order by l.occurred_at desc,l.id desc
+        limit $2
+        """,
+        before, limit,
+    )
+    return [PlatformAuditLogResponse(**dict(row)) for row in rows]
