@@ -4,6 +4,7 @@ export const PERMISSIONS=[
   "audit:read",
   "branch:manage",
   "branch:read",
+  "identity:link:self",
   "identity:read:self",
   "identity:unlink:self",
   "organization:create",
