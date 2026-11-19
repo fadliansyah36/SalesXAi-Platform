@@ -14,6 +14,12 @@ class ApiActionMatrixTests(unittest.TestCase):
         self.assertEqual(len(actions), len(set(actions)))
         self.assertEqual(len(routes), len(set(routes)))
 
+    def test_every_action_has_resource_policy_and_scope(self) -> None:
+        for item in API_ACTION_MATRIX:
+            self.assertTrue(item.resource, f"{item.method} {item.path}")
+            self.assertTrue(item.role_policy, f"{item.method} {item.path}")
+            self.assertIn(item.scope, {"self", "tenant", "platform", "bff"})
+
     def test_tenant_and_platform_actions_declare_permissions(self) -> None:
         for item in API_ACTION_MATRIX:
             if item.scope in {"tenant", "platform"}:
