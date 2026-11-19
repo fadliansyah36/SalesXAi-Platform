@@ -48,7 +48,7 @@ import {
   Filter,
   Film,
 } from 'lucide-react';
-import type { PlatformRole, PlatformUserSummary } from '@salesx-ai/api-contracts';
+import type { PlatformRole, PlatformUserSummary } from '@salesx-ai/api-client';
 import { BrandLogo } from '@/components/common/BrandLogo';
 import { useTheme } from '@/components/providers/AppProviders';
 import { SalesGoogleMap } from '@/components/maps/SalesGoogleMap';
