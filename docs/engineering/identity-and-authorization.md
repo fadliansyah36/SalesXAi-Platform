@@ -72,3 +72,24 @@ The repository connector can verify project metadata and SQL schema but does not
 - Recursive role inheritance uses deduplicating UNION semantics so malformed cyclic parent-role references cannot cause unbounded recursive queries.
 - Permission resolution validates both an explicitly selected resource branch and the membership's default branch against the active organization and active branch state before resolving scoped roles.
 - The auth context omits tenant permissions for invited/suspended/removed memberships and excludes branch-scoped permissions when the referenced branch is inactive.
+
+
+## Final Phase 02 continuation — 2026-11-19
+
+### OAuth/OIDC nonce
+
+The shared Auth client generates a separate cryptographically random nonce for Google sign-in and manual identity linking, stores it with the pending PKCE transaction, and sends it to Supabase Auth's authorize endpoint. Supabase Auth forwards the nonce to the upstream OIDC provider and validates the returned ID-token nonce. The application separately validates its callback-bound `oauth_state`, enforces the 10-minute pending-flow lifetime, performs a one-time PKCE code exchange, and verifies that manual linking resolves to the original Supabase user ID. Provider credentials and callback allowlists are deployment configuration, not committed values.
+
+### Invitation callback and scope-safe delegation
+
+The Supabase signup-verification and Auth Admin invite redirect now use the exact callback parameter `organization_invite=<raw-token>`. The Web callback preserves the explicit invitation accept/reject screen after verification; the Expo callback accepts through the shared typed API client. Invitation resend regenerates the token and validates the role's branch scope is still active in the same organization. Invitation creation rejects already-active and suspended memberships.
+
+Delegation hierarchy is resolved recursively with deduplicating `UNION`, including inherited parent roles and platform/tenant/target-branch scope. Invitation create/resend, member role assignment and assignable-role discovery use the same hierarchy rule. A branch role cannot authorize delegation in another branch, and a branch-scoped role cannot delegate a tenant-wide role.
+
+### Consumer context isolation
+
+The Web Auth provider increments a consumer epoch on account invalidation/logout and active-organization changes, remounting portal descendants to discard in-memory state from the previous principal/tenant. Expo exposes the same context epoch and keys the native Sales screen to it. No new business-data cache or local business source of truth is introduced.
+
+### Session revocation boundary
+
+FastAPI checks the live Supabase Auth session, device revocation record, profile status and JWT revocation epoch for every protected request. The per-device session registry prevents a revoked device session from accessing SalesX-Ai APIs even if its already-issued JWT has not expired. Supabase remote sign-out remains available for its supported `local`, `global` and `others` scopes. Supabase does not expose a supported API to revoke an arbitrary other device's refresh token by session ID; this remains a provider-level limitation and must not be described as remote provider revocation.
