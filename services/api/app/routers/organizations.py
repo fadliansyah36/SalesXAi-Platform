@@ -8,7 +8,6 @@ from app.db import get_connection
 from app.errors import APIError
 from app.schemas.identity import MemberCreate,MemberStatusUpdate,OrganizationCreate,OrganizationResponse,RoleAssignmentCreate,InvitationCreate,InvitationToken
 from app.security.dependencies import Principal,TenantContext,get_current_principal,require_permission,require_platform_permission
-from app.services.invitation_email import send_organization_invitation
 from app.services.audit import write_audit
 
 router=APIRouter(prefix="/organizations",tags=["organizations"])
