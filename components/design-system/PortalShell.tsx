@@ -14,7 +14,8 @@ import {
 } from 'lucide-react';
 import { BrandLogo } from '@/components/common/BrandLogo';
 import { PWAInstallButton } from '@/components/common/PWAInstallButton';
-import { useTheme } from '@/components/providers/AppProviders';
+import { useTheme, useSalesXAuth } from '@/components/providers/AppProviders';
+import type { PortalKey } from '@salesx-ai/shared-types';
 
 export interface PortalNavItem<T extends string> {
   id: T;
@@ -61,6 +62,16 @@ const PORTAL_SWITCHER = [
   { href: '/customer', label: 'Customer' },
 ] as const;
 
+const PORTAL_KEY_BY_PATH: Record<(typeof PORTAL_SWITCHER)[number]["href"], PortalKey> = {
+  "/super-admin": "super_admin",
+  "/distributor": "distributor",
+  "/principal": "principal",
+  "/supervisor": "supervisor",
+  "/company": "company",
+  "/portal": "sales",
+  "/customer": "customer",
+};
+
 export function PortalShell<T extends string>({
   portalSubtitle,
   entityName,
@@ -79,6 +90,8 @@ export function PortalShell<T extends string>({
   children,
 }: PortalShellProps<T>) {
   const { theme, toggleTheme } = useTheme();
+  const auth = useSalesXAuth();
+  const availablePortals = PORTAL_SWITCHER.filter(item => auth.canAccessPortal(PORTAL_KEY_BY_PATH[item.href]));
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   const currentTabLabel =
@@ -132,7 +145,7 @@ export function PortalShell<T extends string>({
             Pindah Portal Ekosistem
           </p>
           <div className="grid grid-cols-3 gap-1.5 text-[11px] font-semibold">
-            {PORTAL_SWITCHER.map((item) => (
+            {availablePortals.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
