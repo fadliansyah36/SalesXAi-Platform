@@ -37,6 +37,7 @@ export interface SalesXApiClientOptions {
   baseUrl: string;
   platform: ApiPlatform;
   auth: ApiClientAuth;
+  authMode?: "bearer" | "cookie";
   fetcher?: typeof fetch;
 }
 
@@ -57,12 +58,14 @@ export class SalesXApiClient {
   private readonly baseUrl: string;
   private readonly platform: ApiPlatform;
   private readonly auth: ApiClientAuth;
+  private readonly authMode: "bearer" | "cookie";
   private readonly fetcher: typeof fetch;
 
   constructor(options: SalesXApiClientOptions) {
     this.baseUrl = options.baseUrl.replace(/\/$/, "");
     this.platform = options.platform;
     this.auth = options.auth;
+    this.authMode = options.authMode ?? "bearer";
     this.fetcher = options.fetcher ?? fetch;
     if (!this.baseUrl) throw new Error("FastAPI base URL is required.");
   }
@@ -71,17 +74,23 @@ export class SalesXApiClient {
     if (!path.startsWith("/") || path.startsWith("//")) {
       throw new Error("API paths must be relative to the configured FastAPI origin.");
     }
-    let token = await this.auth.getAccessToken();
+    let token = this.authMode === "cookie" ? "http-only-cookie-session" : await this.auth.getAccessToken();
     if (!token) throw new SalesXApiError("An authenticated session is required.", 401, "unauthenticated");
 
     const send = (accessToken: string) => {
       const headers = new Headers(init.headers);
-      headers.set("Authorization", "Bearer " + accessToken);
+      if (this.authMode === "cookie") headers.delete("Authorization");
+      else headers.set("Authorization", "Bearer " + accessToken);
       headers.set("X-Client-Platform", this.platform);
       const organizationId = this.auth.getOrganizationId?.();
       if (organizationId) headers.set("X-Organization-ID", organizationId);
       if (typeof init.body === "string" && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
-      return this.fetcher(this.baseUrl + path, { ...init, headers, cache: "no-store" });
+      return this.fetcher(this.baseUrl + path, {
+        ...init,
+        headers,
+        ...(this.authMode === "cookie" ? { credentials: "same-origin" as const } : {}),
+        cache: "no-store",
+      });
     };
 
     let response = await send(token);
