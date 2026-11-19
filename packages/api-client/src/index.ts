@@ -1,3 +1,5 @@
+import type { AuthContext, SessionDeviceRegistration } from "@salesx-ai/api-contracts";
+
 export type ApiPlatform = "web" | "android" | "ios" | "unknown";
 export type AuthFailureCode = "session_revoked" | "account_inactive" | "identity_unverified";
 
@@ -112,16 +114,11 @@ export class SalesXApiClient {
     return body as T;
   }
 
-  getAuthContext<T = unknown>(): Promise<T> {
-    return this.request<T>("/api/v1/auth/me");
+  getAuthContext(): Promise<AuthContext> {
+    return this.request<AuthContext>("/api/v1/auth/me");
   }
 
-  registerCurrentSession(payload: {
-    device_id?: string | null;
-    device_name?: string | null;
-    platform: ApiPlatform;
-    user_agent?: string | null;
-  }): Promise<void> {
+  registerCurrentSession(payload: SessionDeviceRegistration): Promise<void> {
     return this.request<void>("/api/v1/auth/sessions/current", {
       method: "POST",
       body: JSON.stringify(payload),
