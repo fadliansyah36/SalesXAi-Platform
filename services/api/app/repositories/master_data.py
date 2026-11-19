@@ -24,15 +24,15 @@ class MasterDataRepository:
   if not {"code","name"}.issubset(clean) and table!="sales_profiles": raise ValueError("code and name are required")
   if table=="sales_profiles" and "user_id" not in clean: raise ValueError("user_id is required")
   columns=["organization_id",*clean.keys()]; args=[organization_id,*clean.values()]
-  placeholders=",".join(f"$\{index}" for index in range(1,len(args)+1))
+  placeholders=",".join("$" + str(index) for index in range(1,len(args)+1))
   row=await connection.fetchrow(f"insert into public.{table} ({','.join(columns)}) values ({placeholders}) returning *",*args)
   return dict(row)
  async def update(self, connection: asyncpg.Connection, resource: str, organization_id: UUID, resource_id: UUID, values: dict[str, Any]) -> dict[str, Any] | None:
   table=self._table(resource); clean={key:value for key,value in values.items() if key in RESOURCE_TABLES[table] and value is not None}
   if not clean: raise ValueError("At least one mutable field is required")
-  assignments=",".join(f"{key}=$\{index}" for index,key in enumerate(clean,1))
+  assignments=",".join(f"{key}=" + "$" + str(index) for index,key in enumerate(clean,1))
   args=[*clean.values(),resource_id,organization_id]
-  row=await connection.fetchrow(f"update public.{table} set {assignments},updated_at=now() where id=$\{len(clean)+1} and organization_id=$\{len(clean)+2} returning *",*args)
+  row=await connection.fetchrow(f"update public.{table} set {assignments},updated_at=now() where id=$" + str(len(clean)+1) + " and organization_id=$" + str(len(clean)+2) returning *",*args)
   return dict(row) if row else None
  async def assign_outlet(self, connection: asyncpg.Connection, organization_id: UUID, outlet_id: UUID, sales_profile_id: UUID, actor_id: UUID, note: str | None) -> dict[str, Any]:
   row=await connection.fetchrow("""with closed as (
