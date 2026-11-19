@@ -283,13 +283,6 @@ async def create_invitation(
     existing_identity = await connection.fetchval(
         "select exists(select 1 from auth.users where lower(email)=lower($1))", email
     )
-    if not existing_identity:
-        # Supabase sends the identity verification email. The one-time organization token
-        # is carried through the trusted callback and is still checked by this API.
-        await request.app.state.supabase_auth.invite_user(
-            email, invite_url.replace("/auth/accept-invitation?", "/auth/callback?organization_invite=")
-        )
-
     async with connection.transaction():
         invitation = await connection.fetchrow(
             """insert into public.organization_invitations
@@ -302,16 +295,31 @@ async def create_invitation(
         await write_audit(connection,request,principal,"organization.invitation.created",
             "organization_invitation",str(invitation["id"]),tenant,
             metadata={"email":email,"role_key":payload.role_key})
-    delivery_status = "supabase_auth_invite_sent"
     if existing_identity:
-        await send_organization_invitation(
-            request.app.state.settings,
+        await request.app.state.invitation_delivery.send(
             recipient=email,
             organization_name=tenant.organization_name,
             role_key=payload.role_key,
             invitation_url=invite_url,
         )
         delivery_status = "smtp_email_sent"
+    else:
+        try:
+            await request.app.state.supabase_auth.invite_user(
+                email, invite_url.replace("/auth/accept-invitation?", "/auth/callback?organization_invite=")
+            )
+        except Exception:
+            async with connection.transaction():
+                await connection.execute(
+                    """update public.organization_invitations
+                    set status='revoked',revoked_at=now(),updated_at=now() where id=$1 and status='pending'""",
+                    invitation["id"],
+                )
+                await write_audit(connection,request,principal,"organization.invitation.delivery_failed",
+                    "organization_invitation",str(invitation["id"]),tenant,
+                    metadata={"delivery_provider":"supabase_auth"})
+            raise
+        delivery_status = "supabase_auth_invite_sent"
     return {**dict(invitation),"invitation_url":invite_url,"delivery_status":delivery_status}
 
 
@@ -464,18 +472,39 @@ async def resend_invitation(
             set token_hash=$3,expires_at=now()+interval '7 days',resent_at=now(),
                 resend_count=resend_count+1,updated_at=now()
             where id=$1 and organization_id=$2 and status='pending'
-            returning id,email,role_key,expires_at""",
+            returning id,email,role_key,branch_id,expires_at""",
             invitation_id,organization_id,_invitation_hash(token),
         )
         if row is None:
             raise APIError(404,"invitation_not_found","Pending invitation was not found.")
+        role = await connection.fetchrow(
+            "select scope_type,hierarchy_level from public.roles where key=$1",row["role_key"]
+        )
+        actor_level = await connection.fetchval(
+            """select min(r.hierarchy_level) from public.user_role_assignments ura
+            join public.roles r on r.id=ura.role_id
+            where ura.user_id=$1 and ura.membership_id=$2 and ura.revoked_at is null
+              and ura.starts_at<=now() and (ura.expires_at is null or ura.expires_at>now())""",
+            principal.user_id,tenant.membership_id,
+        )
+        if role is None or actor_level is None or role["hierarchy_level"] <= actor_level:
+            raise APIError(403,"privilege_escalation_denied","You cannot resend an equal- or higher-privilege invitation.")
         await write_audit(connection,request,principal,"organization.invitation.resent",
             "organization_invitation",str(row["id"]),tenant,metadata={"email":row["email"]})
-    await send_organization_invitation(
-        request.app.state.settings,
-        recipient=row["email"],
-        organization_name=tenant.organization_name,
-        role_key=row["role_key"],
-        invitation_url=invite_url,
+    existing_identity = await connection.fetchval(
+        "select exists(select 1 from auth.users where lower(email)=lower($1))",row["email"]
     )
-    return {**dict(row),"invitation_url":invite_url,"delivery_status":"smtp_email_sent"}
+    if existing_identity:
+        await request.app.state.invitation_delivery.send(
+            recipient=row["email"],
+            organization_name=tenant.organization_name,
+            role_key=row["role_key"],
+            invitation_url=invite_url,
+        )
+        delivery_status = "smtp_email_sent"
+    else:
+        await request.app.state.supabase_auth.invite_user(
+            row["email"], invite_url.replace("/auth/accept-invitation?", "/auth/callback?organization_invite=")
+        )
+        delivery_status = "supabase_auth_invite_sent"
+    return {**dict(row),"invitation_url":invite_url,"delivery_status":delivery_status}
