@@ -58,7 +58,7 @@ class Phase03MasterDataContractTests(unittest.TestCase):
             self.assertIn(f"public.{table}", sql)
         self.assertIn("alter table public.%i enable row level security", sql)
         self.assertIn("outlet_assignment_one_active_uq", sql)
-        self.assertIn("foreign key(organization_id,branch_id)", sql)
+        self.assertIn("foreign key (organization_id,branch_id)", sql)
         self.assertTrue((root / "supabase/migrations/20261119180611_p03_branch_contact_location_fields.sql").exists())
         self.assertTrue((root / "supabase/migrations/20261119181929_p03_branch_type.sql").exists())
 
