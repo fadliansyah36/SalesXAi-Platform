@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 import logging
 import re
+import secrets
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Any
 
 import asyncpg
@@ -52,8 +55,6 @@ def _unverified_subject(request: Request) -> str | None:
     try:
         payload = token.split(".")[1]
         payload += "=" * (-len(payload) % 4)
-        import base64
-
         claims: dict[str, Any] = json.loads(base64.urlsafe_b64decode(payload))
         subject = claims.get("sub")
         return subject if isinstance(subject, str) and subject else None
@@ -110,12 +111,12 @@ async def _consume(
         rule.block_seconds,
     )
     blocked_until = row["blocked_until"]
-    if row["hit_count"] > rule.limit or (blocked_until is not None and blocked_until > __import__("datetime").datetime.now(__import__("datetime").UTC)):
+    if row["hit_count"] > rule.limit or (blocked_until is not None and blocked_until > datetime.now(UTC)):
         retry = rule.block_seconds
         if blocked_until is None:
             retry = row["window_retry"]
         else:
-            retry = max(1, int((blocked_until - __import__("datetime").datetime.now(__import__("datetime").UTC)).total_seconds()))
+            retry = max(1, int((blocked_until - datetime.now(UTC)).total_seconds()))
         return False, retry
     return True, 0
 
@@ -168,7 +169,7 @@ async def enforce_request_rate_limit(request: Request) -> None:
                         headers={"Retry-After": str(retry_after)},
                     )
             # Opportunistic bounded retention cleanup; the table is shared by all API instances.
-            if __import__("secrets").randbelow(256) == 0:
+            if secrets.randbelow(256) == 0:
                 await connection.execute(
                     "delete from app_private.api_rate_limit_buckets where updated_at < now()-interval '48 hours'"
                 )
