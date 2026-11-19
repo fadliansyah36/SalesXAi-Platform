@@ -81,7 +81,7 @@ async def register_current_session(
 
 @router.get("/sessions")
 async def list_sessions(
-    principal: Principal=Depends(get_current_principal),
+    principal: Principal=Depends(require_self_permission("profile:read:self")),
     connection: asyncpg.Connection=Depends(get_connection),
 )->list[dict]:
     rows=await connection.fetch(
@@ -93,7 +93,7 @@ async def list_sessions(
 @router.delete("/sessions/{session_id}",status_code=204)
 async def revoke_session(
     session_id: UUID,request: Request,
-    principal: Principal=Depends(get_current_principal),
+    principal: Principal=Depends(require_self_permission("profile:update:self")),
     connection: asyncpg.Connection=Depends(get_connection),
 )->None:
     exists=await connection.fetchval("select exists(select 1 from auth.sessions where id=$1 and user_id=$2)",session_id,principal.user_id)
