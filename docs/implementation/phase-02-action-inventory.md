@@ -217,3 +217,63 @@ A source scan of every registered router file (`admin.py`, `audit.py`, `auth.py`
 The Phase 02 UI action contract scope remains 18 unique UI action IDs and 40 resolver call sites across Web access/security, Super Admin, invitation and Expo auth surfaces. The source inventory records 443 Web `onClick`, 7 Web `onSubmit`, and 17 Expo `onPress` sites across the seven Web portal components and Expo Sales screen. The six business-domain portals whose actions belong to later phases are explicitly recorded as future-phase surfaces rather than misrepresented as Phase 02 identity actions.
 
 Phase 03 has since added its own 22 master-data and platform-tenant action contracts. Those contracts are recorded separately in `docs/implementation/phase-03-action-inventory.md` and do not change the Phase 02 contract baseline of 28 actions.
+
+
+## 12. Final closure evidence — 2026-11-20
+
+### Router / service / repository boundary
+
+All registered FastAPI routers were reconciled. The Phase 02 mutation operations moved to dedicated service/repository pairs:
+
+| Domain | Mutation routes | Application service | Repository |
+|---|---:|---|---|
+| Account administration | 1 | `AccountAdministrationService` | `AccountAdministrationRepository` |
+| Session lifecycle | 3 | `SessionMutationService` | `SessionMutationRepository` |
+| Identity lifecycle | 1 | `IdentityMutationService` | `IdentityMutationRepository` |
+| Organization / membership / role | 4 | `OrganizationMutationService` | `OrganizationMutationRepository` |
+| Invitation lifecycle | 5 | `InvitationMutationService` | `InvitationMutationRepository` |
+| **Total** | **14** | **5 mutation services** | **5 mutation repositories** |
+
+The read/query boundary was also normalized:
+- Identity profile, memberships, effective permissions, sessions and linked identities: `IdentityReadService` / `IdentityReadRepository`.
+- Organization directory, membership directory and assignable-role delegation: `OrganizationReadService` / `OrganizationReadRepository`.
+- Platform user, role and audit reads: `PlatformReadService` / `PlatformReadRepository`.
+- Tenant audit reads: `AuditReadService` / `AuditReadRepository`.
+- BFF session-refresh authorization now calls `SessionMutationService.authorize_refresh`.
+
+A fresh source scan of all `services/api/app/routers/*.py` files found **zero** direct `connection.fetch/fetchrow/fetchval/execute/executemany` calls and **zero** domain DML statements. `test_phase02_mutation_architecture.py` enforces this boundary for every router file, and verifies the five mutation-specific service/repository pairs.
+
+### Full source handler inventory
+
+The handler-level source extract is committed at:
+
+- `docs/implementation/handler-level-action-inventory.tsv`
+
+It contains **868 callback/event prop occurrences** across the seven Web portal components and the Expo Sales app. The extract includes portal, source file, line, screen-context marker, handler prop, expression excerpt, scope classification and resource/action/permission/endpoint/service disposition.
+
+Source event totals include:
+- Web: **443** `onClick`, **7** `onSubmit`.
+- Expo Sales: **17** `onPress`.
+- Remaining rows include component callback props and local input/UI state handlers; they are deliberately distinguished from server mutations.
+
+Automated scope tags in the inventory classify 87 rows as Phase 02 identity/session, 24 as Phase 03 master-data/tenant, 524 as future-phase domain actions and 233 as UI-state callbacks. Future-phase rows are recorded against their owning phase; no fake endpoint or permission contract is invented for an unimplemented domain. The canonical Phase 02 contract baseline remains 18 unique UI action IDs and 40 resolver call sites. The full API action registries now contain 50 IDs (28 Phase 02/platform foundation plus 22 Phase 03) with exact Python/TypeScript ID parity.
+
+### Final engineering validation
+
+- Phase 02 API Checks run **44591830007**, validated code commit `8917bcaac8da50e56e6a63c55569cab7c4811fbe`: **SUCCESS**.
+  - 46 Python unit tests passed.
+  - Python compileall passed.
+  - Ruff passed.
+  - Web TypeScript typecheck passed.
+  - Web lint passed.
+- Foundation Verification run **44588497867**, validated cross-platform source head `fcacb165b42f290ef8ad785513485fe1d3ee074b`: **SUCCESS**.
+  - Bun frozen workspace installation and token reproducibility passed.
+  - Web TypeScript/lint passed.
+  - Expo Native TypeScript, SDK dependency compatibility, app config, Metro startup, Android/iOS bundle exports and Turborepo workspace build passed.
+  - The latest Web/Expo/API-client source files at the time of that run are at or before the validated source head; subsequent changes in this closure stream were API service/repository code, tests and documentation.
+
+### Closure decision
+
+The requested Phase 02 identity, tenant, RBAC/ABAC, session, audit, API-client and router/service/repository boundaries are implemented. Supabase Auth/JWT/tenant authorization and RLS/grants evidence is recorded in the phase tracker. SMTP, Google OAuth credentials and deployment/provider secrets remain intentionally deferred; they are not implementation blockers.
+
+**Phase 02 status: COMPLETED.** This closure is an engineering implementation status, not a claim of deployment or real-world validation.
