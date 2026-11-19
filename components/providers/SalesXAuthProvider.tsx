@@ -166,7 +166,6 @@ export function SalesXAuthProvider({children}:{children:React.ReactNode}) {
     if(!client)throw new Error("Supabase Auth belum siap.");
     const params=new URLSearchParams(window.location.search);
     const tokenHash=params.get("token_hash");
-    const invitationToken=params.get("organization_invite");
     const type=params.get("type");
     const oauthError=params.get("error");
     const code=params.get("code");
@@ -186,12 +185,6 @@ export function SalesXAuthProvider({children}:{children:React.ReactNode}) {
     }
     if(!next)return "none" as const;
     await loadContext(next);
-    if(invitationToken) {
-      const transport=apiClientRef.current;
-      if(!transport)throw new Error("FastAPI client belum dikonfigurasi.");
-      await transport.acceptInvitation({token:invitationToken});
-      await loadContext((await client.getSession())??next);
-    }
     return type==="recovery"?"recovery" as const:"authenticated" as const;
   },[client,loadContext]);
 
