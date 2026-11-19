@@ -31,6 +31,12 @@ class ApiActionMatrixTests(unittest.TestCase):
             else:
                 self.assertTrue(callable(require_api_action(item.id)))
 
+    def test_platform_read_actions_use_least_privilege_permissions(self) -> None:
+        contracts = {item.id: item for item in API_ACTION_MATRIX}
+        self.assertEqual(contracts["platform.users.list"].permission_key, "account:read")
+        self.assertEqual(contracts["platform.roles.list"].permission_key, "role:read")
+        self.assertEqual(contracts["platform.audit.read"].permission_key, "audit:read")
+
     def test_runtime_resolver_denies_unknown_action(self) -> None:
         with self.assertRaises(RuntimeError):
             require_api_action("unknown.action")
