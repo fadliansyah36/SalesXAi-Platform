@@ -59,12 +59,11 @@ import { PluginActivationModal } from '@/components/design-system/PluginActivati
 import { PortalAiCoachModal } from '@/components/design-system/PortalAiCoachModal';
 import { useSalesXAuth } from '@/components/providers/AppProviders';
 import { PortalSignupAction } from '@/components/auth/PortalSignupAction';
-import { INITIAL_NOTIFICATIONS, type NotificationItem, type Outlet } from '@/lib/salesx-data';
+import { INITIAL_NOTIFICATIONS, type NotificationItem } from '@/lib/salesx-data';
 import {
   SUPER_ADMIN_PROFILE,
   TENANT_GROWTH_TREND,
   AI_TOKEN_USAGE_TREND,
-  PLATFORM_TENANT_OUTLETS,
   INITIAL_MASTER_DATA,
   INITIAL_SERVICES_REGISTRY,
   INITIAL_DOMAINS,
@@ -320,9 +319,6 @@ export function SuperAdminPortalApp() {
     'Semua'
   );
   const [tenantPlanFilter, setTenantPlanFilter] = useState<string>('Semua');
-  const [selectedTenantOutlet, setSelectedTenantOutlet] = useState<Outlet>(
-    PLATFORM_TENANT_OUTLETS[0]
-  );
 
   const [orgSearch, setOrgSearch] = useState('');
   const [selectedOrgTenantId, setSelectedOrgTenantId] = useState('');
@@ -1035,15 +1031,9 @@ export function SuperAdminPortalApp() {
                   Konfigurasi Maps
                 </button>
               </div>
-              <SalesGoogleMap
-                currentPos={{ lat: -6.597147, lng: 106.806039 }}
-                currentPosLabel="Hub Utama PT Maju Distribusi"
-                outlets={PLATFORM_TENANT_OUTLETS}
-                selectedOutlet={selectedTenantOutlet}
-                onSelectOutlet={setSelectedTenantOutlet}
-                showRouteToSelected={false}
-                heightClass="h-[220px]"
-              />
+              <div className="flex min-h-[220px] items-center justify-center rounded-xl border border-dashed border-[var(--color-border-strong)] bg-[var(--color-background)] p-5 text-center text-xs text-[var(--color-text-muted)]">
+                Outlet dan lokasi tenant ditampilkan setelah master outlet terhubung pada stream data Phase 03.
+              </div>
             </div>
           </div>
 
