@@ -292,3 +292,21 @@ Combined extract: **1,575 callback/event prop occurrences across 21 distinct TSX
 The TSVs record source path, line, nearest screen/section marker, callback prop, expression excerpt, resource/action classification, permission disposition, endpoint/service disposition and owning phase. Future-phase entries are explicitly inventory-only and do not fabricate API endpoints, permissions or services. The Phase 02 server-side contract baseline remains 18 unique UI action IDs; the API action registry includes 28 Phase 02/platform foundation contracts and 22 separately scoped Phase 03 contracts.
 
 The source extract counts callback/event prop occurrences, not unique business actions. Multiple handlers can intentionally map to one shared API action contract; UI-only state callbacks do not require a server endpoint.
+
+
+## 14. Auth/access component inventory extension — 2026-11-20
+
+Added `docs/implementation/handler-level-auth-inventory.tsv` for the auth/access consoles, shared auth providers and invitation/reset/callback routes:
+- Organization Access Console.
+- Platform Account Security Console.
+- Portal signup/login actions.
+- Shared Web auth provider and app provider.
+- Invitation accept, auth callback, password reset and portal access routes.
+
+The four handler TSVs now contain **1,619 callback/event prop occurrences across 25 distinct TSX source files**:
+- 143 Phase 02 identity/session/access.
+- 67 Phase 03 master-data/tenant.
+- 789 future-phase domain callbacks.
+- 620 UI-state callbacks.
+
+Event totals: 693 `onClick`, 71 `onSubmit`, 17 `onPress`, 358 `onChange`, 286 `onClose`, plus other custom callbacks. The source inventory records occurrences, not unique business actions; Phase 02's canonical action baseline remains 18 unique UI action IDs and 40 resolver call sites.
