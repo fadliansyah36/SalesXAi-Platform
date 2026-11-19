@@ -19,11 +19,9 @@ export default function AcceptInvitationPage(){
   if(!token)return;
   setBusy(true);setMessage("");
   try{
-   const response=await auth.apiFetch("/api/v1/organizations/invitations/"+kind,{
-    method:"POST",body:JSON.stringify({token}),
-   });
-   const body=await response.json().catch(()=>({}));
-   if(!response.ok)throw new Error(body?.error?.message??"Undangan tidak dapat diproses.");
+   if(!auth.apiClient)throw new Error("FastAPI client belum dikonfigurasi.");
+   if(kind==="accept")await auth.apiClient.acceptInvitation({token});
+   else await auth.apiClient.rejectInvitation({token});
    setMessage(kind==="accept"?"Undangan diterima. Membership organisasi aktif.":"Undangan ditolak.");
    if(kind==="accept")router.replace("/portal/access");
   }catch(e){setMessage(e instanceof Error?e.message:"Undangan gagal diproses.");}
