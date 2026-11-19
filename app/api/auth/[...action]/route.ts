@@ -4,7 +4,7 @@ import {
   OAUTH_STATE_COOKIE, OAUTH_VERIFIER_COOKIE, OAUTH_FLOW_COOKIE, OAUTH_USER_COOKIE, OAUTH_CREATED_COOKIE,
   apiUrl, appOrigin, authError, clearOAuthCookies, clearSessionCookies, csrfCookieOptions, csrfIsValid,
   enforceBffRateLimit, pkceChallenge, randomToken, refreshAuthSession, safeSession,
-  setCsrfCookie, setSessionCookies, supabaseAuthRequest, supabaseUrl, type SupabaseAuthSession,
+  setCsrfCookie, setSessionCookies, subjectFromJwt, tokenFingerprint, supabaseAuthRequest, supabaseUrl, type SupabaseAuthSession,
 } from "@/lib/auth/web-session";
 
 export const runtime = "nodejs";
@@ -191,7 +191,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     if (!accessToken) return authError(401, "unauthenticated", "An authenticated session is required.");
     const password = String(payload.password ?? "");
     if (password.length < 12) return authError(400, "invalid_password", "Password must contain at least 12 characters.");
-    const limited = await enforceBffRateLimit(request, "password_update");
+    const limited = await enforceBffRateLimit(request, "password_update", subjectFromJwt(accessToken));
     if (limited) return limited;
     const result = await supabaseAuthRequest("user", { method: "PUT", body: JSON.stringify({ password }) }, accessToken);
     if (!result.ok) return authError(result.status, "password_update_failed", supabaseMessage(result.body));
@@ -301,7 +301,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
   if (route === "sign-out") {
     const scope = payload.scope === "global" || payload.scope === "others" ? String(payload.scope) : "local";
-    const limited = await enforceBffRateLimit(request, "signout");
+    const limited = await enforceBffRateLimit(request, "signout", subjectFromJwt(accessToken));
     if (limited) return limited;
     if (accessToken) {
       const result = await supabaseAuthRequest("logout?scope=" + scope, { method: "POST" }, accessToken);
@@ -314,7 +314,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
   }
 
   if (route === "refresh") {
-    const limited = await enforceBffRateLimit(request, "refresh");
+    const limited = await enforceBffRateLimit(request, "refresh",
+      tokenFingerprint(request.cookies.get(REFRESH_COOKIE)?.value ?? ""));
     if (limited) return limited;
     const refreshed = await refreshAuthSession(request);
     if (!refreshed) {
