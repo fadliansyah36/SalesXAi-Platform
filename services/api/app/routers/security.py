@@ -66,25 +66,34 @@ async def enforce_bff_rate_limit(payload: ExternalRateLimitRequest, request: Req
     if identifier:
         dimensions.append(("identifier", identifier))
 
-    async with pool.acquire() as connection:
-        for dimension, value in dimensions:
-            allowed, retry_after = await _consume(
-                connection,
-                name=f"{rule.name}:{dimension}",
-                identity=value,
-                rule=rule,
-                hash_secret=expected.get_secret_value(),
-            )
-            if not allowed:
-                logger.warning(
-                    "security_rate_limit_exceeded",
-                    extra={"bucket":rule.name,"dimension":dimension,
-                           "correlation_id":getattr(request.state,"correlation_id",None)},
+    try:
+        async with pool.acquire() as connection:
+            for dimension, value in dimensions:
+                allowed, retry_after = await _consume(
+                    connection,
+                    name=f"{rule.name}:{dimension}",
+                    identity=value,
+                    rule=rule,
+                    hash_secret=expected.get_secret_value(),
                 )
-                raise APIError(
-                    429,
-                    "rate_limit_exceeded",
-                    "Too many requests. Wait before retrying.",
-                    headers={"Retry-After": str(retry_after)},
-                )
+                if not allowed:
+                    logger.warning(
+                        "security_rate_limit_exceeded",
+                        extra={"bucket":rule.name,"dimension":dimension,
+                               "correlation_id":getattr(request.state,"correlation_id",None)},
+                    )
+                    raise APIError(
+                        429,
+                        "rate_limit_exceeded",
+                        "Too many requests. Wait before retrying.",
+                        headers={"Retry-After": str(retry_after)},
+                    )
+    except APIError:
+        raise
+    except (asyncpg.PostgresError, asyncpg.InterfaceError, TimeoutError, OSError) as exc:
+        logger.exception("external_auth_rate_limit_store_error")
+        raise APIError(
+            503,"rate_limit_store_unavailable",
+            "The distributed security rate-limit store is unavailable.",
+        ) from exc
     return {"allowed": True}
