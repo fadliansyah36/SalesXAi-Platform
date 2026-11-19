@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     supabase_jwt_secret: SecretStr | None = None
     supabase_publishable_key: SecretStr | None = None
     supabase_secret_key: SecretStr | None = None
+    salesx_bff_shared_secret: SecretStr | None = None
     app_public_url: str | None = None
     auth_admin_timeout_seconds: float = 8.0
     db_pool_min_size: int = 1
@@ -107,7 +108,7 @@ class Settings(BaseSettings):
             raise ValueError("DATABASE_URL must connect to the bound Supabase project eyofuiyxalbehbqoaeny")
         return value
 
-    @field_validator("supabase_jwt_secret","supabase_publishable_key","supabase_secret_key","smtp_password",mode="before")
+    @field_validator("supabase_jwt_secret","supabase_publishable_key","supabase_secret_key","salesx_bff_shared_secret","smtp_password",mode="before")
     @classmethod
     def empty_secret_to_none(cls,value):
         return None if value == "" else value
