@@ -116,10 +116,7 @@ export function useMobileSalesAuth(){
     if(invitationToken){
      const transport=apiClientRef.current;
      if(!transport)throw new Error("FastAPI client belum dikonfigurasi.");
-     await transport.request("/api/v1/organizations/invitations/accept",{
-      method:"POST",
-      body:JSON.stringify({token:invitationToken}),
-     });
+     await transport.acceptInvitation({token:invitationToken});
      await loadContext(next);
     }
    }
