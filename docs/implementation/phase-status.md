@@ -22,12 +22,14 @@ Status: IMPLEMENTED
 
 ### Supabase evidence
 - Migration file: `supabase/migrations/20261119101638_p00_create_private_schema.sql`
-- Migration history: `20261119101638 / p00_create_private_schema`
+- Migration history: `20261119101638 / p00_create_private_schema`; `20261119103355 / p00_restrict_rls_auto_enable_execution`
 - Target: `eyofuiyxalbehbqoaeny`
 - Applied: confirmed by live Supabase migration history.
 - Schema: `app_private` exists.
 - Tables: live listing returned no tables in `public` or `app_private`; no SalesX-Ai business tables were created.
 - Grants: `anon` and `authenticated` have no USAGE on `app_private`.
+- Security hardening migration: `20261119103355_p00_restrict_rls_auto_enable_execution.sql` applied; live privilege query confirms EXECUTE is false for anon/authenticated and true for service_role. The postgres-owned `ensure_rls` DDL event trigger remains enabled.
+- Security advisor after remediation: no remaining security lints.
 - Realtime: not applicable; no application events exist in Phase 00.
 
 ### Evidence
@@ -35,6 +37,7 @@ Status: IMPLEMENTED
 - `docs/deployment/README.md`
 - `docs/engineering/repository-governance.md`
 - `docs/engineering/supabase-migrations.md`
+- `supabase/migrations/20261119103355_p00_restrict_rls_auto_enable_execution.sql`
 - `apps/mobile-sales/README.md`
 - `services/*/README.md`
 - CODEOWNERS and Bun workspace metadata.
@@ -79,10 +82,8 @@ Status: IMPLEMENTED
 - Implementation HEAD before this tracker finalization: `b3d026d2fa4b3452a78d71fec8f1f7d42560df69`.
 - This tracker update is committed separately; its resulting commit is the final repository HEAD.
 
-### Existing Supabase security advisor findings
-The live security advisor still reports the pre-existing `public.rls_auto_enable()` SECURITY DEFINER function executable by both anon and authenticated. This function was not modified because its ownership and intended behavior are outside Phase 00–01 and changing it without that context could alter existing database behavior.
-- Anon finding: https://supabase.com/docs/guides/database/database-linter?lint=0028_anon_security_definer_function_executable
-- Authenticated finding: https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable
+### Supabase security baseline
+The pre-existing `public.rls_auto_enable()` SECURITY DEFINER function was inspected. It is owned by postgres and attached to the postgres-owned `ensure_rls` DDL event trigger. A versioned Phase 00 migration revoked direct EXECUTE from PUBLIC, anon and authenticated while preserving service_role execution and the event trigger. Live privilege verification confirms the revocation; the subsequent Supabase security advisor returned no lints.
 
 ## Next phase
 
