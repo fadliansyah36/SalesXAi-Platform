@@ -61,6 +61,12 @@ export class SalesXApiClient {
 
     let response = await send(token);
     if (response.status === 401) {
+      const initialBody = await response.clone().json().catch(() => ({}));
+      const initialCode = initialBody?.error?.code ?? "unauthorized";
+      if (["session_revoked", "account_inactive", "identity_unverified"].includes(initialCode)) {
+        await this.auth.onSessionInvalidated?.(initialCode);
+        return response;
+      }
       try {
         const refreshed = await this.auth.refreshAccessToken();
         if (refreshed) {
