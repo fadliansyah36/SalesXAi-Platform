@@ -7,9 +7,9 @@
       "dependencies": {
         "@google/genai": "^3.6.1",
         "@hookform/resolvers": "^5.2.1",
+        "@salesx-ai/auth-client": "workspace:*",
         "@salesx-ai/design-system": "workspace:*",
         "@salesx-ai/design-tokens": "workspace:*",
-        "@salesx-ai/auth-client": "workspace:*",
         "@salesx-ai/permissions": "workspace:*",
         "@salesx-ai/shared-types": "workspace:*",
         "@vis.gl/react-google-maps": "^1.10.2",
@@ -51,10 +51,13 @@
       "dependencies": {
         "@expo-google-fonts/jetbrains-mono": "^0.4.1",
         "@expo-google-fonts/plus-jakarta-sans": "^0.4.2",
+        "@salesx-ai/auth-client": "workspace:*",
         "@salesx-ai/design-system": "workspace:*",
         "@salesx-ai/design-tokens": "workspace:*",
+        "@salesx-ai/shared-types": "workspace:*",
         "expo": "~58.0.26",
         "expo-font": "~58.0.12",
+        "expo-secure-store": "~58.0.3",
         "react": "19.3.0",
         "react-native": "0.88.1",
       },
@@ -63,6 +66,14 @@
         "babel-preset-expo": "~58.0.26",
         "typescript": "~6.0.3",
       },
+    },
+    "packages/api-contracts": {
+      "name": "@salesx-ai/api-contracts",
+      "version": "1.0.0",
+    },
+    "packages/auth-client": {
+      "name": "@salesx-ai/auth-client",
+      "version": "1.0.0",
     },
     "packages/design-system": {
       "name": "@salesx-ai/design-system",
@@ -77,14 +88,6 @@
       "optionalPeers": [
         "react-native",
       ],
-    },
-    "packages/api-contracts": {
-      "name": "@salesx-ai/api-contracts",
-      "version": "1.0.0",
-    },
-    "packages/auth-client": {
-      "name": "@salesx-ai/auth-client",
-      "version": "1.0.0",
     },
     "packages/design-tokens": {
       "name": "@salesx-ai/design-tokens",
@@ -692,11 +695,19 @@
 
     "@react-native/virtualized-lists": ["@react-native/virtualized-lists@0.88.1", "", { "dependencies": { "invariant": "^2.2.4", "nullthrows": "^1.1.1" }, "peerDependencies": { "@types/react": "^19.2.0", "react": "*", "react-native": "0.88.1" }, "optionalPeers": ["@types/react"] }, "sha512-Zt+OGvJE6VgmzgemZL8TSA0VomNWpHMNcG0OvLkkBQEGrzY8OdDHRfjJh7S+f+UFJF77kicRC6o6mt3A7ER9lQ=="],
 
+    "@salesx-ai/api-contracts": ["@salesx-ai/api-contracts@workspace:packages/api-contracts"],
+
+    "@salesx-ai/auth-client": ["@salesx-ai/auth-client@workspace:packages/auth-client"],
+
     "@salesx-ai/design-system": ["@salesx-ai/design-system@workspace:packages/design-system"],
 
     "@salesx-ai/design-tokens": ["@salesx-ai/design-tokens@workspace:packages/design-tokens"],
 
     "@salesx-ai/mobile-sales": ["@salesx-ai/mobile-sales@workspace:apps/mobile-sales"],
+
+    "@salesx-ai/permissions": ["@salesx-ai/permissions@workspace:packages/permissions"],
+
+    "@salesx-ai/shared-types": ["@salesx-ai/shared-types@workspace:packages/shared-types"],
 
     "@sinclair/typebox": ["@sinclair/typebox@0.27.12", "", {}, "sha512-hhyNJ+nbR6ZR7pToHvllEFun9TL0sbL+tk/ON75lo+Xas054uez98qRbsuNt7MBCyZKK4+8Yli/OAGZhmfBZ/g=="],
 
@@ -1205,6 +1216,8 @@
     "expo-modules-jsi": ["expo-modules-jsi@58.0.23", "", { "peerDependencies": { "react-native": "*" } }, "sha512-ex3CnT8KLubsPjUG0RpEL5VgmpnWxf7Ouc+WXEr8jEbIwqcULEWtA2tfhGZwjg6jS3zeNwjygF1w8QSstP7JfQ=="],
 
     "expo-modules-macros": ["expo-modules-macros@0.33.0", "", { "optionalDependencies": { "@expo/modules-macros-linux-arm64": "0.33.0", "@expo/modules-macros-linux-x64": "0.33.0", "@expo/modules-macros-win32-arm64": "0.33.0", "@expo/modules-macros-win32-x64": "0.33.0" } }, "sha512-ddrT2jbYPYmiHmzcYOixRemFUUK9qQEb5pOBWgoFoW0gj3sGld1CZX0GwblUXeZMyEX65S9vc1bEhIAGVDRA9w=="],
+
+    "expo-secure-store": ["expo-secure-store@58.0.3", "", { "peerDependencies": { "expo": "*" } }, "sha512-RpubZfqJREEcwKbx3HFoWbtDd31t+yESMj7Ei5/mGQp5vViwUBzL4nUCZRLFyt+O690mT8We7dDtIUZeIk6LbQ=="],
 
     "expo-server": ["expo-server@58.1.0", "", {}, "sha512-jo7I6uHnP5OQYKx3+7lbpdVVnOEwFj2ryDkQdauUQSwgh2HuMUkiFXWUIVe01ts6DLRoff5U0Tv+uNb3CMq/kw=="],
 
