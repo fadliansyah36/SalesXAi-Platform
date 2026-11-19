@@ -7,7 +7,8 @@ from uuid import UUID
 from app.db import get_connection
 from app.errors import APIError
 from app.schemas.identity import MemberCreate,MemberStatusUpdate,OrganizationCreate,OrganizationResponse,RoleAssignmentCreate,InvitationCreate,InvitationToken
-from app.security.dependencies import Principal,TenantContext,get_current_principal,require_permission
+from app.security.dependencies import Principal,TenantContext,get_current_principal,require_permission,require_platform_permission
+from app.services.invitation_email import send_organization_invitation
 from app.services.audit import write_audit
 
 router=APIRouter(prefix="/organizations",tags=["organizations"])
@@ -26,7 +27,7 @@ async def list_my_organizations(
 @router.post("",response_model=OrganizationResponse,status_code=201)
 async def create_organization(
     payload: OrganizationCreate,request: Request,
-    principal: Principal=Depends(get_current_principal),
+    principal: Principal=Depends(require_platform_permission("organization:create")),
     connection: asyncpg.Connection=Depends(get_connection),
 )->OrganizationResponse:
     async with connection.transaction():
@@ -301,7 +302,17 @@ async def create_invitation(
         await write_audit(connection,request,principal,"organization.invitation.created",
             "organization_invitation",str(invitation["id"]),tenant,
             metadata={"email":email,"role_key":payload.role_key})
-    return {**dict(invitation),"invitation_url":invite_url}
+    delivery_status = "supabase_auth_invite_sent"
+    if existing_identity:
+        await send_organization_invitation(
+            request.app.state.settings,
+            recipient=email,
+            organization_name=tenant.organization_name,
+            role_key=payload.role_key,
+            invitation_url=invite_url,
+        )
+        delivery_status = "smtp_email_sent"
+    return {**dict(invitation),"invitation_url":invite_url,"delivery_status":delivery_status}
 
 
 @router.post("/invitations/accept")
@@ -330,7 +341,8 @@ async def accept_invitation(
                 invitation["id"],
             )
             expired = True
-        elif not invitation["auth_email"] or invitation["auth_email"].lower() != invitation["email"]:
+        elif (not invitation["auth_email"] or invitation["email_confirmed_at"] is None
+              or invitation["auth_email"].lower() != invitation["email"]):
             raise APIError(403,"invitation_email_mismatch",
                            "Sign in with the verified email address that received this invitation.")
         else:
@@ -399,6 +411,7 @@ async def reject_invitation(
             set status='rejected',rejected_at=now(),updated_at=now()
             from auth.users u
             where i.token_hash=$1 and i.status='pending' and u.id=$2
+              and u.email_confirmed_at is not null
               and lower(u.email)=i.email and i.expires_at>now()
             returning i.id,i.organization_id,i.email""",
             _invitation_hash(payload.token),principal.user_id,
@@ -458,6 +471,11 @@ async def resend_invitation(
             raise APIError(404,"invitation_not_found","Pending invitation was not found.")
         await write_audit(connection,request,principal,"organization.invitation.resent",
             "organization_invitation",str(row["id"]),tenant,metadata={"email":row["email"]})
-    # Existing identities receive the rotated one-time link through the authorized portal.
-    # New identity delivery is handled by Supabase Auth Admin during invitation creation.
-    return {**dict(row),"invitation_url":invite_url}
+    await send_organization_invitation(
+        request.app.state.settings,
+        recipient=row["email"],
+        organization_name=tenant.organization_name,
+        role_key=row["role_key"],
+        invitation_url=invite_url,
+    )
+    return {**dict(row),"invitation_url":invite_url,"delivery_status":"smtp_email_sent"}
