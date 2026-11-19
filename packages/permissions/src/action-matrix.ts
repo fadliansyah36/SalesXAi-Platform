@@ -63,6 +63,10 @@ export const API_ACTION_MATRIX: readonly ApiActionContract[] = [
 
   {id:"platform.organizations.list",method:"GET",path:"/api/v1/admin/organizations",feature:"platform_tenant_management",action:"list_organizations",resource:"organization",rolePolicy:"platform_permission:organization:read",permission:"organization:read",scope:"platform",serverEnforcement:"platform_permission"},
   {id:"platform.organizations.update",method:"PATCH",path:"/api/v1/admin/organizations/{organization_id}",feature:"platform_tenant_management",action:"update_organization_status",resource:"organization",rolePolicy:"platform_permission:organization:update",permission:"organization:update",scope:"platform",serverEnforcement:"platform_permission_and_resource_existence"},
+
+  {id:"platform.organizations.branches.read",method:"GET",path:"/api/v1/admin/organizations/{organization_id}/branches",feature:"platform_tenant_management",action:"list_organization_branches",resource:"branch",rolePolicy:"platform_permission:organization:read",permission:"organization:read",scope:"platform",serverEnforcement:"platform_permission_and_organization_match"},
+  {id:"platform.organizations.branches.create",method:"POST",path:"/api/v1/admin/organizations/{organization_id}/branches",feature:"platform_tenant_management",action:"create_organization_branch",resource:"branch",rolePolicy:"platform_permission:organization:update",permission:"organization:update",scope:"platform",serverEnforcement:"platform_permission_and_organization_match"},
+  {id:"platform.organizations.branches.update",method:"PATCH",path:"/api/v1/admin/organizations/{organization_id}/branches/{branch_id}",feature:"platform_tenant_management",action:"update_organization_branch",resource:"branch",rolePolicy:"platform_permission:organization:update",permission:"organization:update",scope:"platform",serverEnforcement:"platform_permission_and_branch_ownership"},
 ] as const;
 
 export type ApiActionId = (typeof API_ACTION_MATRIX)[number]["id"];
