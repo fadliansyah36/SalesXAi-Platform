@@ -122,7 +122,7 @@ def require_permission(permission_key: str):
                 and ((ura.scope_type='platform' and ura.membership_id is null)
                   or (ura.scope_type='tenant' and ura.membership_id=$2 and ura.scope_id=$3)
                   or (ura.scope_type='branch' and ura.membership_id=$2 and ura.scope_id=$4))
-              union all
+              union
               select p.id,p.parent_role_id,c.attributes from role_tree c
               join public.roles p on p.id=c.parent_role_id
             )
@@ -153,7 +153,7 @@ def require_platform_permission(permission_key: str):
                 and ura.membership_id is null and ura.scope_id is null
                 and ura.revoked_at is null and ura.starts_at<=now()
                 and (ura.expires_at is null or ura.expires_at>now())
-              union all
+              union
               select parent.id,parent.parent_role_id
               from role_tree child join public.roles parent on parent.id=child.parent_role_id
             )
