@@ -14,15 +14,15 @@ Target: eyofuiyxalbehbqoaeny / https://eyofuiyxalbehbqoaeny.supabase.co
 
 Web uses the shared @salesx-ai/auth-client and @salesx-ai/api-client packages with GET /api/v1/auth/me as its context contract. Email/password signup, verification callback, password recovery/reset, Google OAuth, SMS OTP, refresh and local account switching are connected to the shared provider. Google OAuth now uses PKCE (S256), a random callback-bound oauth_state, a ten-minute pending-flow lifetime and one-time code exchange. Legacy implicit-token callbacks are rejected whenever a PKCE flow is pending. Manual Google identity linking uses the Supabase Auth user/identities/authorize endpoint and binds the returned session to the original user ID before replacing the stored session. Supabase Auth manual linking must still be enabled in the target project.
 
-The browser adapter persists Supabase session material in browser local storage. This is compatible with the current client-only portal architecture but remains exposed to same-origin XSS; a future SSR-only HttpOnly cookie session is a separate hardening step. Do not store any server key in browser code.
+Web authentication now uses the Next.js server-side Auth BFF. Access, refresh and OAuth transaction material is held in HttpOnly cookies (Secure in production; SameSite=Lax for auth cookies), never returned in the browser session view or persisted in browser localStorage. Mutating BFF/API requests require exact-origin validation and a CSRF token bound to an HttpOnly cookie. The backend proxy forwards the cookie-held access token to FastAPI and refreshes only through the server-side BFF. The provider removes the legacy browser auth and PKCE stores during migration. Do not store any server key in browser code.
 
 ## Session revocation semantics
 
 - local: Supabase Auth /logout?scope=local revokes the current refresh-token session. FastAPI marks the current session_devices row revoked.
 - global: Supabase Auth /logout?scope=global revokes all refresh-token sessions. FastAPI advances profiles.session_revoked_at and revokes all registered device rows.
 - others: Supabase Auth /logout?scope=others revokes other refresh-token sessions. FastAPI revokes all other registered device rows while retaining the current one.
-- DELETE /api/v1/auth/sessions/{session_id} is a server-side API deny-list operation for that session. It cannot revoke another device's Supabase refresh token because the server does not possess that device's access token. The revoked session is denied by FastAPI.
-- Revoked access JWTs are cryptographically valid until exp; Supabase documents this behavior. FastAPI rejects old JWTs by checking the session row, device registry and profile revocation epoch on every request.
+- DELETE /api/v1/auth/sessions/{session_id} is a server-side session-registry revocation for that device. It does not claim to revoke the provider refresh token for an arbitrary other device. The revoked session is denied by FastAPI and by the BFF refresh-authorization gate before another Supabase refresh is attempted.
+- Revoked access JWTs remain cryptographically valid until exp. FastAPI rejects them on every protected request using the live Auth session, registered device row, account state and profile revocation epoch. The server-only /api/v1/security/refresh-authorize gate verifies the prior access JWT signature/issuer/audience while deliberately allowing its exp to have elapsed, then checks auth.sessions.not_after, registered session_devices, device revocation, account verification/status and the revocation epoch before the Web or Expo BFF can submit the refresh token to Supabase Auth. This is application-level refresh enforcement, not provider refresh-token revocation.
 
 Account suspension/deactivation first commits the database deny state, advances the revocation epoch and revokes registered device rows, then calls Supabase Auth Admin. If Auth Admin credentials/provider calls fail, FastAPI still denies the account and writes a failed-ban audit event; the endpoint does not claim that the provider ban succeeded. Reactivation preserves the prior session revocation epoch so old JWTs remain invalid.
 
@@ -106,3 +106,30 @@ FastAPI checks the live Supabase Auth session, device revocation record, profile
 - The Web access console and native Sales app expose session list/revocation through typed API client methods. The revoke action is explicitly an API deny-list operation; it is not described as arbitrary remote Supabase refresh-token revocation.
 - FastAPI security middleware sets security response headers, enforces the configured declared Content-Length maximum and rejects chunked request bodies. `APP_PUBLIC_URL` is validated as an exact origin and must be included in CORS origins when CORS is configured.
 - API rate limiting and broader abuse controls are still outstanding. The current middleware is not a rate limiter. Fresh static CI/typecheck/build evidence is also outstanding for the latest code head.
+
+
+## Latest implementation evidence — 2026-11-19
+
+### Web HttpOnly BFF and native refresh enforcement
+
+- Web session storage is server-side: salesx_access, salesx_refresh and expiry cookies are HttpOnly; Secure is enabled in production and auth cookies use SameSite=Lax. The CSRF cookie is HttpOnly/SameSite=Strict; mutating routes require a matching X-CSRF-Token and exact configured origin. /api/auth/session exposes only a tokenless session view.
+- /api/backend/* proxies typed API requests through the server-held cookie and performs CSRF checks for mutations. Legacy browser auth and PKCE local/session storage keys are removed during provider initialization.
+- Expo persists the complete Supabase Auth session and PKCE state in expo-secure-store. Its AuthClient sends the prior access token when refreshing so the native Auth BFF can apply the same session-registry check.
+- /api/v1/security/refresh-authorize is BFF-secret protected. It allows an expired-but-validly-signed prior access JWT only for checking the original session registry; it does not make that JWT valid for ordinary API requests. A missing, expired provider session, revoked device, unregistered device, inactive/unverified account or stale revocation epoch denies refresh before the BFF calls Supabase Auth.
+- Supabase Auth does not expose a supported operation to revoke one arbitrary other device's refresh token by session ID. The refresh token may remain provider-valid until its natural/provider-side revocation, but the device cannot refresh through SalesX-Ai BFF or access protected FastAPI APIs after registry revocation. This distinction is mandatory in operational reporting.
+
+### Distributed rate limiting
+
+- FastAPI uses the shared PostgreSQL app_private.api_rate_limit_buckets store with atomic upsert/window accounting, bounded retention cleanup, HMAC-keyed pseudonymous identifiers when the server BFF secret is configured, and fail-closed behavior when the store is unavailable.
+- FastAPI limits sensitive auth-context/session/identity/admin reads, session registration/sign-out/revocation, invitation create/resend/accept/reject, membership changes and account-status changes using IP plus account/identifier dimensions where available.
+- The Web and native Auth BFF use the same PostgreSQL limiter through the server-only /api/v1/security/rate-limit endpoint for login, signup, OTP send/verify, email verification, password recovery/update, OAuth start/complete, identity link, refresh and sign-out. The BFF trusts only ingress-provided X-Real-IP; it does not accept a client-supplied forwarded-IP chain.
+- Rate-limit buckets are in a non-exposed schema with RLS enabled, an explicit deny-client policy and no anon/authenticated table grants.
+
+### Authorization boundary and current scope
+
+- FastAPI remains the authorization authority. The current permissions catalog is synchronized with the 23 identifiers in the bound database; recursive role inheritance, tenant/branch scope, ABAC attributes, self-owned identity operations and platform-scoped account administration are enforced server-side.
+- Web portal switching and portal access are permission-filtered. Super Admin navigation for users, roles, audit, organizations and tenants is permission-filtered. The full feature-action matrix for every business screen, button, menu and native business action is not yet exhaustive; future business API endpoints must each use the central FastAPI permission/resource-ownership dependencies. This remains a Phase 02 closure item rather than an assumed completion.
+
+### Deployment-pending configuration
+
+DEPLOYMENT_PENDING: DATABASE_URL, SUPABASE_PUBLISHABLE_KEY, SUPABASE_SECRET_KEY, SALESX_API_URL, SALESX_BFF_SHARED_SECRET (32+ random characters), APP_PUBLIC_URL, exact CORS_ORIGINS, Expo Auth BFF/API origins, Google OAuth credentials/provider enablement/callback allowlist/manual identity-linking enablement, and SMTP credentials. No values are committed or populated. No runtime/provider-live verification is claimed.
