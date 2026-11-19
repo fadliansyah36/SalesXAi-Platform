@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     smtp_starttls: bool = True
     smtp_timeout_seconds: float = 10.0
 
-    @field_validator("supabase_jwt_secret","supabase_publishable_key","supabase_secret_key",mode="before")
+    @field_validator("supabase_jwt_secret","supabase_publishable_key","supabase_secret_key","smtp_password",mode="before")
     @classmethod
     def empty_secret_to_none(cls,value):
         return None if value == "" else value
