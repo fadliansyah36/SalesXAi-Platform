@@ -16,6 +16,7 @@ class MasterDataWrite(BaseModel):
  category:str|None=Field(default=None,max_length=80)
  address:str|None=Field(default=None,max_length=500)
  city:str|None=Field(default=None,max_length=120)
+ manager_name:str|None=Field(default=None,max_length=160)
  province:str|None=Field(default=None,max_length=120)
  postal_code:str|None=Field(default=None,max_length=20)
  phone:str|None=Field(default=None,max_length=40)
