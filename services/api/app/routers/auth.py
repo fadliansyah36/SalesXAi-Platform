@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Request, Response
 from app.db import get_connection
 from app.errors import APIError
 from app.schemas.identity import AuthContextResponse, MembershipResponse, ProfileResponse, SessionRegistration, SignOutRequest
-from app.security.dependencies import Principal, get_current_principal
+from app.security.dependencies import Principal, get_current_principal, require_self_permission
 from app.services.audit import write_audit
 
 router=APIRouter(prefix="/auth",tags=["identity"])
@@ -156,9 +156,16 @@ async def sign_out(
     response.status_code = 204
 
 
+@router.post("/identities/link-authorize",status_code=204)
+async def authorize_identity_link(
+    principal: Principal = Depends(require_self_permission("identity:link:self")),
+) -> None:
+    return None
+
+
 @router.get("/identities")
 async def list_linked_identities(
-    principal: Principal = Depends(get_current_principal),
+    principal: Principal = Depends(require_self_permission("identity:read:self")),
     connection: asyncpg.Connection = Depends(get_connection),
 ) -> list[dict]:
     rows = await connection.fetch(
@@ -173,7 +180,7 @@ async def list_linked_identities(
 async def unlink_own_identity(
     identity_id: UUID,
     request: Request,
-    principal: Principal = Depends(get_current_principal),
+    principal: Principal = Depends(require_self_permission("identity:unlink:self")),
     connection: asyncpg.Connection = Depends(get_connection),
 ) -> None:
     identity = await connection.fetchrow(
