@@ -413,6 +413,7 @@ export function AddTeamMemberModal({
   const [supervisorUserId, setSupervisorUserId] = useState('');
   const [parentTeamId, setParentTeamId] = useState('');
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   return (
     <Modal
@@ -438,7 +439,10 @@ export function AddTeamMemberModal({
             setName('');
             setSupervisorUserId('');
             setParentTeamId('');
+            setError(null);
             onClose();
+          } catch (submitError) {
+            setError(submitError instanceof Error ? submitError.message : 'Tim gagal disimpan.');
           } finally {
             setSaving(false);
           }
@@ -497,6 +501,7 @@ export function AddTeamMemberModal({
             ))}
           </select>
         </div>
+        {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700 dark:bg-red-950 dark:text-red-200">{error}</p>}
         <button
           type="submit"
           disabled={saving || branches.length === 0}
