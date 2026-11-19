@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncpg
 import hmac
 import ipaddress
 import logging
