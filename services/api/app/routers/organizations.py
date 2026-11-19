@@ -12,6 +12,44 @@ from app.services.audit import write_audit
 
 router=APIRouter(prefix="/organizations",tags=["organizations"])
 
+
+async def _delegation_hierarchy_level(
+    connection: asyncpg.Connection,
+    user_id: UUID,
+    membership_id: UUID,
+    organization_id: UUID,
+    branch_id: UUID | None = None,
+) -> int | None:
+    """Resolve the actor's effective delegable hierarchy in the target scope.
+
+    Parent-role inheritance is included, but branch assignments are considered
+    only for the exact target branch. Platform roles may administer tenant roles.
+    """
+    return await connection.fetchval(
+        """
+        with recursive role_tree(role_id, parent_role_id) as (
+          select r.id, r.parent_role_id
+          from public.user_role_assignments ura
+          join public.roles r on r.id=ura.role_id
+          where ura.user_id=$1 and ura.revoked_at is null
+            and ura.starts_at<=now() and (ura.expires_at is null or ura.expires_at>now())
+            and (
+              (ura.scope_type='platform' and ura.membership_id is null and ura.scope_id is null)
+              or (ura.scope_type='tenant' and ura.membership_id=$2 and ura.scope_id=$3)
+              or ($4::uuid is not null and ura.scope_type='branch'
+                  and ura.membership_id=$2 and ura.scope_id=$4)
+            )
+          union
+          select parent.id, parent.parent_role_id
+          from role_tree child
+          join public.roles parent on parent.id=child.parent_role_id
+        )
+        select min(r.hierarchy_level)
+        from role_tree tree join public.roles r on r.id=tree.role_id
+        """,
+        user_id, membership_id, organization_id, branch_id,
+    )
+
 @router.get("")
 async def list_my_organizations(
     principal: Principal=Depends(get_current_principal),
@@ -140,12 +178,9 @@ async def assign_member_role(
             if payload.branch_id is not None:
                 raise APIError(400,"invalid_branch_scope","Tenant roles cannot carry a branch scope.")
             assignment_scope_id = organization_id
-        actor_level=await connection.fetchval(
-          """select min(r.hierarchy_level) from public.user_role_assignments ura
-          join public.roles r on r.id=ura.role_id where ura.user_id=$1 and ura.membership_id=$2
-          and ura.revoked_at is null and ura.starts_at<=now()
-          and (ura.expires_at is null or ura.expires_at>now())""",
-          principal.user_id,tenant.membership_id)
+        actor_level=await _delegation_hierarchy_level(
+          connection,principal.user_id,tenant.membership_id,organization_id,
+          assignment_scope_id if role["scope_type"]=="branch" else None)
         if actor_level is None or role["hierarchy_level"]<=actor_level:
             raise APIError(403,"privilege_escalation_denied","You cannot assign an equal or higher privilege role.")
         assignment=await connection.fetchrow(
@@ -168,20 +203,19 @@ async def list_assignable_roles(
 ) -> list[dict]:
     if tenant.organization_id != organization_id:
         raise APIError(403,"forbidden","Cross-tenant role catalog access is denied.")
-    actor_level = await connection.fetchval(
-        """select min(r.hierarchy_level) from public.user_role_assignments ura
-        join public.roles r on r.id=ura.role_id
-        where ura.user_id=$1 and ura.membership_id=$2 and ura.revoked_at is null
-          and ura.starts_at<=now() and (ura.expires_at is null or ura.expires_at>now())""",
-        principal.user_id,tenant.membership_id,
-    )
-    if actor_level is None:
+    tenant_level = await _delegation_hierarchy_level(
+        connection,principal.user_id,tenant.membership_id,organization_id)
+    branch_level = await _delegation_hierarchy_level(
+        connection,principal.user_id,tenant.membership_id,organization_id,tenant.branch_id)
+    if tenant_level is None and branch_level is None:
         raise APIError(403,"forbidden","An active scoped role is required to delegate access.")
     rows = await connection.fetch(
         """select key,name,scope_type,hierarchy_level from public.roles
-        where scope_type in ('tenant','branch') and key<>'tenant_owner'
-          and hierarchy_level>$1 order by hierarchy_level desc,name""",
-        actor_level,
+        where key<>'tenant_owner' and (
+          (scope_type='tenant' and $1::int is not null and hierarchy_level>$1)
+          or (scope_type='branch' and $2::int is not null and hierarchy_level>$2)
+        ) order by hierarchy_level desc,name""",
+        tenant_level,branch_level,
     )
     return [dict(row) for row in rows]
 
@@ -197,6 +231,15 @@ def _invitation_url(request: Request, token: str) -> str:
         raise APIError(503, "app_public_url_not_configured",
                        "APP_PUBLIC_URL is required to create an invitation URL.")
     return base + "/auth/accept-invitation?token=" + token
+
+
+def _invitation_callback_url(request: Request, token: str) -> str:
+    settings = request.app.state.settings
+    base = str(settings.app_public_url).rstrip("/") if settings.app_public_url else ""
+    if not base:
+        raise APIError(503, "app_public_url_not_configured",
+                       "APP_PUBLIC_URL is required to create an invitation callback URL.")
+    return base + "/auth/callback?organization_invite=" + token
 
 
 @router.get("/{organization_id}/invitations")
@@ -247,13 +290,9 @@ async def create_invitation(
     )
     if role is None or role["scope_type"] not in {"tenant", "branch"} or role["key"] == "tenant_owner":
         raise APIError(400, "invalid_role", "Only delegable tenant- or branch-scoped roles can be invited.")
-    actor_level = await connection.fetchval(
-        """select min(r.hierarchy_level) from public.user_role_assignments ura
-        join public.roles r on r.id=ura.role_id
-        where ura.user_id=$1 and ura.membership_id=$2 and ura.revoked_at is null
-        and ura.starts_at<=now() and (ura.expires_at is null or ura.expires_at>now())""",
-        principal.user_id, tenant.membership_id,
-    )
+    actor_level = await _delegation_hierarchy_level(
+        connection,principal.user_id,tenant.membership_id,organization_id,
+        payload.branch_id if role["scope_type"]=="branch" else None)
     if actor_level is None or role["hierarchy_level"] <= actor_level:
         raise APIError(403, "privilege_escalation_denied",
                        "You cannot invite an equal- or higher-privilege role.")
@@ -310,9 +349,7 @@ async def create_invitation(
             raise
         delivery_status = "smtp_email_sent"
     else:
-        callback_url = invite_url.replace(
-            "/auth/accept-invitation?", "/auth/callback?organization_invite="
-        )
+        callback_url = _invitation_callback_url(request, token)
         provider = "supabase_auth_verification" if identity else "supabase_auth_invite"
         try:
             if identity:
