@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-import logging
 from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
@@ -10,27 +9,12 @@ from app.db import get_connection
 from app.errors import APIError
 from app.security.action_matrix import API_ACTION_MATRIX
 from app.security.jwt import SupabaseJWTVerifier
-from app.security.policy import abac_conditions_match
+from app.services.authorization import authorization_service
 
 bearer_scheme = HTTPBearer(auto_error=False)
-logger = logging.getLogger('salesx.api.authorization')
-
 async def audit_authorization_denial(request: Request, principal: 'Principal', permission_key: str, connection: asyncpg.Connection, tenant: 'TenantContext | None' = None) -> None:
-    """Persist a credential-free denial receipt for a rejected protected action."""
-    import json
-    try:
-        await connection.execute(
-            """insert into public.admin_audit_logs
-              (actor_user_id,organization_id,action,resource_type,resource_id,correlation_id,user_agent,metadata)
-              values ($1,$2,'authorization.denied','api_action',$3,$4,$5,$6::jsonb)""",
-            principal.user_id, tenant.organization_id if tenant else None,
-            request.url.path[:512], getattr(request.state,'correlation_id',None),
-            request.headers.get('user-agent','')[:512],
-            json.dumps({'method':request.method,'permission':permission_key,'outcome':'denied'}),
-        )
-        request.state.authorization_denial_audited=True
-    except (asyncpg.PostgresError, asyncpg.InterfaceError):
-        logger.exception('authorization_denial_audit_failed', extra={'correlation_id':getattr(request.state,'correlation_id',None)})
+    """Persist a credential-free denial receipt through the authorization service."""
+    await authorization_service.record_denial(request, principal, permission_key, connection, tenant)
 
 @dataclass(frozen=True)
 class Principal:
@@ -60,17 +44,7 @@ async def get_current_principal(
         user_id, session_id = UUID(claims["sub"]), UUID(claims["session_id"])
     except (ValueError, TypeError) as exc:
         raise APIError(401, "invalid_token", "Token identity claims are malformed.") from exc
-    row = await connection.fetchrow(
-        """
-        select p.email,p.display_name,p.status,p.session_revoked_at,u.email_confirmed_at,u.phone_confirmed_at,
-               (s.id is not null) session_exists,s.not_after session_not_after,
-               sd.id session_device_id,sd.revoked_at device_revoked_at
-        from public.profiles p join auth.users u on u.id=p.id
-        left join auth.sessions s on s.id=$2 and s.user_id=p.id
-        left join public.session_devices sd on sd.auth_session_id=s.id
-        where p.id=$1
-        """, user_id, session_id,
-    )
+    row = await authorization_service.get_principal_session(connection, user_id, session_id)
     if row is None:
         raise APIError(403, "identity_not_provisioned", "User profile is not provisioned.")
     if row["status"] != "active":
@@ -92,24 +66,13 @@ async def resolve_tenant_context(
     request: Request, principal: Principal, connection: asyncpg.Connection
 ) -> TenantContext:
     raw_org_id = request.headers.get("x-organization-id")
+    org_id = None
     if raw_org_id:
         try:
             org_id = UUID(raw_org_id)
         except ValueError as exc:
             raise APIError(400,"invalid_tenant_context","X-Organization-ID must be a UUID.") from exc
-        rows = await connection.fetch(
-            """
-            select m.id membership_id,m.organization_id,m.branch_id,o.name organization_name
-            from public.organization_memberships m join public.organizations o on o.id=m.organization_id
-            where m.user_id=$1 and m.organization_id=$2 and m.status='active' and o.status='active'
-            """,principal.user_id,org_id)
-    else:
-        rows = await connection.fetch(
-            """
-            select m.id membership_id,m.organization_id,m.branch_id,o.name organization_name
-            from public.organization_memberships m join public.organizations o on o.id=m.organization_id
-            where m.user_id=$1 and m.status='active' and o.status='active' order by m.created_at
-            """,principal.user_id)
+    rows = await authorization_service.find_active_memberships(connection, principal.user_id, org_id)
     if not rows:
         raise APIError(403,"tenant_membership_required","No active organization membership is available.")
     if len(rows) != 1:
@@ -127,38 +90,11 @@ def require_self_permission(permission_key: str):
         connection: asyncpg.Connection = Depends(get_connection),
     ) -> Principal:
         request.state.required_permission=permission_key
-        rows = await connection.fetch(
-            """
-            with recursive role_tree(role_id,parent_role_id,attributes) as (
-              select r.id,r.parent_role_id,ura.attributes
-              from public.user_role_assignments ura
-              join public.roles r on r.id=ura.role_id
-              left join public.organization_memberships m on m.id=ura.membership_id
-              left join public.organizations o on o.id=m.organization_id
-              left join public.branches b on b.id=ura.scope_id
-              where ura.user_id=$1 and ura.revoked_at is null
-                and ura.starts_at<=now() and (ura.expires_at is null or ura.expires_at>now())
-                and (
-                  (ura.scope_type='platform' and ura.membership_id is null and ura.scope_id is null)
-                  or (ura.scope_type='tenant' and m.user_id=$1 and m.status='active'
-                      and o.status='active' and ura.scope_id=o.id)
-                  or (ura.scope_type='branch' and m.user_id=$1 and m.status='active'
-                      and o.status='active' and b.organization_id=o.id and b.status='active'
-                      and ura.scope_id=b.id)
-                )
-              union
-              select parent.id,parent.parent_role_id,child.attributes
-              from role_tree child join public.roles parent on parent.id=child.parent_role_id
-            )
-            select distinct tree.attributes
-            from role_tree tree
-            join public.role_permissions rp on rp.role_id=tree.role_id
-            where rp.permission_key=$2
-            """,
-            principal.user_id,permission_key,
-        )
+        allowed = await authorization_service.has_self_permission(connection, principal.user_id, permission_key)
         resource={"owner_user_id":str(principal.user_id)}
-        if not any(abac_conditions_match(row["attributes"],resource) for row in rows):
+        if not allowed:
+            await audit_authorization_denial(request,principal,permission_key,connection)
+            raise APIError(403,"forbidden","The requested self-scoped identity action is not permitted.")
             await audit_authorization_denial(request,principal,permission_key,connection)
             raise APIError(403,"forbidden","The requested self-scoped identity action is not permitted.")
         request.state.authorized_permission=permission_key
@@ -183,30 +119,16 @@ def require_permission(permission_key: str):
             except ValueError as exc:
                 raise APIError(400,"invalid_tenant_context","Resource branch identifier is invalid.") from exc
         if branch_id is not None:
-            branch_is_in_tenant=await connection.fetchval(
-                "select exists(select 1 from public.branches where id=$1 and organization_id=$2 and status='active')",
-                branch_id,tenant.organization_id)
+            branch_is_in_tenant = await authorization_service.branch_belongs_to_tenant(
+                connection, branch_id, tenant.organization_id
+            )
             if not branch_is_in_tenant:
                 raise APIError(403,"invalid_tenant_context","The selected branch does not belong to the active tenant.")
-        assignments=await connection.fetch(
-            """
-            with recursive role_tree(role_id,parent_role_id,attributes) as (
-              select r.id,r.parent_role_id,ura.attributes
-              from public.user_role_assignments ura join public.roles r on r.id=ura.role_id
-              where ura.user_id=$1 and ura.revoked_at is null and ura.starts_at<=now()
-                and (ura.expires_at is null or ura.expires_at>now())
-                and ((ura.scope_type='platform' and ura.membership_id is null)
-                  or (ura.scope_type='tenant' and ura.membership_id=$2 and ura.scope_id=$3)
-                  or (ura.scope_type='branch' and ura.membership_id=$2 and ura.scope_id=$4))
-              union
-              select p.id,p.parent_role_id,c.attributes from role_tree c
-              join public.roles p on p.id=c.parent_role_id
-            )
-            select rt.attributes from role_tree rt join public.role_permissions rp on rp.role_id=rt.role_id
-            where rp.permission_key=$5
-            """,principal.user_id,tenant.membership_id,tenant.organization_id,branch_id,permission_key)
         resource=getattr(request.state,"resource_attributes",{})
-        allowed=any(abac_conditions_match(row["attributes"],resource) for row in assignments)
+        allowed=await authorization_service.has_tenant_permission(
+            connection,principal.user_id,tenant.membership_id,tenant.organization_id,
+            branch_id,permission_key,resource,
+        )
         if not allowed:
             await audit_authorization_denial(request,principal,permission_key,connection,tenant)
             raise APIError(403,"forbidden","The requested action is not permitted in this tenant context.")
@@ -222,26 +144,8 @@ def require_platform_permission(permission_key: str):
         connection: asyncpg.Connection = Depends(get_connection),
     ) -> Principal:
         request.state.required_permission=permission_key
-        allowed = await connection.fetchval(
-            """
-            with recursive role_tree(role_id,parent_role_id) as (
-              select r.id,r.parent_role_id
-              from public.user_role_assignments ura
-              join public.roles r on r.id=ura.role_id
-              where ura.user_id=$1 and ura.scope_type='platform'
-                and ura.membership_id is null and ura.scope_id is null
-                and ura.revoked_at is null and ura.starts_at<=now()
-                and (ura.expires_at is null or ura.expires_at>now())
-              union
-              select parent.id,parent.parent_role_id
-              from role_tree child join public.roles parent on parent.id=child.parent_role_id
-            )
-            select exists(
-              select 1 from role_tree tree
-              join public.role_permissions rp on rp.role_id=tree.role_id
-              where rp.permission_key=$2
-            )
-            """, principal.user_id, permission_key,
+        allowed = await authorization_service.has_platform_permission(
+            connection, principal.user_id, permission_key
         )
         if not allowed:
             await audit_authorization_denial(request,principal,permission_key,connection)
@@ -276,5 +180,9 @@ def require_api_action(action_id: str):
         dependency = require_platform_permission(contract.permission_key)
     else:
         raise RuntimeError(f"Unsupported API action scope for {action_id}: {contract.scope}")
-    dependency.__api_action_id__ = action_id
-    return dependency
+    async def action_dependency(request: Request, result=Depends(dependency)):
+        request.state.authorized_api_action_id = action_id
+        return result
+
+    action_dependency.__api_action_id__ = action_id
+    return action_dependency
