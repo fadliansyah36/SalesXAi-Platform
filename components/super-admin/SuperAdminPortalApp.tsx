@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
   Home,
@@ -48,6 +48,7 @@ import {
   Filter,
   Film,
 } from 'lucide-react';
+import type { PlatformRole } from '@salesx-ai/api-contracts';
 import { BrandLogo } from '@/components/common/BrandLogo';
 import { useTheme } from '@/components/providers/AppProviders';
 import { SalesGoogleMap } from '@/components/maps/SalesGoogleMap';
@@ -69,7 +70,6 @@ import {
   INITIAL_PLATFORM_USERS,
   INITIAL_MASTER_DATA,
   INITIAL_SERVICES_REGISTRY,
-  INITIAL_ROLES_MATRIX,
   INITIAL_DOMAINS,
   INITIAL_FEATURE_FLAGS,
   INITIAL_SUBSCRIPTION_PACKAGES,
@@ -94,7 +94,6 @@ import {
   type PlatformUserRecord,
   type MasterDataCategory,
   type ServiceRegistryItem,
-  type RolePermissionEntry,
   type DomainRegistryItem,
   type FeatureFlagItem,
   type SubscriptionPackageItem,
@@ -191,8 +190,9 @@ export function SuperAdminPortalApp() {
   const [services, setServices] = useState<ServiceRegistryItem[]>(
     INITIAL_SERVICES_REGISTRY
   );
-  const [rolesMatrix, setRolesMatrix] =
-    useState<RolePermissionEntry[]>(INITIAL_ROLES_MATRIX);
+  const [platformRoles,setPlatformRoles]=useState<PlatformRole[]>([]);
+  const [rolesLoading,setRolesLoading]=useState(false);
+  const [rolesError,setRolesError]=useState<string|null>(null);
   const [domains, setDomains] = useState<DomainRegistryItem[]>(INITIAL_DOMAINS);
   const [featureFlags, setFeatureFlags] =
     useState<FeatureFlagItem[]>(INITIAL_FEATURE_FLAGS);
@@ -220,6 +220,23 @@ export function SuperAdminPortalApp() {
   const [notifications, setNotifications] = useState<NotificationItem[]>(
     INITIAL_NOTIFICATIONS
   );
+
+  useEffect(()=>{
+    if(activeTab!=="roles")return;
+    if(!auth.hasPermission("role:assign")||!auth.apiClient){
+      setPlatformRoles([]);
+      setRolesError("Akses katalog role platform tidak diizinkan.");
+      return;
+    }
+    let active=true;
+    setRolesLoading(true);
+    setRolesError(null);
+    void auth.apiClient.listPlatformRoles()
+      .then(rows=>{if(active)setPlatformRoles(rows);})
+      .catch(error=>{if(active)setRolesError(error instanceof Error?error.message:"Katalog role tidak dapat dimuat.");})
+      .finally(()=>{if(active)setRolesLoading(false);});
+    return()=>{active=false;};
+  },[activeTab,auth.apiClient,auth.hasPermission]);
 
   // Filters & Sub-tabs
   const [tenantSearch, setTenantSearch] = useState('');
@@ -479,13 +496,26 @@ export function SuperAdminPortalApp() {
     },
   ];
 
+  const hasAdminNavigationPermission=(id:SuperAdminTab):boolean=>{
+    if(id==="users")return auth.hasPermission("account:status:manage");
+    if(id==="roles")return auth.hasPermission("role:assign");
+    if(id==="audit_logs"||id==="security_events")return auth.hasPermission("audit:read");
+    if(id==="organizations")return auth.hasPermission("organization:read");
+    if(id==="tenants")return auth.hasPermission("organization:create");
+    return true;
+  };
+  const authorizedNavGroups=navGroups.map(group=>({
+    ...group,
+    items:group.items.filter(item=>hasAdminNavigationPermission(item.id)),
+  })).filter(group=>group.items.length>0);
+
   // Matching bottom navigation from the Super Admin reference image: Beranda | Tenant | Analitik | Lainnya
   const bottomNavItems = [
     { id: 'dashboard' as SuperAdminTab, label: 'Beranda', icon: Home },
     { id: 'tenants' as SuperAdminTab, label: 'Tenant', icon: Building2 },
     { id: 'analytics' as SuperAdminTab, label: 'Analitik', icon: BarChart3 },
     { id: 'more' as SuperAdminTab, label: 'Lainnya', icon: MenuIcon },
-  ];
+  ].filter(item=>hasAdminNavigationPermission(item.id));
 
   const handleGoogleLogin = async () => {
     setOauthBusy(true);
@@ -697,7 +727,7 @@ export function SuperAdminPortalApp() {
       entityBadge="Platform Governance"
       activeTab={activeTab}
       onSelectTab={setActiveTab}
-      navGroups={navGroups}
+      navGroups={authorizedNavGroups}
       bottomNavItems={bottomNavItems}
       unreadNotificationsCount={unreadCount}
       onOpenNotifications={() => setNotificationsOpen(true)}
@@ -1533,82 +1563,30 @@ export function SuperAdminPortalApp() {
         <div className="space-y-4">
           <div className="rounded-2xl border border-[#ADD8E6] bg-[#F3FAFC] dark:bg-[#172438] p-4">
             <h2 className="text-sm font-bold text-[#123A54] dark:text-white">
-              Matriks RBAC & Batas Otorisasi Lintas 8 Portal
+              Katalog RBAC dari Supabase
             </h2>
             <p className="text-xs text-[var(--color-text-secondary)]">
-              Klik izin pada masing-masing role untuk menguji tata kelola RBAC multi-tenant secara real-time.
+              Role, scope, hierarchy, jumlah assignment dan permission ditampilkan langsung dari FastAPI. Perubahan kebijakan role dilakukan melalui migration yang terkontrol, bukan state lokal browser.
             </p>
           </div>
-
-          <div className="overflow-x-auto rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]">
-            <table className="w-full text-left text-xs">
-              <thead className="border-b border-[var(--color-border)] bg-[var(--color-background)] text-[11px] uppercase tracking-wider text-[var(--color-text-muted)]">
-                <tr>
-                  <th className="p-3.5">Role / Scope</th>
-                  <th className="p-3.5 text-center">Tenant Gov</th>
-                  <th className="p-3.5 text-center">Master Data</th>
-                  <th className="p-3.5 text-center">Order & Harga</th>
-                  <th className="p-3.5 text-center">GPS Replay</th>
-                  <th className="p-3.5 text-center">AI Orchestrator</th>
-                  <th className="p-3.5 text-center">Audit Security</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[var(--color-border)]">
-                {rolesMatrix.map((entry) => (
-                  <tr key={entry.id}>
-                    <td className="p-3.5">
-                      <p className="font-bold text-[#123A54] dark:text-white">
-                        {entry.label}
-                      </p>
-                      <p className="text-[11px] font-mono text-[var(--color-text-muted)]">
-                        {entry.roleKey} · {entry.usersCount.toLocaleString('id-ID')} user
-                      </p>
-                    </td>
-                    {(
-                      [
-                        'tenantGovernance',
-                        'masterDataCrud',
-                        'orderAndPricing',
-                        'gpsAndReplay',
-                        'aiOrchestrator',
-                        'auditAndSecurity',
-                      ] as const
-                    ).map((permKey) => (
-                      <td key={permKey} className="p-3.5 text-center">
-                        <input
-                          type="checkbox"
-                          checked={entry.permissions[permKey]}
-                          onChange={() => {
-                            setRolesMatrix((prev) =>
-                              prev.map((r) =>
-                                r.id === entry.id
-                                  ? {
-                                      ...r,
-                                      permissions: {
-                                        ...r.permissions,
-                                        [permKey]: !r.permissions[permKey],
-                                      },
-                                    }
-                                  : r
-                              )
-                            );
-                            appendAudit(
-                              'Ubah Role & Permission',
-                              'Role Governance',
-                              `Permission ${permKey} pada role ${entry.roleKey} diperbarui.`
-                            );
-                            showToast(
-                              `Izin ${permKey} untuk ${entry.label} diperbarui.`
-                            );
-                          }}
-                          className="h-4 w-4 accent-[#194F70] cursor-pointer"
-                        />
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          {rolesLoading&&<p className="text-xs text-[var(--color-text-muted)]">Memuat katalog role…</p>}
+          {rolesError&&<p role="alert" className="text-xs text-red-600">{rolesError}</p>}
+          {!rolesLoading&&!rolesError&&platformRoles.length===0&&<p className="text-xs text-[var(--color-text-muted)]">Belum ada role yang dapat ditampilkan.</p>}
+          <div className="space-y-3">
+            {platformRoles.map(role=>(
+              <section key={role.id} className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-sm font-bold text-[#123A54] dark:text-white">{role.name}</h3>
+                    <p className="font-mono text-[11px] text-[var(--color-text-muted)]">{role.key} · {role.scope_type} · hierarchy {role.hierarchy_level}</p>
+                  </div>
+                  <span className="rounded-full border border-[var(--color-border)] px-2.5 py-1 text-[11px]">{role.assigned_users.toLocaleString("id-ID")} assignment</span>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {role.permissions.map(permission=><span key={permission} className="rounded-md bg-[var(--color-background)] px-2 py-1 font-mono text-[10px] text-[var(--color-text-secondary)]">{permission}</span>)}
+                </div>
+              </section>
+            ))}
           </div>
         </div>
       )}
