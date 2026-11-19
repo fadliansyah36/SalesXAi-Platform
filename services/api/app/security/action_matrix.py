@@ -73,6 +73,10 @@ API_ACTION_MATRIX: tuple[ApiActionContract, ...] = (
 
     ApiActionContract("platform.organizations.list", "GET", "/api/v1/admin/organizations", "platform_tenant_management", "list_organizations", "organization", "platform_permission:organization:read", "organization:read", "platform", "platform_permission"),
     ApiActionContract("platform.organizations.update", "PATCH", "/api/v1/admin/organizations/{organization_id}", "platform_tenant_management", "update_organization_status", "organization", "platform_permission:organization:update", "organization:update", "platform", "platform_permission_and_resource_existence"),
+
+    ApiActionContract("platform.organizations.branches.read", "GET", "/api/v1/admin/organizations/{organization_id}/branches", "platform_tenant_management", "list_organization_branches", "branch", "platform_permission:organization:read", "organization:read", "platform", "platform_permission_and_organization_match"),
+    ApiActionContract("platform.organizations.branches.create", "POST", "/api/v1/admin/organizations/{organization_id}/branches", "platform_tenant_management", "create_organization_branch", "branch", "platform_permission:organization:update", "organization:update", "platform", "platform_permission_and_organization_match"),
+    ApiActionContract("platform.organizations.branches.update", "PATCH", "/api/v1/admin/organizations/{organization_id}/branches/{branch_id}", "platform_tenant_management", "update_organization_branch", "branch", "platform_permission:organization:update", "organization:update", "platform", "platform_permission_and_branch_ownership"),
 )
 
 
