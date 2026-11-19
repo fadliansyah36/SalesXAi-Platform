@@ -18,6 +18,8 @@ import type {
   MasterDataWrite,
   OutletAssignmentCreate,
   OutletAssignmentRecord,
+  PlatformOrganization,
+  PlatformOrganizationStatusUpdate,
   MyOrganizationSummary,
   OrganizationCreateRequest,
   OrganizationMember,
@@ -360,6 +362,14 @@ export class SalesXApiClient {
   }
   assignOutlet(organizationId: string, outletId: string, payload: OutletAssignmentCreate): Promise<OutletAssignmentRecord> {
     return this.request(`/api/v1/organizations/${encodeURIComponent(organizationId)}/outlets/${encodeURIComponent(outletId)}/assignments`, { method: "POST", body: JSON.stringify(payload) });
+  }
+
+
+  listPlatformOrganizations(): Promise<PlatformOrganization[]> {
+    return this.request("/api/v1/admin/organizations");
+  }
+  updatePlatformOrganization(organizationId: string, payload: PlatformOrganizationStatusUpdate): Promise<PlatformOrganization> {
+    return this.request(\`/api/v1/admin/organizations/${encodeURIComponent(organizationId)}\`, { method: "PATCH", body: JSON.stringify(payload) });
   }
 
   signOut(scope: "local" | "global" | "others" = "local"): Promise<void> {
