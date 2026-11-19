@@ -151,55 +151,9 @@ async def update_member_status(
     tenant: TenantContext=Depends(require_api_action("organization.members.update")),
     connection: asyncpg.Connection=Depends(get_connection),
 )->dict:
-    authorization_service.assert_action_context(request,"organization.members.update",principal.user_id,organization_id)
-    if tenant.organization_id!=organization_id:
-        raise APIError(403,"forbidden","Cross-tenant membership access is denied.")
-    if user_id==principal.user_id and payload.status!="active":
-        raise APIError(409,"self_lockout_prevented","You cannot suspend or remove your own membership.")
-    async with connection.transaction():
-        member=await connection.fetchrow(
-          """select id,branch_id,status from public.organization_memberships
-          where organization_id=$1 and user_id=$2 for update""",
-          organization_id,user_id)
-        if member is None:
-            raise APIError(404,"membership_not_found","Organization membership was not found.")
-        if user_id!=principal.user_id:
-            target_is_platform_admin=await connection.fetchval(
-              """select exists(select 1 from public.user_role_assignments
-              where user_id=$1 and scope_type='platform' and revoked_at is null
-                and starts_at<=now() and (expires_at is null or expires_at>now()))""",
-              user_id)
-            if target_is_platform_admin:
-                raise APIError(403,"platform_identity_protected",
-                               "Tenant administrators cannot change a platform-scoped identity.")
-            actor_level=await _delegation_hierarchy_level(
-              connection,principal.user_id,tenant.membership_id,organization_id,
-              "organization:members:manage",member["branch_id"],
-              getattr(request.state,"resource_attributes",{}))
-            target_level=await _member_hierarchy_level(
-              connection,user_id,member["id"],organization_id)
-            if actor_level is None or (target_level is not None and actor_level>=target_level):
-                raise APIError(403,"privilege_escalation_denied",
-                               "You cannot change a membership with equal or higher privilege.")
-        row=await connection.fetchrow(
-          """update public.organization_memberships set status=$3,
-          joined_at=case when $3='active' then coalesce(joined_at,now()) else joined_at end,updated_at=now()
-          where organization_id=$1 and user_id=$2 returning id,user_id,organization_id,status""",
-          organization_id,user_id,payload.status)
-        if row is None:
-            raise APIError(404,"membership_not_found","Organization membership was not found.")
-        if payload.status=="removed":
-            await connection.execute(
-              """update public.user_role_assignments set revoked_at=coalesce(revoked_at,now())
-              where membership_id=$1 and revoked_at is null""",
-              row["id"])
-            await write_audit(connection,request,principal,"organization.member.roles_revoked_on_removal",
-              "organization_membership",str(row["id"]),tenant,
-              metadata={"member_user_id":str(user_id)})
-        await write_audit(connection,request,principal,"organization.member.status_changed",
-          "organization_membership",str(row["id"]),tenant,
-          metadata={"member_user_id":str(user_id),"status":payload.status})
-    return dict(row)
+    return await organization_mutation_service.update_member_status(
+        connection,request,principal,tenant,organization_id,user_id,payload.status
+    )
 
 @router.post("/{organization_id}/members/{user_id}/roles",status_code=201)
 async def assign_member_role(
@@ -208,47 +162,9 @@ async def assign_member_role(
     tenant: TenantContext=Depends(require_api_action("organization.roles.assign")),
     connection: asyncpg.Connection=Depends(get_connection),
 )->dict:
-    authorization_service.assert_action_context(request,"organization.roles.assign",principal.user_id,organization_id)
-    if tenant.organization_id!=organization_id:
-        raise APIError(403,"forbidden","Cross-tenant role assignment is denied.")
-    async with connection.transaction():
-        member=await connection.fetchrow(
-          "select id,branch_id from public.organization_memberships where organization_id=$1 and user_id=$2 and status='active'",
-          organization_id,user_id)
-        if member is None:
-            raise APIError(404,"membership_not_found","An active target membership is required.")
-        role=await connection.fetchrow(
-          "select id,key,scope_type,hierarchy_level from public.roles where key=$1",payload.role_key)
-        if role is None or role["scope_type"] not in {"tenant","branch"} or role["key"]=="tenant_owner":
-            raise APIError(400,"invalid_role","Only delegable tenant- or branch-scoped roles can be assigned.")
-        if role["scope_type"] == "branch":
-            if payload.branch_id is None:
-                raise APIError(400,"branch_scope_required","A branch ID is required for this role.")
-            branch_exists = await connection.fetchval(
-                "select exists(select 1 from public.branches where id=$1 and organization_id=$2 and status='active')",
-                payload.branch_id, organization_id)
-            if not branch_exists or (member["branch_id"] is not None and member["branch_id"] != payload.branch_id):
-                raise APIError(403,"invalid_branch_scope","The selected branch is outside the target membership scope.")
-            assignment_scope_id = payload.branch_id
-        else:
-            if payload.branch_id is not None:
-                raise APIError(400,"invalid_branch_scope","Tenant roles cannot carry a branch scope.")
-            assignment_scope_id = organization_id
-        actor_level=await _delegation_hierarchy_level(
-          connection,principal.user_id,tenant.membership_id,organization_id,"role:assign",
-          assignment_scope_id if role["scope_type"]=="branch" else None,
-          getattr(request.state,"resource_attributes",{}))
-        if actor_level is None or role["hierarchy_level"]<=actor_level:
-            raise APIError(403,"privilege_escalation_denied","You cannot assign an equal or higher privilege role.")
-        assignment=await connection.fetchrow(
-          """insert into public.user_role_assignments(user_id,membership_id,role_id,scope_type,scope_id,assigned_by)
-          values ($1,$2,$3,$4,$5,$6)
-          returning id,user_id,membership_id,role_id,scope_type,scope_id,created_at""",
-          user_id,member["id"],role["id"],role["scope_type"],assignment_scope_id,principal.user_id)
-        await write_audit(connection,request,principal,"organization.member.role_assigned",
-          "user_role_assignment",str(assignment["id"]),tenant,
-          metadata={"member_user_id":str(user_id),"role_key":role["key"]})
-    return dict(assignment)
+    return await organization_mutation_service.assign_member_role(
+        connection,request,principal,tenant,organization_id,user_id,payload.role_key,payload.branch_id
+    )
 
 
 @router.get("/{organization_id}/assignable-roles")
