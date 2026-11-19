@@ -299,8 +299,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
   if (route === "refresh") {
     const limited = await enforceBffRateLimit(request, "refresh");
     if (limited) return limited;
-    const limited = await enforceBffRateLimit(request, "refresh");
-    if (limited) return limited;
     const refreshed = await refreshAuthSession(request);
     if (!refreshed) {
       const response = NextResponse.json({ session: null }, { status: 401, headers: { "Cache-Control": "no-store" } });
