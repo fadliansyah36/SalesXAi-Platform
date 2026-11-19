@@ -4,6 +4,7 @@ import * as SecureStore from "expo-secure-store";
 import { AuthClientError, SalesXAuthClient, type AuthSession, type SessionStorage } from "@salesx-ai/auth-client";
 import { SalesXApiClient } from "@salesx-ai/api-client";
 import type { AuthContext } from "@salesx-ai/shared-types";
+import { canPerformApiAction as permissionCanPerformApiAction, type ApiActionId } from "@salesx-ai/permissions";
 
 export type MobileAuthStatus="loading"|"unauthenticated"|"authenticated"|"configuration_error"|"error";
 const authBffUrl=(process.env.EXPO_PUBLIC_AUTH_BFF_URL??"").replace(/\/$/,"");
@@ -253,18 +254,19 @@ export function useMobileSalesAuth(){
   return transport.acceptInvitation({token});
  },[]);
 
- const hasPermission=useCallback((permission:string)=>{
-  const tenantPermissions=context?.memberships.find(m=>m.organization_id===activeOrganizationId)?.permissions??[];
-  return tenantPermissions.includes(permission)||context?.platform_permissions.includes(permission)===true;
- },[context,activeOrganizationId]);
+ const tenantPermissions=context?.memberships.find(m=>m.organization_id===activeOrganizationId)?.permissions??[];
+ const permissionValues=[...tenantPermissions,...(context?.platform_permissions??[])];
+ const hasPermission=useCallback((permission:string)=>permissionValues.includes(permission),[permissionValues]);
+ const canPerformApiAction=useCallback((actionId:ApiActionId)=>
+  permissionCanPerformApiAction(actionId,permissionValues,status==="authenticated"),[permissionValues,status]);
 
  return useMemo(()=>({
   status,session,context,activeOrganizationId,contextEpoch,error,recoveryPending,
   signInWithPassword,signUp,signInWithOtp,verifyOtp,signInWithOAuth,linkIdentity,
   requestPasswordReset,updatePassword,signOut,switchAccount,setActiveOrganization,
-  apiRequest,acceptInvitation,unlinkIdentity,hasPermission,apiClient,retry:()=>client?hydrate(client):Promise.resolve(),
+  apiRequest,acceptInvitation,unlinkIdentity,hasPermission,canPerformApiAction,apiClient,retry:()=>client?hydrate(client):Promise.resolve(),
  }),[status,session,context,activeOrganizationId,contextEpoch,error,recoveryPending,apiClient,signInWithPassword,
   signUp,signInWithOtp,verifyOtp,signInWithOAuth,linkIdentity,requestPasswordReset,
   updatePassword,signOut,switchAccount,setActiveOrganization,apiRequest,acceptInvitation,unlinkIdentity,
-  hasPermission,client,hydrate]);
+  hasPermission,canPerformApiAction,client,hydrate]);
 }
