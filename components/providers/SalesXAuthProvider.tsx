@@ -217,21 +217,19 @@ export function SalesXAuthProvider({children}:{children:React.ReactNode}) {
       setSession(null);setContext(null);setActiveOrganizationIdState(null);setStatus("unauthenticated");
       return;
     }
-    if(current&&apiOrigin) {
-      try {
-        const response=await fetch(apiOrigin+"/api/v1/auth/sign-out",{
-          method:"POST",
-          headers:{Authorization:"Bearer "+current.access_token,"Content-Type":"application/json","X-Client-Platform":"web"},
-          body:JSON.stringify({scope}),cache:"no-store",
-        });
-        if(!response.ok)throw new Error("FastAPI tidak mengonfirmasi remote session revocation.");
-      } catch(remoteError) {
-        setError(remoteError instanceof Error?remoteError.message:"Remote logout belum terkonfirmasi.");
-        // Fallback calls Supabase Auth directly. This still revokes refresh-token sessions.
+    if(current) {
+      const transport=apiClientRef.current;
+      if(transport) {
+        try {
+          await transport.signOut(scope);
+        } catch(remoteError) {
+          setError(remoteError instanceof Error?remoteError.message:"Remote logout belum terkonfirmasi.");
+          // Fallback remains provider-native and is attempted only after the API path fails.
+          await client.signOut(scope);
+        }
+      } else {
         await client.signOut(scope);
       }
-    } else if(current) {
-      await client.signOut(scope);
     }
     if(scope!=="others") {
       await client.clearSession();
