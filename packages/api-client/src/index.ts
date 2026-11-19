@@ -57,7 +57,7 @@ export class SalesXApiClient {
       headers.set("X-Client-Platform", this.platform);
       const organizationId = this.auth.getOrganizationId?.();
       if (organizationId) headers.set("X-Organization-ID", organizationId);
-      if (init.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
+      if (typeof init.body === "string" && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
       return this.fetcher(this.baseUrl + path, { ...init, headers, cache: "no-store" });
     };
 
