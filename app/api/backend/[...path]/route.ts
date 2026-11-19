@@ -15,7 +15,7 @@ async function proxy(request: NextRequest, context: RouteContext): Promise<Respo
   if (!path.length || path.some(segment => segment === "." || segment === ".." || segment.includes("\\"))) {
     return authError(400, "invalid_api_path", "The API path is invalid.");
   }
-  const apiOrigin = (process.env.SALESX_API_URL ?? process.env.NEXT_PUBLIC_SALESX_API_URL ?? "").replace(/\/$/, "");
+  const apiOrigin = (process.env.SALESX_API_URL ?? "").replace(/\/$/, "");
   if (!apiOrigin) return authError(503, "api_not_configured", "SALESX_API_URL is deployment-pending.");
   const apiPath = "/" + path.map(segment => encodeURIComponent(segment)).join("/");
   if (!apiPath.startsWith("/api/v1/")) return authError(404, "not_found", "Resource not found.");
