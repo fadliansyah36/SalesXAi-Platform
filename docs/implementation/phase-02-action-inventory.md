@@ -277,3 +277,18 @@ Automated scope tags in the inventory classify 87 rows as Phase 02 identity/sess
 The requested Phase 02 identity, tenant, RBAC/ABAC, session, audit, API-client and router/service/repository boundaries are implemented. Supabase Auth/JWT/tenant authorization and RLS/grants evidence is recorded in the phase tracker. SMTP, Google OAuth credentials and deployment/provider secrets remain intentionally deferred; they are not implementation blockers.
 
 **Phase 02 status: COMPLETED.** This closure is an engineering implementation status, not a claim of deployment or real-world validation.
+
+
+## 13. Expanded handler inventory — all route, portal and modal source surfaces
+
+The source inventory now has three TSV artifacts:
+
+1. `docs/implementation/handler-level-action-inventory.tsv` — seven Web portal root components and Expo Sales.
+2. `docs/implementation/handler-level-modal-inventory.tsv` — 11 nested modal/dialog components.
+3. `docs/implementation/handler-level-route-inventory.tsv` — 13 Next.js route page files.
+
+Combined extract: **1,575 callback/event prop occurrences across 21 distinct TSX source files**. Scope tags: 99 Phase 02 identity/session, 67 Phase 03 master-data/tenant, 789 future-phase domain callbacks, and 620 UI-state callbacks. Event totals include 668 `onClick`, 67 `onSubmit`, 17 `onPress`, 345 `onChange`, and other custom callback props.
+
+The TSVs record source path, line, nearest screen/section marker, callback prop, expression excerpt, resource/action classification, permission disposition, endpoint/service disposition and owning phase. Future-phase entries are explicitly inventory-only and do not fabricate API endpoints, permissions or services. The Phase 02 server-side contract baseline remains 18 unique UI action IDs; the API action registry includes 28 Phase 02/platform foundation contracts and 22 separately scoped Phase 03 contracts.
+
+The source extract counts callback/event prop occurrences, not unique business actions. Multiple handlers can intentionally map to one shared API action contract; UI-only state callbacks do not require a server endpoint.
