@@ -71,3 +71,16 @@ class OrganizationMutationRepository:
   return await connection.fetchrow("""insert into public.user_role_assignments(user_id,membership_id,role_id,scope_type,scope_id,assigned_by)
    values($1,$2,$3,$4,$5,$6) returning id,user_id,membership_id,role_id,scope_type,scope_id,created_at""",
    user_id,membership_id,role_id,scope_type,scope_id,actor_id)
+
+ async def list_platform_organizations(self,connection:asyncpg.Connection,limit:int,offset:int):
+  return await connection.fetch("""select o.id,o.slug,o.name,o.legal_name,o.status,o.created_at,
+   count(distinct b.id)::int branch_count,count(distinct m.id)::int member_count,
+   count(distinct out.id)::int outlet_count
+   from public.organizations o
+   left join public.branches b on b.organization_id=o.id
+   left join public.organization_memberships m on m.organization_id=o.id and m.status='active'
+   left join public.outlets out on out.organization_id=o.id
+   group by o.id order by o.created_at desc limit $1 offset $2""",limit,offset)
+ async def update_organization_status(self,connection:asyncpg.Connection,organization_id:UUID,status:str):
+  return await connection.fetchrow("""update public.organizations set status=$2,updated_at=now()
+   where id=$1 returning id,slug,name,legal_name,status,created_at""",organization_id,status)
