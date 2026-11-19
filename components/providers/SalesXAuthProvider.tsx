@@ -321,10 +321,8 @@ export function SalesXAuthProvider({children}:{children:React.ReactNode}) {
   const setActiveOrganization=useCallback((id:string)=>{
     if(!context?.memberships.some(m=>m.organization_id===id&&m.status==="active"))
       throw new Error("Membership aktif untuk organisasi tersebut tidak ditemukan.");
-    if(id!==activeOrganizationId){
-      setConsumerEpoch(value=>value+1);
-      activeOrganizationIdRef.current=id;
-    }
+    if(id!==activeOrganizationId)setConsumerEpoch(value=>value+1);
+    activeOrganizationIdRef.current=id;
     setActiveOrganizationIdState(id);
   },[context,activeOrganizationId]);
 
