@@ -30,6 +30,7 @@ export interface ApiClientAuth {
   getAccessToken(): Promise<string | null>;
   refreshAccessToken(): Promise<string | null>;
   refreshCookieSession?(): Promise<boolean>;
+  getCsrfToken?(): Promise<string | null>;
   getOrganizationId?(): string | null;
   onSessionInvalidated?(code: string): Promise<void> | void;
 }
@@ -78,11 +79,17 @@ export class SalesXApiClient {
     let token = this.authMode === "cookie" ? null : await this.auth.getAccessToken();
     if (this.authMode === "bearer" && !token) throw new SalesXApiError("An authenticated session is required.", 401, "unauthenticated");
 
-    const send = (accessToken: string | null) => {
+    const send = async (accessToken: string | null) => {
       const headers = new Headers(init.headers);
       if (this.authMode === "cookie") headers.delete("Authorization");
       else if (accessToken) headers.set("Authorization", "Bearer " + accessToken);
       headers.set("X-Client-Platform", this.platform);
+      const method = (init.method ?? "GET").toUpperCase();
+      if (this.authMode === "cookie" && !["GET","HEAD","OPTIONS"].includes(method)) {
+        const csrf = await this.auth.getCsrfToken?.();
+        if (!csrf) throw new SalesXApiError("A valid CSRF token is required for this Web action.", 403, "csrf_token_missing");
+        headers.set("X-CSRF-Token", csrf);
+      }
       const organizationId = this.auth.getOrganizationId?.();
       if (organizationId) headers.set("X-Organization-ID", organizationId);
       if (typeof init.body === "string" && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
