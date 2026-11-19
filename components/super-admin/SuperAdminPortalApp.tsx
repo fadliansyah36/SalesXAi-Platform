@@ -566,12 +566,13 @@ export function SuperAdminPortalApp() {
     items:group.items.filter(item=>hasAdminNavigationPermission(item.id)),
   })).filter(group=>group.items.length>0);
 
+  const firstAvailableAdminTab:SuperAdminTab|null=auth.canPerformApiAction("platform.users.list")?"users":
+    auth.canPerformApiAction("platform.roles.list")?"roles":
+    auth.canPerformApiAction("platform.audit.read")?"audit_logs":null;
+  const activeTabAllowed=hasAdminNavigationPermission(activeTab);
   useEffect(()=>{
-    if(!hasAdminNavigationPermission(activeTab)){
-      const firstAvailable=(["users","roles","audit_logs"] as SuperAdminTab[]).find(hasAdminNavigationPermission);
-      if(firstAvailable)setActiveTab(firstAvailable);
-    }
-  },[activeTab,auth.canPerformApiAction]);
+    if(!activeTabAllowed&&firstAvailableAdminTab)setActiveTab(firstAvailableAdminTab);
+  },[activeTab,activeTabAllowed,firstAvailableAdminTab]);
 
   const bottomNavItems = [
     { id: 'users' as SuperAdminTab, label: 'Pengguna', icon: Users },
@@ -1336,7 +1337,7 @@ export function SuperAdminPortalApp() {
                     className="cursor-pointer disabled:opacity-50"
                   >
                     <StatusTag label={userStatusBusyId===usr.id?"Memproses…":usr.status} />
-                  </button>:<StatusTag label={usr.status}/ >}
+                  </button>:<StatusTag label={usr.status} />}
                   <ChevronRight className="h-4 w-4 text-[var(--color-text-muted)]" />
                 </div>
               </div>
