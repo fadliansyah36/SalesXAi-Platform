@@ -19,6 +19,89 @@ export class AuthClientError extends Error {
  }
 }
 /** Supabase Auth REST client. Each platform must provide an appropriate session-storage adapter. */
+
+type OAuthPending = {
+ state:string;
+ codeVerifier:string;
+ flow:"signin"|"link";
+ userId:string|null;
+ createdAt:number;
+};
+
+function base64Url(bytes:Uint8Array):string {
+ const alphabet="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+ let output="";
+ for(let i=0;i<bytes.length;i+=3){
+  const a=bytes[i],b=i+1<bytes.length?bytes[i+1]:0,d=i+2<bytes.length?bytes[i+2]:0;
+  output+=alphabet[a>>2];
+  output+=alphabet[((a&3)<<4)|(b>>4)];
+  if(i+1<bytes.length)output+=alphabet[((b&15)<<2)|(d>>6)];
+  if(i+2<bytes.length)output+=alphabet[d&63];
+ }
+ return output;
+}
+
+function secureRandom(size:number):Uint8Array {
+ const source=(globalThis as {crypto?:{getRandomValues?<T extends ArrayBufferView>(array:T):T}}).crypto;
+ if(!source?.getRandomValues)throw new Error("Secure random generation is unavailable in this runtime.");
+ return source.getRandomValues(new Uint8Array(size));
+}
+
+function sha256(input:Uint8Array):Uint8Array {
+ const k=[
+  0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
+  0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
+  0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,
+  0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,
+  0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,
+  0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,
+  0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,
+  0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2,
+ ];
+ const bitLength=input.length*8;
+ const paddedLength=Math.ceil((input.length+9)/64)*64;
+ const padded=new Uint8Array(paddedLength);
+ padded.set(input);padded[input.length]=0x80;
+ const view=new DataView(padded.buffer);
+ view.setUint32(paddedLength-8,Math.floor(bitLength/0x100000000),false);
+ view.setUint32(paddedLength-4,bitLength>>>0,false);
+ const h=[0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19];
+ const rotr=(x:number,n:number)=>(x>>>n)|(x<<(32-n));
+ for(let offset=0;offset<paddedLength;offset+=64){
+  const w=new Uint32Array(64);
+  for(let i=0;i<16;i++)w[i]=view.getUint32(offset+i*4,false);
+  for(let i=16;i<64;i++){
+   const x=w[i-15],y=w[i-2];
+   const s0=rotr(x,7)^rotr(x,18)^(x>>>3);
+   const s1=rotr(y,17)^rotr(y,19)^(y>>>10);
+   w[i]=(w[i-16]+s0+w[i-7]+s1)>>>0;
+  }
+  let [a,b,c,d,e,f,g,hh]=h;
+  for(let i=0;i<64;i++){
+   const s1=rotr(e,6)^rotr(e,11)^rotr(e,25);
+   const ch=(e&f)^(~e&g);
+   const t1=(hh+s1+ch+k[i]+w[i])>>>0;
+   const s0=rotr(a,2)^rotr(a,13)^rotr(a,22);
+   const maj=(a&b)^(a&c)^(b&c);
+   const t2=(s0+maj)>>>0;
+   hh=g;g=f;f=e;e=(d+t1)>>>0;d=c;c=b;b=a;a=(t1+t2)>>>0;
+  }
+  h[0]=(h[0]+a)>>>0;h[1]=(h[1]+b)>>>0;h[2]=(h[2]+c)>>>0;h[3]=(h[3]+d)>>>0;
+  h[4]=(h[4]+e)>>>0;h[5]=(h[5]+f)>>>0;h[6]=(h[6]+g)>>>0;h[7]=(h[7]+hh)>>>0;
+ }
+ const output=new Uint8Array(32);
+ const outView=new DataView(output.buffer);
+ h.forEach((value,index)=>outView.setUint32(index*4,value,false));
+ return output;
+}
+
+function verifierBytes(value:string):Uint8Array { return Uint8Array.from(value.split(\"\").map(char=>char.charCodeAt(0))); }\n\nfunction constantTimeEqual(left:string,right:string):boolean {
+ if(left.length!==right.length)return false;
+ let mismatch=0;
+ for(let i=0;i<left.length;i++)mismatch|=left.charCodeAt(i)^right.charCodeAt(i);
+ return mismatch===0;
+}
+
 export class SalesXAuthClient {
  private readonly baseUrl:string;
  private readonly key:string;
@@ -90,28 +173,72 @@ export class SalesXAuthClient {
   });
   await this.saveSession(session);return session;
  }
- async signInWithOAuth(provider:"google",redirectTo:string):Promise<void> {
+ private async createOAuthPending(flow:"signin"|"link",userId:string|null):Promise<OAuthPending> {
+  const verifier=base64Url(secureRandom(32));
+  const state=base64Url(secureRandom(32));
+  const verifierBytes=Uint8Array.from(verifier.split("").map(char=>char.charCodeAt(0)));
+  const pending:OAuthPending={state,codeVerifier:verifier,flow,userId,createdAt:Date.now()};
+  await this.storage.setItem(this.storageKey+":oauth-pending",JSON.stringify(pending));
+  return pending;
+ }
+ async signInWithOAuth(provider:"google",redirectTo:string):Promise<string> {
+  const pending=await this.createOAuthPending("signin",null);
   const url=new URL(this.baseUrl+"/auth/v1/authorize");
   url.searchParams.set("provider",provider);
   url.searchParams.set("redirect_to",redirectTo);
-  if(typeof window==="undefined")throw new Error("OAuth redirect requires a browser.");
-  window.location.assign(url.toString());
+  url.searchParams.set("code_challenge",base64Url(sha256(verifierBytes(pending.codeVerifier))));
+  url.searchParams.set("code_challenge_method","s256");
+  url.searchParams.set("state",pending.state);
+  return url.toString();
  }
- async beginIdentityLink(provider:"google",redirectTo:string):Promise<void> {
+ async beginIdentityLink(provider:"google",redirectTo:string):Promise<string> {
   const session=await this.getSession();
   if(!session)throw new AuthClientError("Authenticated session required to link an identity.",401,"unauthenticated");
-  const url=new URL(this.baseUrl+"/auth/v1/authorize");
+  const pending=await this.createOAuthPending("link",session.user.id);
+  const url=new URL(this.baseUrl+"/auth/v1/user/identities/authorize");
   url.searchParams.set("provider",provider);
   url.searchParams.set("redirect_to",redirectTo);
-  url.searchParams.set("link_identity","true");
+  url.searchParams.set("code_challenge",base64Url(sha256(verifierBytes(pending.codeVerifier))));
+  url.searchParams.set("code_challenge_method","s256");
+  url.searchParams.set("state",pending.state);
   url.searchParams.set("skip_http_redirect","true");
   const response=await this.fetcher(url.toString(),{
    headers:{apikey:this.key,Authorization:"Bearer "+session.access_token},
    redirect:"follow",
   });
   const data=await response.json().catch(()=>({}));
-  if(!response.ok||typeof data.url!=="string")throw new AuthClientError("Supabase did not start identity linking.",response.status);
-  window.location.assign(data.url);
+  if(!response.ok||typeof data.url!=="string"){
+   await this.storage.removeItem(this.storageKey+":oauth-pending");
+   throw new AuthClientError("Supabase did not start identity linking.",response.status);
+  }
+  return data.url;
+ }
+ async completeOAuthCallback(code:string,state:string|null):Promise<AuthSession> {
+  const raw=await this.storage.getItem(this.storageKey+":oauth-pending");
+  if(!raw)throw new AuthClientError("OAuth callback has no matching pending authorization.",400,"oauth_state_missing");
+  let pending:OAuthPending;
+  try{pending=JSON.parse(raw) as OAuthPending;}catch{
+   await this.storage.removeItem(this.storageKey+":oauth-pending");
+   throw new AuthClientError("OAuth authorization state is invalid.",400,"oauth_state_invalid");
+  }
+  if(!state||!constantTimeEqual(pending.state,state)||Date.now()-pending.createdAt>10*60*1000){
+   await this.storage.removeItem(this.storageKey+":oauth-pending");
+   throw new AuthClientError("OAuth state validation failed or expired.",400,"oauth_state_mismatch");
+  }
+  if(!code)throw new AuthClientError("OAuth authorization code is missing.",400,"oauth_code_missing");
+  const session=await this.request<AuthSession>("token?grant_type=pkce",{
+   method:"POST",body:JSON.stringify({auth_code:code,code_verifier:pending.codeVerifier}),
+  });
+  await this.storage.removeItem(this.storageKey+":oauth-pending");
+  if(pending.flow==="link"&&pending.userId&&session.user?.id!==pending.userId){
+   try{await this.request<void>("logout?scope=local",{method:"POST"},session.access_token);}catch{}
+   throw new AuthClientError("Linked identity did not resolve to the original authenticated account.",403,"identity_link_account_mismatch");
+  }
+  await this.saveSession(session);
+  return session;
+ }
+ async cancelOAuthFlow():Promise<void> {
+  await this.storage.removeItem(this.storageKey+":oauth-pending");
  }
  async acceptOAuthCallback(hash:string):Promise<AuthSession|null> {
   const params=new URLSearchParams(hash.replace(/^#/,""));
