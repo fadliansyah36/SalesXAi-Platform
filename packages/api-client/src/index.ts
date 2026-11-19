@@ -1,0 +1,121 @@
+export type ApiPlatform = "web" | "android" | "ios" | "unknown";
+export type AuthFailureCode = "session_revoked" | "account_inactive" | "identity_unverified";
+
+export interface ApiClientAuth {
+  getAccessToken(): Promise<string | null>;
+  refreshAccessToken(): Promise<string | null>;
+  getOrganizationId?(): string | null;
+  onSessionInvalidated?(code: string): Promise<void> | void;
+}
+
+export interface SalesXApiClientOptions {
+  baseUrl: string;
+  platform: ApiPlatform;
+  auth: ApiClientAuth;
+  fetcher?: typeof fetch;
+}
+
+export class SalesXApiError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+    public readonly code?: string,
+    public readonly correlationId?: string | null,
+  ) {
+    super(message);
+    this.name = "SalesXApiError";
+  }
+}
+
+/** One typed transport for Web and Expo; authorization remains enforced by FastAPI. */
+export class SalesXApiClient {
+  private readonly baseUrl: string;
+  private readonly platform: ApiPlatform;
+  private readonly auth: ApiClientAuth;
+  private readonly fetcher: typeof fetch;
+
+  constructor(options: SalesXApiClientOptions) {
+    this.baseUrl = options.baseUrl.replace(/\/$/, "");
+    this.platform = options.platform;
+    this.auth = options.auth;
+    this.fetcher = options.fetcher ?? fetch;
+    if (!this.baseUrl) throw new Error("FastAPI base URL is required.");
+  }
+
+  async fetch(path: string, init: RequestInit = {}): Promise<Response> {
+    if (!path.startsWith("/") || path.startsWith("//")) {
+      throw new Error("API paths must be relative to the configured FastAPI origin.");
+    }
+    let token = await this.auth.getAccessToken();
+    if (!token) throw new SalesXApiError("An authenticated session is required.", 401, "unauthenticated");
+
+    const send = (accessToken: string) => {
+      const headers = new Headers(init.headers);
+      headers.set("Authorization", "Bearer " + accessToken);
+      headers.set("X-Client-Platform", this.platform);
+      const organizationId = this.auth.getOrganizationId?.();
+      if (organizationId) headers.set("X-Organization-ID", organizationId);
+      if (init.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
+      return this.fetcher(this.baseUrl + path, { ...init, headers, cache: "no-store" });
+    };
+
+    let response = await send(token);
+    if (response.status === 401) {
+      const refreshed = await this.auth.refreshAccessToken();
+      if (refreshed) {
+        token = refreshed;
+        response = await send(token);
+      }
+    }
+
+    if (response.status === 401 || response.status === 403) {
+      const body = await response.clone().json().catch(() => ({}));
+      const code = body?.error?.code ?? "unauthorized";
+      if (
+        response.status === 401 ||
+        (["session_revoked", "account_inactive", "identity_unverified"] as AuthFailureCode[]).includes(code)
+      ) {
+        await this.auth.onSessionInvalidated?.(code);
+      }
+    }
+    return response;
+  }
+
+  async request<T = unknown>(path: string, init: RequestInit = {}): Promise<T> {
+    const response = await this.fetch(path, init);
+    if (response.status === 204) return undefined as T;
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new SalesXApiError(
+        body?.error?.message ?? "FastAPI request failed.",
+        response.status,
+        body?.error?.code,
+        body?.error?.correlation_id ?? response.headers.get("X-Correlation-ID"),
+      );
+    }
+    return body as T;
+  }
+
+  getAuthContext<T = unknown>(): Promise<T> {
+    return this.request<T>("/api/v1/auth/me");
+  }
+
+  registerCurrentSession(payload: {
+    device_id?: string | null;
+    device_name?: string | null;
+    platform: ApiPlatform;
+    user_agent?: string | null;
+  }): Promise<void> {
+    return this.request<void>("/api/v1/auth/sessions/current", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  }
+
+  signOut(scope: "local" | "global" | "others" = "local"): Promise<void> {
+    return this.request<void>("/api/v1/auth/sign-out", {
+      method: "POST",
+      body: JSON.stringify({ scope }),
+    });
+  }
+}
