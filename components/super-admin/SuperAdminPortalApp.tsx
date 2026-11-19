@@ -2819,6 +2819,7 @@ export function SuperAdminPortalApp() {
           </div>
 
           <div className="space-y-2.5">
+            {!auditLoading&&!auditError&&filteredAudits.length===0&&<p className="py-6 text-center text-sm text-[var(--color-text-muted)]">Belum ada audit event platform untuk filter ini.</p>}
             {filteredAudits.map((log) => (
               <button
                 key={log.id}
