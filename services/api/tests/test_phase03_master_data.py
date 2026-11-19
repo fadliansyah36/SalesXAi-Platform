@@ -32,8 +32,8 @@ class Phase03MasterDataContractTests(unittest.TestCase):
     def test_typescript_action_registry_mirrors_master_data_ids(self) -> None:
         root = Path(__file__).resolve().parents[3]
         typescript = (root / "packages/permissions/src/action-matrix.ts").read_text()
-        for action_id in expected:
-            self.assertIn(f'id:"{action_id}"', typescript)
+        for item in API_ACTION_MATRIX:
+            self.assertIn(f'id:"{item.id}"', typescript)
 
     def test_repository_only_accepts_known_domain_tables(self) -> None:
         repository = MasterDataRepository()
