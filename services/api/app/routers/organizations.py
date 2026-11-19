@@ -1,7 +1,7 @@
 import asyncpg
 import hashlib
 import secrets
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from fastapi import APIRouter, Depends, Request
 from uuid import UUID
 from app.db import get_connection
@@ -324,7 +324,7 @@ async def accept_invitation(
         )
         if invitation is None:
             raise APIError(404,"invitation_not_found","Invitation is invalid, used or revoked.")
-        if invitation["expires_at"] <= datetime.now(timezone.utc):
+        if invitation["expires_at"] <= datetime.now(UTC):
             await connection.execute(
                 "update public.organization_invitations set status='expired',updated_at=now() where id=$1",
                 invitation["id"],

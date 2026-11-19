@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 import asyncpg
@@ -56,7 +56,7 @@ async def get_current_principal(
         raise APIError(403, "account_inactive", "This account is not active.")
     if row["email_confirmed_at"] is None and row["phone_confirmed_at"] is None:
         raise APIError(403, "identity_unverified", "Verify the account email or phone before continuing.")
-    issued_at = datetime.fromtimestamp(float(claims["iat"]), tz=timezone.utc)
+    issued_at = datetime.fromtimestamp(float(claims["iat"]), tz=UTC)
     if (not row["session_exists"] or row["device_revoked_at"] is not None
             or (row["session_revoked_at"] is not None and issued_at <= row["session_revoked_at"])):
         raise APIError(401, "session_revoked", "This Supabase Auth session is no longer active.")

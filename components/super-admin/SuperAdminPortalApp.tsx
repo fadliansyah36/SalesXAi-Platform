@@ -568,8 +568,9 @@ export function SuperAdminPortalApp() {
                 return;
               }
               setAuthNotice(null);
-              try { await auth.signInWithPassword(loginEmail, loginPassword); }
-    catch (err) { setAuthNotice(err instanceof Error ? err.message : 'Login gagal.'); }
+              void auth.signInWithPassword(loginEmail, loginPassword)
+                .then(() => setAuthNotice(null))
+                .catch(err => setAuthNotice(err instanceof Error ? err.message : 'Login gagal.'));
             }}
             className="mt-6 space-y-3.5 text-sm"
           >
