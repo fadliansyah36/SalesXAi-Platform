@@ -133,6 +133,7 @@ export interface MasterDataWrite {
   category?: string | null;
   address?: string | null;
   city?: string | null;
+  manager_name?: string | null;
   province?: string | null;
   postal_code?: string | null;
   phone?: string | null;
