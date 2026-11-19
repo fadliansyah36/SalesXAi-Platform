@@ -20,6 +20,7 @@ export function useMobileSalesAuth(){
  const [error,setError]=useState<string|null>(null);
  const [recoveryPending,setRecoveryPending]=useState(false);
  const busy=useRef(false);
+ const processedAuthUrls=useRef<Set<string>>(new Set());
  const apiClient=useMemo(()=>client?new SalesXApiClient({
   baseUrl:apiOrigin,
   platform:Platform.OS==="ios"?"ios":"android",
@@ -88,7 +89,8 @@ export function useMobileSalesAuth(){
  },[loadContext]);
 
  const handleAuthUrl=useCallback(async(url:string|null|undefined)=>{
-  if(!url||!client)return;
+  if(!url||!client||processedAuthUrls.current.has(url))return;
+  processedAuthUrls.current.add(url);
   try{
    const parsedUrl=new URL(url);
    const params=parsedUrl.searchParams;
