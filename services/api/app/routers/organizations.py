@@ -280,8 +280,8 @@ async def create_invitation(
 
     token = secrets.token_urlsafe(40)
     invite_url = _invitation_url(request, token)
-    existing_identity = await connection.fetchval(
-        "select exists(select 1 from auth.users where lower(email)=lower($1))", email
+    identity = await connection.fetchrow(
+        "select email_confirmed_at from auth.users where lower(email)=lower($1) limit 1", email
     )
     async with connection.transaction():
         invitation = await connection.fetchrow(
@@ -295,7 +295,7 @@ async def create_invitation(
         await write_audit(connection,request,principal,"organization.invitation.created",
             "organization_invitation",str(invitation["id"]),tenant,
             metadata={"email":email,"role_key":payload.role_key})
-    if existing_identity:
+    if identity and identity["email_confirmed_at"] is not None:
         await request.app.state.invitation_delivery.send(
             recipient=email,
             organization_name=tenant.organization_name,
@@ -304,10 +304,17 @@ async def create_invitation(
         )
         delivery_status = "smtp_email_sent"
     else:
+        callback_url = invite_url.replace(
+            "/auth/accept-invitation?", "/auth/callback?organization_invite="
+        )
+        provider = "supabase_auth_verification" if identity else "supabase_auth_invite"
         try:
-            await request.app.state.supabase_auth.invite_user(
-                email, invite_url.replace("/auth/accept-invitation?", "/auth/callback?organization_invite=")
-            )
+            if identity:
+                await request.app.state.supabase_auth.resend_signup_confirmation(email, callback_url)
+                delivery_status = "supabase_auth_verification_sent"
+            else:
+                await request.app.state.supabase_auth.invite_user(email, callback_url)
+                delivery_status = "supabase_auth_invite_sent"
         except Exception:
             async with connection.transaction():
                 await connection.execute(
@@ -317,9 +324,8 @@ async def create_invitation(
                 )
                 await write_audit(connection,request,principal,"organization.invitation.delivery_failed",
                     "organization_invitation",str(invitation["id"]),tenant,
-                    metadata={"delivery_provider":"supabase_auth"})
+                    metadata={"delivery_provider":provider})
             raise
-        delivery_status = "supabase_auth_invite_sent"
     return {**dict(invitation),"invitation_url":invite_url,"delivery_status":delivery_status}
 
 
