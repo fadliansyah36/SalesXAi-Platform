@@ -8,8 +8,8 @@ from fastapi import Depends, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from app.db import get_connection
 from app.errors import APIError
-from app.security.jwt import SupabaseJWTVerifier
 from app.security.action_matrix import API_ACTION_MATRIX
+from app.security.jwt import SupabaseJWTVerifier
 from app.security.policy import abac_conditions_match
 
 bearer_scheme = HTTPBearer(auto_error=False)
