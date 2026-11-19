@@ -164,6 +164,8 @@ export function SalesXAuthProvider({children}:{children:React.ReactNode}) {
       const response=await fetch("/api/auth/session",{method:"GET",credentials:"same-origin",cache:"no-store"});
       const body=await response.json().catch(()=>({session:null})) as AuthResponse;
       if(!response.ok||!body.session){
+        if(authenticatedUserId.current)setConsumerEpoch(value=>value+1);
+        authenticatedUserId.current=null;
         setSession(null);setContext(null);setActiveOrganizationIdState(null);
         setStatus("unauthenticated");setError(null);return;
       }
@@ -198,6 +200,8 @@ export function SalesXAuthProvider({children}:{children:React.ReactNode}) {
   const acceptSession=useCallback(async(result:AuthResponse)=>{
     if(result.session)await loadContext(result.session);
     else{
+      if(authenticatedUserId.current)setConsumerEpoch(value=>value+1);
+      authenticatedUserId.current=null;
       setSession(null);setContext(null);setActiveOrganizationIdState(null);setStatus("unauthenticated");
     }
   },[loadContext]);
