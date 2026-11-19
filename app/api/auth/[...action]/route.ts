@@ -223,6 +223,18 @@ export async function POST(request: NextRequest, context: RouteContext) {
     });
     let authorizationUrl = "";
     if (flow === "link") {
+      const backend = apiUrl();
+      if (!backend) return authError(503,"api_not_configured","SALESX_API_URL is deployment-pending.");
+      const authorization = await fetch(backend + "/api/v1/auth/identities/link-authorize", {
+        method:"POST",
+        headers:{Authorization:"Bearer "+accessToken,"X-Client-Platform":"web"},
+        cache:"no-store",
+      });
+      if (!authorization.ok) {
+        const denied = await authorization.json().catch(()=>({}));
+        return authError(authorization.status,denied?.error?.code??"identity_link_forbidden",
+          denied?.error?.message??"Identity linking is not permitted for this account.");
+      }
       query.set("skip_http_redirect", "true");
       const result = await supabaseAuthRequest<{ url: string }>("user/identities/authorize?" + query.toString(), { method: "GET" }, accessToken);
       if (!result.ok || typeof result.data.url !== "string") return authError(result.ok ? 502 : result.status, "identity_link_start_failed", result.ok ? "Supabase did not return an identity authorization URL." : supabaseMessage(result.body));
