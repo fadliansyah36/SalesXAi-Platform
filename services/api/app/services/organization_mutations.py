@@ -7,11 +7,13 @@ from app.security.dependencies import Principal,TenantContext
 from app.services.audit import write_audit
 from app.services.authorization import authorization_service
 from app.repositories.organization_mutations import OrganizationMutationRepository
+from app.repositories.master_data import MasterDataRepository
 from app.security.policy import abac_conditions_match
 
 class OrganizationMutationService:
  def __init__(self,repository:OrganizationMutationRepository|None=None):
   self.repository=repository or OrganizationMutationRepository()
+  self.master_data_repository=MasterDataRepository()
  async def create_organization(self,connection:asyncpg.Connection,request:Request,principal:Principal,payload:OrganizationCreate):
   authorization_service.assert_action_context(request,"organization.create",principal.user_id)
   async with connection.transaction():
@@ -92,5 +94,24 @@ class OrganizationMutationService:
    if row is None: raise APIError(404,"organization_not_found","Organization was not found.")
    await write_audit(connection,request,principal,"platform.organization.status_changed","organization",str(organization_id),metadata={"status":status})
   return dict(row)
+
+
+ async def list_platform_branches(self,connection:asyncpg.Connection,request:Request,principal:Principal,organization_id:UUID,limit:int,offset:int)->list[dict]:
+  authorization_service.assert_action_context(request,"platform.organizations.branches.read",principal.user_id)
+  rows=await self.master_data_repository.list(connection,"branches",organization_id,limit,offset)
+  return rows
+ async def create_platform_branch(self,connection:asyncpg.Connection,request:Request,principal:Principal,organization_id:UUID,values:dict)->dict:
+  authorization_service.assert_action_context(request,"platform.organizations.branches.create",principal.user_id)
+  async with connection.transaction():
+   row=await self.master_data_repository.create(connection,"branches",organization_id,values)
+   await write_audit(connection,request,principal,"platform.organization.branch_created","branch",str(row["id"]),metadata={"organization_id":str(organization_id),"code":row["code"]})
+  return row
+ async def update_platform_branch(self,connection:asyncpg.Connection,request:Request,principal:Principal,organization_id:UUID,branch_id:UUID,values:dict)->dict:
+  authorization_service.assert_action_context(request,"platform.organizations.branches.update",principal.user_id)
+  async with connection.transaction():
+   row=await self.master_data_repository.update(connection,"branches",organization_id,branch_id,values)
+   if row is None: raise APIError(404,"branch_not_found","Branch was not found in this organization.")
+   await write_audit(connection,request,principal,"platform.organization.branch_updated","branch",str(branch_id),metadata={"organization_id":str(organization_id),"fields":sorted(values)})
+  return row
 
 organization_mutation_service=OrganizationMutationService()
