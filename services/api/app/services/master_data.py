@@ -17,6 +17,9 @@ class MasterDataService:
  async def list(self, connection: asyncpg.Connection, resource: str, organization_id: UUID, tenant: TenantContext, limit: int, offset: int) -> list[dict[str,Any]]:
   self._tenant(organization_id,tenant)
   return await self.repository.list(connection,resource,organization_id,limit,offset)
+ async def list_assignments(self, connection: asyncpg.Connection, organization_id: UUID, tenant: TenantContext, limit: int, offset: int) -> list[dict[str,Any]]:
+  self._tenant(organization_id,tenant)
+  return await self.repository.list_assignments(connection,organization_id,limit,offset)
  async def _validate_references(self, connection: asyncpg.Connection, organization_id: UUID, resource: str, values: dict[str,Any]) -> None:
   allowed_status = {"active","inactive","suspended"} if resource=="sales_profiles" else {"active","inactive","archived"}
   if values.get("status") is not None and values["status"] not in allowed_status:
