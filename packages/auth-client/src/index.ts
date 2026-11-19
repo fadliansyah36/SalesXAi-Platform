@@ -95,7 +95,9 @@ function sha256(input:Uint8Array):Uint8Array {
  return output;
 }
 
-function verifierBytes(value:string):Uint8Array { return Uint8Array.from(value.split(\"\").map(char=>char.charCodeAt(0))); }\n\nfunction constantTimeEqual(left:string,right:string):boolean {
+function verifierBytes(value:string):Uint8Array { return Uint8Array.from(value.split("").map(char=>char.charCodeAt(0))); }
+
+function constantTimeEqual(left:string,right:string):boolean {
  if(left.length!==right.length)return false;
  let mismatch=0;
  for(let i=0;i<left.length;i++)mismatch|=left.charCodeAt(i)^right.charCodeAt(i);
@@ -176,7 +178,6 @@ export class SalesXAuthClient {
  private async createOAuthPending(flow:"signin"|"link",userId:string|null):Promise<OAuthPending> {
   const verifier=base64Url(secureRandom(32));
   const state=base64Url(secureRandom(32));
-  const verifierBytes=Uint8Array.from(verifier.split("").map(char=>char.charCodeAt(0)));
   const pending:OAuthPending={state,codeVerifier:verifier,flow,userId,createdAt:Date.now()};
   await this.storage.setItem(this.storageKey+":oauth-pending",JSON.stringify(pending));
   return pending;
