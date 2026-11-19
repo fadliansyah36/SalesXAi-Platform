@@ -6,6 +6,7 @@ from app.errors import APIError
 from app.schemas.identity import AuthContextResponse, MembershipResponse, ProfileResponse, SessionRegistration, SignOutRequest
 from app.security.dependencies import Principal, require_api_action
 from app.services.audit import write_audit
+from app.services.authorization import authorization_service
 
 router=APIRouter(prefix="/auth",tags=["identity"])
 
@@ -60,6 +61,7 @@ async def register_current_session(
     principal: Principal=Depends(require_api_action("identity.session.register")),
     connection: asyncpg.Connection=Depends(get_connection),
 )->None:
+    authorization_service.assert_action_context(request,"identity.session.register",principal.user_id)
     auth_session=await connection.fetchrow(
         "select not_after as expires_at from auth.sessions where id=$1 and user_id=$2",
         principal.session_id,principal.user_id)
@@ -96,6 +98,7 @@ async def revoke_session(
     principal: Principal=Depends(require_api_action("identity.session.revoke")),
     connection: asyncpg.Connection=Depends(get_connection),
 )->None:
+    authorization_service.assert_action_context(request,"identity.session.revoke",principal.user_id)
     exists=await connection.fetchval("select exists(select 1 from auth.sessions where id=$1 and user_id=$2)",session_id,principal.user_id)
     if not exists:
         raise APIError(404,"session_not_found","The requested session was not found.")
@@ -116,6 +119,7 @@ async def sign_out(
     principal: Principal = Depends(require_api_action("identity.session.signout")),
     connection: asyncpg.Connection = Depends(get_connection),
 ) -> None:
+    authorization_service.assert_action_context(request,"identity.session.signout",principal.user_id)
     authorization = request.headers.get("authorization", "")
     access_token = authorization[7:] if authorization.lower().startswith("bearer ") else ""
     if not access_token:
@@ -183,6 +187,7 @@ async def unlink_own_identity(
     principal: Principal = Depends(require_api_action("identity.link.unlink")),
     connection: asyncpg.Connection = Depends(get_connection),
 ) -> None:
+    authorization_service.assert_action_context(request,"identity.link.unlink",principal.user_id)
     identity = await connection.fetchrow(
         """select auth_identity_id,provider from public.user_identities
         where auth_identity_id=$1 and user_id=$2""",
