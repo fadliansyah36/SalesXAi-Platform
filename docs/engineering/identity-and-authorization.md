@@ -28,7 +28,7 @@ Account suspension/deactivation requires SUPABASE_SECRET_KEY for the Auth Admin 
 
 ## Invitation lifecycle
 
-Organization invitations are stored as SHA-256 token hashes, expire after seven days and are bound to the verified Auth email. Create, accept, reject, expire, revoke and resend operations are tenant-scoped and audited. Role assignment is checked against the inviter's hierarchy and the invited role's tenant/branch scope. New Auth identities require Supabase Auth Admin invitation email; existing identities receive the one-time invitation URL through the authorized organization workflow.
+Organization invitations are stored as SHA-256 token hashes, expire after seven days and are bound to the verified Auth email. Create, accept, reject, expire, revoke and resend operations are tenant-scoped and audited. Role assignment is checked against the inviter's hierarchy and the invited role's tenant/branch scope. Acceptance and rejection require the signed-in Auth user's email to match the invitation and `email_confirmed_at` to be non-null. New Auth identities require Supabase Auth Admin invitation email; existing identities are sent the one-time invitation URL through the server-side SMTP adapter (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM_EMAIL`, `SMTP_STARTTLS`). The raw token is stored only as a SHA-256 hash in PostgreSQL and included only in the email/response delivery path. SMTP implementation is committed, but delivery is not operationally verified until deployment secrets are configured.
 
 ## Expo native session storage
 
@@ -39,3 +39,13 @@ The Expo app uses the shared Auth REST client with an Expo SecureStore adapter. 
 FastAPI requires DATABASE_URL for the exact Supabase project, TLS, Supabase issuer/JWKS/audience configuration, exact CORS origins, APP_PUBLIC_URL, SUPABASE_PUBLISHABLE_KEY for remote logout and SUPABASE_SECRET_KEY for Auth Admin operations. Values are provided only through server environment/secrets. The committed .env.example files contain placeholders only.
 
 The repository connector can verify project metadata and SQL schema but does not expose the database password or deployment environment secret values. Runtime database connectivity and Auth Admin operations must not be reported as verified until the server environment has those secrets and /readyz plus authenticated API checks pass.
+
+
+## Phase 02 implementation continuation — 2026-11-19
+
+- Organization creation now requires the platform-scoped `organization:create` permission. The API no longer permits any authenticated identity to create a tenant without an explicit permission.
+- The shared permissions package now exports all 22 permission identifiers currently present in the bound Supabase `public.permissions` table. This is a client-side visibility vocabulary only; FastAPI dependencies remain the enforcement boundary.
+- Existing-user organization invitation delivery now uses the server-side SMTP adapter. New, unregistered identities continue to receive Supabase Auth Admin invitations. SMTP values are documented as placeholders in `services/api/.env.example`; no live SMTP credentials or provider have been configured.
+- Invitation acceptance/rejection now requires a verified email identity matching the invited email, preventing a phone-verified account with an unverified matching email from accepting an invitation.
+- No schema change was required for these application-layer changes. The target Supabase migration ledger remains at nine applied versions.
+- Manual identity-linking/Google OAuth provider settings, runtime secrets, live API verification and per-device provider refresh-token revocation remain external/runtime blockers.
