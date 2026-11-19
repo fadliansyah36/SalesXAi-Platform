@@ -109,19 +109,16 @@ export function useMobileSalesAuth(){
     setRecoveryPending(flowType==="recovery");
     await loadContext(next);
     if(invitationToken){
-     const response=await fetch(apiOrigin+"/api/v1/organizations/invitations/accept",{
+     if(!apiClient)throw new Error("FastAPI client belum dikonfigurasi.");
+     await apiClient.request("/api/v1/organizations/invitations/accept",{
       method:"POST",
-      headers:{Authorization:"Bearer "+next.access_token,"Content-Type":"application/json","X-Client-Platform":Platform.OS==="ios"?"ios":"android"},
       body:JSON.stringify({token:invitationToken}),
-      cache:"no-store",
      });
-     const body=await response.json().catch(()=>({}));
-     if(!response.ok)throw new AuthClientError(body?.error?.message??"Undangan organisasi tidak dapat diterima.",response.status,body?.error?.code);
      await loadContext(next);
     }
    }
   }catch(cause){setError(cause instanceof Error?cause.message:"Callback autentikasi tidak valid.");setStatus("error");}
- },[client,loadContext]);
+ },[client,loadContext,apiClient]);
 
  useEffect(()=>{
   if(!client)return;
