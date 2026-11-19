@@ -4,7 +4,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import { AuthClientError, type AuthSession } from "@salesx-ai/auth-client";
 import { SalesXApiClient } from "@salesx-ai/api-client";
 import type { AuthContext as SalesXAuthContextData, PortalKey } from "@salesx-ai/shared-types";
-import { canAccessPortal as permissionCanAccessPortal, hasPermission as permissionHasPermission } from "@salesx-ai/permissions";
+import { canAccessPortal as permissionCanAccessPortal, hasPermission as permissionHasPermission, canPerformApiAction as permissionCanPerformApiAction, type ApiActionId } from "@salesx-ai/permissions";
 
 type AuthStatus = "loading" | "unauthenticated" | "authenticated" | "configuration_error" | "error";
 type WebSession = {
@@ -43,6 +43,7 @@ interface SalesXAuthValue {
   setActiveOrganization(id:string):void;
   hasPermission(permission:string):boolean;
   canAccessPortal(portal:PortalKey):boolean;
+  canPerformApiAction(actionId:ApiActionId):boolean;
   apiFetch(path:string,init?:RequestInit):Promise<Response>;
   apiClient:SalesXApiClient|null;
 }
@@ -338,6 +339,9 @@ export function SalesXAuthProvider({children}:{children:React.ReactNode}) {
     permissionHasPermission(permissionValues,permission as never),[activeMembership,context?.platform_permissions]);
   const canAccessPortal=useCallback((portal:PortalKey)=>
     permissionCanAccessPortal(permissionValues,portal),[activeMembership,context?.platform_permissions]);
+  const canPerformApiAction=useCallback((actionId:ApiActionId)=>
+    permissionCanPerformApiAction(actionId,permissionValues,status==="authenticated"),
+    [permissionValues,status]);
 
   const apiFetch=useCallback(async(path:string,init:RequestInit={})=>{
     if(!apiClient)throw new Error("FastAPI cookie transport belum dikonfigurasi.");
@@ -348,10 +352,10 @@ export function SalesXAuthProvider({children}:{children:React.ReactNode}) {
     status,session,context,activeMembership,activeOrganizationId,error,
     signInWithPassword,signUp,signInWithOAuth,linkIdentity,unlinkIdentity,
     requestPasswordReset,updatePassword,signInWithOtp,verifyOtp,signOut,completeAuthCallback,switchAccount,
-    setActiveOrganization,hasPermission,canAccessPortal,apiFetch,apiClient,
+    setActiveOrganization,hasPermission,canAccessPortal,canPerformApiAction,apiFetch,apiClient,
   }),[status,session,context,activeMembership,activeOrganizationId,error,apiClient,signInWithPassword,
     signUp,signInWithOAuth,linkIdentity,unlinkIdentity,requestPasswordReset,updatePassword,
-    signInWithOtp,verifyOtp,signOut,completeAuthCallback,switchAccount,setActiveOrganization,hasPermission,canAccessPortal,apiFetch]);
+    signInWithOtp,verifyOtp,signOut,completeAuthCallback,switchAccount,setActiveOrganization,hasPermission,canAccessPortal,canPerformApiAction,apiFetch]);
   return <SalesXAuthContext.Provider value={value}>
     <React.Fragment key={consumerEpoch}>{children}</React.Fragment>
   </SalesXAuthContext.Provider>;
