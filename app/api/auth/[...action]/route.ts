@@ -49,7 +49,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const authorized = await authorizeBffRefresh(accessToken);
     if (authorized) {
       const response = new NextResponse(authorized.body, { status: authorized.status, headers: authorized.headers });
-      clearSessionCookies(response);
+      if (authorized.status === 401 || authorized.status === 403) clearSessionCookies(response);
       return response;
     }
     refreshed = await refreshAuthSession(request);
