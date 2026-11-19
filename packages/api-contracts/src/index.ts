@@ -170,3 +170,16 @@ export interface OutletAssignmentRecord {
   sales_user_id?: UUID;
   employee_code?: string | null;
 }
+
+export interface PlatformOrganization {
+  id: UUID;
+  slug: string;
+  name: string;
+  legal_name: string | null;
+  status: OrganizationStatus;
+  created_at: ISODateTime;
+  branch_count: number;
+  member_count: number;
+  outlet_count: number;
+}
+export interface PlatformOrganizationStatusUpdate { status: OrganizationStatus; }
