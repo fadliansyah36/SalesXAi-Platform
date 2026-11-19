@@ -43,6 +43,7 @@ export function SalesXAuthProvider({children}:{children:React.ReactNode}) {
   const [context,setContext]=useState<SalesXAuthContextData|null>(null);
   const [activeOrganizationId,setActiveOrganizationIdState]=useState<string|null>(null);
   const [error,setError]=useState<string|null>(null);
+  const [consumerEpoch,setConsumerEpoch]=useState(0);
   const hydrating=useRef(false);
   const apiClient=useMemo(()=>client?new SalesXApiClient({
     baseUrl:apiOrigin,
@@ -54,6 +55,7 @@ export function SalesXAuthProvider({children}:{children:React.ReactNode}) {
       onSessionInvalidated:async()=>{
         await client.clearSession();
         setSession(null);setContext(null);setActiveOrganizationIdState(null);setStatus("unauthenticated");
+        setConsumerEpoch(value=>value+1);
       },
     },
   }):null,[client,activeOrganizationId]);
@@ -234,6 +236,7 @@ export function SalesXAuthProvider({children}:{children:React.ReactNode}) {
     if(scope!=="others") {
       await client.clearSession();
       setSession(null);setContext(null);setActiveOrganizationIdState(null);setStatus("unauthenticated");
+      setConsumerEpoch(value=>value+1);
     } else if(current) {
       setSession(current);
     }
@@ -247,8 +250,9 @@ export function SalesXAuthProvider({children}:{children:React.ReactNode}) {
   const setActiveOrganization=useCallback((id:string)=>{
     if(!context?.memberships.some(m=>m.organization_id===id&&m.status==="active"))
       throw new Error("Membership aktif untuk organisasi tersebut tidak ditemukan.");
+    if(id!==activeOrganizationId)setConsumerEpoch(value=>value+1);
     setActiveOrganizationIdState(id);
-  },[context]);
+  },[context,activeOrganizationId]);
 
   const activeMembership=useMemo(
     ()=>context?.memberships.find(m=>m.organization_id===activeOrganizationId&&m.status==="active")??null,
@@ -272,7 +276,9 @@ export function SalesXAuthProvider({children}:{children:React.ReactNode}) {
   }),[status,session,context,activeMembership,activeOrganizationId,error,signInWithPassword,
     signUp,signInWithOAuth,linkIdentity,unlinkIdentity,requestPasswordReset,updatePassword,
     signInWithOtp,verifyOtp,signOut,completeAuthCallback,switchAccount,setActiveOrganization,hasPermission,canAccessPortal,apiFetch]);
-  return <SalesXAuthContext.Provider value={value}>{children}</SalesXAuthContext.Provider>;
+  return <SalesXAuthContext.Provider value={value}>
+    <React.Fragment key={consumerEpoch}>{children}</React.Fragment>
+  </SalesXAuthContext.Provider>;
 }
 
 export function useSalesXAuth(){
