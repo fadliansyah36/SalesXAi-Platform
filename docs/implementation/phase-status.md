@@ -490,3 +490,45 @@ DATABASE_URL, SUPABASE_PUBLISHABLE_KEY, SUPABASE_SECRET_KEY, SALESX_API_URL, SAL
 - Bound Supabase read-only evidence remains unchanged: 13 applied migrations, 12/12 public tables RLS-enabled, 23 permission keys, 8 roles, 90 role grants, and Security Advisor zero lints. No schema migration or grants were changed during this code continuation.
 
 **Phase 02 remains PARTIAL. The DoD is not satisfied because exhaustive Web/Expo action inventory and wiring, business-domain endpoint/service coverage, and fresh static CI evidence are still outstanding. Phase 03 remains NOT STARTED.**
+
+
+## Phase 02 — final implementation reconciliation (2026-11-20)
+
+This section supersedes earlier Phase 02 addenda where SmartTeam, SmartOrder, SmartReward, Location, Analytics or Workflow were listed as Phase 02 blockers. Engineering Execution Master Plan v1.0 assigns those business domains to later phases; Phase 02 remains the Identity, Tenant & Authorization Foundation. Their existing portal UI modules are recorded in `docs/implementation/phase-02-action-inventory.md` as later-phase surfaces.
+
+### Latest implementation evidence
+- Shared TypeScript and Python action matrix: **28/28 exact contract parity** across action ID, method, path, feature, action, resource, role policy, permission, scope and enforcement description.
+- FastAPI route enforcement: **26/26 user-scoped routes** use `require_api_action`; two BFF routes use explicit BFF markers and shared-secret enforcement. Startup validation rejects unmapped/stale routes and mismatched action dependency IDs.
+- UI action resolver: **18 unique Phase 02 action IDs** consumed across Web and Expo; 40 resolver call sites across the inspected access, Super Admin, invitation and native auth components.
+- Service/repository layer: authorization persistence repository and RBAC/ABAC application service now own principal/session, active membership, self/tenant/platform permission, branch-scope and denial-audit queries. Service boundary asserts action ID, actor and tenant before protected Phase 02 route operations (16 assertions).
+- Web/Expo: all seven authenticated Web portal surfaces retain shared portal access resolution; Web access, invitation and Super Admin identity/audit actions use the shared action resolver. Expo native session/identity/invitation actions use the same resolver and typed API client. Context fingerprint/epoch invalidates consumer state when account, membership, role, permission or active tenant changes.
+- Platform audit read API added at `GET /api/v1/admin/audit`, platform-scoped `audit:read`, rate-limited, and itself audited. Account and role directory reads now use least-privilege `account:read` and `role:read` rather than mutation permissions.
+
+### Full portal source inventory evidence
+- Seven Web portal components scanned: **443 JSX onClick sites**, **7 onSubmit sites**; Expo Sales source: **17 onPress sites**.
+- Six non-Super-Admin domain portal components currently have no typed API client call sites or action-level permission resolver calls. Their business features are assigned to later domain phases, not claimed as implemented mutations in Phase 02.
+- Super Admin navigation now fails closed for modules without Phase 02 contracts; only Users, Roles and Audit Logs remain visible in this phase.
+- The 18 unique Phase 02 UI action IDs and per-portal module inventory are recorded in `docs/implementation/phase-02-action-inventory.md`.
+
+### Live Supabase evidence after three additional migrations
+- Applied migration count: **16**.
+- Public tables: **12**, RLS enabled on **12/12**.
+- Permission keys: **25**; roles: **8**; role-permission grants: **92**.
+- New `account:read` and `role:read` grants are assigned only to `platform_admin`.
+- `admin_audit_logs`: client roles `anon` and `authenticated` denied by policy; application `service_role` restricted to SELECT/INSERT; append-only trigger and platform partial index verified.
+- Security Advisor: **0 lints**.
+- Applied migration files now aligned with Supabase migration versions: `20261119172508`, `20261119173915`, `20261119174508`.
+
+### Fresh static CI evidence
+- Phase 02 API Checks **#266**, run `44580580455`, validated code head `ffffde450adc8a0ee5c41452d835b822dc427d08`: SUCCESS. 39 Python tests passed; compileall, Ruff, Web typecheck and Web lint passed.
+- Foundation Verification **#181**, run `44580441850`, validated Web/Expo source head `0f3e73722b68da18a8d6040c4fab15ed42f098fe`: SUCCESS. Bun workspace install, design tokens, Web TypeScript/lint, Expo Native TypeScript, SDK/config/Metro, Android/iOS bundle exports and Turborepo build passed. No Web/Expo source changes occurred after this Foundation run; subsequent commits changed only API/database tests/migrations and docs.
+- No staging, deployment, provider-live verification or real-world testing was run.
+
+### Remaining closure blockers
+1. The authorization service/repository is implemented, and 16 Phase 02 route operations assert the authorized action/actor/tenant at the service boundary. However, several existing Phase 02 mutation handlers still contain domain SQL in router functions rather than delegating each mutation to its own application service and mutation repository. This does not yet satisfy the requested per-mutation service/repository architecture.
+2. The seven portal source inventory records all module surfaces and source event-handler counts, but every future-phase click handler has not yet been assigned an individual resource/action/permission/API contract. This is broader than the Phase 02 identity/tenant scope but remains part of the requested full platform action inventory.
+3. Deployment-dependent credentials and provider configuration remain intentionally unset.
+
+**Decision: Phase 02 remains PARTIAL / IN PROGRESS — NOT COMPLETED.** The action matrix, 28 API contracts, Web/Expo Phase 02 resolver integration, authorization service/repository, platform audit, RLS/grant evidence and fresh static CI are in place. Do not close Phase 02 until the remaining mutation-specific service/repository separation and handler-level action inventory are complete.
+
+**Phase 03: NOT STARTED in this execution.** A separate parallel workstream may be opened only with isolated Phase 03 migrations, domain ownership and API contracts; it must not alter Phase 02 completion evidence.
