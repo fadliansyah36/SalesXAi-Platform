@@ -331,13 +331,15 @@ function TenantDetailForm({
           <label className="block font-semibold mb-1">Paket Langganan</label>
           <select
             value={plan}
-            onChange={(e) => setPlan(e.target.value as PlatformTenant['plan'])}
+            disabled
+            onChange={(e) => setPlan(e.target.value as PlatformTenant['plan'])
             className="w-full rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 py-2"
           >
             <option value="Basic">Basic</option>
             <option value="Pro">Pro</option>
             <option value="Enterprise">Enterprise</option>
             <option value="Trial">Trial</option>
+            <option value="Belum dikonfigurasi">Belum dikonfigurasi</option>
           </select>
         </div>
         <div>
