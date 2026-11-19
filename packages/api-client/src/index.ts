@@ -14,6 +14,10 @@ import type {
   MemberCreateRequest,
   MemberStatusResponse,
   MemberStatusUpdateRequest,
+  MasterDataRecord,
+  MasterDataWrite,
+  OutletAssignmentCreate,
+  OutletAssignmentRecord,
   MyOrganizationSummary,
   OrganizationCreateRequest,
   OrganizationMember,
@@ -303,6 +307,59 @@ export class SalesXApiClient {
 
   revokeSession(sessionId: string): Promise<void> {
     return this.request<void>(`/api/v1/auth/sessions/${encodeURIComponent(sessionId)}`, { method: "DELETE" });
+  }
+
+
+  listBranches(organizationId: string): Promise<MasterDataRecord[]> {
+    return this.request(\`/api/v1/organizations/${encodeURIComponent(organizationId)}/branches\`);
+  }
+  createBranch(organizationId: string, payload: MasterDataWrite): Promise<MasterDataRecord> {
+    return this.request(\`/api/v1/organizations/${encodeURIComponent(organizationId)}/branches\`, { method: "POST", body: JSON.stringify(payload) });
+  }
+  updateBranch(organizationId: string, id: string, payload: MasterDataWrite): Promise<MasterDataRecord> {
+    return this.request(\`/api/v1/organizations/${encodeURIComponent(organizationId)}/branches/${encodeURIComponent(id)}\`, { method: "PATCH", body: JSON.stringify(payload) });
+  }
+  listTeams(organizationId: string): Promise<MasterDataRecord[]> {
+    return this.request(\`/api/v1/organizations/${encodeURIComponent(organizationId)}/teams\`);
+  }
+  createTeam(organizationId: string, payload: MasterDataWrite): Promise<MasterDataRecord> {
+    return this.request(\`/api/v1/organizations/${encodeURIComponent(organizationId)}/teams\`, { method: "POST", body: JSON.stringify(payload) });
+  }
+  updateTeam(organizationId: string, id: string, payload: MasterDataWrite): Promise<MasterDataRecord> {
+    return this.request(\`/api/v1/organizations/${encodeURIComponent(organizationId)}/teams/${encodeURIComponent(id)}\`, { method: "PATCH", body: JSON.stringify(payload) });
+  }
+  listTerritories(organizationId: string): Promise<MasterDataRecord[]> {
+    return this.request(\`/api/v1/organizations/${encodeURIComponent(organizationId)}/territories\`);
+  }
+  createTerritory(organizationId: string, payload: MasterDataWrite): Promise<MasterDataRecord> {
+    return this.request(\`/api/v1/organizations/${encodeURIComponent(organizationId)}/territories\`, { method: "POST", body: JSON.stringify(payload) });
+  }
+  updateTerritory(organizationId: string, id: string, payload: MasterDataWrite): Promise<MasterDataRecord> {
+    return this.request(\`/api/v1/organizations/${encodeURIComponent(organizationId)}/territories/${encodeURIComponent(id)}\`, { method: "PATCH", body: JSON.stringify(payload) });
+  }
+  listOutlets(organizationId: string): Promise<MasterDataRecord[]> {
+    return this.request(\`/api/v1/organizations/${encodeURIComponent(organizationId)}/outlets\`);
+  }
+  createOutlet(organizationId: string, payload: MasterDataWrite): Promise<MasterDataRecord> {
+    return this.request(\`/api/v1/organizations/${encodeURIComponent(organizationId)}/outlets\`, { method: "POST", body: JSON.stringify(payload) });
+  }
+  updateOutlet(organizationId: string, id: string, payload: MasterDataWrite): Promise<MasterDataRecord> {
+    return this.request(\`/api/v1/organizations/${encodeURIComponent(organizationId)}/outlets/${encodeURIComponent(id)}\`, { method: "PATCH", body: JSON.stringify(payload) });
+  }
+  listSalesProfiles(organizationId: string): Promise<MasterDataRecord[]> {
+    return this.request(\`/api/v1/organizations/${encodeURIComponent(organizationId)}/sales-profiles\`);
+  }
+  createSalesProfile(organizationId: string, payload: MasterDataWrite): Promise<MasterDataRecord> {
+    return this.request(\`/api/v1/organizations/${encodeURIComponent(organizationId)}/sales-profiles\`, { method: "POST", body: JSON.stringify(payload) });
+  }
+  updateSalesProfile(organizationId: string, id: string, payload: MasterDataWrite): Promise<MasterDataRecord> {
+    return this.request(\`/api/v1/organizations/${encodeURIComponent(organizationId)}/sales-profiles/${encodeURIComponent(id)}\`, { method: "PATCH", body: JSON.stringify(payload) });
+  }
+  listOutletAssignments(organizationId: string): Promise<OutletAssignmentRecord[]> {
+    return this.request(\`/api/v1/organizations/${encodeURIComponent(organizationId)}/outlet-assignments\`);
+  }
+  assignOutlet(organizationId: string, outletId: string, payload: OutletAssignmentCreate): Promise<OutletAssignmentRecord> {
+    return this.request(\`/api/v1/organizations/${encodeURIComponent(organizationId)}/outlets/${encodeURIComponent(outletId)}/assignments\`, { method: "POST", body: JSON.stringify(payload) });
   }
 
   signOut(scope: "local" | "global" | "others" = "local"): Promise<void> {
