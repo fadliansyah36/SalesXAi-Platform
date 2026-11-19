@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hmac
 import ipaddress
+import logging
 from typing import Literal
 
 import asyncpg
@@ -12,6 +13,7 @@ from app.errors import APIError
 from app.services.rate_limit import RateLimitRule, _consume
 
 router = APIRouter(prefix="/security", tags=["security"])
+logger = logging.getLogger("salesx.api.security")
 
 EXTERNAL_AUTH_RULES: dict[str, RateLimitRule] = {
     "login": RateLimitRule("auth_login", 8, 300, 900),
@@ -25,6 +27,7 @@ EXTERNAL_AUTH_RULES: dict[str, RateLimitRule] = {
     "identity_link": RateLimitRule("auth_identity_link", 5, 600, 1800),
     "password_update": RateLimitRule("auth_password_update", 5, 300, 900),
     "refresh": RateLimitRule("auth_refresh", 60, 60, 120),
+    "signout": RateLimitRule("auth_signout", 15, 60, 120),
 }
 
 
@@ -72,6 +75,11 @@ async def enforce_bff_rate_limit(payload: ExternalRateLimitRequest, request: Req
                 rule=rule,
             )
             if not allowed:
+                logger.warning(
+                    "security_rate_limit_exceeded",
+                    extra={"bucket":rule.name,"dimension":dimension,
+                           "correlation_id":getattr(request.state,"correlation_id",None)},
+                )
                 raise APIError(
                     429,
                     "rate_limit_exceeded",
