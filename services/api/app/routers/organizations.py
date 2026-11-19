@@ -2,7 +2,6 @@ import asyncpg
 from fastapi import APIRouter, Depends, Request
 from uuid import UUID
 from app.db import get_connection
-from app.errors import APIError
 from app.schemas.identity import MemberCreate,MemberStatusUpdate,OrganizationCreate,OrganizationResponse,RoleAssignmentCreate,InvitationCreate,InvitationToken
 from app.security.dependencies import Principal,TenantContext,get_current_principal,require_api_action
 from app.services.organization_mutations import organization_mutation_service
