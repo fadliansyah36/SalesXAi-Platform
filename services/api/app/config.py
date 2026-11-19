@@ -19,6 +19,14 @@ class Settings(BaseSettings):
     db_command_timeout_seconds: float = 30.0
     cors_origins: str = ""
     jwt_clock_skew_seconds: int = 30
+    smtp_host: str | None = None
+    smtp_port: int = 587
+    smtp_username: str | None = None
+    smtp_password: SecretStr | None = None
+    smtp_from_email: str | None = None
+    smtp_from_name: str = "SalesX-Ai"
+    smtp_starttls: bool = True
+    smtp_timeout_seconds: float = 10.0
 
     @field_validator("supabase_jwt_secret","supabase_publishable_key","supabase_secret_key",mode="before")
     @classmethod
@@ -37,6 +45,20 @@ class Settings(BaseSettings):
     def validate_clock_skew(cls, value: int) -> int:
         if value < 0 or value > 120:
             raise ValueError("JWT clock skew must be between 0 and 120 seconds")
+        return value
+
+    @field_validator("smtp_port")
+    @classmethod
+    def validate_smtp_port(cls, value: int) -> int:
+        if value < 1 or value > 65535:
+            raise ValueError("SMTP port must be between 1 and 65535")
+        return value
+
+    @field_validator("smtp_timeout_seconds")
+    @classmethod
+    def validate_smtp_timeout(cls, value: float) -> float:
+        if value <= 0 or value > 60:
+            raise ValueError("SMTP timeout must be between 0 and 60 seconds")
         return value
 
     @field_validator("db_pool_min_size", "db_pool_max_size")
