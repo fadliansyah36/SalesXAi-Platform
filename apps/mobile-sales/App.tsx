@@ -14,6 +14,7 @@ import { useMobileSalesAuth } from "./src/auth/useMobileSalesAuth";
 type AuthState=ReturnType<typeof useMobileSalesAuth>;
 type AuthMode="login"|"signup"|"recovery"|"otp";
 type Session={auth_session_id:string;device_name:string|null;platform:string;last_seen_at:string|null;expires_at:string|null;revoked_at:string|null;current:boolean};
+type Identity={id:string;provider:string;email:string|null;is_primary:boolean;created_at:string};
 
 function Field({value,onChangeText,placeholder,secureTextEntry=false,keyboardType="default"}:{
  value:string;onChangeText:(value:string)=>void;placeholder:string;secureTextEntry?:boolean;keyboardType?:"default"|"email-address"|"phone-pad"
@@ -44,18 +45,30 @@ function SalesHome({auth}:{auth:AuthState}){
  const [notice,setNotice]=useState("");
  const [busy,setBusy]=useState(false);
  const [sessions,setSessions]=useState<Session[]>([]);
+ const [identities,setIdentities]=useState<Identity[]>([]);
+ const canReadSessions=auth.canPerformApiAction("identity.session.list");
+ const canRevokeSessions=auth.canPerformApiAction("identity.session.revoke");
+ const canReadIdentities=auth.canPerformApiAction("identity.link.list");
+ const canLinkIdentity=auth.canPerformApiAction("identity.link.authorize");
+ const canUnlinkIdentity=auth.canPerformApiAction("identity.link.unlink");
 
  useEffect(()=>{
   const api=auth.apiClient;
-  if(auth.status!=="authenticated"||!api){setSessions([]);return;}
+  if(auth.status!=="authenticated"||!api){setSessions([]);setIdentities([]);return;}
   let active=true;
-  void api.listSessions().then(items=>{if(active)setSessions(items);}).catch(error=>{
-   if(active)setNotice(error instanceof Error?error.message:"Daftar sesi tidak dapat dimuat.");
+  const jobs:Promise<void>[]=[];
+  if(canReadSessions)jobs.push(api.listSessions().then(items=>{if(active)setSessions(items);}));
+  else setSessions([]);
+  if(canReadIdentities)jobs.push(api.listLinkedIdentities().then(items=>{if(active)setIdentities(items);}));
+  else setIdentities([]);
+  void Promise.all(jobs).catch(error=>{
+   if(active)setNotice(error instanceof Error?error.message:"Data identitas tidak dapat dimuat.");
   });
   return()=>{active=false;};
- },[auth.status,auth.apiClient,auth.contextEpoch]);
+ },[auth.status,auth.apiClient,auth.contextEpoch,canReadSessions,canReadIdentities]);
 
  async function revokeDeviceSession(sessionId:string){
+  if(!canRevokeSessions)throw new Error("Permission pencabutan sesi tidak tersedia.");
   const api=auth.apiClient;
   if(!api)throw new Error("FastAPI client belum dikonfigurasi.");
   await api.revokeSession(sessionId);
@@ -113,18 +126,33 @@ function SalesHome({auth}:{auth:AuthState}){
         <NativeText variant="title" weight="semibold">Hak akses aktif</NativeText>
         <NativeText color={colors.textSecondary}>{activeMembership.permissions.length} permission dimuat dari FastAPI.</NativeText>
        </NativeStack>}
-       <NativeStack gap="2">
+       {canReadSessions&&<NativeStack gap="2">
         <NativeText variant="title" weight="semibold">Sesi perangkat</NativeText>
         <NativeText variant="caption" color={colors.textSecondary}>Pencabutan ini memblokir akses API SalesX-Ai. Supabase Auth tidak menyediakan revoke refresh token untuk satu perangkat lain berdasarkan session ID.</NativeText>
         {sessions.map(item=><NativeSurface key={item.auth_session_id} elevation="sm" radius="lg" style={{padding:12}}>
          <NativeStack gap="2">
           <NativeText weight="semibold">{item.device_name??item.platform}{item.current?" · Perangkat ini":""}</NativeText>
           <NativeText variant="caption" color={colors.textSecondary}>{item.platform} · {item.revoked_at?"Akses dicabut":item.current?"Aktif sekarang":"Aktif"} · {item.last_seen_at?new Date(item.last_seen_at).toLocaleString():"Belum ada aktivitas"}</NativeText>
-          {!item.current&&!item.revoked_at&&<Action label="Cabut akses API" secondary onPress={()=>void run(()=>revokeDeviceSession(item.auth_session_id),"Akses API perangkat dicabut.")}/>}
+          {canRevokeSessions&&!item.current&&!item.revoked_at&&<Action label="Cabut akses API" secondary onPress={()=>void run(()=>revokeDeviceSession(item.auth_session_id),"Akses API perangkat dicabut.")}/>}
          </NativeStack>
         </NativeSurface>)}
-       </NativeStack>
-       <Action label="Hubungkan Google identity" secondary onPress={()=>void run(auth.linkIdentity,"Google identity linking dimulai. Selesaikan verifikasi di browser.")}/>
+       </NativeStack>}
+       {canReadIdentities&&<NativeStack gap="2">
+        <NativeText variant="title" weight="semibold">Identitas login</NativeText>
+        {canLinkIdentity&&<Action label="Hubungkan Google identity" secondary onPress={()=>void run(auth.linkIdentity,"Google identity linking dimulai. Selesaikan verifikasi di browser.")}/>}
+        {identities.map(identity=><NativeSurface key={identity.id} elevation="sm" radius="lg" style={{padding:12}}>
+         <NativeInline gap="3" style={{justifyContent:"space-between",alignItems:"center"}}>
+          <NativeStack gap="0">
+           <NativeText weight="semibold">{identity.provider}{identity.is_primary?" · Primary":""}</NativeText>
+           <NativeText variant="caption" color={colors.textSecondary}>{identity.email??identity.id}</NativeText>
+          </NativeStack>
+          {canUnlinkIdentity&&<Action label="Unlink" secondary disabled={busy||identity.is_primary||identities.length<=1} onPress={()=>void run(async()=>{
+           await auth.unlinkIdentity(identity.id);
+           const api=auth.apiClient;if(api)setIdentities(await api.listLinkedIdentities());
+          },"Identitas dilepas.")}/>}
+         </NativeInline>
+        </NativeSurface>)}
+       </NativeStack>}
        <Action label="Keluar dari perangkat ini" onPress={()=>void run(()=>auth.signOut("local"),"Sesi perangkat ini dicabut.")}/>
        <Action label="Ganti akun" secondary onPress={()=>void run(auth.switchAccount,"Akun sebelumnya dibersihkan. Silakan masuk dengan akun lain.")}/>
       </NativeStack>
