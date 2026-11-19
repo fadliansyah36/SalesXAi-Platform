@@ -67,6 +67,10 @@
         "typescript": "~6.0.3",
       },
     },
+    "packages/api-client": {
+      "name": "@salesx-ai/api-client",
+      "version": "1.0.0",
+    },
     "packages/api-contracts": {
       "name": "@salesx-ai/api-contracts",
       "version": "1.0.0",
@@ -694,6 +698,8 @@
     "@react-native/normalize-colors": ["@react-native/normalize-colors@0.88.1", "", {}, "sha512-2SAKiLyZRf+peBLkhhJWGY5vC26w1Uj9QBgUZvjAnOxjgeEKUGBE5riPS0R7+YoqSrRL0w8ucwZB4M+vvy9HMg=="],
 
     "@react-native/virtualized-lists": ["@react-native/virtualized-lists@0.88.1", "", { "dependencies": { "invariant": "^2.2.4", "nullthrows": "^1.1.1" }, "peerDependencies": { "@types/react": "^19.2.0", "react": "*", "react-native": "0.88.1" }, "optionalPeers": ["@types/react"] }, "sha512-Zt+OGvJE6VgmzgemZL8TSA0VomNWpHMNcG0OvLkkBQEGrzY8OdDHRfjJh7S+f+UFJF77kicRC6o6mt3A7ER9lQ=="],
+
+    "@salesx-ai/api-client": ["@salesx-ai/api-client@workspace:packages/api-client"],
 
     "@salesx-ai/api-contracts": ["@salesx-ai/api-contracts@workspace:packages/api-contracts"],
 
