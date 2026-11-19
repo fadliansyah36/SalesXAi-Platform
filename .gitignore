@@ -14,3 +14,6 @@ apps/mobile-sales/.expo/
 apps/mobile-sales/dist/
 apps/mobile-sales/android/
 apps/mobile-sales/ios/
+
+# Turborepo task cache
+.turbo/
