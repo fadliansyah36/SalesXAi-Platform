@@ -27,6 +27,7 @@ async def audit_authorization_denial(request: Request, principal: 'Principal', p
             request.headers.get('user-agent','')[:512],
             json.dumps({'method':request.method,'permission':permission_key,'outcome':'denied'}),
         )
+        request.state.authorization_denial_audited=True
     except (asyncpg.PostgresError, asyncpg.InterfaceError):
         logger.exception('authorization_denial_audit_failed', extra={'correlation_id':getattr(request.state,'correlation_id',None)})
 
@@ -215,6 +216,7 @@ def require_permission(permission_key: str):
 
 def require_platform_permission(permission_key: str):
     async def dependency(
+        request: Request,
         principal: Principal = Depends(get_current_principal),
         connection: asyncpg.Connection = Depends(get_connection),
     ) -> Principal:
