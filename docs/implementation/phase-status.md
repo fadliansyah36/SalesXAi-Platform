@@ -442,3 +442,39 @@ DATABASE_URL, SUPABASE_PUBLISHABLE_KEY, SUPABASE_SECRET_KEY, SALESX_API_URL, SAL
 - Fresh static validation is required for the latest commits before any completion decision.
 
 **Decision: Phase 02 remains PARTIAL / IN PROGRESS. Phase 03 remains NOT STARTED.**
+
+
+## Phase 02 — FastAPI runtime resolver wired to canonical action contracts (2026-11-20)
+
+### Implementation committed to main
+- Added stable action IDs to all 27 Python `ApiActionContract` entries; the Python and TypeScript matrices now share the same action ID, method, route, feature, action, resource, role-policy metadata, permission, scope and enforcement description.
+- Added `require_api_action(action_id)` to FastAPI authorization dependencies. It resolves the action contract at runtime and dispatches to the existing self, tenant or platform server-side authorization dependency. Unknown IDs fail closed; BFF-only IDs are rejected by this factory and continue to use their explicit shared-secret gate.
+- Rebound all 25 user-authenticated route contracts across Auth, Organization, Admin and Audit routers to the canonical runtime resolver. The two BFF security routes remain protected by the existing explicit shared-secret + session/rate-limit checks.
+- Extended tests to check action-ID uniqueness, runtime resolver dispatch for all user-scoped actions, rejection of BFF actions from user dependencies, and rejection of unknown action IDs.
+
+### Runtime resolver commit chain
+- `487484162ce56df2014988cbbcd1b7f859d50c33` — add shared action IDs to FastAPI registry.
+- `ee86d35a3557d854e93a0ca7f25282d048030fa4` — add canonical runtime dependency resolver.
+- `04223c2679dcf3d4201b409ab0d609b54b7dbc71` — bind organization routes to action IDs.
+- `399368380ff4a44119b620751a8e581cdd848140` — bind identity routes to action IDs.
+- `7a321438d92ee237d04c6661bc3a45d1d0eab315` — bind platform routes to action IDs.
+- `14ccd6e67cdb206b1bd67afdc40f69ad0a8e3ace` — bind audit route to action ID.
+- `fd67aa4bd0763b94808ae74edae479fd6444e995` — test runtime resolver and unknown/BFF denial.
+- `47c53c4a08b4b718f362c868492ffdb23cb2236a` and `1b0b88782e196d0d6f523bbbbbb89de413d19369` — import ordering.
+
+### Static source checks performed in this continuation
+- TypeScript action contracts parsed: 27; FastAPI contracts parsed: 27.
+- Cross-language contract parity check: 27/27 matching on ID, method, path, feature, action, resource, role policy, permission, scope and enforcement description.
+- User-scoped route dependencies referencing `require_api_action`: 25 unique IDs; all 25 non-BFF contracts are referenced exactly once by the inspected router sources.
+- BFF routes: two explicit shared-secret gates retained; no BFF contract can be passed to the user dependency resolver.
+- Web action resolver integration: 13 gates in the two existing Phase 02 access consoles.
+- These checks are source-level checks performed through the GitHub file connector; they are not a substitute for the Python unittest/Ruff or Web/Expo typecheck CI jobs.
+
+### Validation status and remaining blockers
+- Latest prior API/foundation workflows `44572989578` and `44572989593` succeeded on the earlier code head `4b4b411e8258af68fb5a70722e110551d0eec975`. The latest resolver commits post-date those runs; no fresh CI pass is claimed for this commit chain.
+- Live Supabase evidence remains: 13 applied migrations, 12/12 public tables RLS-enabled, 23 permission keys, 8 roles, 90 role grants, Security Advisor zero lints. No migration or grant change was required for the runtime dependency refactor.
+- Full route/screen/menu/button/handler inventory across all seven Web portals and Expo remains unproven; full native screen/action-handler wiring is not yet evidenced.
+- Business-domain mutations for SmartTeam, SmartOrder, SmartReward, Location, Analytics and Workflow remain outside the current API contract set and must be implemented in their designated domain phases. They are not falsely declared covered by Phase 02.
+- Latest static CI for the resolver commit chain is still required before closure.
+
+**Phase 02 remains PARTIAL / IN PROGRESS. Phase 03 remains NOT STARTED.**
