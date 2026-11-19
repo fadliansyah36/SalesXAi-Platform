@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
   LayoutDashboard,
@@ -51,10 +51,7 @@ import {
   COMPANY_MONTHLY_TRENDS,
   COMPANY_ORDER_COMPOSITION,
   COMPANY_REPORTS_LIST,
-  INITIAL_BRANCHES,
-  INITIAL_TERRITORIES,
   INITIAL_TEAM_MEMBERS,
-  INITIAL_OUTLETS,
   INITIAL_PRODUCTS,
   INITIAL_VISITS,
   INITIAL_COMPANY_ORDERS,
@@ -118,6 +115,10 @@ export type CompanyTabId =
   | 'reports'
   | 'integrations'
   | 'master_perf';
+
+const asText = (value: unknown): string => typeof value === 'string' ? value : '';
+const asNumber = (value: unknown): number => typeof value === 'number' && Number.isFinite(value) ? value : 0;
+const masterCode = (value: string): string => value.normalize('NFKD').replace(/[\\u0300-\\u036f]/g, '').toUpperCase().replace(/[^A-Z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'MASTER';
 
 const SIDEBAR_GROUPS: Array<{
   group: string;
@@ -201,12 +202,12 @@ export function CompanyPortalApp() {
   const [companyTargetOrder, setCompanyTargetOrder] = useState(
     COMPANY_PROFILE.monthlyTargetOrder
   );
-  const [branches, setBranches] = useState<BranchItem[]>(INITIAL_BRANCHES);
+  const [branches, setBranches] = useState<BranchItem[]>([]);
   const [territories, setTerritories] =
-    useState<TerritoryItem[]>(INITIAL_TERRITORIES);
+    useState<TerritoryItem[]>([]);
   const [teamMembers, setTeamMembers] =
     useState<TeamMemberItem[]>(INITIAL_TEAM_MEMBERS);
-  const [outlets, setOutlets] = useState<Outlet[]>(INITIAL_OUTLETS);
+  const [outlets, setOutlets] = useState<Outlet[]>([]);
   const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
   const [orders, setOrders] = useState<CompanyOrderItem[]>(
     INITIAL_COMPANY_ORDERS
@@ -219,6 +220,8 @@ export function CompanyPortalApp() {
   const [notifications, setNotifications] = useState<NotificationItem[]>(
     INITIAL_NOTIFICATIONS
   );
+  const [masterDataLoading, setMasterDataLoading] = useState(false);
+  const [masterDataError, setMasterDataError] = useState<string | null>(null);
   const [attendanceRecords, setAttendanceRecords] = useState<
     CompanyAttendanceItem[]
   >(INITIAL_COMPANY_ATTENDANCE);
@@ -312,6 +315,123 @@ export function CompanyPortalApp() {
     if (typeof document !== 'undefined') {
       document.documentElement.classList.toggle('dark', next === 'dark');
     }
+  };
+
+
+  useEffect(() => {
+    const organizationId = auth.activeOrganizationId;
+    const api = auth.apiClient;
+    if (auth.status !== 'authenticated' || !organizationId || !api) {
+      setBranches([]);
+      setTerritories([]);
+      setOutlets([]);
+      setMasterDataLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setMasterDataLoading(true);
+    setMasterDataError(null);
+    Promise.all([
+      api.listBranches(organizationId),
+      api.listTerritories(organizationId),
+      api.listOutlets(organizationId),
+    ]).then(([branchRows, territoryRows, outletRows]) => {
+      if (cancelled) return;
+      const nextBranches: BranchItem[] = branchRows.map((row) => ({
+        id: String(row.id), name: asText(row.name), city: asText(row.city),
+        address: asText(row.address), managerName: asText(row.manager_name),
+        phone: asText(row.phone), salesCount: 0, outletCount: 0,
+        monthlyTarget: 0, monthlyRealized: 0,
+        status: row.status === 'active' ? 'Aktif' : 'Nonaktif',
+        lat: asNumber(row.latitude), lng: asNumber(row.longitude),
+      }));
+      const branchNames = new Map(nextBranches.map((branch) => [branch.id, branch.name]));
+      const nextTerritories: TerritoryItem[] = territoryRows.map((row) => ({
+        id: String(row.id), name: asText(row.name),
+        branchName: branchNames.get(asText(row.branch_id)) ?? '',
+        outletCount: 0, salesAssigned: 0, coveragePct: 0,
+        colorHex: '#348CB2', lat: 0, lng: 0,
+      }));
+      const nextOutlets: Outlet[] = outletRows.map((row) => ({
+        id: String(row.id), name: asText(row.name), city: asText(row.city),
+        address: asText(row.address), distanceKm: 0, isPriority: false,
+        visitToday: false, status: row.status === 'active' ? 'Aktif' : 'Nonaktif',
+        category: asText(row.category), picName: asText(row.pic_name),
+        phone: asText(row.phone), email: '', lat: asNumber(row.latitude),
+        lng: asNumber(row.longitude), lastOrderTotal: 0, lastVisitDate: '',
+      }));
+      setBranches(nextBranches);
+      setTerritories(nextTerritories);
+      setOutlets(nextOutlets);
+    }).catch((error: unknown) => {
+      if (!cancelled) setMasterDataError(error instanceof Error ? error.message : 'Master data gagal dimuat dari FastAPI.');
+    }).finally(() => {
+      if (!cancelled) setMasterDataLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, [auth.status, auth.activeOrganizationId, auth.apiClient]);
+
+  const persistBranch = async (branch: BranchItem) => {
+    if (!auth.apiClient || !auth.activeOrganizationId) throw new Error('Pilih organisasi aktif sebelum mengelola cabang.');
+    const row = await auth.apiClient.createBranch(auth.activeOrganizationId, {
+      code: masterCode(branch.name), name: branch.name, city: branch.city,
+      address: branch.address, manager_name: branch.managerName, phone: branch.phone, status: 'active',
+      latitude: branch.lat || undefined, longitude: branch.lng || undefined,
+    });
+    const created: BranchItem = {
+      id: String(row.id), name: asText(row.name), city: asText(row.city),
+      address: asText(row.address), managerName: asText(row.manager_name), phone: asText(row.phone),
+      salesCount: 0, outletCount: 0, monthlyTarget: 0, monthlyRealized: 0,
+      status: row.status === 'active' ? 'Aktif' : 'Nonaktif',
+      lat: asNumber(row.latitude), lng: asNumber(row.longitude),
+    };
+    setBranches((current) => [created, ...current]);
+  };
+
+  const persistTerritory = async (territory: TerritoryItem) => {
+    if (!auth.apiClient || !auth.activeOrganizationId) throw new Error('Pilih organisasi aktif sebelum mengelola teritori.');
+    const branch = branches.find((item) => item.name === territory.branchName);
+    const row = await auth.apiClient.createTerritory(auth.activeOrganizationId, {
+      code: masterCode(territory.name), name: territory.name, branch_id: branch?.id, status: 'active',
+    });
+    setTerritories((current) => [{
+      id: String(row.id), name: asText(row.name), branchName: territory.branchName,
+      outletCount: 0, salesAssigned: 0, coveragePct: 0, colorHex: '#348CB2', lat: 0, lng: 0,
+    }, ...current]);
+  };
+
+  const persistOutlet = async (outlet: Outlet) => {
+    if (!auth.apiClient || !auth.activeOrganizationId) throw new Error('Pilih organisasi aktif sebelum mengelola outlet.');
+    const row = await auth.apiClient.createOutlet(auth.activeOrganizationId, {
+      code: masterCode(outlet.name), name: outlet.name, city: outlet.city, address: outlet.address,
+      category: outlet.category, pic_name: outlet.picName, phone: outlet.phone, status: 'active',
+    });
+    setOutlets((current) => [{
+      id: String(row.id), name: asText(row.name), city: asText(row.city), address: asText(row.address),
+      distanceKm: 0, isPriority: false, visitToday: false, status: 'Aktif',
+      category: asText(row.category), picName: asText(row.pic_name), phone: asText(row.phone),
+      email: '', lat: 0, lng: 0, lastOrderTotal: 0, lastVisitDate: '',
+    }, ...current]);
+  };
+
+  const toggleBranchStatus = async (branchId: string) => {
+    const branch = branches.find((item) => item.id === branchId);
+    if (!branch || !auth.apiClient || !auth.activeOrganizationId) return;
+    const row = await auth.apiClient.updateBranch(auth.activeOrganizationId, branchId, {
+      status: branch.status === 'Aktif' ? 'inactive' : 'active',
+    });
+    setBranches((current) => current.map((item) => item.id === branchId
+      ? { ...item, status: row.status === 'active' ? 'Aktif' : 'Nonaktif' } : item));
+  };
+
+  const toggleOutletStatus = async (outletId: string) => {
+    const outlet = outlets.find((item) => item.id === outletId);
+    if (!outlet || !auth.apiClient || !auth.activeOrganizationId) return;
+    const row = await auth.apiClient.updateOutlet(auth.activeOrganizationId, outletId, {
+      status: outlet.status === 'Aktif' ? 'inactive' : 'active',
+    });
+    setOutlets((current) => current.map((item) => item.id === outletId
+      ? { ...item, status: row.status === 'active' ? 'Aktif' : 'Nonaktif' } : item));
   };
 
   const selectedTeamMember =
@@ -3044,20 +3164,12 @@ export function CompanyPortalApp() {
       <AddBranchModal
         open={addBranchOpen}
         onClose={() => setAddBranchOpen(false)}
-        onAdd={(b) => setBranches((prev) => [b, ...prev])}
+        onAdd={(b) => { void persistBranch(b).catch((error: unknown) => setMasterDataError(error instanceof Error ? error.message : 'Cabang gagal disimpan.')); }}
       />
       <BranchDetailModal
         branch={selectedBranch}
         onClose={() => setSelectedBranch(null)}
-        onToggleStatus={(id) =>
-          setBranches((prev) =>
-            prev.map((b) =>
-              b.id === id
-                ? { ...b, status: b.status === 'Aktif' ? 'Nonaktif' : 'Aktif' }
-                : b
-            )
-          )
-        }
+        onToggleStatus={(id) => { void toggleBranchStatus(id).catch((error: unknown) => setMasterDataError(error instanceof Error ? error.message : 'Status cabang gagal diperbarui.')); }}
       />
       <AddTeamMemberModal
         open={addTeamOpen}
@@ -3069,12 +3181,12 @@ export function CompanyPortalApp() {
         open={addTerritoryOpen}
         branches={branches}
         onClose={() => setAddTerritoryOpen(false)}
-        onAdd={(t) => setTerritories((prev) => [...prev, t])}
+        onAdd={(t) => { void persistTerritory(t).catch((error: unknown) => setMasterDataError(error instanceof Error ? error.message : 'Teritori gagal disimpan.')); }}
       />
       <AddOutletCompanyModal
         open={addOutletOpen}
         onClose={() => setAddOutletOpen(false)}
-        onAdd={(o) => setOutlets((prev) => [o, ...prev])}
+        onAdd={(o) => { void persistOutlet(o).catch((error: unknown) => setMasterDataError(error instanceof Error ? error.message : 'Outlet gagal disimpan.')); }}
       />
       <AddProductModal
         open={addProductOpen}
@@ -3225,17 +3337,7 @@ export function CompanyPortalApp() {
               <button
                 type="button"
                 onClick={() => {
-                  setOutlets((prev) =>
-                    prev.map((o) =>
-                      o.id === selectedOutletDetail.id
-                        ? {
-                            ...o,
-                            status:
-                              o.status === 'Aktif' ? 'Nonaktif' : 'Aktif',
-                          }
-                        : o
-                    )
-                  );
+                  void toggleOutletStatus(selectedOutletDetail.id).catch((error: unknown) => setMasterDataError(error instanceof Error ? error.message : 'Status outlet gagal diperbarui.'));
                   setSelectedOutletDetail(null);
                 }}
                 className="rounded-xl border border-[var(--color-border-strong)] px-4 py-2 font-semibold cursor-pointer"
