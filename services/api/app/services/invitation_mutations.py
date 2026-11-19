@@ -96,7 +96,8 @@ class InvitationMutationService:
    if invitation is None:
        raise APIError(404,"invitation_not_found","Invitation is invalid, used or revoked.")
    if invitation["expires_at"]<=datetime.now(UTC):
-    await self.repository.expire_one(connection,invitation["id"]); expired=True
+    await self.repository.expire_one(connection,invitation["id"])
+     expired=True
    elif (not invitation["auth_email"] or invitation["email_confirmed_at"] is None or invitation["auth_email"].lower()!=invitation["email"]):
     raise APIError(403,"invitation_email_mismatch","Sign in with the verified email address that received this invitation.")
    else:
