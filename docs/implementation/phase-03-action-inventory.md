@@ -71,3 +71,29 @@ All three migrations are applied to the target Supabase project. Current databas
 - Run fresh API, Web and Expo static CI against the final combined commit and repair any failures.
 
 **Phase 03 remains IN_PROGRESS.** The current implementation is a working master-data/API foundation and a partial portal vertical slice, not a completed phase.
+
+
+## 2026-11-20 continuation — Company Team hierarchy and profile assignment
+
+The existing Company Portal Team screen is now partially connected to live master data:
+
+- Team list is loaded from `GET /api/v1/organizations/{organization_id}/teams`.
+- Sales profiles are loaded from `GET /api/v1/organizations/{organization_id}/sales-profiles`.
+- Active organization memberships are loaded from `GET /api/v1/organizations/{organization_id}/members` for supervisor labels and selection.
+- The existing Team Structure modal now creates a team through FastAPI, including branch, optional supervisor and optional parent-team references.
+- The Team Structure view displays real team, branch, supervisor and parent-team relationships; the former hardcoded team counts/hierarchy were removed.
+- The personnel assignment modal now updates an existing sales profile's `team_id`, `manager_user_id` and status through the typed API client. Clearing a supervisor is supported by preserving explicit nullable update values through the repository.
+- Company Portal no longer initializes Team personnel from `INITIAL_TEAM_MEMBERS`. GPS maps are withheld until actual location telemetry exists; Phase 07 location data is not fabricated.
+
+The current UI still does not create a new sales profile from an organization membership. RBAC role assignment is intentionally kept in the existing Access Console and is not simulated by the Team modal.
+
+### Updated remaining Phase 03 work
+
+- Add a Company Portal flow to create a sales profile for an existing active organization member, including team/manager and effective dates.
+- Integrate outlet assignment list/create/history into Company/Sales/Supervisor surfaces.
+- Complete update/deactivation workflows for territories, teams and outlets in their existing screens.
+- Add master-data import/export foundation with validation, row-level errors, audit and idempotent batch processing.
+- Add private tenant-authorized Realtime invalidation/broadcast where required.
+- Connect Expo assigned team/outlet context to the same typed API and permission contracts.
+
+**Phase 03 remains IN_PROGRESS.** This update records an additional connected vertical slice; it does not imply full phase completion.
