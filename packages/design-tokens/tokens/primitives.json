@@ -1,0 +1,74 @@
+{
+  "$schema": "https://design-tokens.github.io/community-group/format/",
+  "name": "SalesX-Ai Primitives",
+  "version": "1.0.0",
+  "color": {
+    "brand": {
+      "50": { "$type": "color", "$value": "#F3FAFC" },
+      "100": { "$type": "color", "$value": "#E5F4F8" },
+      "200": { "$type": "color", "$value": "#ADD8E6" },
+      "300": { "$type": "color", "$value": "#B0E0E6" },
+      "400": { "$type": "color", "$value": "#87CEEB" },
+      "500": { "$type": "color", "$value": "#5BAFD0" },
+      "600": { "$type": "color", "$value": "#348CB2" },
+      "700": { "$type": "color", "$value": "#236D91" },
+      "800": { "$type": "color", "$value": "#194F70" },
+      "900": { "$type": "color", "$value": "#123A54" }
+    },
+    "neutral": {
+      "0": { "$type": "color", "$value": "#FFFFFF" },
+      "50": { "$type": "color", "$value": "#F8FAFC" },
+      "100": { "$type": "color", "$value": "#F1F5F9" },
+      "200": { "$type": "color", "$value": "#E2E8F0" },
+      "300": { "$type": "color", "$value": "#CBD5E1" },
+      "400": { "$type": "color", "$value": "#94A3B8" },
+      "500": { "$type": "color", "$value": "#64748B" },
+      "600": { "$type": "color", "$value": "#475569" },
+      "700": { "$type": "color", "$value": "#334155" },
+      "800": { "$type": "color", "$value": "#1E293B" },
+      "900": { "$type": "color", "$value": "#0F172A" }
+    },
+    "success": {
+      "50": { "$type": "color", "$value": "#ECFDF5" },
+      "500": { "$type": "color", "$value": "#10B981" },
+      "700": { "$type": "color", "$value": "#047857" }
+    },
+    "warning": {
+      "50": { "$type": "color", "$value": "#FFFBEB" },
+      "500": { "$type": "color", "$value": "#F59E0B" },
+      "700": { "$type": "color", "$value": "#B45309" }
+    },
+    "danger": {
+      "50": { "$type": "color", "$value": "#FEF2F2" },
+      "500": { "$type": "color", "$value": "#EF4444" },
+      "700": { "$type": "color", "$value": "#B91C1C" }
+    },
+    "info": {
+      "50": { "$type": "color", "$value": "#EFF6FF" },
+      "500": { "$type": "color", "$value": "#3B82F6" },
+      "700": { "$type": "color", "$value": "#1D4ED8" }
+    }
+  },
+  "spacing": {
+    "0": { "$type": "dimension", "$value": "0px" },
+    "1": { "$type": "dimension", "$value": "4px" },
+    "2": { "$type": "dimension", "$value": "8px" },
+    "3": { "$type": "dimension", "$value": "12px" },
+    "4": { "$type": "dimension", "$value": "16px" },
+    "5": { "$type": "dimension", "$value": "20px" },
+    "6": { "$type": "dimension", "$value": "24px" },
+    "8": { "$type": "dimension", "$value": "32px" },
+    "10": { "$type": "dimension", "$value": "40px" },
+    "12": { "$type": "dimension", "$value": "48px" }
+  },
+  "radius": {
+    "none": { "$type": "dimension", "$value": "0px" },
+    "sm": { "$type": "dimension", "$value": "4px" },
+    "md": { "$type": "dimension", "$value": "8px" },
+    "lg": { "$type": "dimension", "$value": "12px" },
+    "xl": { "$type": "dimension", "$value": "16px" },
+    "2xl": { "$type": "dimension", "$value": "20px" },
+    "3xl": { "$type": "dimension", "$value": "24px" },
+    "full": { "$type": "dimension", "$value": "9999px" }
+  }
+}

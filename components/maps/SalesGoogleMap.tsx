@@ -159,6 +159,7 @@ function OutletMarkerItem({
 
 interface SalesGoogleMapProps {
   currentPos: { lat: number; lng: number };
+  currentPosLabel?: string;
   outlets: Outlet[];
   selectedOutlet: Outlet | null;
   onSelectOutlet: (outlet: Outlet) => void;
@@ -168,6 +169,7 @@ interface SalesGoogleMapProps {
 
 export function SalesGoogleMap({
   currentPos,
+  currentPosLabel = 'Posisi Saat Ini',
   outlets,
   selectedOutlet,
   onSelectOutlet,
@@ -195,7 +197,7 @@ export function SalesGoogleMap({
           Peta Google Maps Siap Dihubungkan
         </p>
         <p className="mt-1 max-w-md text-xs text-[var(--color-text-secondary)]">
-          Koordinat aktif saat ini:{' '}
+          Koordinat aktif saat ini ({currentPosLabel}):{' '}
           <span className="font-mono tabular-nums">
             {currentPos.lat.toFixed(6)}, {currentPos.lng.toFixed(6)}
           </span>
@@ -224,7 +226,7 @@ export function SalesGoogleMap({
             {/* Current Sales Position Marker */}
             <AdvancedMarker
               position={currentPos}
-              title="Posisi Sales Saat Ini (Budi Santoso)"
+              title={currentPosLabel}
             >
               <div className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-[#10B981] text-white shadow-md">
                 <Navigation className="h-4 w-4" />

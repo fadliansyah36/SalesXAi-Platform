@@ -638,7 +638,7 @@ export function SalesPortalApp() {
   ];
 
   return (
-    <div className="min-h-screen bg-[var(--color-background)] text-[var(--color-text-primary)] flex">
+    <div className="min-h-screen overflow-x-hidden bg-[var(--color-background)] text-[var(--color-text-primary)] flex">
       {/* Desktop Left Sidebar (248px) */}
       <aside className="hidden lg:flex lg:w-[248px] lg:flex-col lg:fixed lg:inset-y-0 border-r border-[var(--color-border)] bg-[var(--color-surface)] z-30">
         <div className="h-16 px-5 flex items-center justify-between border-b border-[var(--color-border)]">
@@ -674,6 +674,44 @@ export function SalesPortalApp() {
         </nav>
 
         <div className="p-4 border-t border-[var(--color-border)] space-y-2.5">
+          <div className="grid grid-cols-2 gap-1.5 text-[11px] font-semibold">
+            <Link
+              href="/distributor"
+              className="rounded-lg border border-[var(--color-border)] py-1.5 text-center hover:bg-[var(--color-surface-muted)]"
+            >
+              Distributor
+            </Link>
+            <Link
+              href="/principal"
+              className="rounded-lg border border-[var(--color-border)] py-1.5 text-center hover:bg-[var(--color-surface-muted)]"
+            >
+              Principal
+            </Link>
+            <Link
+              href="/supervisor"
+              className="rounded-lg border border-[var(--color-border)] py-1.5 text-center hover:bg-[var(--color-surface-muted)]"
+            >
+              Supervisor
+            </Link>
+            <Link
+              href="/company"
+              className="rounded-lg border border-[var(--color-border)] py-1.5 text-center hover:bg-[var(--color-surface-muted)]"
+            >
+              Company
+            </Link>
+            <Link
+              href="/customer"
+              className="rounded-lg border border-[var(--color-border)] py-1.5 text-center hover:bg-[var(--color-surface-muted)]"
+            >
+              Customer
+            </Link>
+            <Link
+              href="/super-admin"
+              className="rounded-lg border border-[var(--color-border)] py-1.5 text-center hover:bg-[var(--color-surface-muted)]"
+            >
+              Super Admin
+            </Link>
+          </div>
           <Link
             href="/"
             className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-[var(--color-border)] px-3 py-2 text-xs font-semibold text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-muted)]"
@@ -685,11 +723,11 @@ export function SalesPortalApp() {
       </aside>
 
       {/* Main Content Wrapper */}
-      <div className="flex-1 lg:pl-[248px] flex flex-col min-w-0 pb-20 lg:pb-6">
+      <div className="flex-1 lg:pl-[248px] flex flex-col min-w-0 pb-24 lg:pb-6">
         {/* Top Header (64px) */}
-        <header className="sticky top-0 z-20 h-16 border-b border-[var(--color-border)] bg-[var(--color-surface)]/95 backdrop-blur-md px-4 sm:px-6 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="lg:hidden">
+        <header className="sticky top-0 z-20 h-16 border-b border-[var(--color-border)] bg-[var(--color-surface)]/95 backdrop-blur-md px-3 sm:px-6 flex items-center justify-between gap-2 sm:gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+            <div className="lg:hidden min-w-0 truncate">
               <BrandLogo subtitle="SALES PORTAL" compact />
             </div>
             <div className="hidden lg:block">
@@ -702,21 +740,23 @@ export function SalesPortalApp() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-2.5">
+          <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
             <button
               type="button"
               onClick={() => setShiftModalOpen(true)}
-              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold cursor-pointer whitespace-nowrap transition-colors ${
+              className={`inline-flex items-center gap-1 sm:gap-1.5 rounded-lg px-2.5 sm:px-3 py-1.5 text-[11px] sm:text-xs font-bold cursor-pointer whitespace-nowrap transition-colors ${
                 shiftActive
                   ? 'bg-[#ECFDF5] dark:bg-[#064E3B]/50 text-[#047857] dark:text-[#34D399]'
                   : 'bg-[var(--color-surface-muted)] text-[var(--color-text-secondary)]'
               }`}
             >
-              <Clock className="h-3.5 w-3.5" />
+              <Clock className="h-3.5 w-3.5 shrink-0" />
               <span>{shiftActive ? 'Sesi Aktif' : 'Mulai Shift'}</span>
             </button>
 
-            <PWAInstallButton variant="compact" />
+            <div className="hidden sm:block">
+              <PWAInstallButton variant="compact" />
+            </div>
 
             <button
               type="button"
@@ -725,7 +765,7 @@ export function SalesPortalApp() {
                 setLainnyaTab('notifications');
               }}
               aria-label="Notifikasi"
-              className="relative inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] hover:bg-[var(--color-surface-muted)] cursor-pointer"
+              className="relative inline-flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] hover:bg-[var(--color-surface-muted)] cursor-pointer shrink-0"
             >
               <Bell className="h-4 w-4" />
               {unreadNotifCount > 0 && (
@@ -739,7 +779,7 @@ export function SalesPortalApp() {
               type="button"
               onClick={toggleTheme}
               aria-label="Ubah Tema"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] hover:bg-[var(--color-surface-muted)] cursor-pointer"
+              className="inline-flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] hover:bg-[var(--color-surface-muted)] cursor-pointer shrink-0"
             >
               {theme === 'dark' ? (
                 <Sun className="h-4 w-4" />
@@ -1309,7 +1349,7 @@ export function SalesPortalApp() {
                   </div>
 
                   {/* 4 Visual Category Cards (Screen 9 / Mobile 14) */}
-                  <div className="grid grid-cols-4 gap-2 sm:gap-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
                     {[
                       { name: 'Minuman', icon: Coffee, tone: 'text-[#348CB2] bg-[#E5F4F8] dark:bg-[#19394B]' },
                       { name: 'Makanan', icon: Cookie, tone: 'text-[#EA580C] bg-[#FFF7ED] dark:bg-[#431407]/50' },
@@ -1770,7 +1810,7 @@ export function SalesPortalApp() {
                     key={t.id}
                     type="button"
                     onClick={() => setAktivitasTab(t.id)}
-                    className={`rounded-lg py-2 px-2 text-xs font-semibold cursor-pointer transition-colors whitespace-nowrap ${
+                    className={`rounded-lg py-2 px-2 text-xs font-semibold cursor-pointer transition-colors text-center leading-tight ${
                       aktivitasTab === t.id
                         ? 'bg-[#348CB2] text-white shadow-xs'
                         : 'text-[var(--color-text-secondary)]'
@@ -2459,7 +2499,7 @@ export function SalesPortalApp() {
                         </div>
                       </div>
 
-                      <div className="lg:col-span-2 grid grid-cols-3 gap-3">
+                      <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-3">
                         {[
                           {
                             label: 'Order',
@@ -2949,7 +2989,7 @@ export function SalesPortalApp() {
       {/* Mobile Bottom Navigation (5 Tabs matching UI/UX Image 3 & 4) */}
       <nav
         aria-label="Navigasi Portal Sales Mobile"
-        className="lg:hidden fixed bottom-0 inset-x-0 z-30 h-16 border-t border-[var(--color-border)] bg-[var(--color-surface)]/95 backdrop-blur-md grid grid-cols-5"
+        className="lg:hidden fixed bottom-0 inset-x-0 z-30 border-t border-[var(--color-border)] bg-[var(--color-surface)]/95 backdrop-blur-md grid grid-cols-5 pb-[env(safe-area-inset-bottom)] min-h-[4rem]"
       >
         {[
           { id: 'beranda' as const, label: 'Beranda', icon: Home },

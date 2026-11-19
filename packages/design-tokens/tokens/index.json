@@ -1,0 +1,15 @@
+{
+  "name": "SalesX-Ai Canonical Design Tokens",
+  "version": "1.0.0",
+  "sources": [
+    "./primitives.json",
+    "./semantic-light.json",
+    "./semantic-dark.json",
+    "./typography.json",
+    "./spacing.json",
+    "./radius.json",
+    "./elevation.json",
+    "./motion.json",
+    "./breakpoints.json"
+  ]
+}

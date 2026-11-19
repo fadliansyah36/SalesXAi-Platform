@@ -479,32 +479,32 @@ export function LeadsDiscoveryModule({
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
           <button
             type="button"
             onClick={() => setAddModalOpen(true)}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-[#348CB2] bg-[var(--color-surface)] px-3.5 py-2 text-xs font-bold text-[#348CB2] hover:bg-[#F3FAFC] cursor-pointer whitespace-nowrap shrink-0"
+            className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 rounded-xl border border-[#348CB2] bg-[var(--color-surface)] px-3.5 py-2 text-xs font-bold text-[#348CB2] hover:bg-[#F3FAFC] cursor-pointer text-center"
           >
-            <UserPlus className="h-3.5 w-3.5" />
+            <UserPlus className="h-3.5 w-3.5 shrink-0" />
             <span>Tambah Lead</span>
           </button>
           <button
             type="button"
             onClick={handleExportCsv}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-[#123A54] hover:bg-[#194F70] px-3.5 py-2 text-xs font-bold text-white cursor-pointer whitespace-nowrap shrink-0"
+            className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#123A54] hover:bg-[#194F70] px-3.5 py-2 text-xs font-bold text-white cursor-pointer text-center"
           >
-            <Download className="h-3.5 w-3.5" />
+            <Download className="h-3.5 w-3.5 shrink-0" />
             <span>Ekspor CSV ({filteredLeads.length})</span>
           </button>
         </div>
       </div>
 
       {/* Sub-Tabs */}
-      <div className="grid grid-cols-2 gap-2 rounded-xl bg-[var(--color-surface-muted)] p-1.5 max-w-xl">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 rounded-xl bg-[var(--color-surface-muted)] p-1.5 max-w-xl">
         <button
           type="button"
           onClick={() => setSubTab('crm')}
-          className={`inline-flex items-center justify-center gap-2 rounded-lg py-2.5 px-3 text-xs sm:text-sm font-semibold cursor-pointer transition-colors whitespace-nowrap ${
+          className={`inline-flex items-center justify-center gap-2 rounded-lg py-2.5 px-3 text-xs sm:text-sm font-semibold cursor-pointer transition-colors text-center ${
             subTab === 'crm'
               ? 'bg-[#348CB2] text-white shadow-xs'
               : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
@@ -516,7 +516,7 @@ export function LeadsDiscoveryModule({
         <button
           type="button"
           onClick={() => setSubTab('maps')}
-          className={`inline-flex items-center justify-center gap-2 rounded-lg py-2.5 px-3 text-xs sm:text-sm font-semibold cursor-pointer transition-colors whitespace-nowrap ${
+          className={`inline-flex items-center justify-center gap-2 rounded-lg py-2.5 px-3 text-xs sm:text-sm font-semibold cursor-pointer transition-colors text-center ${
             subTab === 'maps'
               ? 'bg-[#F97316] text-white shadow-xs'
               : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
@@ -1000,12 +1000,12 @@ export function LeadsDiscoveryModule({
               <button
                 type="submit"
                 disabled={mapsLoading || !mapsQuery.trim()}
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#F97316] hover:bg-[#EA580C] disabled:opacity-60 px-5 py-2.5 text-xs sm:text-sm font-bold text-white cursor-pointer whitespace-nowrap shrink-0"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-[#F97316] hover:bg-[#EA580C] disabled:opacity-60 px-5 py-2.5 text-xs sm:text-sm font-bold text-white cursor-pointer"
               >
                 {mapsLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 className="h-4 w-4 animate-spin shrink-0" />
                 ) : (
-                  <Search className="h-4 w-4" />
+                  <Search className="h-4 w-4 shrink-0" />
                 )}
                 <span>
                   {mapsLoading

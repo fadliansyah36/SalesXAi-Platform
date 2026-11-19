@@ -463,7 +463,7 @@ export function WorkspaceHubView({
       </div>
 
       {/* Sub-tabs */}
-      <div className="grid grid-cols-3 gap-2 rounded-xl bg-[var(--color-surface-muted)] p-1.5">
+      <div className="grid grid-cols-3 gap-1.5 sm:gap-2 rounded-xl bg-[var(--color-surface-muted)] p-1.5">
         {[
           { id: 'gmail' as const, label: 'Gmail', icon: Mail },
           { id: 'calendar' as const, label: 'Calendar', icon: Calendar },
@@ -476,7 +476,7 @@ export function WorkspaceHubView({
               key={item.id}
               type="button"
               onClick={() => setWsTab(item.id)}
-              className={`inline-flex items-center justify-center gap-2 rounded-lg py-2.5 text-xs sm:text-sm font-semibold transition-colors cursor-pointer whitespace-nowrap ${
+              className={`inline-flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 rounded-lg py-2 sm:py-2.5 px-1.5 text-[11px] sm:text-sm font-semibold transition-colors cursor-pointer text-center ${
                 active
                   ? 'bg-[#348CB2] text-white shadow-xs'
                   : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
@@ -950,7 +950,7 @@ export function OutletDetailModal({
         </div>
 
         {/* Action Buttons matching Screen 4 (Kunjungi, Buat Order, Telepon) + Workspace */}
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           <button
             type="button"
             onClick={() => onStartVisit(outlet)}
@@ -1882,7 +1882,7 @@ export function VisitHistoryDetailModal({
       maxWidthClass="max-w-md"
     >
       <div className="space-y-3.5 text-xs">
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 dark:border-emerald-900/50 dark:bg-emerald-950/30 p-3 flex items-center justify-between">
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 dark:border-emerald-900/50 dark:bg-emerald-950/30 p-3 flex flex-wrap items-center justify-between gap-2">
           <span className="font-bold text-emerald-800 dark:text-emerald-300">
             Status Kunjungan Tervalidasi
           </span>
@@ -1935,7 +1935,7 @@ export function TelegramBotModal({
       maxWidthClass="max-w-md"
     >
       <div className="space-y-4 text-xs">
-        <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] p-3.5 flex items-center justify-between">
+        <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] p-3.5 flex flex-wrap items-center justify-between gap-2">
           <div>
             <p className="font-bold text-sm text-[var(--color-text-primary)]">
               @SalesXAi_FieldBot

@@ -389,7 +389,7 @@ export function CompanyPortalApp() {
   if (!authenticated) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-[#E5F4F8] via-[#F3FAFC] to-[#F8FAFC] dark:from-[#0B1220] dark:via-[#111C2D] dark:to-[#0B1220] flex flex-col justify-between px-4 py-6 sm:px-6">
-        <div className="mx-auto flex w-full max-w-md items-center justify-between">
+        <div className="mx-auto flex w-full max-w-md flex-wrap items-center justify-between gap-2">
           <Link
             href="/"
             className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-[#236D91] dark:text-[#87CEEB] hover:bg-white/70 dark:hover:bg-[#172438]"
@@ -397,19 +397,47 @@ export function CompanyPortalApp() {
             <ArrowLeft className="h-4 w-4" />
             <span>Beranda</span>
           </Link>
-          <div className="flex items-center gap-2 text-xs font-semibold">
+          <div className="flex flex-wrap items-center justify-end gap-x-2 gap-y-1 text-xs font-semibold">
             <Link
               href="/portal"
               className="text-[#348CB2] dark:text-[#87CEEB] hover:underline"
             >
-              Sales Portal
+              Sales
+            </Link>
+            <span className="text-[var(--color-text-muted)]">·</span>
+            <Link
+              href="/distributor"
+              className="text-[#348CB2] dark:text-[#87CEEB] hover:underline"
+            >
+              Distributor
+            </Link>
+            <span className="text-[var(--color-text-muted)]">·</span>
+            <Link
+              href="/principal"
+              className="text-[#348CB2] dark:text-[#87CEEB] hover:underline"
+            >
+              Principal
+            </Link>
+            <span className="text-[var(--color-text-muted)]">·</span>
+            <Link
+              href="/supervisor"
+              className="text-[#348CB2] dark:text-[#87CEEB] hover:underline"
+            >
+              Supervisor
             </Link>
             <span className="text-[var(--color-text-muted)]">·</span>
             <Link
               href="/customer"
               className="text-[#348CB2] dark:text-[#87CEEB] hover:underline"
             >
-              Customer Portal
+              Customer
+            </Link>
+            <span className="text-[var(--color-text-muted)]">·</span>
+            <Link
+              href="/super-admin"
+              className="text-[#194F70] dark:text-[#87CEEB] hover:underline"
+            >
+              Super Admin
             </Link>
           </div>
         </div>
@@ -606,7 +634,7 @@ export function CompanyPortalApp() {
   const factor = period === 'Kuartal Ini' ? 3 : 1;
 
   return (
-    <div className="min-h-screen bg-[var(--color-background)] text-[var(--color-text-primary)] flex flex-col lg:flex-row">
+    <div className="min-h-screen overflow-x-hidden bg-[var(--color-background)] text-[var(--color-text-primary)] flex flex-col lg:flex-row">
       {/* Desktop Left Sidebar */}
       <aside className="hidden lg:flex lg:w-[260px] lg:shrink-0 lg:flex-col border-r border-[var(--color-border)] bg-[var(--color-surface)] sticky top-0 h-screen overflow-y-auto">
         <div className="flex h-16 items-center justify-between px-4 border-b border-[var(--color-border)] shrink-0">
@@ -656,10 +684,34 @@ export function CompanyPortalApp() {
               Sales Portal
             </Link>
             <Link
+              href="/distributor"
+              className="rounded-lg border border-[var(--color-border)] py-1.5 text-center hover:bg-[var(--color-surface-muted)]"
+            >
+              Distributor
+            </Link>
+            <Link
+              href="/principal"
+              className="rounded-lg border border-[var(--color-border)] py-1.5 text-center hover:bg-[var(--color-surface-muted)]"
+            >
+              Principal
+            </Link>
+            <Link
+              href="/supervisor"
+              className="rounded-lg border border-[var(--color-border)] py-1.5 text-center hover:bg-[var(--color-surface-muted)]"
+            >
+              Supervisor
+            </Link>
+            <Link
               href="/customer"
               className="rounded-lg border border-[var(--color-border)] py-1.5 text-center hover:bg-[var(--color-surface-muted)]"
             >
-              Customer Portal
+              Customer
+            </Link>
+            <Link
+              href="/super-admin"
+              className="rounded-lg border border-[var(--color-border)] py-1.5 text-center hover:bg-[var(--color-surface-muted)]"
+            >
+              Super Admin
             </Link>
           </div>
           <button
@@ -674,20 +726,20 @@ export function CompanyPortalApp() {
       </aside>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 pb-20 lg:pb-8">
+      <div className="flex-1 flex flex-col min-w-0 pb-24 lg:pb-8">
         {/* Top Header */}
         <header className="sticky top-0 z-30 border-b border-[var(--color-border)] bg-[var(--color-surface)]/95 backdrop-blur-md">
-          <div className="flex h-16 items-center justify-between gap-3 px-4 sm:px-6">
-            <div className="flex items-center gap-3 min-w-0">
+          <div className="flex h-16 items-center justify-between gap-2 sm:gap-3 px-3 sm:px-6">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
               <button
                 type="button"
                 onClick={() => setMobileMenuOpen(true)}
-                className="lg:hidden inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--color-border)] cursor-pointer"
+                className="lg:hidden inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[var(--color-border)] cursor-pointer"
                 aria-label="Buka menu perusahaan"
               >
                 <Menu className="h-5 w-5" />
               </button>
-              <div className="lg:hidden">
+              <div className="lg:hidden min-w-0 truncate">
                 <BrandLogo subtitle="COMPANY PORTAL" compact />
               </div>
               <div className="hidden lg:block">
@@ -700,13 +752,15 @@ export function CompanyPortalApp() {
               </div>
             </div>
 
-            <div className="flex items-center gap-2 shrink-0">
-              <PWAInstallButton variant="compact" />
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+              <div className="hidden sm:block">
+                <PWAInstallButton variant="compact" />
+              </div>
               <button
                 type="button"
                 onClick={toggleTheme}
                 aria-label="Ubah tema"
-                className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] cursor-pointer"
+                className="inline-flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] cursor-pointer shrink-0"
               >
                 {theme === 'light' ? (
                   <Moon className="h-4 w-4" />
@@ -718,7 +772,7 @@ export function CompanyPortalApp() {
                 type="button"
                 onClick={() => setNotificationsOpen(true)}
                 aria-label="Notifikasi perusahaan"
-                className="relative inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-secondary)] hover:text-[#348CB2] cursor-pointer"
+                className="relative inline-flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-secondary)] hover:text-[#348CB2] cursor-pointer shrink-0"
               >
                 <Bell className="h-4 w-4" />
                 {unreadCount > 0 && (
@@ -1015,7 +1069,7 @@ export function CompanyPortalApp() {
            * ================================================================ */}
           {activeTab === 'analytics' && (
             <div className="space-y-5">
-              <div className="grid grid-cols-4 gap-1.5 rounded-xl bg-[var(--color-surface-muted)] p-1.5 max-w-lg">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 rounded-xl bg-[var(--color-surface-muted)] p-1.5 max-w-lg">
                 {(['Penjualan', 'Order', 'Outlet', 'Tim'] as const).map(
                   (sub) => (
                     <button
@@ -1308,7 +1362,7 @@ export function CompanyPortalApp() {
           {activeTab === 'branches' && (
             <div className="space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="relative flex-1 min-w-[220px] max-w-md">
+                <div className="relative w-full sm:flex-1 sm:min-w-[220px] max-w-md">
                   <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--color-text-muted)]" />
                   <input
                     type="text"
@@ -1583,7 +1637,7 @@ export function CompanyPortalApp() {
           {activeTab === 'outlets' && (
             <div className="space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="relative flex-1 min-w-[220px] max-w-md">
+                <div className="relative w-full sm:flex-1 sm:min-w-[220px] max-w-md">
                   <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--color-text-muted)]" />
                   <input
                     type="text"
@@ -1670,7 +1724,7 @@ export function CompanyPortalApp() {
           {activeTab === 'products' && (
             <div className="space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="grid grid-cols-4 gap-1 rounded-xl bg-[var(--color-surface-muted)] p-1">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1 rounded-xl bg-[var(--color-surface-muted)] p-1 w-full sm:w-auto">
                   {(['Produk', 'Kategori', 'Harga', 'Stok'] as const).map(
                     (tab) => (
                       <button
@@ -2193,7 +2247,7 @@ export function CompanyPortalApp() {
                 <h3 className="text-base font-bold text-[#123A54] dark:text-white">
                   Ringkasan Perjalanan ({historyStaff.name})
                 </h3>
-                <div className="grid grid-cols-3 gap-3 text-center">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3 text-center">
                   <div className="rounded-xl bg-[var(--color-background)] p-3">
                     <p className="text-xs text-[var(--color-text-muted)]">Jarak</p>
                     <p className="text-base font-bold tabular-nums mt-0.5">
@@ -2263,7 +2317,7 @@ export function CompanyPortalApp() {
                 </select>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3">
                 {[
                   { label: 'Target', val: '120' },
                   { label: 'Kunjungan', val: '98' },
@@ -2354,7 +2408,7 @@ export function CompanyPortalApp() {
                 </p>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3">
                 <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 text-center">
                   <p className="text-xs text-[var(--color-text-muted)]">Hadir Tepat</p>
                   <p className="text-xl font-bold text-[#10B981] tabular-nums mt-1">
@@ -2740,7 +2794,7 @@ export function CompanyPortalApp() {
 
               {masterSubTab === 'Ranking' && (
                 <div className="space-y-4">
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     {(
                       [
                         'Ranking Sales',
@@ -2752,7 +2806,7 @@ export function CompanyPortalApp() {
                         key={rt}
                         type="button"
                         onClick={() => setRankingSubTab(rt)}
-                        className={`rounded-xl py-2 text-xs font-bold cursor-pointer ${
+                        className={`rounded-xl py-2 px-3 text-xs font-bold cursor-pointer ${
                           rankingSubTab === rt
                             ? 'bg-[#123A54] text-white'
                             : 'border border-[var(--color-border)] bg-[var(--color-surface)]'
@@ -2770,20 +2824,20 @@ export function CompanyPortalApp() {
                         .map((s, idx) => (
                           <div
                             key={s.id}
-                            className="flex items-center justify-between rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4"
+                            className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4"
                           >
-                            <div className="flex items-center gap-3">
-                              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#F97316] text-xs font-bold text-white tabular-nums">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#F97316] text-xs font-bold text-white tabular-nums">
                                 {idx + 1}
                               </span>
-                              <div>
-                                <p className="text-sm font-bold">{s.name}</p>
+                              <div className="min-w-0">
+                                <p className="text-sm font-bold truncate">{s.name}</p>
                                 <p className="text-xs text-[var(--color-text-muted)]">
                                   {s.area}
                                 </p>
                               </div>
                             </div>
-                            <div className="text-right">
+                            <div className="text-right ml-auto">
                               <p className="text-sm font-bold tabular-nums">
                                 {formatRupiah(s.monthlyOrderValue * factor)}
                               </p>
@@ -2798,20 +2852,20 @@ export function CompanyPortalApp() {
                       branches.map((b, idx) => (
                         <div
                           key={b.id}
-                          className="flex items-center justify-between rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4"
+                          className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4"
                         >
-                          <div className="flex items-center gap-3">
-                            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#348CB2] text-xs font-bold text-white tabular-nums">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#348CB2] text-xs font-bold text-white tabular-nums">
                               {idx + 1}
                             </span>
-                            <div>
-                              <p className="text-sm font-bold">{b.name}</p>
+                            <div className="min-w-0">
+                              <p className="text-sm font-bold truncate">{b.name}</p>
                               <p className="text-xs text-[var(--color-text-muted)]">
                                 {b.city}
                               </p>
                             </div>
                           </div>
-                          <p className="text-sm font-bold tabular-nums">
+                          <p className="text-sm font-bold tabular-nums ml-auto">
                             {formatRupiah(b.monthlyRealized * factor)}
                           </p>
                         </div>
@@ -2821,20 +2875,20 @@ export function CompanyPortalApp() {
                       outlets.slice(0, 5).map((o, idx) => (
                         <div
                           key={o.id}
-                          className="flex items-center justify-between rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4"
+                          className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4"
                         >
-                          <div className="flex items-center gap-3">
-                            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#10B981] text-xs font-bold text-white tabular-nums">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#10B981] text-xs font-bold text-white tabular-nums">
                               {idx + 1}
                             </span>
-                            <div>
-                              <p className="text-sm font-bold">{o.name}</p>
+                            <div className="min-w-0">
+                              <p className="text-sm font-bold truncate">{o.name}</p>
                               <p className="text-xs text-[var(--color-text-muted)]">
                                 {o.city} · {o.category}
                               </p>
                             </div>
                           </div>
-                          <p className="text-sm font-bold tabular-nums">
+                          <p className="text-sm font-bold tabular-nums ml-auto">
                             {formatRupiah(o.lastOrderTotal * factor)}
                           </p>
                         </div>
@@ -2931,7 +2985,7 @@ export function CompanyPortalApp() {
       </div>
 
       {/* Mobile Bottom Navigation (matching Reference Sheet: Beranda, Analytics, Order, Master, Lainnya) */}
-      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-30 border-t border-[var(--color-border)] bg-[var(--color-surface)]/95 backdrop-blur-md grid grid-cols-5">
+      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-30 border-t border-[var(--color-border)] bg-[var(--color-surface)]/95 backdrop-blur-md grid grid-cols-5 pb-[env(safe-area-inset-bottom)]">
         {[
           { id: 'dashboard' as const, label: 'Beranda', icon: LayoutDashboard },
           { id: 'analytics' as const, label: 'Analytics', icon: TrendingUp },
@@ -2972,11 +3026,14 @@ export function CompanyPortalApp() {
               <button
                 type="button"
                 onClick={() => setMobileMenuOpen(false)}
-                className="p-2 rounded-lg border border-[var(--color-border)]"
+                className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-[var(--color-border)] cursor-pointer"
                 aria-label="Tutup menu"
               >
                 <X className="h-4 w-4" />
               </button>
+            </div>
+            <div className="sm:hidden pb-2 border-b border-[var(--color-border)]">
+              <PWAInstallButton variant="compact" />
             </div>
             {SIDEBAR_GROUPS.map((grp) => (
               <div key={grp.group} className="space-y-1">
@@ -2993,13 +3050,13 @@ export function CompanyPortalApp() {
                         setActiveTab(item.id);
                         setMobileMenuOpen(false);
                       }}
-                      className={`w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold ${
+                      className={`w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold cursor-pointer ${
                         activeTab === item.id
                           ? 'bg-[#348CB2] text-white'
                           : 'text-[var(--color-text-secondary)]'
                       }`}
                     >
-                      <Icon className="h-4 w-4" />
+                      <Icon className="h-4 w-4 shrink-0" />
                       <span>{item.label}</span>
                     </button>
                   );

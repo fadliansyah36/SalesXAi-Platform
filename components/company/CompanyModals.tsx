@@ -1306,7 +1306,7 @@ export function ReportPreviewModal({
       maxWidthClass="max-w-lg"
     >
       <div className="space-y-4 text-xs">
-        <div className="grid grid-cols-3 gap-2.5">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
           <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] p-3">
             <p className="text-[11px] text-[var(--color-text-muted)]">Total Baris</p>
             <p className="text-base font-bold tabular-nums mt-0.5">
@@ -1327,8 +1327,8 @@ export function ReportPreviewModal({
           </div>
         </div>
 
-        <div className="rounded-xl border border-[var(--color-border)] overflow-hidden">
-          <table className="w-full text-left">
+        <div className="rounded-xl border border-[var(--color-border)] overflow-x-auto">
+          <table className="w-full min-w-[360px] text-left">
             <thead className="bg-[var(--color-surface-muted)] text-[11px] font-semibold">
               <tr>
                 <th className="px-3 py-2">Cabang</th>
@@ -2205,7 +2205,7 @@ export function PromoDetailCompanyModal({
           <p className="text-[var(--color-text-secondary)]">{promo.subtitle}</p>
         </div>
 
-        <div className="grid grid-cols-3 gap-2.5 text-center">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-center">
           <div className="rounded-xl border border-[var(--color-border)] p-3">
             <p className="text-[11px] text-[var(--color-text-muted)]">Penukaran</p>
             <p className="text-base font-bold tabular-nums mt-0.5">184 Outlet</p>

@@ -1,0 +1,11 @@
+{
+  "$schema": "https://design-tokens.github.io/community-group/format/",
+  "name": "SalesX-Ai Motion Tokens",
+  "version": "1.0.0",
+  "motion": {
+    "fast": { "$type": "duration", "$value": "120ms" },
+    "normal": { "$type": "duration", "$value": "200ms" },
+    "slow": { "$type": "duration", "$value": "300ms" },
+    "easingStandard": { "$type": "cubicBezier", "$value": [0.16, 1, 0.3, 1] }
+  }
+}

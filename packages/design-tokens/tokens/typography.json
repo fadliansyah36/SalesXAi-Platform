@@ -1,0 +1,40 @@
+{
+  "$schema": "https://design-tokens.github.io/community-group/format/",
+  "name": "SalesX-Ai Typography Tokens",
+  "version": "1.0.0",
+  "fontFamily": {
+    "sans": {
+      "$type": "fontFamily",
+      "$value": ["Plus Jakarta Sans", "system-ui", "-apple-system", "Segoe UI", "sans-serif"]
+    },
+    "mono": {
+      "$type": "fontFamily",
+      "$value": ["JetBrains Mono", "ui-monospace", "SFMono-Regular", "Menlo", "monospace"]
+    }
+  },
+  "fontSize": {
+    "caption": { "$type": "dimension", "$value": "12px" },
+    "bodySm": { "$type": "dimension", "$value": "13px" },
+    "bodyMd": { "$type": "dimension", "$value": "14px" },
+    "bodyLg": { "$type": "dimension", "$value": "16px" },
+    "titleMd": { "$type": "dimension", "$value": "16px" },
+    "titleLg": { "$type": "dimension", "$value": "18px" },
+    "headingSm": { "$type": "dimension", "$value": "20px" },
+    "headingMd": { "$type": "dimension", "$value": "24px" },
+    "headingLg": { "$type": "dimension", "$value": "28px" },
+    "headingXl": { "$type": "dimension", "$value": "32px" },
+    "displayXl": { "$type": "dimension", "$value": "40px" },
+    "display2xl": { "$type": "dimension", "$value": "48px" }
+  },
+  "lineHeight": {
+    "tight": { "$type": "number", "$value": 1.2 },
+    "normal": { "$type": "number", "$value": 1.5 },
+    "relaxed": { "$type": "number", "$value": 1.65 }
+  },
+  "fontWeight": {
+    "regular": { "$type": "fontWeight", "$value": 400 },
+    "medium": { "$type": "fontWeight", "$value": 500 },
+    "semibold": { "$type": "fontWeight", "$value": 600 },
+    "bold": { "$type": "fontWeight", "$value": 700 }
+  }
+}

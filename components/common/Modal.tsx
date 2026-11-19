@@ -40,19 +40,20 @@ export function Modal({
       onClick={onClose}
     >
       <div
-        className={`w-full ${maxWidthClass} max-h-[90vh] overflow-y-auto rounded-t-3xl sm:rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 sm:p-6 shadow-xl`}
+        className={`w-full ${maxWidthClass} max-h-[90dvh] overflow-y-auto overscroll-contain rounded-t-3xl sm:rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 sm:p-6 shadow-xl pb-[calc(1rem+env(safe-area-inset-bottom))] sm:pb-6`}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-4 pb-4 border-b border-[var(--color-border)]">
-          <div>
+        <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-[var(--color-border-strong)] sm:hidden" />
+        <div className="flex items-start justify-between gap-3 pb-3.5 sm:pb-4 border-b border-[var(--color-border)]">
+          <div className="min-w-0 flex-1">
             <h3
               id="modal-title"
-              className="text-lg font-bold text-[var(--color-text-primary)]"
+              className="text-base sm:text-lg font-bold text-[var(--color-text-primary)] break-words"
             >
               {title}
             </h3>
             {subtitle && (
-              <p className="mt-0.5 text-xs sm:text-sm text-[var(--color-text-secondary)]">
+              <p className="mt-0.5 text-xs sm:text-sm text-[var(--color-text-secondary)] break-words">
                 {subtitle}
               </p>
             )}
@@ -61,7 +62,7 @@ export function Modal({
             type="button"
             onClick={onClose}
             aria-label="Tutup dialog"
-            className="min-h-[40px] min-w-[40px] inline-flex items-center justify-center rounded-lg text-[var(--color-text-muted)] hover:bg-[var(--color-surface-muted)] hover:text-[var(--color-text-primary)] transition-colors cursor-pointer"
+            className="min-h-[44px] min-w-[44px] shrink-0 inline-flex items-center justify-center rounded-xl text-[var(--color-text-muted)] hover:bg-[var(--color-surface-muted)] hover:text-[var(--color-text-primary)] transition-colors cursor-pointer"
           >
             <X className="h-5 w-5" />
           </button>

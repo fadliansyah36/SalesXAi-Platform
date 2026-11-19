@@ -698,7 +698,7 @@ export function AIChatAndStudio({
                   <label className="block text-xs font-bold text-[var(--color-text-primary)] mb-1.5">
                     Rasio Aspek
                   </label>
-                  <div className="grid grid-cols-5 gap-1.5">
+                  <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5">
                     {(['1:1', '3:4', '4:3', '9:16', '16:9'] as const).map(
                       (ratio) => (
                         <button

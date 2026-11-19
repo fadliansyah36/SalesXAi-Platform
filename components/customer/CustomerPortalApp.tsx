@@ -469,7 +469,7 @@ export function CustomerPortalApp() {
   if (authStage === 'splash') {
     return (
       <div className="min-h-screen bg-gradient-to-b from-[#E5F4F8] via-[#F3FAFC] to-[#FFFFFF] dark:from-[#0B1220] dark:via-[#111C2D] dark:to-[#0B1220] flex flex-col justify-between px-4 py-6 sm:px-6">
-        <div className="mx-auto flex w-full max-w-md items-center justify-between">
+        <div className="mx-auto flex w-full max-w-md flex-wrap items-center justify-between gap-2">
           <Link
             href="/"
             className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-[#236D91] dark:text-[#87CEEB] hover:bg-white/70"
@@ -477,18 +477,34 @@ export function CustomerPortalApp() {
             <ArrowLeft className="h-4 w-4" />
             <span>Beranda</span>
           </Link>
-          <div className="flex items-center gap-2 text-xs font-semibold">
+          <div className="flex flex-wrap items-center justify-end gap-x-2 gap-y-1 text-xs font-semibold">
             <Link href="/company" className="text-[#348CB2] hover:underline">
-              Company Portal
+              Company
             </Link>
             <span className="text-[var(--color-text-muted)]">·</span>
             <Link href="/portal" className="text-[#348CB2] hover:underline">
-              Sales Portal
+              Sales
+            </Link>
+            <span className="text-[var(--color-text-muted)]">·</span>
+            <Link href="/distributor" className="text-[#348CB2] hover:underline">
+              Distributor
+            </Link>
+            <span className="text-[var(--color-text-muted)]">·</span>
+            <Link href="/principal" className="text-[#348CB2] hover:underline">
+              Principal
+            </Link>
+            <span className="text-[var(--color-text-muted)]">·</span>
+            <Link href="/supervisor" className="text-[#348CB2] hover:underline">
+              Supervisor
+            </Link>
+            <span className="text-[var(--color-text-muted)]">·</span>
+            <Link href="/super-admin" className="text-[#194F70] dark:text-[#87CEEB] hover:underline">
+              Super Admin
             </Link>
           </div>
         </div>
 
-        <div className="mx-auto my-8 w-full max-w-md rounded-3xl border border-[var(--color-border)] bg-[var(--color-surface)] p-8 text-center shadow-lg">
+        <div className="mx-auto my-8 w-full max-w-md rounded-3xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 sm:p-8 text-center shadow-lg">
           <div className="flex justify-center">
             <BrandLogo subtitle="CUSTOMER PORTAL" />
           </div>
@@ -790,7 +806,7 @@ export function CustomerPortalApp() {
   ];
 
   return (
-    <div className="min-h-screen bg-[var(--color-background)] text-[var(--color-text-primary)] flex flex-col lg:flex-row">
+    <div className="min-h-screen overflow-x-hidden bg-[var(--color-background)] text-[var(--color-text-primary)] flex flex-col lg:flex-row">
       {/* Desktop Left Sidebar */}
       <aside className="hidden lg:flex lg:w-[250px] lg:shrink-0 lg:flex-col border-r border-[var(--color-border)] bg-[var(--color-surface)] sticky top-0 h-screen overflow-y-auto">
         <div className="flex h-16 items-center px-4 border-b border-[var(--color-border)] shrink-0">
@@ -851,6 +867,30 @@ export function CustomerPortalApp() {
             >
               Sales Portal
             </Link>
+            <Link
+              href="/distributor"
+              className="rounded-lg border border-[var(--color-border)] py-1.5 text-center hover:bg-[var(--color-surface-muted)]"
+            >
+              Distributor
+            </Link>
+            <Link
+              href="/principal"
+              className="rounded-lg border border-[var(--color-border)] py-1.5 text-center hover:bg-[var(--color-surface-muted)]"
+            >
+              Principal
+            </Link>
+            <Link
+              href="/supervisor"
+              className="rounded-lg border border-[var(--color-border)] py-1.5 text-center hover:bg-[var(--color-surface-muted)]"
+            >
+              Supervisor
+            </Link>
+            <Link
+              href="/super-admin"
+              className="rounded-lg border border-[var(--color-border)] py-1.5 text-center hover:bg-[var(--color-surface-muted)]"
+            >
+              Super Admin
+            </Link>
           </div>
           <button
             type="button"
@@ -864,19 +904,19 @@ export function CustomerPortalApp() {
       </aside>
 
       {/* Main Column */}
-      <div className="flex-1 flex flex-col min-w-0 pb-20 lg:pb-8">
+      <div className="flex-1 flex flex-col min-w-0 pb-24 lg:pb-8">
         <header className="sticky top-0 z-30 border-b border-[var(--color-border)] bg-[var(--color-surface)]/95 backdrop-blur-md">
-          <div className="flex h-16 items-center justify-between gap-3 px-4 sm:px-6">
-            <div className="flex items-center gap-3">
+          <div className="flex h-16 items-center justify-between gap-2 sm:gap-3 px-3 sm:px-6">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
               <button
                 type="button"
                 onClick={() => setMobileDrawerOpen(true)}
-                className="lg:hidden inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--color-border)] cursor-pointer"
+                className="lg:hidden inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[var(--color-border)] cursor-pointer"
                 aria-label="Buka menu outlet"
               >
                 <Menu className="h-5 w-5" />
               </button>
-              <div className="lg:hidden">
+              <div className="lg:hidden min-w-0 truncate">
                 <BrandLogo subtitle="CUSTOMER PORTAL" compact />
               </div>
               <div className="hidden lg:block">
@@ -890,13 +930,15 @@ export function CustomerPortalApp() {
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              <PWAInstallButton variant="compact" />
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+              <div className="hidden sm:block">
+                <PWAInstallButton variant="compact" />
+              </div>
               <button
                 type="button"
                 onClick={() => setActiveTab('cart')}
                 aria-label="Keranjang belanja"
-                className="relative inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] hover:text-[#348CB2] cursor-pointer"
+                className="relative inline-flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] hover:text-[#348CB2] cursor-pointer shrink-0"
               >
                 <ShoppingCart className="h-4 w-4" />
                 {cart.length > 0 && (
@@ -909,7 +951,7 @@ export function CustomerPortalApp() {
                 type="button"
                 onClick={toggleTheme}
                 aria-label="Ubah tema"
-                className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] cursor-pointer"
+                className="inline-flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] cursor-pointer shrink-0"
               >
                 {theme === 'light' ? (
                   <Moon className="h-4 w-4" />
@@ -921,7 +963,7 @@ export function CustomerPortalApp() {
                 type="button"
                 onClick={() => setNotificationsOpen(true)}
                 aria-label="Notifikasi"
-                className="relative inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] cursor-pointer"
+                className="relative inline-flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] cursor-pointer shrink-0"
               >
                 <Bell className="h-4 w-4" />
                 {unreadCount > 0 && (
@@ -974,7 +1016,7 @@ export function CustomerPortalApp() {
               </div>
 
               {/* 4 KPI Quick Tiles */}
-              <div className="grid grid-cols-4 gap-2.5 sm:gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-4">
                 {[
                   {
                     label: 'Order',
@@ -1203,7 +1245,7 @@ export function CustomerPortalApp() {
               </div>
 
               {/* 4 Visual Category Cards */}
-              <div className="grid grid-cols-4 gap-2.5">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                 {(['Minuman', 'Makanan', 'Perawatan', 'Lainnya'] as const).map(
                   (cat) => {
                     const active = catalogCategory === cat;
@@ -1229,7 +1271,7 @@ export function CustomerPortalApp() {
               </div>
 
               {/* Tag Sub-tabs */}
-              <div className="grid grid-cols-4 gap-1.5 rounded-xl bg-[var(--color-surface-muted)] p-1">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 rounded-xl bg-[var(--color-surface-muted)] p-1">
                 {(['Semua', 'Best Seller', 'Promo', 'Baru'] as const).map((t) => (
                   <button
                     key={t}
@@ -2066,7 +2108,7 @@ export function CustomerPortalApp() {
                     className="w-full rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-surface)] pl-10 pr-4 py-2 text-xs sm:text-sm"
                   />
                 </div>
-                <div className="grid grid-cols-4 gap-1 rounded-xl bg-[var(--color-surface-muted)] p-1">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1 rounded-xl bg-[var(--color-surface-muted)] p-1">
                   {(['Semua', 'Proses', 'Selesai', 'Batal'] as const).map(
                     (st) => (
                       <button
@@ -2125,7 +2167,7 @@ export function CustomerPortalApp() {
                 </div>
               ) : (
                 <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
-                  <div className="grid grid-cols-4 gap-2 text-center">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
                     {(['Dibuat', 'Diproses', 'Dikirim', 'Selesai'] as const).map(
                       (stepLabel, idx) => {
                         const stepOrder = [
@@ -2273,7 +2315,7 @@ export function CustomerPortalApp() {
               </div>
 
               {/* 3 Quick Action Tiles */}
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3">
                 <button
                   type="button"
                   onClick={() => setCollectPointsOpen(true)}
@@ -2547,7 +2589,7 @@ export function CustomerPortalApp() {
       </div>
 
       {/* Mobile Bottom Navigation */}
-      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-30 border-t border-[var(--color-border)] bg-[var(--color-surface)]/95 backdrop-blur-md grid grid-cols-5">
+      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-30 border-t border-[var(--color-border)] bg-[var(--color-surface)]/95 backdrop-blur-md grid grid-cols-5 pb-[env(safe-area-inset-bottom)]">
         {[
           { id: 'dashboard' as const, label: 'Beranda', icon: Home },
           { id: 'catalog' as const, label: 'Katalog', icon: LayoutGrid },
@@ -2586,11 +2628,14 @@ export function CustomerPortalApp() {
               <button
                 type="button"
                 onClick={() => setMobileDrawerOpen(false)}
-                className="p-2 rounded-lg border border-[var(--color-border)]"
+                className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-[var(--color-border)] cursor-pointer"
                 aria-label="Tutup menu"
               >
                 <X className="h-4 w-4" />
               </button>
+            </div>
+            <div className="sm:hidden pb-2 border-b border-[var(--color-border)]">
+              <PWAInstallButton variant="compact" />
             </div>
             {sidebarNavItems.map((item) => {
               const Icon = item.icon;

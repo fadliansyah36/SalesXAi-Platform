@@ -515,11 +515,11 @@ export function LandingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[var(--color-background)] text-[var(--color-text-primary)]">
+    <div className="min-h-screen overflow-x-hidden bg-[var(--color-background)] text-[var(--color-text-primary)]">
       {/* Top Navigation Bar — Strict 3-Zone Contract */}
       <header className="sticky top-0 z-40 border-b border-[var(--color-border)] bg-[var(--color-surface)]/95 backdrop-blur-md">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-8 px-4 sm:px-6 lg:px-8">
-          <Link href="/" className="shrink-0">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 sm:gap-8 px-4 sm:px-6 lg:px-8">
+          <Link href="/" className="shrink-0 min-w-0">
             <BrandLogo />
           </Link>
 
@@ -559,7 +559,22 @@ export function LandingPage() {
             </a>
           </nav>
 
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+            <div className="hidden lg:block">
+              <PWAInstallButton variant="compact" />
+            </div>
+            <button
+              type="button"
+              onClick={toggleTheme}
+              aria-label="Ganti tema tampilan"
+              className="hidden sm:inline-flex min-h-[40px] min-w-[40px] items-center justify-center rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors cursor-pointer"
+            >
+              {theme === 'light' ? (
+                <Moon className="h-4 w-4" />
+              ) : (
+                <Sun className="h-4 w-4" />
+              )}
+            </button>
             <Link
               href="/portal"
               className="hidden sm:inline-flex items-center gap-2 rounded-lg bg-[#348CB2] px-4 py-2 text-sm font-semibold text-white hover:bg-[#236D91] transition-colors whitespace-nowrap shrink-0"
@@ -629,73 +644,39 @@ export function LandingPage() {
                 FAQ
               </a>
             </div>
-            <div className="flex flex-col gap-2 pt-2 border-t border-[var(--color-border)]">
-              <div className="grid grid-cols-3 gap-2 text-xs font-semibold">
-                <Link
-                  href="/company"
-                  className="inline-flex items-center justify-center rounded-lg border border-[#348CB2]/40 bg-[#F3FAFC] dark:bg-[#172438] py-2 text-[#123A54] dark:text-[#87CEEB]"
+            <div className="flex flex-col gap-2.5 pt-3 border-t border-[var(--color-border)]">
+              <Link
+                href="/portal"
+                onClick={() => setMobileMenuOpen(false)}
+                className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-[#348CB2] py-3 text-sm font-bold text-white hover:bg-[#236D91] transition-colors"
+              >
+                <span>Masuk Portal</span>
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <PWAInstallButton variant="compact" />
+                <button
+                  type="button"
+                  onClick={toggleTheme}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-xs font-semibold text-[var(--color-text-secondary)] cursor-pointer"
                 >
-                  Company
-                </Link>
-                <Link
-                  href="/portal"
-                  className="inline-flex items-center justify-center rounded-lg bg-[#348CB2] py-2 text-white"
-                >
-                  Sales
-                </Link>
-                <Link
-                  href="/customer"
-                  className="inline-flex items-center justify-center rounded-lg border border-[#348CB2]/40 bg-[#F3FAFC] dark:bg-[#172438] py-2 text-[#123A54] dark:text-[#87CEEB]"
-                >
-                  Customer
-                </Link>
+                  {theme === 'light' ? (
+                    <>
+                      <Moon className="h-3.5 w-3.5" />
+                      <span>Mode Gelap</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sun className="h-3.5 w-3.5" />
+                      <span>Mode Terang</span>
+                    </>
+                  )}
+                </button>
               </div>
-              <PWAInstallButton variant="compact" />
             </div>
           </div>
         )}
       </header>
-
-      {/* Utility Toolbar below header */}
-      <div className="border-b border-[var(--color-border)] bg-[var(--color-primary-subtle)]">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-2 sm:px-6 lg:px-8 text-xs">
-          <div className="flex flex-wrap items-center gap-2 text-[#194F70] dark:text-[#ADD8E6] font-medium">
-            <span>Portal Ekosistem:</span>
-            <Link href="/company" className="font-bold underline-offset-2 hover:underline">
-              Company Portal
-            </Link>
-            <span aria-hidden="true">·</span>
-            <Link href="/portal" className="font-bold underline-offset-2 hover:underline">
-              Sales Portal
-            </Link>
-            <span aria-hidden="true">·</span>
-            <Link href="/customer" className="font-bold underline-offset-2 hover:underline">
-              Customer Portal
-            </Link>
-          </div>
-          <div className="flex items-center gap-2">
-            <PWAInstallButton variant="compact" />
-            <button
-              type="button"
-              onClick={toggleTheme}
-              aria-label="Ganti tema tampilan"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1.5 text-xs font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors cursor-pointer"
-            >
-              {theme === 'light' ? (
-                <>
-                  <Moon className="h-3.5 w-3.5" />
-                  <span>Gelap</span>
-                </>
-              ) : (
-                <>
-                  <Sun className="h-3.5 w-3.5" />
-                  <span>Terang</span>
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-      </div>
 
       <main>
         {/* 1. HERO SECTION */}
@@ -718,28 +699,28 @@ export function LandingPage() {
                 penjualan, dan optimalkan kinerja dengan Staff AI SalesX-Ai.
               </p>
 
-              <div className="mt-7 flex flex-wrap items-center gap-3">
+              <div className="mt-7 flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-3">
                 <a
                   href="#daftar"
                   onClick={() => setFormTab('subscribe')}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#F97316] px-6 py-3.5 text-sm font-bold text-white shadow-sm hover:bg-[#EA580C] transition-colors whitespace-nowrap"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#F97316] px-5 py-3.5 text-sm font-bold text-white shadow-sm hover:bg-[#EA580C] transition-colors text-center sm:whitespace-nowrap"
                 >
                   <span>Mulai Berlangganan</span>
-                  <ArrowRight className="h-4 w-4" />
+                  <ArrowRight className="h-4 w-4 shrink-0" />
                 </a>
                 <a
                   href="#daftar"
                   onClick={() => setFormTab('demo')}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-5 py-3.5 text-sm font-semibold text-[#123A54] dark:text-white hover:bg-[var(--color-surface-muted)] transition-colors whitespace-nowrap"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-5 py-3.5 text-sm font-semibold text-[#123A54] dark:text-white hover:bg-[var(--color-surface-muted)] transition-colors text-center sm:whitespace-nowrap"
                 >
-                  <Calendar className="h-4 w-4 text-[#348CB2]" />
+                  <Calendar className="h-4 w-4 shrink-0 text-[#348CB2]" />
                   <span>Jadwalkan Demo</span>
                 </a>
                 <Link
                   href="/portal"
-                  className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-[#ADD8E6] bg-[#E5F4F8] dark:bg-[#19394B] dark:border-[#348CB2] px-5 py-3.5 text-sm font-semibold text-[#194F70] dark:text-[#87CEEB] hover:bg-[#ADD8E6]/40 transition-colors whitespace-nowrap"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-[#ADD8E6] bg-[#E5F4F8] dark:bg-[#19394B] dark:border-[#348CB2] px-5 py-3.5 text-sm font-semibold text-[#194F70] dark:text-[#87CEEB] hover:bg-[#ADD8E6]/40 transition-colors text-center sm:whitespace-nowrap"
                 >
-                  <span>Buka Sales Portal</span>
+                  <span>Masuk ke Portal</span>
                 </Link>
               </div>
             </motion.div>
@@ -1363,7 +1344,7 @@ export function LandingPage() {
               <div
                 role="tablist"
                 aria-label="Lapisan Teknologi AI SalesX-Ai"
-                className="inline-flex flex-wrap gap-1 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-1 self-start"
+                className="flex flex-wrap gap-1 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-1 w-full sm:w-auto self-start"
               >
                 {AI_TECH_LAYERS.map((layer) => {
                   const active = activeAiLayer === layer.id;
@@ -1374,7 +1355,7 @@ export function LandingPage() {
                       role="tab"
                       aria-selected={active}
                       onClick={() => setActiveAiLayer(layer.id)}
-                      className={`rounded-lg px-3.5 py-2 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                      className={`flex-1 sm:flex-initial rounded-lg px-3 py-2 text-xs font-semibold transition-colors text-center cursor-pointer ${
                         active
                           ? 'bg-[#348CB2] text-white shadow-xs'
                           : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
@@ -1394,8 +1375,8 @@ export function LandingPage() {
               return (
                 <div className="mt-8 space-y-6">
                   {/* Layer Overview Strip */}
-                  <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 sm:p-7 grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-                    <div className="lg:col-span-8 space-y-2">
+                  <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 sm:p-7 grid grid-cols-1 lg:grid-cols-12 gap-5 items-center">
+                    <div className="lg:col-span-8 space-y-2 min-w-0">
                       <p className="text-xs font-medium text-[var(--color-text-muted)]">
                         {currentLayer.metricsLabel}
                       </p>
@@ -1409,10 +1390,10 @@ export function LandingPage() {
                     <div className="lg:col-span-4 flex lg:justify-end">
                       <Link
                         href="/portal?tab=ai"
-                        className="inline-flex items-center gap-2 rounded-xl bg-[#123A54] hover:bg-[#194F70] px-5 py-3 text-sm font-semibold text-white transition-colors whitespace-nowrap shrink-0"
+                        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-[#123A54] hover:bg-[#194F70] px-5 py-3 text-sm font-semibold text-white transition-colors text-center"
                       >
                         <span>Uji Staff AI di Portal</span>
-                        <ArrowRight className="h-4 w-4" />
+                        <ArrowRight className="h-4 w-4 shrink-0" />
                       </Link>
                     </div>
                   </div>
@@ -1528,7 +1509,7 @@ export function LandingPage() {
               </div>
 
               {/* Interactive Category Filter */}
-              <div className="inline-flex flex-wrap gap-1 rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] p-1 self-start">
+              <div className="flex flex-wrap gap-1 rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] p-1 w-full sm:w-auto self-start">
                 {(
                   [
                     'Semua',
@@ -1543,7 +1524,7 @@ export function LandingPage() {
                       key={cat}
                       type="button"
                       onClick={() => setAdvantageFilter(cat)}
-                      className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                      className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors text-left cursor-pointer ${
                         active
                           ? 'bg-[#123A54] text-white shadow-xs'
                           : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
@@ -1576,7 +1557,7 @@ export function LandingPage() {
                         bullets: item.bullets,
                       })
                     }
-                    className={`text-left rounded-2xl border border-[var(--color-border)] bg-[var(--color-background)] p-6 hover:border-[#348CB2] transition-colors cursor-pointer flex flex-col justify-between ${
+                    className={`text-left rounded-2xl border border-[var(--color-border)] bg-[var(--color-background)] p-5 sm:p-6 hover:border-[#348CB2] transition-colors cursor-pointer flex flex-col justify-between ${
                       featured ? 'md:col-span-2 lg:col-span-2' : ''
                     }`}
                   >
@@ -1596,7 +1577,7 @@ export function LandingPage() {
                         {item.summary}
                       </p>
                     </div>
-                    <div className="mt-5 pt-4 border-t border-[var(--color-border)] flex items-center justify-between text-xs font-semibold text-[#348CB2] dark:text-[#87CEEB]">
+                    <div className="mt-5 pt-4 border-t border-[var(--color-border)] flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-[#348CB2] dark:text-[#87CEEB]">
                       <span>{item.category}</span>
                       <span className="inline-flex items-center gap-1">
                         <span>Lihat rincian fitur</span>
@@ -1609,12 +1590,12 @@ export function LandingPage() {
             </div>
 
             {/* Bottom Action Strip */}
-            <div className="mt-8 rounded-2xl border border-[#ADD8E6] bg-[#F3FAFC] dark:bg-[#172438] dark:border-[#26374B] p-5 sm:p-6 flex flex-wrap items-center justify-between gap-4">
-              <div className="flex items-start sm:items-center gap-3">
+            <div className="mt-8 rounded-2xl border border-[#ADD8E6] bg-[#F3FAFC] dark:bg-[#172438] dark:border-[#26374B] p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-start sm:items-center gap-3 min-w-0">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#348CB2] text-white">
                   <Compass className="h-5 w-5" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <p className="text-sm font-bold text-[#123A54] dark:text-white">
                     Ingin mencoba langsung Pencarian Leads Google Maps, AI
                     Assistant, dan SmartOrder?
@@ -1627,10 +1608,10 @@ export function LandingPage() {
               </div>
               <Link
                 href="/portal"
-                className="inline-flex items-center gap-2 rounded-xl bg-[#F97316] hover:bg-[#EA580C] px-5 py-2.5 text-sm font-bold text-white transition-colors whitespace-nowrap shrink-0"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-[#F97316] hover:bg-[#EA580C] px-5 py-3 text-sm font-bold text-white transition-colors text-center shrink-0"
               >
                 <span>Buka Sales Portal Sekarang</span>
-                <ArrowRight className="h-4 w-4" />
+                <ArrowRight className="h-4 w-4 shrink-0" />
               </Link>
             </div>
           </div>
@@ -2045,6 +2026,15 @@ export function LandingPage() {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-5 text-xs font-medium text-[var(--color-text-secondary)]">
+            <Link href="/distributor" className="hover:text-[#348CB2]">
+              Distributor Portal
+            </Link>
+            <Link href="/principal" className="hover:text-[#348CB2]">
+              Principal Portal
+            </Link>
+            <Link href="/supervisor" className="hover:text-[#348CB2]">
+              Supervisor Portal
+            </Link>
             <Link href="/company" className="hover:text-[#348CB2]">
               Company Portal
             </Link>
@@ -2053,6 +2043,9 @@ export function LandingPage() {
             </Link>
             <Link href="/customer" className="hover:text-[#348CB2]">
               Customer Portal
+            </Link>
+            <Link href="/super-admin" className="hover:text-[#348CB2]">
+              Super Admin Portal
             </Link>
             <a href="#produk" className="hover:text-[#348CB2]">
               Produk
@@ -2102,17 +2095,17 @@ export function LandingPage() {
                 </li>
               ))}
             </ul>
-            <div className="pt-2 flex items-center justify-end gap-3">
+            <div className="pt-2 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2.5">
               <button
                 type="button"
                 onClick={() => setSelectedDetail(null)}
-                className="rounded-lg border border-[var(--color-border)] px-4 py-2 text-sm font-medium hover:bg-[var(--color-surface-muted)]"
+                className="w-full sm:w-auto rounded-lg border border-[var(--color-border)] px-4 py-2.5 text-sm font-medium hover:bg-[var(--color-surface-muted)] cursor-pointer"
               >
                 Tutup
               </button>
               <Link
                 href="/portal"
-                className="inline-flex items-center gap-1.5 rounded-lg bg-[#348CB2] px-4 py-2 text-sm font-semibold text-white hover:bg-[#236D91]"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#348CB2] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#236D91]"
               >
                 <span>Buka di Sales Portal</span>
                 <ArrowRight className="h-4 w-4" />
@@ -2143,17 +2136,17 @@ export function LandingPage() {
               : `sesi demo tanggal ${demoDate}`}
             .
           </div>
-          <div className="flex items-center justify-end gap-3">
+          <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2.5">
             <button
               type="button"
               onClick={() => setSubmittedModal(false)}
-              className="rounded-lg border border-[var(--color-border)] px-4 py-2 text-sm font-medium"
+              className="w-full sm:w-auto rounded-lg border border-[var(--color-border)] px-4 py-2.5 text-sm font-medium cursor-pointer"
             >
               Selesai
             </button>
             <Link
               href="/portal"
-              className="inline-flex items-center gap-1.5 rounded-lg bg-[#348CB2] px-4 py-2 text-sm font-semibold text-white"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#348CB2] px-4 py-2.5 text-sm font-semibold text-white"
             >
               <span>Masuk ke Sales Portal</span>
               <ArrowRight className="h-4 w-4" />
@@ -2192,7 +2185,7 @@ export function LandingPage() {
             <button
               type="button"
               onClick={() => setLegalModalOpen(false)}
-              className="rounded-lg bg-[#348CB2] px-4 py-2 text-xs font-semibold text-white cursor-pointer"
+              className="w-full sm:w-auto rounded-lg bg-[#348CB2] px-4 py-2.5 text-xs font-semibold text-white cursor-pointer"
             >
               Saya Mengerti
             </button>
@@ -2216,11 +2209,11 @@ export function LandingPage() {
             <p>WhatsApp Business Support: <strong>+62 811-8890-2026</strong> (Senin–Sabtu, 08:00–18:00 WIB)</p>
             <p>Kantor Pusat Operasional: Jl. Raya Pajajaran No. 88, Kota Bogor, Jawa Barat</p>
           </div>
-          <div className="flex justify-end gap-2 pt-2">
+          <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-2">
             <button
               type="button"
               onClick={() => setSupportModalOpen(false)}
-              className="rounded-lg border border-[var(--color-border)] px-4 py-2 text-xs font-semibold cursor-pointer"
+              className="w-full sm:w-auto rounded-lg border border-[var(--color-border)] px-4 py-2.5 text-xs font-semibold cursor-pointer"
             >
               Tutup
             </button>
@@ -2230,7 +2223,7 @@ export function LandingPage() {
                 setSupportModalOpen(false);
                 setFormTab('demo');
               }}
-              className="rounded-lg bg-[#F97316] px-4 py-2 text-xs font-bold text-white"
+              className="w-full sm:w-auto text-center rounded-lg bg-[#F97316] px-4 py-2.5 text-xs font-bold text-white"
             >
               Jadwalkan Konsultasi
             </a>

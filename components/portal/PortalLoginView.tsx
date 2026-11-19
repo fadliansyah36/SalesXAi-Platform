@@ -127,7 +127,7 @@ export function PortalLoginView({ onCompleteLogin }: PortalLoginViewProps) {
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#E5F4F8] via-[#F3FAFC] to-[#F8FAFC] dark:from-[#0B1220] dark:via-[#111C2D] dark:to-[#0B1220] flex flex-col justify-between px-4 py-6 sm:px-6">
       {/* Top Bar */}
-      <div className="mx-auto flex w-full max-w-md items-center justify-between gap-2">
+      <div className="mx-auto flex w-full max-w-md flex-wrap items-center justify-between gap-2">
         <Link
           href="/"
           className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-[#236D91] dark:text-[#87CEEB] hover:bg-white/60 dark:hover:bg-[#172438] transition-colors"
@@ -135,12 +135,33 @@ export function PortalLoginView({ onCompleteLogin }: PortalLoginViewProps) {
           <ArrowLeft className="h-4 w-4" />
           <span>Beranda</span>
         </Link>
-        <div className="flex items-center gap-2 text-xs font-semibold">
+        <div className="flex flex-wrap items-center justify-end gap-x-2 gap-y-1 text-xs font-semibold">
           <Link
             href="/company"
             className="text-[#348CB2] dark:text-[#87CEEB] hover:underline"
           >
             Company
+          </Link>
+          <span className="text-[var(--color-text-muted)]">·</span>
+          <Link
+            href="/distributor"
+            className="text-[#348CB2] dark:text-[#87CEEB] hover:underline"
+          >
+            Distributor
+          </Link>
+          <span className="text-[var(--color-text-muted)]">·</span>
+          <Link
+            href="/principal"
+            className="text-[#348CB2] dark:text-[#87CEEB] hover:underline"
+          >
+            Principal
+          </Link>
+          <span className="text-[var(--color-text-muted)]">·</span>
+          <Link
+            href="/supervisor"
+            className="text-[#348CB2] dark:text-[#87CEEB] hover:underline"
+          >
+            Supervisor
           </Link>
           <span className="text-[var(--color-text-muted)]">·</span>
           <Link
@@ -150,6 +171,13 @@ export function PortalLoginView({ onCompleteLogin }: PortalLoginViewProps) {
             Customer
           </Link>
           <span className="text-[var(--color-text-muted)]">·</span>
+          <Link
+            href="/super-admin"
+            className="text-[#194F70] dark:text-[#87CEEB] hover:underline"
+          >
+            Super Admin
+          </Link>
+          <span className="text-[var(--color-text-muted)]">·</span>
           <span className="text-[var(--color-text-muted)] tabular-nums">
             {step === 'login' ? '1/3' : step === 'gps' ? '2/3' : '3/3'}
           </span>
@@ -157,7 +185,7 @@ export function PortalLoginView({ onCompleteLogin }: PortalLoginViewProps) {
       </div>
 
       {/* Main Card */}
-      <div className="mx-auto my-6 w-full max-w-md rounded-3xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 sm:p-8 shadow-lg">
+      <div className="mx-auto my-6 w-full max-w-md rounded-3xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 sm:p-8 shadow-lg">
         {step === 'login' && (
           <div>
             <div className="flex flex-col items-center text-center">
