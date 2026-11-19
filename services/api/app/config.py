@@ -42,8 +42,15 @@ class Settings(BaseSettings):
     @field_validator("supabase_jwks_url")
     @classmethod
     def validate_jwks_project(cls, value: AnyHttpUrl | None) -> AnyHttpUrl | None:
-        if value and urlsplit(str(value)).hostname != "eyofuiyxalbehbqoaeny.supabase.co":
-            raise ValueError("SUPABASE_JWKS_URL must use the bound SalesX-Ai Supabase project")
+        if value:
+            parsed = urlsplit(str(value))
+            if (
+                parsed.hostname != "eyofuiyxalbehbqoaeny.supabase.co"
+                or parsed.path.rstrip("/") != "/auth/v1/.well-known/jwks.json"
+                or parsed.query
+                or parsed.fragment
+            ):
+                raise ValueError("SUPABASE_JWKS_URL must use the bound SalesX-Ai project's canonical JWKS endpoint")
         return value
 
     @field_validator("supabase_jwt_issuer")
