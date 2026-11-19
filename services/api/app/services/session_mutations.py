@@ -14,10 +14,12 @@ class SessionMutationService:
  async def register(self,connection:asyncpg.Connection,request:Request,principal:Principal,payload:SessionRegistration)->None:
   authorization_service.assert_action_context(request,"identity.session.register",principal.user_id)
   auth_session=await self.repository.get_auth_session_expiry(connection,principal.session_id,principal.user_id)
-  if auth_session is None: raise APIError(401,"session_revoked","The Supabase Auth session is no longer active.")
+  if auth_session is None:
+      raise APIError(401,"session_revoked","The Supabase Auth session is no longer active.")
   async with connection.transaction():
    existing=await self.repository.get_session_revocation(connection,principal.session_id)
-   if existing and existing["revoked_at"] is not None: raise APIError(401,"session_revoked","This device session has been revoked.")
+   if existing and existing["revoked_at"] is not None:
+       raise APIError(401,"session_revoked","This device session has been revoked.")
    await self.repository.register(connection,principal.session_id,principal.user_id,payload.device_id,payload.device_name,
     payload.platform,payload.user_agent or request.headers.get("user-agent","")[:512],auth_session["expires_at"])
    await write_audit(connection,request,principal,"auth.session.registered","auth_session",str(principal.session_id),metadata={"platform":payload.platform})
@@ -33,7 +35,8 @@ class SessionMutationService:
   authorization_service.assert_action_context(request,"identity.session.signout",principal.user_id)
   authorization=request.headers.get("authorization","")
   access_token=authorization[7:] if authorization.lower().startswith("bearer ") else ""
-  if not access_token: raise APIError(401,"unauthenticated","A valid access token is required.")
+  if not access_token:
+      raise APIError(401,"unauthenticated","A valid access token is required.")
   await request.app.state.supabase_auth.sign_out(access_token,payload.scope)
   async with connection.transaction():
    await self.repository.apply_signout(connection,principal.user_id,principal.session_id,payload.scope)
