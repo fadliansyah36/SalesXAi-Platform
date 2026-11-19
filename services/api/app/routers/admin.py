@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, Query, Request
 
 from app.db import get_connection
 from app.schemas.identity import AccountStatusUpdate, PlatformAuditLogResponse
-from app.schemas.master_data import PlatformOrganizationStatusUpdate
+from app.schemas.master_data import MasterDataWrite,PlatformOrganizationStatusUpdate
 from app.security.dependencies import Principal, require_api_action
 from app.services.audit import write_audit
 from app.services.authorization import authorization_service
@@ -155,6 +155,45 @@ async def update_platform_organization(
 ) -> dict:
     return await organization_mutation_service.update_platform_organization_status(
         connection,request,principal,organization_id,payload.status
+    )
+
+
+@router.get("/organizations/{organization_id}/branches")
+async def list_organization_branches(
+    organization_id: UUID,
+    request: Request,
+    limit: int = Query(default=100,ge=1,le=500),
+    offset: int = Query(default=0,ge=0,le=100000),
+    principal: Principal = Depends(require_api_action("platform.organizations.branches.read")),
+    connection: asyncpg.Connection = Depends(get_connection),
+) -> list[dict]:
+    return await organization_mutation_service.list_platform_branches(connection,request,principal,organization_id,limit,offset)
+
+
+@router.post("/organizations/{organization_id}/branches",status_code=201)
+async def create_organization_branch(
+    organization_id: UUID,
+    payload: MasterDataWrite,
+    request: Request,
+    principal: Principal = Depends(require_api_action("platform.organizations.branches.create")),
+    connection: asyncpg.Connection = Depends(get_connection),
+) -> dict:
+    return await organization_mutation_service.create_platform_branch(
+        connection,request,principal,organization_id,payload.model_dump(exclude_unset=True)
+    )
+
+
+@router.patch("/organizations/{organization_id}/branches/{branch_id}")
+async def update_organization_branch(
+    organization_id: UUID,
+    branch_id: UUID,
+    payload: MasterDataWrite,
+    request: Request,
+    principal: Principal = Depends(require_api_action("platform.organizations.branches.update")),
+    connection: asyncpg.Connection = Depends(get_connection),
+) -> dict:
+    return await organization_mutation_service.update_platform_branch(
+        connection,request,principal,organization_id,branch_id,payload.model_dump(exclude_unset=True)
     )
 
 
