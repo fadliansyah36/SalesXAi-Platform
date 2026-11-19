@@ -349,6 +349,7 @@ export function SalesXAuthProvider({children}:{children:React.ReactNode}) {
       throw new Error("Membership aktif untuk organisasi tersebut tidak ditemukan.");
     if(id!==activeOrganizationId)setConsumerEpoch(value=>value+1);
     activeOrganizationIdRef.current=id;
+    if(context)authorizationFingerprint.current=authorizationFingerprintFor(context,id);
     setActiveOrganizationIdState(id);
   },[context,activeOrganizationId]);
 
@@ -356,7 +357,10 @@ export function SalesXAuthProvider({children}:{children:React.ReactNode}) {
     ()=>context?.memberships.find(m=>m.organization_id===activeOrganizationId&&m.status==="active")??null,
     [context,activeOrganizationId],
   );
-  const permissionValues=[...(activeMembership?.permissions??[]),...(context?.platform_permissions??[])];
+  const permissionValues=useMemo(
+    ()=>[...(activeMembership?.permissions??[]),...(context?.platform_permissions??[])],
+    [activeMembership?.permissions,context?.platform_permissions],
+  );
   const hasPermission=useCallback((permission:string)=>
     permissionHasPermission(permissionValues,permission as never),[activeMembership,context?.platform_permissions]);
   const canAccessPortal=useCallback((portal:PortalKey)=>
