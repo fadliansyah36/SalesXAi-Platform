@@ -642,6 +642,16 @@ export function SalesPortalApp() {
     },
   ];
 
+  const portalSwitchLinks = [
+    { href: "/distributor", label: "Distributor", portal: "distributor" },
+    { href: "/principal", label: "Principal", portal: "principal" },
+    { href: "/supervisor", label: "Supervisor", portal: "supervisor" },
+    { href: "/company", label: "Company", portal: "company" },
+    { href: "/customer", label: "Customer", portal: "customer" },
+    { href: "/super-admin", label: "Super Admin", portal: "super_admin" },
+  ] as const;
+  const visiblePortalSwitchLinks = portalSwitchLinks.filter(item => auth.canAccessPortal(item.portal));
+
   return (
     <div className="min-h-screen overflow-x-hidden bg-[var(--color-background)] text-[var(--color-text-primary)] flex">
       {/* Desktop Left Sidebar (248px) */}
@@ -680,42 +690,11 @@ export function SalesPortalApp() {
 
         <div className="p-4 border-t border-[var(--color-border)] space-y-2.5">
           <div className="grid grid-cols-2 gap-1.5 text-[11px] font-semibold">
-            <Link
-              href="/distributor"
-              className="rounded-lg border border-[var(--color-border)] py-1.5 text-center hover:bg-[var(--color-surface-muted)]"
-            >
-              Distributor
-            </Link>
-            <Link
-              href="/principal"
-              className="rounded-lg border border-[var(--color-border)] py-1.5 text-center hover:bg-[var(--color-surface-muted)]"
-            >
-              Principal
-            </Link>
-            <Link
-              href="/supervisor"
-              className="rounded-lg border border-[var(--color-border)] py-1.5 text-center hover:bg-[var(--color-surface-muted)]"
-            >
-              Supervisor
-            </Link>
-            <Link
-              href="/company"
-              className="rounded-lg border border-[var(--color-border)] py-1.5 text-center hover:bg-[var(--color-surface-muted)]"
-            >
-              Company
-            </Link>
-            <Link
-              href="/customer"
-              className="rounded-lg border border-[var(--color-border)] py-1.5 text-center hover:bg-[var(--color-surface-muted)]"
-            >
-              Customer
-            </Link>
-            <Link
-              href="/super-admin"
-              className="rounded-lg border border-[var(--color-border)] py-1.5 text-center hover:bg-[var(--color-surface-muted)]"
-            >
-              Super Admin
-            </Link>
+            {visiblePortalSwitchLinks.map(item => (
+              <Link key={item.href} href={item.href} className="rounded-lg border border-[var(--color-border)] py-1.5 text-center hover:bg-[var(--color-surface-muted)]">
+                {item.label}
+              </Link>
+            ))}
           </div>
           <Link
             href="/"
