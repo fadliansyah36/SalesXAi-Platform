@@ -219,22 +219,7 @@ export function SuperAdminPortalApp() {
     INITIAL_NOTIFICATIONS
   );
 
-  useEffect(()=>{
-    if(activeTab!=="roles")return;
-    if(!auth.hasPermission("role:assign")||!auth.apiClient){
-      setPlatformRoles([]);
-      setRolesError("Akses katalog role platform tidak diizinkan.");
-      return;
-    }
-    let active=true;
-    setRolesLoading(true);
-    setRolesError(null);
-    void auth.apiClient.listPlatformRoles()
-      .then(rows=>{if(active)setPlatformRoles(rows);})
-      .catch(error=>{if(active)setRolesError(error instanceof Error?error.message:"Katalog role tidak dapat dimuat.");})
-      .finally(()=>{if(active)setRolesLoading(false);});
-    return()=>{active=false;};
-  },[activeTab,auth.apiClient,auth.hasPermission]);
+
 
   useEffect(()=>{
     if(activeTab!=="users")return;
@@ -473,6 +458,23 @@ export function SuperAdminPortalApp() {
   }, [auditLogs, auditSearch, auditKindFilter]);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
+
+  useEffect(()=>{
+    if(activeTab!=="roles"&&!(activeTab==="analytics"&&analyticsSubTab==="User"))return;
+    if(!auth.hasPermission("role:assign")||!auth.apiClient){
+      setPlatformRoles([]);
+      setRolesError("Akses katalog role platform tidak diizinkan.");
+      return;
+    }
+    let active=true;
+    setRolesLoading(true);
+    setRolesError(null);
+    void auth.apiClient.listPlatformRoles()
+      .then(rows=>{if(active)setPlatformRoles(rows);})
+      .catch(error=>{if(active)setRolesError(error instanceof Error?error.message:"Katalog role tidak dapat dimuat.");})
+      .finally(()=>{if(active)setRolesLoading(false);});
+    return()=>{active=false;};
+  },[activeTab,analyticsSubTab,auth.apiClient,auth.hasPermission]);
 
   const navGroups: PortalNavGroup<SuperAdminTab>[] = [
     {
@@ -1422,21 +1424,21 @@ export function SuperAdminPortalApp() {
 
             {analyticsSubTab === 'User' ? (
               <div className="space-y-2.5">
-                {rolesMatrix.slice(1, 6).map((r) => (
+                {platformRoles.slice(0, 5).map((r) => (
                   <div
                     key={r.id}
                     className="flex items-center justify-between rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] p-3.5 text-xs"
                   >
                     <div>
                       <p className="font-bold text-[#123A54] dark:text-white">
-                        {r.label}
+                        {r.name}
                       </p>
                       <p className="text-[11px] font-mono text-[var(--color-text-muted)]">
-                        {r.roleKey}
+                        {r.key}
                       </p>
                     </div>
                     <span className="font-mono font-bold text-[#348CB2] tabular-nums">
-                      {r.usersCount.toLocaleString('id-ID')} user aktif
+                      {r.assigned_users.toLocaleString('id-ID')} assignment aktif
                     </span>
                   </div>
                 ))}
