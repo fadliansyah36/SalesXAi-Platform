@@ -11,7 +11,7 @@ class SupabaseJWTVerifier:
         self.settings = settings
         self.jwks = PyJWKClient(settings.jwks_url, cache_keys=True, timeout=5)
 
-    async def verify(self, token: str) -> dict[str, Any]:
+    async def verify(self, token: str, *, allow_expired: bool = False) -> dict[str, Any]:
         try:
             algorithm = jwt.get_unverified_header(token).get("alg")
             if algorithm == "HS256":
@@ -27,7 +27,7 @@ class SupabaseJWTVerifier:
                 audience=self.settings.supabase_jwt_audience,
                 issuer=self.settings.auth_issuer,
                 leeway=self.settings.jwt_clock_skew_seconds,
-                options={"require": ["exp", "iat", "sub", "session_id", "iss", "aud"]},
+                options={"require": ["exp", "iat", "sub", "session_id", "iss", "aud"], "verify_exp": not allow_expired},
             )
             if not isinstance(claims.get("sub"), str) or not isinstance(claims.get("session_id"), str):
                 raise APIError(401, "invalid_token", "Required identity claims are missing.")
