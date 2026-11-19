@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppState, Linking, Platform } from "react-native";
 import * as SecureStore from "expo-secure-store";
 import { AuthClientError, SalesXAuthClient, type AuthSession, type SessionStorage } from "@salesx-ai/auth-client";
+import { SalesXApiClient } from "@salesx-ai/api-client";
 import type { AuthContext } from "@salesx-ai/shared-types";
 
 export type MobileAuthStatus="loading"|"unauthenticated"|"authenticated"|"configuration_error"|"error";
@@ -19,6 +20,19 @@ export function useMobileSalesAuth(){
  const [error,setError]=useState<string|null>(null);
  const [recoveryPending,setRecoveryPending]=useState(false);
  const busy=useRef(false);
+ const apiClient=useMemo(()=>client?new SalesXApiClient({
+  baseUrl:apiOrigin,
+  platform:Platform.OS==="ios"?"ios":"android",
+  auth:{
+   getAccessToken:async()=>(await client.getSession())?.access_token??null,
+   refreshAccessToken:async()=>(await client.refreshSession())?.access_token??null,
+   getOrganizationId:()=>activeOrganizationId,
+   onSessionInvalidated:async()=>{
+    await client.clearSession();
+    setSession(null);setContext(null);setActiveOrganizationIdState(null);setStatus("unauthenticated");
+   },
+  },
+ }):null,[client,activeOrganizationId]);
 
  useEffect(()=>{
   if(!supabaseUrl||!publishableKey||!apiOrigin){
@@ -201,43 +215,9 @@ export function useMobileSalesAuth(){
  },[context]);
 
  const apiRequest=useCallback(async<T=unknown>(path:string,init:RequestInit={})=>{
-  if(!client)throw new Error("Supabase Auth belum siap.");
-  let current=await client.getSession();
-  if(!current)throw new Error("Sesi autentikasi tidak tersedia.");
-  const send=(token:string)=>fetch(apiOrigin+path,{
-   ...init,headers:{
-    ...Object.fromEntries(new Headers(init.headers).entries()),
-    Authorization:"Bearer "+token,
-    "X-Client-Platform":Platform.OS==="ios"?"ios":"android",
-    ...(activeOrganizationId?{"X-Organization-ID":activeOrganizationId}:{}),
-    ...(init.body?{"Content-Type":"application/json"}:{}),
-   },cache:"no-store",
-  });
-  let response=await send(current.access_token);
-  if(response.status===401){
-   try{current=await client.refreshSession();}
-   catch(cause){
-    if(cause instanceof AuthClientError&&[400,401,403].includes(cause.status)){
-     await client.clearSession();setSession(null);setContext(null);setActiveOrganizationIdState(null);setStatus("unauthenticated");
-    }
-    throw cause;
-   }
-   if(!current)throw new Error("Sesi telah kedaluwarsa atau dicabut.");
-   setSession(current);response=await send(current.access_token);
-  }
-  if(response.status===401||response.status===403){
-   const body=await response.clone().json().catch(()=>({}));
-   if(response.status===401||["session_revoked","account_inactive","identity_unverified"].includes(body?.error?.code)){
-    await client.clearSession();setSession(null);setContext(null);setActiveOrganizationIdState(null);setStatus("unauthenticated");
-   }
-  }
-  if(!response.ok){
-   const body=await response.clone().json().catch(()=>({}));
-   throw new Error(body?.error?.message??"FastAPI request failed.");
-  }
-  if(response.status===204)return undefined as T;
-  return response.json() as Promise<T>;
- },[client,activeOrganizationId]);
+  if(!apiClient)throw new Error("Supabase Auth atau FastAPI belum dikonfigurasi.");
+  return apiClient.request<T>(path,init);
+ },[apiClient]);
 
  const unlinkIdentity=useCallback(async(identityId:string)=>{
   return apiRequest("/api/v1/auth/identities/"+encodeURIComponent(identityId),{method:"DELETE"});
