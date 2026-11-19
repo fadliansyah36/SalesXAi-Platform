@@ -31,7 +31,7 @@ function allowed(method: string, path: string): boolean {
   if (path === "auth/v1/token") return method === "POST";
   if (path === "auth/v1/signup" || path === "auth/v1/otp" || path === "auth/v1/verify" || path === "auth/v1/recover" || path === "auth/v1/logout") return method === "POST";
   if (path === "auth/v1/authorize" || path === "auth/v1/user/identities/authorize") return method === "GET";
-  if (path === "auth/v1/user") return ["GET", "PUT", "PATCH"].includes(method);
+  if (path === "auth/v1/user") return ["GET", "PUT"].includes(method);
   if (/^auth\/v1\/user\/identities\/[0-9a-f-]{36}$/i.test(path)) return method === "DELETE";
   return false;
 }
