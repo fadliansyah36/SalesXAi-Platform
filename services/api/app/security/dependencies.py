@@ -254,26 +254,27 @@ _ACTION_CONTRACTS_BY_ID = {item.id: item for item in API_ACTION_MATRIX}
 
 
 def require_api_action(action_id: str):
-    """Resolve a route dependency from the canonical action contract.
-
-    The registry selects the enforcement primitive; resource ownership and
-    tenant membership remain validated by the selected server dependency and
-    the route's domain checks. BFF-only contracts must use their explicit
-    shared-secret gate and can never be attached as a user dependency.
-    """
+    """Resolve a route dependency from the canonical action contract and tag its ID."""
     contract = _ACTION_CONTRACTS_BY_ID.get(action_id)
     if contract is None:
         raise RuntimeError(f"Unknown API action contract: {action_id}")
     if contract.scope == "bff":
         raise RuntimeError(f"BFF-only action cannot use user authorization dependency: {action_id}")
     if contract.scope == "self":
-        return require_self_permission(contract.permission_key) if contract.permission_key else get_current_principal
-    if contract.scope == "tenant":
+        if contract.permission_key:
+            dependency = require_self_permission(contract.permission_key)
+        else:
+            async def dependency(principal: Principal = Depends(get_current_principal)) -> Principal:
+                return principal
+    elif contract.scope == "tenant":
         if not contract.permission_key:
             raise RuntimeError(f"Tenant action has no permission key: {action_id}")
-        return require_permission(contract.permission_key)
-    if contract.scope == "platform":
+        dependency = require_permission(contract.permission_key)
+    elif contract.scope == "platform":
         if not contract.permission_key:
             raise RuntimeError(f"Platform action has no permission key: {action_id}")
-        return require_platform_permission(contract.permission_key)
-    raise RuntimeError(f"Unsupported API action scope for {action_id}: {contract.scope}")
+        dependency = require_platform_permission(contract.permission_key)
+    else:
+        raise RuntimeError(f"Unsupported API action scope for {action_id}: {contract.scope}")
+    setattr(dependency, "__api_action_id__", action_id)
+    return dependency
