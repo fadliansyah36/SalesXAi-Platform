@@ -95,8 +95,6 @@ def require_self_permission(permission_key: str):
         if not allowed:
             await audit_authorization_denial(request,principal,permission_key,connection)
             raise APIError(403,"forbidden","The requested self-scoped identity action is not permitted.")
-            await audit_authorization_denial(request,principal,permission_key,connection)
-            raise APIError(403,"forbidden","The requested self-scoped identity action is not permitted.")
         request.state.authorized_permission=permission_key
         request.state.resource_attributes=resource
         return principal
