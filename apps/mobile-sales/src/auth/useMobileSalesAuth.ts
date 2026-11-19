@@ -84,7 +84,15 @@ export function useMobileSalesAuth(){
    const params=parsedUrl.searchParams;
    const tokenHash=params.get("token_hash");
    const flowType=params.get("type")??params.get("flow")??"signup";
-   let next:AuthSession|null=await client.acceptOAuthCallback(url.includes("#")?url.slice(url.indexOf("#")+1):"");
+   const oauthError=params.get("error");
+   const code=params.get("code");
+   if(oauthError){
+    await client.cancelOAuthFlow();
+    throw new AuthClientError(params.get("error_description")??"OAuth provider authorization was denied.",400,oauthError);
+   }
+   let next:AuthSession|null=null;
+   if(code)next=await client.completeOAuthCallback(code,params.get("state"));
+   else next=await client.acceptOAuthCallback(url.includes("#")?url.slice(url.indexOf("#")+1):"");
    if(!next&&tokenHash){
     next=await client.verifyEmailToken(tokenHash,
      flowType==="recovery"?"recovery":flowType==="invite"?"invite":flowType==="magiclink"?"magiclink":flowType==="email_change"?"email_change":"signup");
@@ -133,25 +141,15 @@ export function useMobileSalesAuth(){
  },[client,loadContext]);
 
  const signInWithOAuth=useCallback(async()=>{
-  const url=new URL(supabaseUrl+"/auth/v1/authorize");
-  url.searchParams.set("provider","google");
-  url.searchParams.set("redirect_to",redirectUrl);
-  await Linking.openURL(url.toString());
- },[]);
+  if(!client)throw new Error("Supabase Auth belum siap.");
+  const authorizationUrl=await client.signInWithOAuth("google",redirectUrl);
+  await Linking.openURL(authorizationUrl);
+ },[client]);
 
  const linkIdentity=useCallback(async()=>{
   if(!client)throw new Error("Supabase Auth belum siap.");
-  const current=await client.getSession();
-  if(!current)throw new Error("Masuk sebelum menghubungkan identity.");
-  const url=new URL(supabaseUrl+"/auth/v1/authorize");
-  url.searchParams.set("provider","google");
-  url.searchParams.set("redirect_to",redirectUrl);
-  url.searchParams.set("link_identity","true");
-  url.searchParams.set("skip_http_redirect","true");
-  const response=await fetch(url.toString(),{headers:{apikey:publishableKey,Authorization:"Bearer "+current.access_token}});
-  const body=await response.json().catch(()=>({}));
-  if(!response.ok||typeof body.url!=="string")throw new Error("Supabase tidak dapat memulai identity linking.");
-  await Linking.openURL(body.url);
+  const authorizationUrl=await client.beginIdentityLink("google",redirectUrl);
+  await Linking.openURL(authorizationUrl);
  },[client]);
 
  const requestPasswordReset=useCallback(async(email:string)=>{
