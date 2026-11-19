@@ -12,6 +12,7 @@ export interface SessionStorage {
 }
 export interface AuthClientOptions {
  supabaseUrl:string; publishableKey:string; storage:SessionStorage; oauthStorage?:SessionStorage; fetcher?:typeof fetch; storageKey?:string;
+ authProxy?:boolean;
 }
 export class AuthClientError extends Error {
  constructor(message:string,public readonly status:number,public readonly code?:string) {
@@ -108,6 +109,7 @@ function constantTimeEqual(left:string,right:string):boolean {
 export class SalesXAuthClient {
  private readonly baseUrl:string;
  private readonly key:string;
+ private readonly authProxy:boolean;
  private readonly storage:SessionStorage;
  private readonly oauthStorage:SessionStorage;
  private readonly fetcher:typeof fetch;
@@ -132,7 +134,7 @@ export class SalesXAuthClient {
  }
  private async request<T>(path:string,init:RequestInit={},token?:string):Promise<T> {
   const headers=new Headers(init.headers);
-  headers.set("apikey",this.key);
+  if(this.key)headers.set("apikey",this.key);
   headers.set("Content-Type","application/json");
   if(token)headers.set("Authorization","Bearer "+token);
   const response=await this.fetcher(this.baseUrl+"/auth/v1/"+path,{...init,headers});
