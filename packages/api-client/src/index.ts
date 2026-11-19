@@ -29,6 +29,7 @@ export type AuthFailureCode = "session_revoked" | "account_inactive" | "identity
 export interface ApiClientAuth {
   getAccessToken(): Promise<string | null>;
   refreshAccessToken(): Promise<string | null>;
+  refreshCookieSession?(): Promise<boolean>;
   getOrganizationId?(): string | null;
   onSessionInvalidated?(code: string): Promise<void> | void;
 }
@@ -102,12 +103,18 @@ export class SalesXApiClient {
         return response;
       }
       try {
-        const refreshed = await this.auth.refreshAccessToken();
-        if (refreshed) {
-          token = refreshed;
-          response = await send(token);
+        if (this.authMode === "cookie") {
+          const refreshed = await this.auth.refreshCookieSession?.() ?? false;
+          if (refreshed) response = await send(null);
+          else await this.auth.onSessionInvalidated?.("refresh_token_missing");
         } else {
-          await this.auth.onSessionInvalidated?.("refresh_token_missing");
+          const refreshed = await this.auth.refreshAccessToken();
+          if (refreshed) {
+            token = refreshed;
+            response = await send(token);
+          } else {
+            await this.auth.onSessionInvalidated?.("refresh_token_missing");
+          }
         }
       } catch (cause) {
         const status = (cause as { status?: number })?.status;
