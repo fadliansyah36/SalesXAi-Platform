@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
-  ACCESS_COOKIE, EXPIRY_COOKIE, appOrigin, authError, clearSessionCookies, csrfIsValid,
+  ACCESS_COOKIE, EXPIRY_COOKIE, appOrigin, authError, authorizeBffRefresh, clearSessionCookies, csrfIsValid,
   enforceBffRateLimit, refreshAuthSession, setSessionCookies, tokenFingerprint, type SupabaseAuthSession,
 } from "@/lib/auth/web-session";
 
@@ -33,6 +33,12 @@ async function proxy(request: NextRequest, context: RouteContext): Promise<Respo
   if (!accessToken || expiry <= Math.floor(Date.now() / 1000) + 45) {
     const limited = await enforceBffRateLimit(request, "refresh", tokenFingerprint(request.cookies.get("salesx_refresh")?.value ?? ""));
     if (limited) return limited;
+    const authorized = await authorizeBffRefresh(accessToken);
+    if (authorized) {
+      const response = new NextResponse(authorized.body, { status: authorized.status, headers: authorized.headers });
+      clearSessionCookies(response);
+      return response;
+    }
     refreshed = await refreshAuthSession(request);
     if (!refreshed) {
       const response = NextResponse.json({ error: { code: "unauthenticated", message: "An authenticated session is required." } }, { status: 401, headers: { "Cache-Control": "no-store" } });
@@ -63,8 +69,14 @@ async function proxy(request: NextRequest, context: RouteContext): Promise<Respo
   let body = await upstream.clone().json().catch(() => ({})) as { error?: { code?: string } };
   const terminalCodes = ["session_revoked", "account_inactive", "identity_unverified"];
   if (upstream.status === 401 && !terminalCodes.includes(body.error?.code ?? "") && !refreshed) {
-    const limited = await enforceBffRateLimit(request, "refresh");
+    const limited = await enforceBffRateLimit(request, "refresh", tokenFingerprint(request.cookies.get("salesx_refresh")?.value ?? ""));
     if (limited) return limited;
+    const authorized = await authorizeBffRefresh(accessToken);
+    if (authorized) {
+      const response = new NextResponse(authorized.body, { status: authorized.status, headers: authorized.headers });
+      clearSessionCookies(response);
+      return response;
+    }
     refreshed = await refreshAuthSession(request);
     if (refreshed) {
       accessToken = refreshed.access_token;
