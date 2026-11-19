@@ -64,9 +64,7 @@ import {
   SUPER_ADMIN_PROFILE,
   TENANT_GROWTH_TREND,
   AI_TOKEN_USAGE_TREND,
-  INITIAL_PLATFORM_TENANTS,
   PLATFORM_TENANT_OUTLETS,
-  INITIAL_ORG_NODES,
   INITIAL_MASTER_DATA,
   INITIAL_SERVICES_REGISTRY,
   INITIAL_DOMAINS,
@@ -177,8 +175,8 @@ export function SuperAdminPortalApp() {
   >('Bulan Ini');
 
   // Core Domain State
-  const [tenants, setTenants] = useState<PlatformTenant[]>(INITIAL_PLATFORM_TENANTS);
-  const [orgNodes, setOrgNodes] = useState<OrganizationNode[]>(INITIAL_ORG_NODES);
+  const [tenants, setTenants] = useState<PlatformTenant[]>([]);
+  const [orgNodes, setOrgNodes] = useState<OrganizationNode[]>([]);
   const [platformUsers,setPlatformUsers]=useState<PlatformUserRecord[]>([]);
   const [usersLoading,setUsersLoading]=useState(false);
   const [usersError,setUsersError]=useState<string|null>(null);
@@ -216,6 +214,8 @@ export function SuperAdminPortalApp() {
   const [auditLogs, setAuditLogs] = useState<AuditLogItem[]>([]);
   const [auditLoading,setAuditLoading]=useState(false);
   const [auditError,setAuditError]=useState<string|null>(null);
+  const [organizationsLoading,setOrganizationsLoading]=useState(false);
+  const [organizationsError,setOrganizationsError]=useState<string|null>(null);
   const [notifications, setNotifications] = useState<NotificationItem[]>(
     INITIAL_NOTIFICATIONS
   );
@@ -252,6 +252,67 @@ export function SuperAdminPortalApp() {
     return()=>{active=false;};
   },[activeTab,auth.apiClient,auth.canPerformApiAction]);
 
+
+  useEffect(() => {
+    if (activeTab !== "tenants" && activeTab !== "organizations") return;
+    if (!auth.canPerformApiAction("platform.organizations.list") || !auth.apiClient) {
+      setTenants([]);
+      setOrgNodes([]);
+      setOrganizationsError("Akses manajemen tenant tidak diizinkan.");
+      return;
+    }
+    let active = true;
+    setOrganizationsLoading(true);
+    setOrganizationsError(null);
+    void auth.apiClient.listPlatformOrganizations()
+      .then(async (rows) => {
+        const mappedTenants: PlatformTenant[] = rows.map((org) => ({
+          id: org.id,
+          name: org.name,
+          plan: "Belum dikonfigurasi",
+          status: org.status === "active" ? "Aktif" : "Nonaktif",
+          usersCount: org.member_count,
+          monthlyOrders: 0,
+          monthlyGmvM: 0,
+          domain: "",
+          picName: "",
+          picEmail: "",
+          city: "",
+          lat: 0,
+          lng: 0,
+          renewalDate: "",
+        }));
+        const branchGroups = await Promise.all(rows.map(async (org) => ({
+          org,
+          branches: await auth.apiClient!.listOrganizationBranches(org.id),
+        })));
+        const mappedNodes: OrganizationNode[] = branchGroups.flatMap(({ org, branches }) => {
+          if (branches.length === 0) return [{
+            id: org.id, tenantId: org.id, name: org.name, nodeType: "Head Office" as const,
+            city: "", managerName: "", usersCount: org.member_count,
+            status: org.status === "active" ? "Aktif" as const : "Nonaktif" as const,
+          }];
+          return branches.map((branch) => ({
+            id: String(branch.id), tenantId: org.id, name: String(branch.name ?? ""),
+            nodeType: branch.branch_type === "head_office" ? "Head Office" as const
+              : branch.branch_type === "warehouse" ? "Gudang Regional" as const : "Cabang" as const,
+            city: typeof branch.city === "string" ? branch.city : "",
+            managerName: typeof branch.manager_name === "string" ? branch.manager_name : "",
+            usersCount: 0, status: branch.status === "active" ? "Aktif" as const : "Nonaktif" as const,
+          }));
+        });
+        if (!active) return;
+        setTenants(mappedTenants);
+        setOrgNodes(mappedNodes);
+        setSelectedOrgTenantId((current) => current || rows[0]?.id || "");
+      })
+      .catch((error: unknown) => {
+        if (active) setOrganizationsError(error instanceof Error ? error.message : "Data tenant tidak dapat dimuat.");
+      })
+      .finally(() => { if (active) setOrganizationsLoading(false); });
+    return () => { active = false; };
+  }, [activeTab, auth.apiClient, auth.canPerformApiAction]);
+
   // Filters & Sub-tabs
   const [tenantSearch, setTenantSearch] = useState('');
   const [tenantFilter, setTenantFilter] = useState<'Semua' | 'Aktif' | 'Nonaktif'>(
@@ -263,7 +324,7 @@ export function SuperAdminPortalApp() {
   );
 
   const [orgSearch, setOrgSearch] = useState('');
-  const [selectedOrgTenantId, setSelectedOrgTenantId] = useState('TEN-0001');
+  const [selectedOrgTenantId, setSelectedOrgTenantId] = useState('');
 
   const [userSearch, setUserSearch] = useState('');
   const [userRoleFilter, setUserRoleFilter] = useState('Semua');
