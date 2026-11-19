@@ -3243,7 +3243,6 @@ export function CompanyPortalApp() {
             parent_team_id: team.parentTeamId || undefined, status: 'active',
           });
           setTeams((previous) => [row as TeamRecord, ...previous]);
-          showToast('Struktur tim ' + team.name + ' berhasil disimpan melalui FastAPI.');
         }}
       />
       <AddTerritoryModal
