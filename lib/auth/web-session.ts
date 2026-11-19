@@ -40,7 +40,13 @@ export function apiUrl(): string {
 
 export function appOrigin(request: NextRequest): string {
   const configured = process.env.APP_PUBLIC_URL?.replace(/\/$/, "");
-  if (configured) return configured;
+  if (configured) {
+    const parsed = new URL(configured);
+    if (parsed.origin !== configured || (process.env.NODE_ENV === "production" && parsed.protocol !== "https:")) {
+      throw new Error("APP_PUBLIC_URL must be an exact HTTPS origin in production.");
+    }
+    return configured;
+  }
   if (process.env.NODE_ENV !== "production" && ["localhost", "127.0.0.1"].includes(request.nextUrl.hostname)) {
     return request.nextUrl.origin;
   }
@@ -125,6 +131,7 @@ export async function supabaseAuthRequest<T>(
     headers,
     cache: "no-store",
     redirect: "manual",
+    signal: init.signal ?? AbortSignal.timeout(10000),
   });
   const body = await response.json().catch(() => ({})) as Record<string, unknown>;
   if (!response.ok) return { ok: false, status: response.status, body };
