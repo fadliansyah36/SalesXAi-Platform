@@ -146,5 +146,5 @@ export default function App(){
  const [fontsLoaded]=useFonts({PlusJakartaSans_400Regular,PlusJakartaSans_500Medium,PlusJakartaSans_600SemiBold,PlusJakartaSans_700Bold,JetBrainsMono_400Regular,JetBrainsMono_500Medium,JetBrainsMono_600SemiBold});
  const auth=useMobileSalesAuth();
  if(!fontsLoaded)return null;
- return <NativeThemeProvider><SalesHome auth={auth}/></NativeThemeProvider>;
+ return <NativeThemeProvider><SalesHome key={auth.contextEpoch} auth={auth}/></NativeThemeProvider>;
 }
