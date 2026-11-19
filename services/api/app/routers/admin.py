@@ -9,6 +9,7 @@ from app.errors import APIError
 from app.schemas.identity import AccountStatusUpdate, PlatformAuditLogResponse
 from app.security.dependencies import Principal, require_api_action
 from app.services.audit import write_audit
+from app.services.authorization import authorization_service
 
 router = APIRouter(prefix="/admin", tags=["platform-security"])
 
@@ -128,6 +129,7 @@ async def update_account_status(
     principal: Principal = Depends(require_api_action("platform.users.status")),
     connection: asyncpg.Connection = Depends(get_connection),
 ) -> dict:
+    authorization_service.assert_action_context(request,"platform.users.status",principal.user_id)
     if user_id == principal.user_id:
         raise APIError(409, "self_lockout_prevented",
                        "You cannot suspend or deactivate your own platform account.")
@@ -208,6 +210,7 @@ async def list_platform_audit_logs(
     principal: Principal = Depends(require_api_action("platform.audit.read")),
     connection: asyncpg.Connection = Depends(get_connection),
 ) -> list[PlatformAuditLogResponse]:
+    authorization_service.assert_action_context(request,"platform.audit.read",principal.user_id)
     rows = await connection.fetch(
         """
         select l.id,l.actor_user_id,l.organization_id,l.action,l.resource_type,
