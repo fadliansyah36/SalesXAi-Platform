@@ -31,7 +31,7 @@ Status: PARTIAL
 ### Implemented and applied
 - [x] Supabase Auth remains the sole credential/identity authority; profile and provider-identity mirror triggers are installed.
 - [x] Organization, branch, profile, identity mapping, membership, role/permission, scoped assignment, session device and audit schema are applied to the bound Supabase project.
-- [x] RLS is enabled on all 11 Phase 02 public tables; client writes and sensitive table access are denied.
+- [x] RLS is enabled on all 12 Phase 02 public tables; client writes and sensitive table access are denied.
 - [x] FastAPI JWT verifier checks signing algorithm/signature, issuer, audience, expiry, issued-at, subject and session_id.
 - [x] FastAPI principal resolver checks verified email/phone, profile status, live auth.sessions, device revocation and the profiles.session_revoked_at epoch on every protected request.
 - [x] Tenant resolver and recursive database RBAC/ABAC checks remain authoritative; X-Organization-ID is only a selector.
@@ -45,8 +45,8 @@ Status: PARTIAL
 
 ### Remaining — phase completion blockers
 - [x] Expo native auth uses Expo SecureStore, shared AuthClient, Supabase signup/login/verification/recovery/OTP/Google OAuth, session restoration/refresh, FastAPI auth/me and tenant context, account switching, identity link/unlink and remote logout. Frozen-lockfile install, Native TypeScript, Expo SDK compatibility, app config, Metro startup, Android/iOS JS bundle export and Turbo workspace build passed in GitHub Actions run 44527586969.
-- [ ] Supabase manual identity linking provider setting and Google OAuth callback/provider configuration are not verified in the target project.
-- [ ] Existing-user invitation email delivery is not connected to a transactional email provider: create/resend returns a one-time URL for authorized delivery. New unregistered identities receive Supabase Auth Admin invite email only when SUPABASE_SECRET_KEY is configured.
+- [ ] Supabase manual identity linking provider setting and Google OAuth callback/provider configuration are not verified in the target project; this requires project Auth provider configuration access.
+- [ ] Existing-user invitation email delivery is not connected to a configured transactional email provider: create/resend returns a one-time URL for authorized delivery. New unregistered identities receive Supabase Auth Admin invite email only when SUPABASE_SECRET_KEY is configured.
 - [ ] Permission-aware navigation is wired as portal-level UX guards; action-level visibility across every existing feature is not yet exhaustively mapped. FastAPI remains the authorization boundary.
 - [ ] FastAPI runtime is not configured/verified. DATABASE_URL (database password/session-pooler URL), SUPABASE_PUBLISHABLE_KEY, SUPABASE_SECRET_KEY, APP_PUBLIC_URL, exact CORS origins and API deployment secrets are not present in repository/runtime.
 - [ ] Account status endpoint requires SUPABASE_SECRET_KEY for Auth Admin ban/unban; this secret is not available through the repository or database connector.
@@ -69,7 +69,7 @@ Status: PARTIAL
   - 20261119115701 p02_invitation_lifecycle_and_session_revocation_epoch
   - 20261119120627 p02_restrict_account_status_to_platform_admin
   - 20261119120742 p02_auth_identity_link_audit_trigger
-- RLS enabled on all 11 Phase 02 public tables.
+- RLS enabled on all 12 Phase 02 public tables.
 - Security Advisor: zero lints.
 - Realtime: not applicable; authorization re-reads PostgreSQL state on each protected request.
 
@@ -86,6 +86,20 @@ Status: PARTIAL
 
 Phase 02 remains PARTIAL. Expo and static CI validation are complete, and migration-source parity is restored. Closure is blocked by unavailable FastAPI runtime/database credentials, unverified Supabase OAuth/manual-linking configuration, missing transactional email delivery for existing-user invite resend, incomplete action-level permission visibility, and absent live authenticated API/session-revocation evidence.
  
+
+## Phase 02 — Revalidation & additive database hardening (2026-11-19)
+
+- Revalidated the bound Supabase project directly: ref `eyofuiyxalbehbqoaeny`, `ACTIVE_HEALTHY`, PostgreSQL 17.12, region `ap-northeast-1`.
+- Reconciled the public schema inventory: 12 tables, each with RLS enabled and one explicit policy. The earlier “11 tables” count was stale.
+- Revalidated the migration ledger: 9 applied versions, including `20261119131809_p02_add_missing_foreign_key_indexes`.
+- Applied 12 additive FK lookup indexes to the bound project and committed the matching migration source at `supabase/migrations/20261119131809_p02_add_missing_foreign_key_indexes.sql`.
+- Supabase Performance Advisor no longer reports `unindexed_foreign_keys`; informational unused-index notices remain because the Phase 02 schema has minimal live data. These notices are not grounds to remove the FK indexes.
+- Supabase Security Advisor revalidation returned zero lints after the additive migration.
+- Read-only SQL connectivity through the Supabase connector is confirmed. This is **not** evidence that the FastAPI runtime can connect: the deployment runtime and `DATABASE_URL` are not exposed through this connector.
+- Phase 02 remains **PARTIAL**. The following blockers remain external/runtime-dependent and are not marked complete: Supabase manual identity-linking and Google OAuth provider/callback settings; transactional email delivery for existing-user invitations; deployment secrets (`DATABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `APP_PUBLIC_URL`, exact CORS origins); live FastAPI `/readyz` and authenticated `/api/v1/auth/me`; account-status Auth Admin operation; and action-level permission mapping across all existing feature actions.
+- Specific-session API denial remains enforced through the FastAPI device registry, but remote revocation of another device's Supabase refresh token is not available through the current supported Auth operation. Do not report this as remote provider revocation.
+- No OAuth settings, SMTP provider, deployment secrets, or runtime service were changed by this revalidation. No credentials were read or committed.
+
 ## Next phase
 
 Phase 02 remains in progress. Phase 03 is not authorized until Phase 02 reaches COMPLETED.
