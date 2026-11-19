@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useSalesXAuth } from "@/components/providers/AppProviders";
 
 type Member={user_id:string;email:string|null;display_name:string|null;account_status:string;membership_status:string;title:string|null;branch_id:string|null};
-type Invitation={id:string;email:string;role_key:string;status:string;expires_at:string;resend_count:number};
+type Invitation={id:string;email:string;role_key:string;status:string;expires_at:string;resend_count?:number};
 type Identity={id:string;provider:string;email:string|null;is_primary:boolean;created_at:string};
 type RoleOption={key:string;name:string;scope_type:'tenant'|'branch';hierarchy_level:number};
 
@@ -25,38 +25,31 @@ export function OrganizationAccessConsole(){
  const canManageMembers=auth.hasPermission("organization:members:manage");
 
  const load=useCallback(async()=>{
-  if(!org)return;
+  if(!org||!auth.apiClient)return;
+  const api=auth.apiClient;
   const jobs:Promise<void>[]=[];
   if(canReadMembers)jobs.push((async()=>{
-   const r=await auth.apiFetch("/api/v1/organizations/"+org+"/members");
-   if(!r.ok)throw new Error("Daftar anggota tidak dapat dimuat.");
-   setMembers(await r.json());
+   setMembers(await api.listOrganizationMembers(org));
   })());
   if(canManageInvites)jobs.push((async()=>{
-   const rolesResponse=await auth.apiFetch("/api/v1/organizations/"+org+"/assignable-roles");
-   if(!rolesResponse.ok)throw new Error("Katalog role yang dapat didelegasikan tidak dapat dimuat.");
-   const roles=await rolesResponse.json() as RoleOption[];
+   const roles=await api.listAssignableRoles(org);
    setRoleOptions(roles);
    if(roles.length)setRole(previous=>roles.some(item=>item.key===previous)?previous:roles[0].key);
-   const r=await auth.apiFetch("/api/v1/organizations/"+org+"/invitations");
-   if(!r.ok)throw new Error("Daftar undangan tidak dapat dimuat.");
-   setInvitations(await r.json());
+   setInvitations(await api.listInvitations(org));
   })());
   jobs.push((async()=>{
-   const r=await auth.apiFetch("/api/v1/auth/identities");
-   if(r.ok)setIdentities(await r.json());
+   setIdentities(await api.listLinkedIdentities());
   })());
   await Promise.all(jobs);
- },[org,canReadMembers,canManageInvites,auth.apiFetch]);
+ },[org,canReadMembers,canManageInvites,auth.apiClient]);
 
  useEffect(()=>{void load().catch(e=>setMessage(e instanceof Error?e.message:"Gagal memuat akses organisasi."));},[load]);
 
  async function createInvite(event:React.FormEvent){
   event.preventDefault();if(!org)return;setBusy(true);setMessage("");
   try{
-   const r=await auth.apiFetch("/api/v1/organizations/"+org+"/invitations",{method:"POST",body:JSON.stringify({email,role_key:role,branch_id:branch||null})});
-   const body=await r.json().catch(()=>({}));
-   if(!r.ok)throw new Error(body?.error?.message??"Undangan gagal dibuat.");
+   if(!auth.apiClient)throw new Error("FastAPI client belum dikonfigurasi.");
+   const body=await auth.apiClient.createInvitation(org,{email,role_key:role,branch_id:branch||null});
    setMessage("Undangan dibuat. Tautan sekali pakai: "+body.invitation_url);
    setEmail("");await load();
   }catch(e){setMessage(e instanceof Error?e.message:"Undangan gagal dibuat.");}
@@ -65,10 +58,14 @@ export function OrganizationAccessConsole(){
  async function inviteAction(id:string,action:"resend"|"revoke"){
   if(!org)return;setBusy(true);
   try{
-   const r=await auth.apiFetch("/api/v1/organizations/"+org+"/invitations/"+id+"/"+action,{method:"POST"});
-   const body=await r.json().catch(()=>({}));
-   if(!r.ok)throw new Error(body?.error?.message??"Operasi undangan gagal.");
-   setMessage(action==="resend"?"Tautan undangan baru: "+body.invitation_url:"Undangan dicabut.");
+   if(!auth.apiClient)throw new Error("FastAPI client belum dikonfigurasi.");
+   if(action==="resend"){
+    const body=await auth.apiClient.resendInvitation(org,id);
+    setMessage("Tautan undangan baru: "+body.invitation_url);
+   }else{
+    await auth.apiClient.revokeInvitation(org,id);
+    setMessage("Undangan dicabut.");
+   }
    await load();
   }catch(e){setMessage(e instanceof Error?e.message:"Operasi undangan gagal.");}
   finally{setBusy(false);}
@@ -76,9 +73,8 @@ export function OrganizationAccessConsole(){
  async function memberStatus(userId:string,status:"active"|"suspended"|"removed"){
   if(!org)return;setBusy(true);
   try{
-   const r=await auth.apiFetch("/api/v1/organizations/"+org+"/members/"+userId,{method:"PATCH",body:JSON.stringify({status})});
-   const body=await r.json().catch(()=>({}));
-   if(!r.ok)throw new Error(body?.error?.message??"Status membership gagal diperbarui.");
+   if(!auth.apiClient)throw new Error("FastAPI client belum dikonfigurasi.");
+   await auth.apiClient.updateOrganizationMember(org,userId,{status});
    setMessage("Status membership diperbarui.");await load();
   }catch(e){setMessage(e instanceof Error?e.message:"Pembaruan membership gagal.");}
   finally{setBusy(false);}
