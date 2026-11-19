@@ -266,8 +266,9 @@ export class SalesXApiClient {
   }
 
   listPlatformUsers(query?: string): Promise<PlatformUserSummary[]> {
-    const search = query?.trim() ? "?q=" + encodeURIComponent(query.trim()) : "";
-    return this.request<PlatformUserSummary[]>("/api/v1/admin/users" + search);
+    const params = new URLSearchParams({ limit: "500" });
+    if (query?.trim()) params.set("q", query.trim());
+    return this.request<PlatformUserSummary[]>("/api/v1/admin/users?" + params.toString());
   }
 
   listPlatformRoles(): Promise<PlatformRole[]> {
