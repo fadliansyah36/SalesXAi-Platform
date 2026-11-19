@@ -16,7 +16,7 @@ export function OrganizationAccessConsole(){
  const [identities,setIdentities]=useState<Identity[]>([]);
  const [roleOptions,setRoleOptions]=useState<RoleOption[]>([]);
  const [email,setEmail]=useState("");
- const [role,setRole]=useState("sales_rep");
+ const [role,setRole]=useState("");
  const [branch,setBranch]=useState("");
  const [message,setMessage]=useState("");
  const [busy,setBusy]=useState(false);
@@ -103,7 +103,7 @@ export function OrganizationAccessConsole(){
     <label className="text-sm">Email<input required type="email" value={email} onChange={e=>setEmail(e.target.value)} className="mt-1 w-full rounded-lg border border-[var(--color-border)] bg-transparent p-2.5"/></label>
     <label className="text-sm">Role<select required value={role} onChange={e=>setRole(e.target.value)} className="mt-1 w-full rounded-lg border border-[var(--color-border)] bg-transparent p-2.5">{roleOptions.map(item=><option key={item.key} value={item.key}>{item.name} · {item.scope_type}</option>)}</select></label>
     <label className="text-sm">Branch ID<input value={branch} onChange={e=>setBranch(e.target.value)} placeholder="UUID jika diperlukan" className="mt-1 w-full rounded-lg border border-[var(--color-border)] bg-transparent p-2.5"/></label>
-    <button disabled={busy||roleOptions.length===0} className="self-end rounded-lg bg-[#236D91] p-3 font-semibold text-white disabled:opacity-50">Buat undangan</button>
+    <button disabled={busy||roleOptions.length===0||!role} className="self-end rounded-lg bg-[#236D91] p-3 font-semibold text-white disabled:opacity-50">Buat undangan</button>
    </form>
    <div className="space-y-2">{invitations.map(invite=><article key={invite.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-3"><div><p className="font-medium">{invite.email}</p><p className="text-xs text-[var(--color-text-muted)]">{invite.role_key} · {invite.status} · {new Date(invite.expires_at).toLocaleString()}</p></div>{invite.status==="pending"&&<div className="flex gap-3"><button disabled={busy} onClick={()=>void inviteAction(invite.id,"resend")} className="text-xs font-semibold text-[#236D91]">Resend</button><button disabled={busy} onClick={()=>void inviteAction(invite.id,"revoke")} className="text-xs font-semibold text-red-600">Revoke</button></div>}</article>)}</div>
   </section>}
