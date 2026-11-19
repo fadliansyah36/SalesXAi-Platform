@@ -35,7 +35,7 @@ class ExternalRateLimitRequest(BaseModel):
     action: Literal[
         "login", "signup", "otp_send", "otp_verify", "password_recovery",
         "email_verify", "oauth_start", "oauth_complete", "identity_link",
-        "password_update", "refresh",
+        "password_update", "refresh", "signout",
     ]
     identifier: str | None = Field(default=None, max_length=320)
 
