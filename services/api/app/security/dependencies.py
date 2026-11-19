@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+import logging
 from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
@@ -11,6 +12,23 @@ from app.security.jwt import SupabaseJWTVerifier
 from app.security.policy import abac_conditions_match
 
 bearer_scheme = HTTPBearer(auto_error=False)
+logger = logging.getLogger('salesx.api.authorization')
+
+async def audit_authorization_denial(request: Request, principal: 'Principal', permission_key: str, connection: asyncpg.Connection, tenant: 'TenantContext | None' = None) -> None:
+    """Persist a credential-free denial receipt for a rejected protected action."""
+    import json
+    try:
+        await connection.execute(
+            """insert into public.admin_audit_logs
+              (actor_user_id,organization_id,action,resource_type,resource_id,correlation_id,user_agent,metadata)
+              values ($1,$2,'authorization.denied','api_action',$3,$4,$5,$6::jsonb)""",
+            principal.user_id, tenant.organization_id if tenant else None,
+            request.url.path[:512], getattr(request.state,'correlation_id',None),
+            request.headers.get('user-agent','')[:512],
+            json.dumps({'method':request.method,'permission':permission_key,'outcome':'denied'}),
+        )
+    except (asyncpg.PostgresError, asyncpg.InterfaceError):
+        logger.exception('authorization_denial_audit_failed', extra={'correlation_id':getattr(request.state,'correlation_id',None)})
 
 @dataclass(frozen=True)
 class Principal:
@@ -64,7 +82,9 @@ async def get_current_principal(
         raise APIError(401, "session_revoked", "This Supabase Auth session is no longer active.")
     if row["session_device_id"] is None and request.url.path != "/api/v1/auth/sessions/current":
         raise APIError(401,"session_not_registered","Register this device session before accessing SalesX-Ai APIs.")
-    return Principal(user_id,row["email"],row["display_name"],session_id,claims)
+    principal=Principal(user_id,row["email"],row["display_name"],session_id,claims)
+    request.state.principal=principal
+    return principal
 
 async def resolve_tenant_context(
     request: Request, principal: Principal, connection: asyncpg.Connection
@@ -104,6 +124,7 @@ def require_self_permission(permission_key: str):
         principal: Principal = Depends(get_current_principal),
         connection: asyncpg.Connection = Depends(get_connection),
     ) -> Principal:
+        request.state.required_permission=permission_key
         rows = await connection.fetch(
             """
             with recursive role_tree(role_id,parent_role_id,attributes) as (
@@ -136,6 +157,7 @@ def require_self_permission(permission_key: str):
         )
         resource={"owner_user_id":str(principal.user_id)}
         if not any(abac_conditions_match(row["attributes"],resource) for row in rows):
+            await audit_authorization_denial(request,principal,permission_key,connection)
             raise APIError(403,"forbidden","The requested self-scoped identity action is not permitted.")
         request.state.authorized_permission=permission_key
         request.state.resource_attributes=resource
@@ -149,6 +171,7 @@ def require_permission(permission_key: str):
         principal: Principal = Depends(get_current_principal),
         connection: asyncpg.Connection = Depends(get_connection),
     ) -> TenantContext:
+        request.state.required_permission=permission_key
         tenant=await resolve_tenant_context(request,principal,connection)
         raw_branch=request.headers.get("x-resource-branch-id")
         branch_id=tenant.branch_id
@@ -183,6 +206,7 @@ def require_permission(permission_key: str):
         resource=getattr(request.state,"resource_attributes",{})
         allowed=any(abac_conditions_match(row["attributes"],resource) for row in assignments)
         if not allowed:
+            await audit_authorization_denial(request,principal,permission_key,connection,tenant)
             raise APIError(403,"forbidden","The requested action is not permitted in this tenant context.")
         request.state.authorized_permission=permission_key
         return tenant
@@ -194,6 +218,7 @@ def require_platform_permission(permission_key: str):
         principal: Principal = Depends(get_current_principal),
         connection: asyncpg.Connection = Depends(get_connection),
     ) -> Principal:
+        request.state.required_permission=permission_key
         allowed = await connection.fetchval(
             """
             with recursive role_tree(role_id,parent_role_id) as (
@@ -216,6 +241,7 @@ def require_platform_permission(permission_key: str):
             """, principal.user_id, permission_key,
         )
         if not allowed:
+            await audit_authorization_denial(request,principal,permission_key,connection)
             raise APIError(403,"forbidden","A platform-scoped permission is required.")
         return principal
     return dependency
