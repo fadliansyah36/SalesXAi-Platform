@@ -4,7 +4,7 @@ This registry is intentionally limited to implemented API routes. Portal busines
 actions without a domain endpoint are not represented as server-enforced actions.
 """
 from dataclasses import dataclass
-from typing import Iterable
+from collections.abc import Iterable
 
 from fastapi.routing import APIRoute
 
