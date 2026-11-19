@@ -281,12 +281,19 @@ async def list_assignable_roles(
 ) -> list[dict]:
     if tenant.organization_id != organization_id:
         raise APIError(403,"forbidden","Cross-tenant role catalog access is denied.")
+    selected_branch_id=tenant.branch_id
+    raw_branch_id=request.headers.get("x-resource-branch-id")
+    if raw_branch_id:
+        try:
+            selected_branch_id=UUID(raw_branch_id)
+        except ValueError as exc:
+            raise APIError(400,"invalid_tenant_context","Resource branch identifier is invalid.") from exc
     tenant_level = await _delegation_hierarchy_level(
         connection,principal.user_id,tenant.membership_id,organization_id,
         "organization:invitations:manage",resource_attributes=getattr(request.state,"resource_attributes",{}))
     branch_level = await _delegation_hierarchy_level(
         connection,principal.user_id,tenant.membership_id,organization_id,
-        "organization:invitations:manage",tenant.branch_id,
+        "organization:invitations:manage",selected_branch_id,
         getattr(request.state,"resource_attributes",{}))
     if tenant_level is None and branch_level is None:
         raise APIError(403,"forbidden","An active scoped role is required to delegate access.")
