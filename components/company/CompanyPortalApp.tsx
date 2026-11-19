@@ -477,6 +477,7 @@ export function CompanyPortalApp() {
     teamMembers.find((m) => m.id === selectedTeamId) || teamMembers[0] || EMPTY_TEAM_MEMBER;
   const historyStaff =
     teamMembers.find((m) => m.id === historyStaffId) || teamMembers[0] || EMPTY_TEAM_MEMBER;
+  const hasTeamLocation = teamMembers.some((member) => member.lat !== 0 || member.lng !== 0);
 
   const territoryOutletsForMap: Outlet[] = useMemo(
     () =>
@@ -1568,14 +1569,14 @@ export function CompanyPortalApp() {
             </div>
           )}
 
-          {activeTab === 'gps_live' && teamMembers.length === 0 && (
+          {activeTab === 'gps_live' && !hasTeamLocation && (
             <div className="rounded-2xl border border-dashed border-[var(--color-border-strong)] bg-[var(--color-surface)] p-8 text-center text-sm text-[var(--color-text-muted)]">
-              Belum ada sales profile aktif. Tambahkan personel melalui master data sebelum membuka telemetry.
+              Data lokasi belum tersedia untuk sales profile. GPS telemetry akan tampil setelah Location Intelligence terhubung.
             </div>
           )}
-          {activeTab === 'gps_history' && teamMembers.length === 0 && (
+          {activeTab === 'gps_history' && !hasTeamLocation && (
             <div className="rounded-2xl border border-dashed border-[var(--color-border-strong)] bg-[var(--color-surface)] p-8 text-center text-sm text-[var(--color-text-muted)]">
-              Histori perjalanan belum tersedia karena belum ada sales profile yang terhubung.
+              Histori perjalanan belum tersedia. Lokasi dan perjalanan baru ditampilkan setelah data Location Intelligence tersedia.
             </div>
           )}
 
@@ -1634,7 +1635,6 @@ export function CompanyPortalApp() {
                       {teams.map((team) => {
                         const supervisor = organizationMembers.find((member) => member.user_id === asText(team.supervisor_user_id));
                         const parent = teams.find((candidate) => asText(candidate.id) === asText(team.parent_team_id));
-                        const branch = branches.find((candidate) => candidate.id === asText(team.branch_id));
                         return (
                           <div key={asText(team.id)} className="rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] p-4">
                             <p className="text-sm font-bold">{asText(team.name)}</p>
@@ -2172,7 +2172,7 @@ export function CompanyPortalApp() {
           {/* ================================================================
            * SCREEN 11 (13): GPS MONITORING (REALTIME)
            * ================================================================ */}
-          {activeTab === 'gps_live' && teamMembers.length > 0 && (
+          {activeTab === 'gps_live' && hasTeamLocation && (
             <div className="space-y-5">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="grid grid-cols-2 gap-1.5 rounded-xl bg-[var(--color-surface-muted)] p-1 w-full max-w-xs">
@@ -2348,7 +2348,7 @@ export function CompanyPortalApp() {
           {/* ================================================================
            * SCREEN 12 (14): GPS HISTORY
            * ================================================================ */}
-          {activeTab === 'gps_history' && teamMembers.length > 0 && (
+          {activeTab === 'gps_history' && hasTeamLocation && (
             <div className="space-y-5">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
