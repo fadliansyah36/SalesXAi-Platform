@@ -18,6 +18,7 @@ import type {
   OrganizationMember,
   OrganizationSummary,
   PlatformRole,
+  PlatformUserSummary,
   RoleAssignmentRequest,
   RoleAssignmentResponse,
   SessionDeviceRegistration,
@@ -261,6 +262,11 @@ export class SalesXApiClient {
       method: "POST",
       body: JSON.stringify(payload),
     });
+  }
+
+  listPlatformUsers(query?: string): Promise<PlatformUserSummary[]> {
+    const search = query?.trim() ? "?q=" + encodeURIComponent(query.trim()) : "";
+    return this.request<PlatformUserSummary[]>("/api/v1/admin/users" + search);
   }
 
   listPlatformRoles(): Promise<PlatformRole[]> {
