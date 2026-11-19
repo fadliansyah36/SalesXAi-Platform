@@ -3121,13 +3121,19 @@ export function SuperAdminPortalApp() {
         tenants={tenants}
         defaultTenantId={selectedOrgTenantId}
         onAddOrg={(node) => {
-          setOrgNodes((prev) => [...prev, node]);
-          appendAudit(
-            'Tambah Unit Organisasi',
-            'Organisasi',
-            `${node.name} (${node.nodeType}) ditambahkan ke tenant ${node.tenantId}.`
-          );
-          showToast(`Organisasi ${node.name} ditambahkan.`);
+          if (!auth.apiClient || !auth.canPerformApiAction('platform.organizations.branches.create')) {
+            setOrganizationsError('Akses pembuatan unit organisasi tidak diizinkan.');
+            return;
+          }
+          const branchType = node.nodeType === 'Head Office' ? 'head_office' : node.nodeType === 'Gudang Regional' ? 'warehouse' : 'branch';
+          const code = node.name.toUpperCase().replace(/[^A-Z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'BRANCH';
+          void auth.apiClient.createOrganizationBranch(node.tenantId, {
+            code, name: node.name, branch_type: branchType, city: node.city || undefined,
+            manager_name: node.managerName || undefined, status: 'active',
+          }).then(() => {
+            setOrganizationsRefreshKey((value) => value + 1);
+            showToast('Unit ' + node.name + ' berhasil disimpan ke database.');
+          }).catch((error: unknown) => setOrganizationsError(error instanceof Error ? error.message : 'Unit organisasi gagal disimpan.'));
         }}
       />
 
