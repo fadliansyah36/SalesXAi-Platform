@@ -911,6 +911,9 @@ export interface TerritoryItem {
 
 export interface TeamMemberItem {
   id: string;
+  userId?: string;
+  teamId?: string;
+  managerUserId?: string;
   name: string;
   role: 'Direktur Operasional' | 'Area Manager' | 'Supervisor' | 'Sales Rep';
   area: string;
