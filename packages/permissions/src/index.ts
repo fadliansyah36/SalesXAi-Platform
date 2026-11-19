@@ -1,10 +1,5 @@
 type PortalKey="sales"|"company"|"customer"|"distributor"|"principal"|"supervisor"|"super_admin";
-export const PERMISSIONS=[
-"profile:read:self","profile:update:self","organization:create","organization:read","organization:update",
-"organization:members:read","organization:members:manage","role:assign","audit:read","branch:read","branch:manage",
-"portal:sales:access","portal:company:access","portal:customer:access","portal:distributor:access",
-"portal:principal:access","portal:supervisor:access","portal:super_admin:access",
-] as const;
+export const PERMISSIONS=[\n  "account:status:manage",\n  "audit:read",\n  "branch:manage",\n  "branch:read",\n  "identity:read:self",\n  "identity:unlink:self",\n  "organization:create",\n  "organization:read",\n  "organization:update",\n  "organization:invitations:manage",\n  "organization:members:manage",\n  "organization:members:read",\n  "portal:company:access",\n  "portal:customer:access",\n  "portal:distributor:access",\n  "portal:principal:access",\n  "portal:sales:access",\n  "portal:super_admin:access",\n  "portal:supervisor:access",\n  "profile:read:self",\n  "profile:update:self",\n  "role:assign",\n] as const;
 export type Permission=(typeof PERMISSIONS)[number];
 /** UX helper only; FastAPI remains the authorization authority. */
 export function hasPermission(values:readonly string[]|null|undefined,permission:Permission):boolean {
