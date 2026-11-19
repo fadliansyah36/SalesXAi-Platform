@@ -23,7 +23,8 @@ export interface OrganizationCreateRequest {name:string;slug:string;legal_name?:
 export interface OrganizationSummary {
   id:UUID;slug:string;name:string;status:OrganizationStatus;created_at:ISODateTime;
 }
-export interface MyOrganizationSummary extends OrganizationSummary {
+export interface MyOrganizationSummary {
+  id:UUID;slug:string;name:string;status:OrganizationStatus;
   membership_id:UUID;membership_status:MembershipStatus;
 }
 export interface SessionDeviceRegistration {
