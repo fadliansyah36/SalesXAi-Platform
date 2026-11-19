@@ -1,59 +1,63 @@
-# Phase 02 — Web/Expo Action Inventory & Authorization Evidence
+# Phase 02 — Identity, Tenant & Authorization Action Inventory
 
 Repository: `fadliansyah36/SalesXAi-Platform`  
 Branch: `main`  
 Supabase project ref: `eyofuiyxalbehbqoaeny`  
-Baseline: Master PRD v1.0, Engineering Execution Master Plan v1.0, root `AGENTS.md`
+Source of truth: root `AGENTS.md`, Master PRD v1.0, Engineering Execution Master Plan v1.0, Cross-Platform Implementation Flow v1.0.
 
-## 1. Product surfaces in scope
+## 1. Phase boundary
 
-The repository engineering contract defines seven authenticated Web portals and one native Expo application:
+Engineering Execution Master Plan v1.0 defines:
+- **Phase 02:** Identity, Tenant & Authorization Foundation.
+- **Phase 03:** Master Data, Organization, Branch, Territory, Team & Outlet.
 
-| Surface | Canonical consumer | Phase 02 authorization participation |
+Therefore SmartTeam, SmartOrder, SmartReward, Location, Analytics, Workflow, AI and Telegram business operations are not Phase 02 endpoint blockers. Their existing UI modules are inventoried below and remain assigned to their later domain phases. Phase 02 must deliver the identity/session/tenant/RBAC/ABAC/audit foundation consumed by all portals.
+
+## 2. Application surface inventory
+
+### Web routes and portal components
+
+| Route entry | Portal component | Existing feature/module IDs discovered |
 |---|---|---|
-| Customer Portal | Existing Next.js customer portal | Shared Web Auth context, portal permission vocabulary |
-| Company Portal | Existing Next.js company portal | Shared Web Auth context, tenant membership and permissions |
-| Sales Portal | Existing Next.js sales portal | Shared Web Auth context, tenant membership and permissions |
-| Distributor Portal | Existing Next.js distributor portal | Shared Web Auth context, tenant membership and permissions |
-| Principal Portal | Existing Next.js principal portal | Shared Web Auth context, tenant membership and permissions |
-| Supervisor Portal | Existing Next.js supervisor portal | Shared Web Auth context, tenant membership and permissions |
-| Super Admin Portal | Existing Next.js Super Admin portal | Shared Web Auth context, platform permission context |
-| Native Sales | `apps/mobile-sales/` Expo | Shared AuthClient/API client and action resolver |
+| `/portal` | `components/portal/SalesPortalApp.tsx` | catalog, create, history, promo, planner, schedule, gps, attendance, leads, smartreward, target, AI, Studio, workspace, Telegram, notifications, sync, settings, outlet, order, activity |
+| `/company` | `components/company/CompanyPortalApp.tsx` | dashboard, analytics, financial, targets, branches, team, territories, outlets, products, master performance, live/history GPS, visits, attendance, orders, promotions, reports, integrations |
+| `/customer` | `components/customer/CustomerPortalApp.tsx` | dashboard, catalog, pricing, promo, cart, order status, reward, more |
+| `/distributor` | `components/distributor/DistributorPortalApp.tsx` | dashboard, catalog, inventory, stock movement, orders, fulfillment, delivery status, outlets, team, coverage, reports, promotions, settings |
+| `/principal` | `components/principal/PrincipalPortalApp.tsx` | dashboard, products, categories, variants, price list, pricing policy, campaigns, distributors, distributor orders, analytics, AI settings |
+| `/supervisor` | `components/supervisor/SupervisorPortalApp.tsx` | dashboard, team, shifts, live map, visits, route replay, coverage, performance, targets, timeline, alerts, reports, settings |
+| `/super-admin` | `components/super-admin/SuperAdminPortalApp.tsx` | dashboard, tenants, organizations, users, analytics, master data, roles, domains, feature flags, services, subscriptions, integrations, AI providers, agents, Telegram bots, usage/cost, security events, audit logs, system health |
 
-Public Website is not an authenticated business portal and is not included in tenant-action coverage.
+All seven authenticated Web portal components use the shared `canAccessPortal` route/surface resolver. Across these seven component sources, source scanning found **443 JSX `onClick` sites and 7 `onSubmit` sites**. These counts are source event-handler sites, not 450 distinct business mutations.
 
-This is the application-surface inventory from the canonical repository contract. It is **not** a verified exhaustive route/page/button/handler inventory: the current GitHub connector inspection did not provide a complete recursive source-tree listing, and no unsupported screen counts are asserted.
+Important boundary finding:
+- The six non-Super-Admin domain portals currently contain no typed `apiClient` call sites and no `canPerformApiAction` action-level checks in their portal component files. Their UI feature modules are the existing UI surfaces for Phases 03–13; they are not represented as implemented backend mutations by this Phase 02 work.
+- The Super Admin portal now fails closed for modules without a Phase 02 action/API contract. Only Users, Roles and Audit Logs remain navigable in this phase. Later-phase modules such as Tenants, Organizations, Master Data, Analytics, Integrations, AI Providers, Agents, Telegram Bots, Security Events and System Health remain hidden until their own domain APIs and action contracts exist.
+- The two role comparisons found in Company Portal are used for business presentation/ranking, not authorization. The inspected portal route/navigation guards do not rely on hardcoded role names.
 
-## 2. Current FastAPI action inventory
+### Shared Web identity and access screens
 
-The canonical Python and TypeScript registries cover **27/27 currently registered `/api/v1` route-method contracts**. FastAPI startup fails when a registered route is missing from the registry or a registry entry is stale.
+| Screen/component | Actions |
+|---|---|
+| `/portal/access` → Organization Access Console | active organization context, member list/update, assignable-role list, invitation list/create/resend/revoke, linked identity list/link/unlink, device session list/revoke |
+| Platform Account Security Console | platform account status mutation |
+| Super Admin Users | platform account directory read and status mutation |
+| Super Admin Roles | platform role/permission catalogue read |
+| Super Admin Audit Logs | platform-scoped audit read and local export of the authorized result set |
+| `/auth/accept-invitation` | token-bound invitation accept/reject |
+| Shared `SalesXAuthProvider` | BFF login/signup/OTP/OAuth/recovery/update-password/signout, `/api/v1/auth/me`, current-session registration, tenant selection, refresh/revocation, permission refresh |
 
-| Feature group | Contracts | Protected action examples |
-|---|---:|---|
-| Identity and session | 8 | Read context, register/list/revoke session, sign-out, link/list/unlink identity |
-| Platform security | 3 | List users, list roles, change account status |
-| Organization and membership | 13 | List/create organization, read/invite/update members, assign role, list assignable roles, invitation read/create/accept/reject/revoke/resend |
-| Audit | 1 | Read organization audit |
-| BFF security | 2 | Refresh authorization and distributed rate-limit consumption |
+### Expo Native Sales
 
-The shared contracts now carry these dimensions:
-- `resource`: protected resource class;
-- `feature` and `action`: domain/action identity;
-- `permission`: canonical permission key, or null for self/token/BFF gates;
-- `rolePolicy` / `role_policy`: policy requirement;
-- `scope`: self, tenant, platform or BFF scope;
-- HTTP method and route path;
-- server enforcement description.
+| Surface | Actions |
+|---|---|
+| `apps/mobile-sales/App.tsx` | sign-in/sign-up, OTP, OAuth callback, profile, tenant selection, signout/account switch, session list/revoke, linked identity list/link/unlink, invitation deep-link acceptance |
+| `apps/mobile-sales/src/auth/useMobileSalesAuth.ts` | Supabase Auth + SecureStore lifecycle, current-session registration, `/api/v1/auth/me`, tenant context, permission resolver, invitation and identity handlers |
 
-The 27-entry route matrix is complete for the **current API only**. It must not be represented as coverage of all business actions described in the Master PRD.
+The native screen source has **17 `onPress` sites** and uses the shared typed API client for its identity/session reads and mutations. Five distinct Phase 02 action gates are consumed by the native screen; the hook additionally checks identity-link/unlink and invitation-accept handler entrypoints.
 
-## 3. Existing Web action-handler integration
+## 3. Phase 02 UI action mapping
 
-The existing `/portal/access` surface is backed by:
-- `components/auth/OrganizationAccessConsole.tsx`
-- `components/auth/PlatformAccountSecurityConsole.tsx`
-
-These components now use `canPerformApiAction` from the shared resolver for the following **13 UI action gates**:
+There are **18 unique action IDs** consumed by Web and/or Expo UI handlers:
 
 1. `identity.session.list`
 2. `identity.session.revoke`
@@ -67,77 +71,127 @@ These components now use `canPerformApiAction` from the shared resolver for the 
 10. `organization.invitations.create`
 11. `organization.invitations.resend`
 12. `organization.invitations.revoke`
-13. `platform.users.status`
+13. `organization.invitations.accept`
+14. `organization.invitations.reject`
+15. `platform.users.list`
+16. `platform.users.status`
+17. `platform.roles.list`
+18. `platform.audit.read`
 
-The session list is no longer requested when the effective self permission is absent. Each guarded mutation handler also rechecks the shared resolver before issuing the typed API call. FastAPI remains the authoritative enforcement layer.
+The source scan found 40 calls to the shared `canPerformApiAction` / `permissionCanPerformApiAction` resolver across the Web access consoles, Super Admin portal, Web invitation page, Expo screen and Expo auth hook. The 18 IDs above are unique action identities; repeated call sites enforce both visibility and handler entry.
 
-The Web Auth provider and Expo auth hook both expose the same shared action resolver. The inspected Phase 02 Expo auth hook does not itself prove that every native feature screen/button/action handler consumes the resolver; complete Expo screen-level wiring remains open.
+Actions such as session registration, context read, signout, organization list/create, role assignment and BFF refresh/rate-limit are invoked by the auth/provider or API lifecycle rather than by a user-visible button. They still have explicit endpoint contracts and server-side enforcement in the matrix.
 
-## 4. Live Supabase permission and tenant evidence
+## 4. Canonical action contract and endpoint mapping
 
-Read-only inspection of the bound project returned:
+The shared TypeScript registry is `packages/permissions/src/action-matrix.ts`; the FastAPI registry is `services/api/app/security/action_matrix.py`.
 
-- Public tables: **12**
-- Public tables with RLS enabled: **12/12**
-- Permission keys: **23**
-- Role-permission grants: **90**
-- Roles: **8**
-- Security Advisor: **0 lints**
+Each contract includes:
+`action ID → method/path → feature/action → resource → role policy → permission key → scope → server enforcement`.
 
-Observed role keys and scopes:
-- Platform: `platform_admin`
-- Tenant: `tenant_owner`, `company_admin`, `distributor_user`, `principal_user`, `customer_user`
-- Branch: `supervisor`, `sales_rep`
+| Action group | Contracts | Enforcement |
+|---|---:|---|
+| Identity context/session | 5 | Verified JWT/session, device registry, self permission, owner filter, provider signout |
+| Identity links | 3 | Self permission, verified identity ownership, provider identity lifecycle |
+| Platform users/roles/audit | 4 | Platform-scoped permissions; account read/status are separate permissions; audit is platform-only |
+| Organization/membership/invitations | 13 | Active membership, tenant/resource match, delegation hierarchy, single-use invitation token |
+| Tenant audit | 1 | Tenant-scoped `audit:read` and organization match |
+| BFF refresh/rate limit | 2 | Explicit internal shared-secret gate, active device session, distributed rate-limit storage |
+| **Total** | **28** | **26 user-scoped FastAPI route actions + 2 BFF-only actions** |
 
-The live permission catalogue includes profile/self, identity/self, organization, membership, invitation, role assignment, branch, audit, account-status and portal-access permissions. The action registry does not create new role grants for business domains whose services/endpoints are not implemented.
+The 28 TypeScript and Python contracts are source-verified **28/28 identical** across action ID, method, path, feature, action, resource, role policy, permission, scope and enforcement description.
 
-The existing Phase 02 migration ledger remains at 13 applied versions as recorded in the phase tracker. This continuation added no schema delta, so no migration or Realtime publication change was applied. Existing private audit/RLS/grant controls remain in place. Security Advisor's zero-lint result is current read-only evidence, not a substitute for route/UI coverage.
+FastAPI startup validation now checks:
+- every registered `/api/v1` method/path has exactly one current action contract;
+- no stale contract exists;
+- each non-BFF route dependency tree contains exactly its contract's action ID;
+- each BFF route carries its explicit BFF action marker.
 
-## 5. Authorization enforcement boundaries
+All **26 user-scoped route contracts** are referenced through `require_api_action`; the two BFF routes are explicitly marked and cannot be passed to user authorization dependencies. Unknown IDs and BFF/user-scope mismatches fail closed.
 
-- FastAPI verifies Supabase JWT and resolves the actor/session from server-verified identity.
-- Tenant selection is resolved against active membership; client-supplied organization IDs are selectors, not authority.
-- Tenant and platform permissions are derived from scoped role assignments and inherited role permissions.
-- Organization resource IDs are checked against the resolved tenant.
-- Membership/role changes enforce delegation hierarchy and prevent equal/higher privilege assignment or modification.
-- Session list/revoke are self-scoped and permission-gated.
-- Permission/resource denial auditing records actor, tenant when resolved, resource/path, action/method, permission and correlation ID without credentials.
-- Supabase RLS is enabled on all 12 public tables; client business writes remain denied by the existing policies/grants.
+## 5. Authorization service, repository and domain boundary
 
-## 6. Remaining blockers — Phase 02 is not complete
+New Phase 02 authorization layers:
+- `app/repositories/authorization.py`: principal/session record, active memberships, self/tenant/platform permission assignments, branch-to-tenant validation and denial audit persistence.
+- `app/services/authorization.py`: RBAC/ABAC decisions, denial recording and service-boundary assertion of authorized action ID, actor and tenant.
+- `app/security/dependencies.py`: JWT/session and tenant dependencies now delegate persistence/policy evaluation to the authorization service. `require_api_action` sets `request.state.authorized_api_action_id`.
+- Phase 02 identity, membership, role, invitation, account-status and audit handlers call the service-boundary assertion before the protected operation. There are **16** explicit action/actor/tenant boundary assertions in the inspected Auth, Organization and Admin routers.
 
-1. **Full Web route/screen/menu/button/handler inventory is not yet proven.** The seven portal surfaces are identified, but a complete per-route and per-action source inventory has not been established.
-2. **Full Expo action-handler integration is not proven.** The resolver is available from the native auth hook, but the full set of native screens/actions has not been mapped and wired.
-3. **Business-domain actions do not have current FastAPI endpoints.** The inspected schema and current API registry are identity/tenant/security foundations; SmartTeam, SmartOrder, SmartReward, Location, Analytics and Workflow business mutations are not covered by the 27 current endpoints. Their endpoint/service work belongs to their phase sequence and must not be faked or marked enforced in Phase 02.
-4. **No proof that every local-state/demo-style interaction in existing feature screens has been replaced or fail-closed.** Those actions remain outside the current API matrix until their real domain service/API exists.
-5. **Latest code changes still require fresh static CI evidence.** Successful earlier API/foundation workflows do not validate commits made after those runs.
-6. Deployment secrets/provider settings remain intentionally unset; no live FastAPI runtime, OAuth provider, SMTP delivery or Auth Admin operation is claimed. These are not silently marked configured.
+The service boundary rejects a missing/mismatched action ID, actor mismatch or cross-tenant context. The route dependencies still perform the actual database permission checks before a route handler runs.
 
-## 7. Latest code commits in this continuation
+## 6. RBAC, ABAC, ownership and tenant controls
 
-- `e076ed934ee17fa95ce95742c12bee2eeee71df9` — Web organization access UI now gates session, identity, membership and invitation actions through the shared resolver.
-- `662da074c5088cf40be3aa30e3d9f6fb89afe6b8` — platform account-status UI gates the mutation through the shared resolver.
-- `fcb43e5a6256c6a6252a91cc8cda2018f259897c` — TypeScript action contracts now include resource and role-policy metadata.
-- `03dcdc66419537857e5b56c481667f34dcd959f7` — FastAPI action registry aligned with resource and role-policy metadata.
-- `f18b7904ad2c127486d60243d66033d9f1aecf1e` — tests require complete resource/policy/scope metadata.
+- JWT subject/session claims are verified server-side; active profile, verified email/phone, registered device session, Auth session expiry, device revocation and session-revocation epoch are checked before API access.
+- Tenant context is resolved from active organization membership; `X-Organization-ID` is a selector, not authority.
+- Tenant action permissions are resolved through active scoped role assignments and recursive role hierarchy; branch selectors must belong to the resolved tenant.
+- Self actions require self permission and owner scoping.
+- Platform actions require a platform-scoped assignment; tenant grants cannot satisfy platform-only endpoints.
+- Role and membership mutation handlers retain delegation hierarchy checks to prevent equal/higher privilege escalation.
+- BFF refresh and rate-limit endpoints remain protected by the internal shared-secret gate; external auth routes retain distributed rate limiting.
+- Web retains HttpOnly BFF cookie/session handling; Expo retains native SecureStore. Account/tenant/permission-context changes increment the consumer epoch so Web consumers remount and Expo state remounts on context epoch changes.
 
-Earlier workflows `44572989578` (API) and `44572989593` (Web/Expo foundation) completed successfully on the earlier `4b4b411e8258af68fb5a70722e110551d0eec975` code head. They are historical baseline evidence only, not validation of the commits listed above.
+## 7. Platform audit and database security evidence
 
-## 8. Phase decision
+Live Supabase project inspection after migrations:
 
-**Phase 02 status: PARTIAL / IN PROGRESS.**  
-**Phase 03: NOT STARTED, as explicitly instructed.**
+| Evidence | Current result |
+|---|---:|
+| Applied migrations | 16 |
+| Public tables | 12 |
+| Public tables with RLS enabled | 12/12 |
+| Permission keys | 25 |
+| Roles | 8 |
+| Role-permission grants | 92 |
+| Security Advisor | 0 lints |
+| Platform audit partial index | Present |
 
-Do not mark Phase 02 COMPLETED until all current Web and Expo business action consumers are inventoried, every relevant action is guarded, and every business mutation has a real FastAPI service/endpoint with server-side permission, tenant/ownership and audit enforcement. No mock endpoint or permission grant may be used to make the matrix appear complete.
+New permission keys `account:read` and `role:read` are granted only to `platform_admin`; listing users/roles no longer requires mutation permissions `account:status:manage` or `role:assign`.
 
+Platform audit:
+- `GET /api/v1/admin/audit` is protected by platform-scoped `audit:read`, returns only platform-level rows (`organization_id IS NULL`), is rate limited and writes an audit receipt for the read action.
+- `admin_audit_logs_deny_client_access` denies all table commands to `anon` and `authenticated`.
+- The append-only trigger protects update/delete; the application `service_role` now has only SELECT and INSERT privileges on the audit table. Database owner privileges remain administrative.
+- The partial index `admin_audit_platform_time_idx` supports platform audit ordering.
 
-## 8. Runtime use of the canonical registry
+Migrations added and applied:
+- `20261119172508_p02_platform_read_permissions_and_audit_index.sql`
+- `20261119173915_p02_restrict_audit_mutation_grants.sql`
+- `20261119174508_p02_revoke_audit_reference_trigger_grants.sql`
 
-The FastAPI registry is now used by route dependencies, not merely by startup parity validation:
-- `require_api_action(action_id)` resolves the Python contract and selects the server-side self, tenant or platform dependency.
-- All 25 user-scoped route contracts in Auth, Organization, Admin and Audit routers reference their stable action IDs through this resolver.
-- The two BFF contracts are intentionally excluded from user dependencies and continue through explicit shared-secret gates.
-- Unknown action IDs and attempts to use a BFF action as a user dependency fail closed.
-- TypeScript and Python registry parity was checked for all 27 contracts.
+No deployment secrets, Google OAuth credentials, SMTP credentials or provider live settings were populated.
 
-This centralizes the authorization policy selection for existing API routes. It does not add missing business-domain endpoints or prove exhaustive Web/Expo screen-level wiring; the Phase 02 closure blockers in section 6 remain.
+## 8. Fresh static CI evidence
+
+Latest API workflow:
+- Workflow: **SalesX-Ai Phase 02 API Checks #266**
+- Run ID: `44580580455`
+- Validated commit: `ffffde450adc8a0ee5c41452d835b822dc427d08`
+- Result: SUCCESS.
+- API tests: **39 passed**.
+- `python -m compileall -q app`: passed.
+- `ruff check app`: passed.
+- Web `bun run typecheck`: passed.
+- Web `bun run lint`: passed.
+
+Latest foundation workflow:
+- Workflow: **SalesX-Ai Phase 00-01 Foundation Verification #181**
+- Run ID: `44580441850`
+- Validated commit: `0f3e73722b68da18a8d6040c4fab15ed42f098fe`
+- Result: SUCCESS.
+- Bun frozen workspace install, design token generation/reproducibility, Web TypeScript/lint, Expo Native TypeScript, Expo SDK compatibility, app config, Metro, Android/iOS bundle exports and Turborepo workspace build: passed.
+
+The Foundation workflow commit predates only later database migration/test/documentation changes; no Web/Expo source changes occurred after that validation. No staging or real-world test was run, as instructed.
+
+## 9. Remaining closure blockers
+
+1. **Business mutation service/repository completeness:** the authorization persistence/service layer and 16 service-boundary assertions are now implemented. However, several existing Phase 02 mutation handlers still contain their domain SQL directly in router functions rather than delegating each mutation to a dedicated application service and mutation repository. This does not satisfy the requested per-mutation service/repository separation yet.
+2. **Exhaustive future-phase handler mapping:** the seven portal components contain 443 JSX click sites and 7 form-submit sites. The inventory identifies their module surfaces and maps them to later domain phases, but not every future-phase click handler has an individual resource/action/permission/API contract. These future domain actions are not Phase 02 domain blockers, but the broader all-platform action inventory requested remains incomplete at handler granularity.
+3. Provider secrets and external OAuth/SMTP settings remain intentionally unset and are deployment-dependent, not code-completion evidence.
+
+## 10. Phase decision
+
+**Phase 02 status: PARTIAL / IN PROGRESS — NOT COMPLETED.**
+
+The identity/tenant action matrix, 28 endpoint contracts, Web/Expo Phase 02 action gates, authorization service/repository, platform audit endpoint, database grants/RLS evidence and fresh static CI are implemented. Do not mark Phase 02 complete until the remaining mutation-specific service/repository separation and requested full handler-level action inventory are closed.
+
+**Phase 03: NOT STARTED in this execution.** It remains eligible for a separate parallel workstream only after its migration, domain ownership and API contracts are isolated from Phase 02.
