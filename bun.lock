@@ -72,6 +72,9 @@
     "packages/api-client": {
       "name": "@salesx-ai/api-client",
       "version": "1.0.0",
+      "dependencies": {
+        "@salesx-ai/api-contracts": "workspace:*",
+      },
     },
     "packages/api-contracts": {
       "name": "@salesx-ai/api-contracts",
