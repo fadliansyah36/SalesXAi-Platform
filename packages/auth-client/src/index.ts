@@ -229,18 +229,18 @@ export class SalesXAuthClient {
   if(!raw)throw new AuthClientError("OAuth callback has no matching pending authorization.",400,"oauth_state_missing");
   let pending:OAuthPending;
   try{pending=JSON.parse(raw) as OAuthPending;}catch{
-   await this.storage.removeItem(this.storageKey+":oauth-pending");
+   await this.oauthStorage.removeItem(this.storageKey+":oauth-pending");
    throw new AuthClientError("OAuth authorization state is invalid.",400,"oauth_state_invalid");
   }
   if(!state||!constantTimeEqual(pending.state,state)||Date.now()-pending.createdAt>10*60*1000){
-   await this.storage.removeItem(this.storageKey+":oauth-pending");
+   await this.oauthStorage.removeItem(this.storageKey+":oauth-pending");
    throw new AuthClientError("OAuth state validation failed or expired.",400,"oauth_state_mismatch");
   }
   if(!code)throw new AuthClientError("OAuth authorization code is missing.",400,"oauth_code_missing");
   const session=await this.request<AuthSession>("token?grant_type=pkce",{
    method:"POST",body:JSON.stringify({auth_code:code,code_verifier:pending.codeVerifier}),
   });
-  await this.storage.removeItem(this.storageKey+":oauth-pending");
+  await this.oauthStorage.removeItem(this.storageKey+":oauth-pending");
   if(pending.flow==="link"&&pending.userId&&session.user?.id!==pending.userId){
    try{await this.request<void>("logout?scope=local",{method:"POST"},session.access_token);}catch{}
    throw new AuthClientError("Linked identity did not resolve to the original authenticated account.",403,"identity_link_account_mismatch");
@@ -248,11 +248,22 @@ export class SalesXAuthClient {
   await this.saveSession(session);
   return session;
  }
- async cancelOAuthFlow():Promise<void> {
-  await this.storage.removeItem(this.storageKey+":oauth-pending");
+ async cancelOAuthFlow(state:string|null):Promise<void> {
+  const key=this.storageKey+":oauth-pending";
+  const raw=await this.oauthStorage.getItem(key);
+  if(!raw)throw new AuthClientError("OAuth error callback has no matching pending authorization.",400,"oauth_state_missing");
+  let pending:OAuthPending;
+  try{pending=JSON.parse(raw) as OAuthPending;}catch{
+   await this.oauthStorage.removeItem(key);
+   throw new AuthClientError("OAuth authorization state is invalid.",400,"oauth_state_invalid");
+  }
+  if(!state||!constantTimeEqual(pending.state,state)){
+   throw new AuthClientError("OAuth error callback state validation failed.",400,"oauth_state_mismatch");
+  }
+  await this.oauthStorage.removeItem(key);
  }
  async acceptOAuthCallback(hash:string):Promise<AuthSession|null> {
-  const pendingOAuth=await this.storage.getItem(this.storageKey+":oauth-pending");
+  const pendingOAuth=await this.oauthStorage.getItem(this.storageKey+":oauth-pending");
   if(pendingOAuth)throw new AuthClientError(
    "A PKCE OAuth callback was expected; legacy implicit tokens are rejected for pending OAuth flows.",
    400,
@@ -300,7 +311,7 @@ export class SalesXAuthClient {
  }
  async clearSession():Promise<void> {
   await this.storage.removeItem(this.storageKey);
-  await this.storage.removeItem(this.storageKey+":oauth-pending");
+  await this.oauthStorage.removeItem(this.storageKey+":oauth-pending");
   this.emit(null);
  }
  async recoverPassword(email:string,redirectTo?:string):Promise<void> {
