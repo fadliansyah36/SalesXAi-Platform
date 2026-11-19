@@ -1,5 +1,6 @@
 import type {
   AccountStatusUpdateRequest,
+  AccountStatusUpdateResponse,
   AssignableRole,
   AuthContext,
   InvitationAcceptResponse,
@@ -235,6 +236,13 @@ export class SalesXApiClient {
       method: "POST",
       body: JSON.stringify(payload),
     });
+  }
+
+  updateAccountStatus(userId: string, payload: AccountStatusUpdateRequest): Promise<AccountStatusUpdateResponse> {
+    return this.request<AccountStatusUpdateResponse>(
+      `/api/v1/admin/users/${encodeURIComponent(userId)}/account-status`,
+      { method: "PATCH", body: JSON.stringify(payload) },
+    );
   }
 
   listSessions(): Promise<SessionDeviceSummary[]> {
