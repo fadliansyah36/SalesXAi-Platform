@@ -1,4 +1,4 @@
-export type { PlatformRole, PlatformUserSummary } from "@salesx-ai/api-contracts";
+export type { PlatformAuditLog, PlatformRole, PlatformUserSummary } from "@salesx-ai/api-contracts";
 import type {
   AccountStatusUpdateRequest,
   AccountStatusUpdateResponse,
@@ -18,6 +18,7 @@ import type {
   OrganizationCreateRequest,
   OrganizationMember,
   OrganizationSummary,
+  PlatformAuditLog,
   PlatformRole,
   PlatformUserSummary,
   RoleAssignmentRequest,
@@ -273,6 +274,12 @@ export class SalesXApiClient {
 
   listPlatformRoles(): Promise<PlatformRole[]> {
     return this.request<PlatformRole[]>("/api/v1/admin/roles");
+  }
+
+  listPlatformAuditLogs(options: { before?: string; limit?: number } = {}): Promise<PlatformAuditLog[]> {
+    const params = new URLSearchParams({ limit: String(options.limit ?? 100) });
+    if (options.before) params.set("before", options.before);
+    return this.request<PlatformAuditLog[]>("/api/v1/admin/audit?" + params.toString());
   }
 
   updateAccountStatus(userId: string, payload: AccountStatusUpdateRequest): Promise<AccountStatusUpdateResponse> {
