@@ -50,6 +50,13 @@ class SupabaseJWTVerifierTests(unittest.IsolatedAsyncioTestCase):
             await self.verifier.verify(self.token(exp=int(time.time())-30))
         self.assertEqual(raised.exception.status_code,401)
 
+    async def test_expired_access_token_can_only_be_verified_for_refresh_gate(self):
+        expired = self.token(exp=int(time.time())-30)
+        with self.assertRaises(APIError):
+            await self.verifier.verify(expired)
+        claims = await self.verifier.verify(expired, allow_expired=True)
+        self.assertEqual(claims["session_id"], "7d3f65c4-9d7e-4b7f-bb17-1a65c3d6c002")
+
     async def test_requires_session_and_subject_claims(self):
         token=self.token()
         claims=jwt.decode(token,SECRET,algorithms=["HS256"],options={"verify_signature":False,"verify_aud":False})
