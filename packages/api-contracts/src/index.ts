@@ -119,3 +119,53 @@ export interface PlatformAuditLog {
   occurred_at:ISODateTime;
   metadata:Record<string,unknown>;
 }
+
+
+export interface MasterDataWrite {
+  code?: string;
+  name?: string;
+  status?: "active" | "inactive" | "archived" | "suspended";
+  branch_id?: UUID | null;
+  parent_team_id?: UUID | null;
+  parent_territory_id?: UUID | null;
+  supervisor_user_id?: UUID | null;
+  territory_id?: UUID | null;
+  category?: string | null;
+  address?: string | null;
+  city?: string | null;
+  province?: string | null;
+  postal_code?: string | null;
+  phone?: string | null;
+  pic_name?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  boundary_geojson?: Record<string, unknown> | null;
+  user_id?: UUID;
+  employee_code?: string | null;
+  team_id?: UUID | null;
+  manager_user_id?: UUID | null;
+  effective_from?: string;
+  effective_until?: string | null;
+}
+export interface MasterDataRecord {
+  id: UUID;
+  organization_id: UUID;
+  created_at: ISODateTime;
+  updated_at: ISODateTime;
+  [field: string]: unknown;
+}
+export interface OutletAssignmentCreate { sales_profile_id: UUID; note?: string | null; }
+export interface OutletAssignmentRecord {
+  id: UUID;
+  organization_id: UUID;
+  outlet_id: UUID;
+  sales_profile_id: UUID;
+  assigned_by: UUID;
+  assigned_at: ISODateTime;
+  unassigned_at: ISODateTime | null;
+  note: string | null;
+  outlet_code?: string;
+  outlet_name?: string;
+  sales_user_id?: UUID;
+  employee_code?: string | null;
+}
