@@ -11,6 +11,17 @@ const authBffUrl=(process.env.EXPO_PUBLIC_AUTH_BFF_URL??"").replace(/\/$/,"");
 const apiOrigin=(process.env.EXPO_PUBLIC_SALESX_API_URL??"").replace(/\/$/,"");
 const redirectUrl="salesxai://auth/callback";
 
+function authorizationFingerprintFor(context:AuthContext,organizationId:string|null):string {
+ return JSON.stringify({
+  userId:context.user.id,sessionId:context.session_id,organizationId,
+  platformPermissions:[...context.platform_permissions].sort(),
+  memberships:context.memberships.map(m=>({
+   id:m.id,organizationId:m.organization_id,status:m.status,branchId:m.branch_id,
+   roles:[...m.roles].sort(),permissions:[...m.permissions].sort(),
+  })).sort((a,b)=>a.organizationId.localeCompare(b.organizationId)),
+ });
+}
+
 export function useMobileSalesAuth(){
  const [client,setClient]=useState<SalesXAuthClient|null>(null);
  const [status,setStatus]=useState<MobileAuthStatus>("loading");
@@ -22,6 +33,8 @@ export function useMobileSalesAuth(){
  const [contextEpoch,setContextEpoch]=useState(0);
  const busy=useRef(false);
  const processedAuthUrls=useRef<Set<string>>(new Set());
+ const activeOrganizationIdRef=useRef<string|null>(null);
+ const authorizationFingerprint=useRef<string|null>(null);
  const apiClient=useMemo(()=>client?new SalesXApiClient({
   baseUrl:apiOrigin,
   platform:Platform.OS==="ios"?"ios":"android",
@@ -32,6 +45,7 @@ export function useMobileSalesAuth(){
    onSessionInvalidated:async()=>{
     await client.clearSession();
     setSession(null);setContext(null);setActiveOrganizationIdState(null);setStatus("unauthenticated");
+    activeOrganizationIdRef.current=null;authorizationFingerprint.current=null;
     setContextEpoch(value=>value+1);
    },
   },
@@ -63,10 +77,17 @@ export function useMobileSalesAuth(){
    device_name:"SalesX-Ai Mobile Sales",
   });
   const next=await transport.getAuthContext();
+  const selectedOrganization=activeOrganizationIdRef.current
+   &&next.memberships.some(m=>m.organization_id===activeOrganizationIdRef.current&&m.status==="active")
+    ?activeOrganizationIdRef.current:next.memberships.find(m=>m.status==="active")?.organization_id??null;
+  const nextFingerprint=authorizationFingerprintFor(next,selectedOrganization);
+  if(authorizationFingerprint.current&&authorizationFingerprint.current!==nextFingerprint){
+   setContextEpoch(value=>value+1);
+  }
+  authorizationFingerprint.current=nextFingerprint;
+  activeOrganizationIdRef.current=selectedOrganization;
   setContext(next);
-  setActiveOrganizationIdState(previous=>
-   previous&&next.memberships.some(m=>m.organization_id===previous&&m.status==="active")
-    ?previous:next.memberships.find(m=>m.status==="active")?.organization_id??null);
+  setActiveOrganizationIdState(selectedOrganization);
   const resolvedSession=client?await client.getSession():null;
   setSession(resolvedSession??current);setStatus("authenticated");setError(null);
  },[client]);
@@ -78,6 +99,7 @@ export function useMobileSalesAuth(){
    const current=await authClient.getSession();
    if(!current){
     setSession(null);setContext(null);setActiveOrganizationIdState(null);
+    activeOrganizationIdRef.current=null;authorizationFingerprint.current=null;
     setStatus("unauthenticated");setError(null);return;
    }
    setStatus("loading");
@@ -87,6 +109,7 @@ export function useMobileSalesAuth(){
    if((cause instanceof AuthClientError&&(cause.status===401||cause.status===403))||status===401||status===403){
     await authClient.clearSession();
     setSession(null);setContext(null);setActiveOrganizationIdState(null);
+    activeOrganizationIdRef.current=null;authorizationFingerprint.current=null;
     setRecoveryPending(false);setStatus("unauthenticated");
    }else{
     setStatus("error");
