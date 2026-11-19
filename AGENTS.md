@@ -155,8 +155,8 @@ Implement defense in depth:
 Follow the phase order in the Engineering Execution Master Plan. Native Expo participates in applicable domain phases; it is not deferred wholesale to one mobile-only phase.
 
 - Phase 00 — Repository Bootstrap & Engineering Governance.
-- Phase 01 — Backend Foundation / canonical shared foundations as specified by the current execution plan.
-- Phase 02 — Identity, Authentication, Tenant & Authorization.
+- Phase 01 — Canonical Design System & Design Tokens.
+- Phase 02 — Identity, Tenant & Authorization Foundation.
 - Phase 03 — Master Data, Organization, Branch, Territory, Team & Outlet.
 - Phase 04 — SmartTeam: Sales Operations, Attendance, Visits & Targets.
 - Phase 05 — SmartOrder: Catalog, Pricing, Inventory, Cart & Orders.
