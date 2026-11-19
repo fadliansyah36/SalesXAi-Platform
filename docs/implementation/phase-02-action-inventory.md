@@ -129,3 +129,15 @@ Earlier workflows `44572989578` (API) and `44572989593` (Web/Expo foundation) co
 **Phase 03: NOT STARTED, as explicitly instructed.**
 
 Do not mark Phase 02 COMPLETED until all current Web and Expo business action consumers are inventoried, every relevant action is guarded, and every business mutation has a real FastAPI service/endpoint with server-side permission, tenant/ownership and audit enforcement. No mock endpoint or permission grant may be used to make the matrix appear complete.
+
+
+## 8. Runtime use of the canonical registry
+
+The FastAPI registry is now used by route dependencies, not merely by startup parity validation:
+- `require_api_action(action_id)` resolves the Python contract and selects the server-side self, tenant or platform dependency.
+- All 25 user-scoped route contracts in Auth, Organization, Admin and Audit routers reference their stable action IDs through this resolver.
+- The two BFF contracts are intentionally excluded from user dependencies and continue through explicit shared-secret gates.
+- Unknown action IDs and attempts to use a BFF action as a user dependency fail closed.
+- TypeScript and Python registry parity was checked for all 27 contracts.
+
+This centralizes the authorization policy selection for existing API routes. It does not add missing business-domain endpoints or prove exhaustive Web/Expo screen-level wiring; the Phase 02 closure blockers in section 6 remain.
