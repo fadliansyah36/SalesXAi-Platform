@@ -1,0 +1,14 @@
+{
+  "name": "@salesx-ai/design-tokens",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./native": "./generated/native.ts",
+    "./web.css": "./generated/web.css"
+  },
+  "scripts": {
+    "build": "node ./scripts/build-tokens.mjs",
+    "check": "node --check ./scripts/build-tokens.mjs && node ./scripts/build-tokens.mjs"
+  }
+}
