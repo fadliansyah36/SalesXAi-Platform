@@ -72,6 +72,7 @@ class InvitationMutationService:
   if await self.repository.pending_invitation_exists(connection,organization_id,email):
    raise APIError(409,"pending_invitation_exists","A pending invitation already exists for this email.")
   token=secrets.token_urlsafe(40)
+  self._url(request,token)
   identity=await self.repository.auth_identity(connection,email)
   async with connection.transaction():
    invitation=await self.repository.create(connection,organization_id,email,payload.title,payload.branch_id,payload.role_key,self._hash(token),principal.user_id)
@@ -128,6 +129,7 @@ class InvitationMutationService:
   authorization_service.assert_action_context(request,"organization.invitations.resend",principal.user_id,organization_id)
   if tenant.organization_id!=organization_id: raise APIError(403,"forbidden","Cross-tenant invitation access is denied.")
   token=secrets.token_urlsafe(40)
+  self._url(request,token)
   async with connection.transaction():
    row=await self.repository.resend(connection,invitation_id,organization_id,self._hash(token))
    if row is None: raise APIError(404,"invitation_not_found","Pending invitation was not found.")
