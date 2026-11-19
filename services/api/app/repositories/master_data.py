@@ -12,7 +12,8 @@ RESOURCE_TABLES: dict[str, frozenset[str]] = {
 }
 class MasterDataRepository:
  def _table(self, resource: str) -> str:
-  if resource not in RESOURCE_TABLES: raise ValueError("Unsupported master-data resource")
+  if resource not in RESOURCE_TABLES:
+      raise ValueError("Unsupported master-data resource")
   return resource
  async def list(self, connection: asyncpg.Connection, resource: str, organization_id: UUID, limit: int, offset: int) -> list[dict[str, Any]]:
   table=self._table(resource)
@@ -26,15 +27,18 @@ class MasterDataRepository:
  async def create(self, connection: asyncpg.Connection, resource: str, organization_id: UUID, values: dict[str, Any]) -> dict[str, Any]:
   table=self._table(resource); allowed=RESOURCE_TABLES[table]
   clean={key:value for key,value in values.items() if key in allowed and value is not None}
-  if not {"code","name"}.issubset(clean) and table!="sales_profiles": raise ValueError("code and name are required")
-  if table=="sales_profiles" and "user_id" not in clean: raise ValueError("user_id is required")
+  if not {"code","name"}.issubset(clean) and table!="sales_profiles":
+      raise ValueError("code and name are required")
+  if table=="sales_profiles" and "user_id" not in clean:
+      raise ValueError("user_id is required")
   columns=["organization_id",*clean.keys()]; args=[organization_id,*clean.values()]
   placeholders=",".join("$" + str(index) for index in range(1,len(args)+1))
   row=await connection.fetchrow(f"insert into public.{table} ({','.join(columns)}) values ({placeholders}) returning *",*args)
   return dict(row)
  async def update(self, connection: asyncpg.Connection, resource: str, organization_id: UUID, resource_id: UUID, values: dict[str, Any]) -> dict[str, Any] | None:
   table=self._table(resource); clean={key:value for key,value in values.items() if key in RESOURCE_TABLES[table] and value is not None}
-  if not clean: raise ValueError("At least one mutable field is required")
+  if not clean:
+      raise ValueError("At least one mutable field is required")
   assignments=",".join(f"{key}=" + "$" + str(index) for index,key in enumerate(clean,1))
   args=[*clean.values(),resource_id,organization_id]
   row=await connection.fetchrow(f"update public.{table} set {assignments},updated_at=now() where id=$" + str(len(clean)+1) + " and organization_id=$" + str(len(clean)+2) + " returning *",*args)
