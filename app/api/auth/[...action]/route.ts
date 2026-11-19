@@ -335,6 +335,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
 export async function DELETE(request: NextRequest, context: RouteContext) {
   const { action } = await context.params;
   if (action.join("/") !== "session") return authError(404, "not_found", "Resource not found.");
+  try { appOrigin(request); } catch {
+    return authError(503,"app_origin_not_configured","APP_PUBLIC_URL is deployment-pending.");
+  }
   if (!requestCsrf(request)) return authError(403, "csrf_validation_failed", "The request origin or CSRF token is invalid.");
   const response = NextResponse.json({ cleared: true }, { headers: { "Cache-Control": "no-store" } });
   clearSessionCookies(response);
