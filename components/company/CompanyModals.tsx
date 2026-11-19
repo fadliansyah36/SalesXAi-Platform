@@ -425,12 +425,13 @@ export function AddTeamMemberModal({
       <form
         onSubmit={async (event) => {
           event.preventDefault();
-          if (!name.trim() || !branchId || saving) return;
+          const selectedBranchId = branchId || branches[0]?.id || '';
+          if (!name.trim() || !selectedBranchId || saving) return;
           setSaving(true);
           try {
             await onAdd({
               name: name.trim(),
-              branchId,
+              branchId: selectedBranchId,
               supervisorUserId: supervisorUserId || null,
               parentTeamId: parentTeamId || null,
             });
@@ -461,7 +462,7 @@ export function AddTeamMemberModal({
           <label className="block text-xs font-semibold mb-1">Cabang</label>
           <select
             required
-            value={branchId}
+            value={branchId || branches[0]?.id || ''}
             onChange={(event) => setBranchId(event.target.value)}
             className="w-full rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 py-2"
           >
