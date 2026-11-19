@@ -60,6 +60,9 @@ export const API_ACTION_MATRIX: readonly ApiActionContract[] = [
   {id:"master.sales_profiles.update",method:"PATCH",path:"/api/v1/organizations/{organization_id}/sales-profiles/{record_id}",feature:"master_data",action:"update_sales_profile",resource:"sales_profile",rolePolicy:"tenant_permission:sales_profile:manage",permission:"sales_profile:manage",scope:"tenant",serverEnforcement:"tenant_permission_and_resource_tenant_match"},
   {id:"master.assignments.read",method:"GET",path:"/api/v1/organizations/{organization_id}/outlet-assignments",feature:"master_data",action:"read_outlet_assignments",resource:"outlet_assignment",rolePolicy:"tenant_permission:assignment:read",permission:"assignment:read",scope:"tenant",serverEnforcement:"tenant_permission_and_organization_match"},
   {id:"master.assignments.manage",method:"POST",path:"/api/v1/organizations/{organization_id}/outlets/{outlet_id}/assignments",feature:"master_data",action:"assign_outlet",resource:"outlet_assignment",rolePolicy:"tenant_permission:assignment:manage",permission:"assignment:manage",scope:"tenant",serverEnforcement:"tenant_permission_and_resource_tenant_match"},
+
+  {id:"platform.organizations.list",method:"GET",path:"/api/v1/admin/organizations",feature:"platform_tenant_management",action:"list_organizations",resource:"organization",rolePolicy:"platform_permission:organization:read",permission:"organization:read",scope:"platform",serverEnforcement:"platform_permission"},
+  {id:"platform.organizations.update",method:"PATCH",path:"/api/v1/admin/organizations/{organization_id}",feature:"platform_tenant_management",action:"update_organization_status",resource:"organization",rolePolicy:"platform_permission:organization:update",permission:"organization:update",scope:"platform",serverEnforcement:"platform_permission_and_resource_existence"},
 ] as const;
 
 export type ApiActionId = (typeof API_ACTION_MATRIX)[number]["id"];
