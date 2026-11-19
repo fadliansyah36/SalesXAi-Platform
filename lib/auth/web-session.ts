@@ -159,7 +159,7 @@ export async function enforceBffRateLimit(
 ): Promise<Response | null> {
   const origin = apiUrl();
   const secret = process.env.SALESX_BFF_SHARED_SECRET ?? "";
-  if (!origin || !secret) {
+  if (!origin || secret.length < 32) {
     return Response.json({ error: { code: "rate_limit_store_unavailable", message: "The server-side authentication rate limiter is not configured." } }, { status: 503 });
   }
   // Vercel/ingress must overwrite X-Real-IP; do not trust a client-supplied X-Forwarded-For chain.
