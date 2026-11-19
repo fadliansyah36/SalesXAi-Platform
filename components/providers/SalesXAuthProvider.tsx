@@ -133,12 +133,14 @@ export function SalesXAuthProvider({children}:{children:React.ReactNode}) {
 
   const signInWithOAuth=useCallback(async(provider:"google")=>{
     if(!client)throw new Error("Supabase Auth belum siap.");
-    await client.signInWithOAuth(provider,window.location.origin+"/auth/callback");
+    const authorizationUrl=await client.signInWithOAuth(provider,window.location.origin+"/auth/callback");
+    window.location.assign(authorizationUrl);
   },[client]);
 
   const linkIdentity=useCallback(async(provider:"google")=>{
     if(!client)throw new Error("Supabase Auth belum siap.");
-    await client.beginIdentityLink(provider,window.location.origin+"/auth/callback?identity_link=1");
+    const authorizationUrl=await client.beginIdentityLink(provider,window.location.origin+"/auth/callback?identity_link=1");
+    window.location.assign(authorizationUrl);
   },[client]);
 
   const unlinkIdentity=useCallback(async(identityId:string)=>{
@@ -160,7 +162,18 @@ export function SalesXAuthProvider({children}:{children:React.ReactNode}) {
     const params=new URLSearchParams(window.location.search);
     const tokenHash=params.get("token_hash");
     const type=params.get("type");
-    let next=await client.acceptOAuthCallback(window.location.hash);
+    const oauthError=params.get("error");
+    const code=params.get("code");
+    let next:AuthSession|null=null;
+    if(oauthError) {
+      await client.cancelOAuthFlow();
+      throw new AuthClientError(params.get("error_description")??"OAuth provider authorization was denied.",400,oauthError);
+    }
+    if(code) {
+      next=await client.completeOAuthCallback(code,params.get("state"));
+    } else {
+      next=await client.acceptOAuthCallback(window.location.hash);
+    }
     if(!next&&tokenHash) {
       next=await client.verifyEmailToken(tokenHash,
         type==="recovery"?"recovery":type==="invite"?"invite":type==="magiclink"?"magiclink":type==="email_change"?"email_change":"signup");
