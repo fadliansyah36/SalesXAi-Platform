@@ -1,4 +1,5 @@
 import type { MetadataRoute } from 'next';
+import { salesxTokens } from '../packages/design-tokens/generated/native';
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
@@ -10,28 +11,13 @@ export default function manifest(): MetadataRoute.Manifest {
     start_url: '/',
     scope: '/',
     display: 'standalone',
-    background_color: '#F8FAFC',
-    theme_color: '#348CB2',
+    background_color: salesxTokens.primitives.color.neutral[50].$value,
+    theme_color: salesxTokens.primitives.color.brand[600].$value,
     orientation: 'portrait-primary',
     icons: [
-      {
-        src: '/pwa-192x192.png',
-        sizes: '192x192',
-        type: 'image/png',
-        purpose: 'any',
-      },
-      {
-        src: '/pwa-512x512.png',
-        sizes: '512x512',
-        type: 'image/png',
-        purpose: 'any',
-      },
-      {
-        src: '/pwa-maskable-512x512.png',
-        sizes: '512x512',
-        type: 'image/png',
-        purpose: 'maskable',
-      },
+      { src: '/pwa-192x192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+      { src: '/pwa-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+      { src: '/pwa-maskable-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
     ],
   };
 }
