@@ -64,6 +64,7 @@ export function SalesXAuthProvider({children}:{children:React.ReactNode}) {
   const [error,setError]=useState<string|null>(null);
   const [consumerEpoch,setConsumerEpoch]=useState(0);
   const hydrating=useRef(false);
+  const authenticatedUserId=useRef<string|null>(null);
   const csrfToken=useRef("");
   const apiClientRef=useRef<SalesXApiClient|null>(null);
 
@@ -117,6 +118,7 @@ export function SalesXAuthProvider({children}:{children:React.ReactNode}) {
 
   const invalidateSession=useCallback(async()=>{
     try{await clearCookieSession();}catch{}
+    authenticatedUserId.current=null;
     setSession(null);setContext(null);setActiveOrganizationIdState(null);
     setStatus("unauthenticated");setError(null);setConsumerEpoch(value=>value+1);
   },[clearCookieSession]);
@@ -140,6 +142,9 @@ export function SalesXAuthProvider({children}:{children:React.ReactNode}) {
   apiClientRef.current=apiClient;
 
   const loadContext=useCallback(async(current:WebSession)=>{
+    if(authenticatedUserId.current&&authenticatedUserId.current!==current.user.id)
+      setConsumerEpoch(value=>value+1);
+    authenticatedUserId.current=current.user.id;
     const transport=apiClientRef.current;
     if(!transport)throw new Error("FastAPI cookie transport belum siap.");
     await transport.registerCurrentSession({platform:"web",device_name:"SalesX-Ai Web Portal"});
