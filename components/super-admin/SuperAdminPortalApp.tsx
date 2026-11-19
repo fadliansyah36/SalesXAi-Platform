@@ -3335,15 +3335,26 @@ export function SuperAdminPortalApp() {
         node={selectedOrgNode}
         onClose={() => setSelectedOrgNode(null)}
         onSave={(id, patch) => {
-          setOrgNodes((prev) =>
-            prev.map((o) => (o.id === id ? { ...o, ...patch } : o))
-          );
-          appendAudit(
-            'Ubah Unit Organisasi',
-            'Organisasi',
-            `Unit ${id} diperbarui: ${patch.name ?? ''} (${patch.status ?? ''}).`
-          );
-          showToast('Detail unit organisasi diperbarui.');
+          const node = orgNodes.find((item) => item.id === id);
+          if (!node || !auth.apiClient) return;
+          const status = patch.status === 'Aktif' ? 'active' : 'inactive';
+          const operation = node.id === node.tenantId
+            ? (auth.canPerformApiAction('platform.organizations.update')
+              ? auth.apiClient.updatePlatformOrganization(node.tenantId, { status: status === 'active' ? 'active' : 'suspended' })
+              : Promise.reject(new Error('Akses perubahan organisasi tidak diizinkan.')))
+            : (auth.canPerformApiAction('platform.organizations.branches.update')
+              ? auth.apiClient.updateOrganizationBranch(node.tenantId, id, {
+                  name: patch.name ?? node.name,
+                  city: patch.city ?? node.city,
+                  manager_name: patch.managerName ?? node.managerName,
+                  status,
+                })
+              : Promise.reject(new Error('Akses perubahan cabang tidak diizinkan.')));
+          void operation.then(() => {
+            setOrganizationsRefreshKey((value) => value + 1);
+            setSelectedOrgNode(null);
+            showToast('Data unit organisasi berhasil diperbarui melalui FastAPI.');
+          }).catch((error: unknown) => setOrganizationsError(error instanceof Error ? error.message : 'Unit organisasi gagal diperbarui.'));
         }}
       />
 
