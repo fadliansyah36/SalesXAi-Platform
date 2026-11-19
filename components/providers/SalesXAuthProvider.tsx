@@ -72,29 +72,16 @@ export function SalesXAuthProvider({children}:{children:React.ReactNode}) {
   },[]);
 
   const loadContext=useCallback(async(current:AuthSession)=>{
-    if(!apiOrigin)throw new Error("FastAPI origin belum dikonfigurasi.");
-    const response=await fetch(apiOrigin+"/api/v1/auth/me",{
-      headers:{Authorization:"Bearer "+current.access_token,"X-Client-Platform":"web"},
-      cache:"no-store",
-    });
-    if(!response.ok) {
-      const body=await response.json().catch(()=>({}));
-      throw new AuthClientError(body?.error?.message??"FastAPI menolak sesi autentikasi.",response.status,body?.error?.code);
-    }
-    const next=await response.json() as SalesXAuthContextData;
+    if(!apiClient)throw new Error("FastAPI client belum dikonfigurasi.");
+    const next=await apiClient.getAuthContext();
     setContext(next);
     setActiveOrganizationIdState(previous=>
       previous&&next.memberships.some(m=>m.organization_id===previous&&m.status==="active")
         ?previous:next.memberships.find(m=>m.status==="active")?.organization_id??null);
-    const registered=await fetch(apiOrigin+"/api/v1/auth/sessions/current",{
-      method:"POST",
-      headers:{Authorization:"Bearer "+current.access_token,"Content-Type":"application/json","X-Client-Platform":"web"},
-      body:JSON.stringify({platform:"web",device_name:"SalesX-Ai Web Portal"}),
-      cache:"no-store",
-    });
-    if(!registered.ok)throw new Error("Sesi tidak dapat diregistrasikan ke FastAPI.");
-    setSession(current);setStatus("authenticated");setError(null);
-  },[]);
+    await apiClient.registerCurrentSession({platform:"web",device_name:"SalesX-Ai Web Portal"});
+    const resolvedSession=client?await client.getSession():null;
+    setSession(resolvedSession??current);setStatus("authenticated");setError(null);
+  },[apiClient,client]);
 
   const hydrate=useCallback(async(authClient:SalesXAuthClient)=>{
     if(hydrating.current)return;
