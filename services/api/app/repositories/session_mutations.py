@@ -29,3 +29,10 @@ class SessionMutationRepository:
     values($1,$2,'unknown',now())
     on conflict(auth_session_id) do update set revoked_at=coalesce(public.session_devices.revoked_at,now())""",session_id,user_id)
 
+ async def get_refresh_context(self,connection:asyncpg.Connection,user_id:UUID,session_id:UUID):
+  return await connection.fetchrow("""select p.status,p.session_revoked_at,u.email_confirmed_at,u.phone_confirmed_at,
+   s.id session_id,s.not_after,sd.id device_id,sd.revoked_at,sd.expires_at
+   from public.profiles p join auth.users u on u.id=p.id
+   left join auth.sessions s on s.id=$2 and s.user_id=p.id
+   left join public.session_devices sd on sd.auth_session_id=s.id and sd.user_id=p.id
+   where p.id=$1""",user_id,session_id)
