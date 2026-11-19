@@ -7,6 +7,7 @@ type Member={user_id:string;email:string|null;display_name:string|null;account_s
 type Invitation={id:string;email:string;role_key:string;status:string;expires_at:string;resend_count?:number};
 type Identity={id:string;provider:string;email:string|null;is_primary:boolean;created_at:string};
 type RoleOption={key:string;name:string;scope_type:'tenant'|'branch';hierarchy_level:number};
+type Session={auth_session_id:string;device_name:string|null;platform:string;last_seen_at:string|null;expires_at:string|null;revoked_at:string|null;current:boolean};
 
 export function OrganizationAccessConsole(){
  const auth=useSalesXAuth();
@@ -15,6 +16,7 @@ export function OrganizationAccessConsole(){
  const [invitations,setInvitations]=useState<Invitation[]>([]);
  const [identities,setIdentities]=useState<Identity[]>([]);
  const [roleOptions,setRoleOptions]=useState<RoleOption[]>([]);
+ const [sessions,setSessions]=useState<Session[]>([]);
  const [email,setEmail]=useState("");
  const [role,setRole]=useState("");
  const [branch,setBranch]=useState("");
@@ -39,6 +41,7 @@ export function OrganizationAccessConsole(){
   })());
   jobs.push((async()=>{
    setIdentities(await api.listLinkedIdentities());
+   setSessions(await api.listSessions());
   })());
   await Promise.all(jobs);
  },[org,canReadMembers,canManageInvites,auth.apiClient]);
@@ -82,6 +85,13 @@ export function OrganizationAccessConsole(){
   }catch(e){setMessage(e instanceof Error?e.message:"Pembaruan membership gagal.");}
   finally{setBusy(false);}
  }
+ async function revokeDeviceSession(sessionId:string){
+  const api=auth.apiClient;
+  if(!api)throw new Error("FastAPI client belum dikonfigurasi.");
+  await api.revokeSession(sessionId);
+  setSessions(await api.listSessions());
+  setMessage("Akses API SalesX-Ai untuk sesi perangkat tersebut dicabut.");
+ }
  async function linkGoogle(){
   try{await auth.linkIdentity("google");}
   catch(e){setMessage(e instanceof Error?e.message:"Google identity linking gagal.");}
@@ -95,6 +105,14 @@ export function OrganizationAccessConsole(){
  return <div className="space-y-8">
   <header><h1 className="text-2xl font-bold">Akses & Identitas</h1><p className="mt-1 text-sm text-[var(--color-text-secondary)]">Organisasi aktif: {auth.activeMembership?.organization_name??"Belum dipilih"}</p></header>
   {message&&<p role="status" className="break-all rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-3 text-sm">{message}</p>}
+  <section className="space-y-3 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+   <h2 className="text-lg font-semibold">Sesi perangkat</h2>
+   <p className="text-xs text-[var(--color-text-secondary)]">Cabut akses API untuk perangkat lain. Supabase Auth tidak menyediakan pencabutan refresh token per-perangkat berdasarkan session ID.</p>
+   <div className="space-y-2">{sessions.map(session=><div key={session.auth_session_id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--color-border)] p-3">
+    <div><p className="font-medium">{session.device_name??session.platform} {session.current?"· Perangkat ini":""}</p><p className="text-xs text-[var(--color-text-muted)]">{session.platform} · {session.revoked_at?"Akses dicabut":session.current?"Aktif sekarang":"Aktif"} · {session.last_seen_at?new Date(session.last_seen_at).toLocaleString():"Belum ada aktivitas"}</p></div>
+    {!session.current&&!session.revoked_at&&<button disabled={busy} onClick={()=>void revokeDeviceSession(session.auth_session_id).catch(e=>setMessage(e instanceof Error?e.message:"Sesi tidak dapat dicabut."))} className="text-xs font-semibold text-red-600">Cabut akses</button>}
+   </div>)}</div>
+  </section>
   <section className="space-y-3 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
    <h2 className="text-lg font-semibold">Identitas login</h2>
    <button onClick={()=>void linkGoogle()} className="rounded-lg border border-[var(--color-border)] px-3 py-2 text-sm font-semibold">Hubungkan Google identity</button>
