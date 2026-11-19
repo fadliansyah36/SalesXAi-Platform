@@ -22,7 +22,8 @@ class OrganizationMutationService:
   return dict(org)
  async def add_member(self,connection:asyncpg.Connection,request:Request,principal:Principal,tenant:TenantContext,organization_id:UUID,user_id:UUID,title:str|None):
   authorization_service.assert_action_context(request,"organization.members.invite",principal.user_id,organization_id)
-  if tenant.organization_id!=organization_id: raise APIError(403,"forbidden","Cross-tenant membership access is denied.")
+  if tenant.organization_id!=organization_id:
+      raise APIError(403,"forbidden","Cross-tenant membership access is denied.")
   if not await self.repository.auth_identity_exists(connection,user_id):
    raise APIError(404,"identity_not_found","The Supabase Auth identity does not exist.")
   async with connection.transaction():
@@ -38,11 +39,14 @@ class OrganizationMutationService:
   return min(levels) if levels else None
  async def update_member_status(self,connection:asyncpg.Connection,request:Request,principal:Principal,tenant:TenantContext,organization_id:UUID,user_id:UUID,status:str)->dict:
   authorization_service.assert_action_context(request,"organization.members.update",principal.user_id,organization_id)
-  if tenant.organization_id!=organization_id: raise APIError(403,"forbidden","Cross-tenant membership access is denied.")
-  if user_id==principal.user_id and status!="active": raise APIError(409,"self_lockout_prevented","You cannot suspend or remove your own membership.")
+  if tenant.organization_id!=organization_id:
+      raise APIError(403,"forbidden","Cross-tenant membership access is denied.")
+  if user_id==principal.user_id and status!="active":
+      raise APIError(409,"self_lockout_prevented","You cannot suspend or remove your own membership.")
   async with connection.transaction():
    member=await self.repository.lock_member(connection,organization_id,user_id)
-   if member is None: raise APIError(404,"membership_not_found","Organization membership was not found.")
+   if member is None:
+       raise APIError(404,"membership_not_found","Organization membership was not found.")
    if user_id!=principal.user_id:
     if await self.repository.target_is_platform_admin(connection,user_id):
      raise APIError(403,"platform_identity_protected","Tenant administrators cannot change a platform-scoped identity.")
@@ -52,7 +56,8 @@ class OrganizationMutationService:
     if actor_level is None or (target_level is not None and actor_level>=target_level):
      raise APIError(403,"privilege_escalation_denied","You cannot change a membership with equal or higher privilege.")
    row=await self.repository.update_membership_status(connection,organization_id,user_id,status)
-   if row is None: raise APIError(404,"membership_not_found","Organization membership was not found.")
+   if row is None:
+       raise APIError(404,"membership_not_found","Organization membership was not found.")
    if status=="removed":
     await self.repository.revoke_membership_roles(connection,row["id"])
     await write_audit(connection,request,principal,"organization.member.roles_revoked_on_removal","organization_membership",str(row["id"]),tenant,metadata={"member_user_id":str(user_id)})
@@ -60,20 +65,24 @@ class OrganizationMutationService:
   return dict(row)
  async def assign_member_role(self,connection:asyncpg.Connection,request:Request,principal:Principal,tenant:TenantContext,organization_id:UUID,user_id:UUID,role_key:str,branch_id:UUID|None)->dict:
   authorization_service.assert_action_context(request,"organization.roles.assign",principal.user_id,organization_id)
-  if tenant.organization_id!=organization_id: raise APIError(403,"forbidden","Cross-tenant role assignment is denied.")
+  if tenant.organization_id!=organization_id:
+      raise APIError(403,"forbidden","Cross-tenant role assignment is denied.")
   async with connection.transaction():
    member=await self.repository.get_active_member(connection,organization_id,user_id)
-   if member is None: raise APIError(404,"membership_not_found","An active target membership is required.")
+   if member is None:
+       raise APIError(404,"membership_not_found","An active target membership is required.")
    role=await self.repository.get_role(connection,role_key)
    if role is None or role["scope_type"] not in {"tenant","branch"} or role["key"]=="tenant_owner":
     raise APIError(400,"invalid_role","Only delegable tenant- or branch-scoped roles can be assigned.")
    if role["scope_type"]=="branch":
-    if branch_id is None: raise APIError(400,"branch_scope_required","A branch ID is required for this role.")
+    if branch_id is None:
+        raise APIError(400,"branch_scope_required","A branch ID is required for this role.")
     if not await self.repository.branch_is_active(connection,branch_id,organization_id) or (member["branch_id"] is not None and member["branch_id"]!=branch_id):
      raise APIError(403,"invalid_branch_scope","The selected branch is outside the target membership scope.")
     assignment_scope_id=branch_id
    else:
-    if branch_id is not None: raise APIError(400,"invalid_branch_scope","Tenant roles cannot carry a branch scope.")
+    if branch_id is not None:
+        raise APIError(400,"invalid_branch_scope","Tenant roles cannot carry a branch scope.")
     assignment_scope_id=organization_id
    actor_level=await self._delegation_level(connection,principal.user_id,tenant.membership_id,organization_id,"role:assign",
     assignment_scope_id if role["scope_type"]=="branch" else None,getattr(request.state,"resource_attributes",{}))
@@ -91,7 +100,8 @@ class OrganizationMutationService:
   authorization_service.assert_action_context(request,"platform.organizations.update",principal.user_id)
   async with connection.transaction():
    row=await self.repository.update_organization_status(connection,organization_id,status)
-   if row is None: raise APIError(404,"organization_not_found","Organization was not found.")
+   if row is None:
+       raise APIError(404,"organization_not_found","Organization was not found.")
    await write_audit(connection,request,principal,"platform.organization.status_changed","organization",str(organization_id),metadata={"status":status})
   return dict(row)
 
@@ -110,7 +120,8 @@ class OrganizationMutationService:
   authorization_service.assert_action_context(request,"platform.organizations.branches.update",principal.user_id)
   async with connection.transaction():
    row=await self.master_data_repository.update(connection,"branches",organization_id,branch_id,values)
-   if row is None: raise APIError(404,"branch_not_found","Branch was not found in this organization.")
+   if row is None:
+       raise APIError(404,"branch_not_found","Branch was not found in this organization.")
    await write_audit(connection,request,principal,"platform.organization.branch_updated","branch",str(branch_id),metadata={"organization_id":str(organization_id),"fields":sorted(values)})
   return row
 
