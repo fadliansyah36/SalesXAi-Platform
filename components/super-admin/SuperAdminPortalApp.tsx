@@ -216,6 +216,7 @@ export function SuperAdminPortalApp() {
   const [auditError,setAuditError]=useState<string|null>(null);
   const [organizationsLoading,setOrganizationsLoading]=useState(false);
   const [organizationsError,setOrganizationsError]=useState<string|null>(null);
+  const [organizationsRefreshKey,setOrganizationsRefreshKey]=useState(0);
   const [notifications, setNotifications] = useState<NotificationItem[]>(
     INITIAL_NOTIFICATIONS
   );
@@ -311,7 +312,7 @@ export function SuperAdminPortalApp() {
       })
       .finally(() => { if (active) setOrganizationsLoading(false); });
     return () => { active = false; };
-  }, [activeTab, auth.apiClient, auth.canPerformApiAction]);
+  }, [activeTab, auth.apiClient, auth.canPerformApiAction, organizationsRefreshKey]);
 
   // Filters & Sub-tabs
   const [tenantSearch, setTenantSearch] = useState('');
@@ -615,6 +616,7 @@ export function SuperAdminPortalApp() {
   ];
 
   const hasAdminNavigationPermission=(id:SuperAdminTab):boolean=>{
+    if(id==="tenants" || id==="organizations")return auth.canPerformApiAction("platform.organizations.list");
     if(id==="users")return auth.canPerformApiAction("platform.users.list");
     if(id==="roles")return auth.canPerformApiAction("platform.roles.list");
     if(id==="audit_logs")return auth.canPerformApiAction("platform.audit.read");
@@ -627,7 +629,8 @@ export function SuperAdminPortalApp() {
     items:group.items.filter(item=>hasAdminNavigationPermission(item.id)),
   })).filter(group=>group.items.length>0);
 
-  const firstAvailableAdminTab:SuperAdminTab|null=auth.canPerformApiAction("platform.users.list")?"users":
+  const firstAvailableAdminTab:SuperAdminTab|null=auth.canPerformApiAction("platform.organizations.list")?"tenants":
+    auth.canPerformApiAction("platform.users.list")?"users":
     auth.canPerformApiAction("platform.roles.list")?"roles":
     auth.canPerformApiAction("platform.audit.read")?"audit_logs":null;
   const activeTabAllowed=hasAdminNavigationPermission(activeTab);
@@ -1106,6 +1109,7 @@ export function SuperAdminPortalApp() {
                   <option value="Pro">Pro</option>
                   <option value="Basic">Basic</option>
                   <option value="Trial">Trial</option>
+                  <option value="Belum dikonfigurasi">Belum dikonfigurasi</option>
                 </select>
               </div>
             </div>
