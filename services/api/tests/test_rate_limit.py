@@ -23,6 +23,14 @@ class DistributedRateLimitRuleTests(unittest.TestCase):
         self.assertEqual(len(first), 64)
         self.assertNotIn("203.0.113.10", first)
 
+    def test_bucket_keys_are_keyed_when_a_server_secret_is_available(self):
+        first = _bucket_key("auth:account", "user-123", "a" * 32)
+        same = _bucket_key("auth:account", "user-123", "a" * 32)
+        different = _bucket_key("auth:account", "user-123", "b" * 32)
+        self.assertEqual(first, same)
+        self.assertNotEqual(first, different)
+        self.assertNotIn("user-123", first)
+
 
 if __name__ == "__main__":
     unittest.main()
