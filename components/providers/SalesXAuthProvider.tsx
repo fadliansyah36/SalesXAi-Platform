@@ -78,14 +78,20 @@ export function SalesXAuthProvider({children}:{children:React.ReactNode}) {
 
   const authRequest=useCallback(async<T=Record<string,unknown>>(action:string,payload?:Record<string,unknown>):Promise<T>=>{
     const csrf=await ensureCsrf();
-    const response=await fetch("/api/auth/"+action,{
+    const send=(token:string)=>fetch("/api/auth/"+action,{
       method:"POST",
       credentials:"same-origin",
-      headers:{"Content-Type":"application/json","X-CSRF-Token":csrf},
+      headers:{"Content-Type":"application/json","X-CSRF-Token":token},
       body:JSON.stringify(payload??{}),
       cache:"no-store",
     });
-    const body=await response.json().catch(()=>({}));
+    let response=await send(csrf);
+    let body=await response.json().catch(()=>({}));
+    if(response.status===403&&body?.error?.code==="csrf_validation_failed"){
+      csrfToken.current="";
+      response=await send(await ensureCsrf());
+      body=await response.json().catch(()=>({}));
+    }
     if(!response.ok)throw new AuthClientError(
       body?.error?.message??"Web authentication request failed.",
       response.status,
