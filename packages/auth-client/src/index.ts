@@ -244,6 +244,12 @@ export class SalesXAuthClient {
   await this.storage.removeItem(this.storageKey+":oauth-pending");
  }
  async acceptOAuthCallback(hash:string):Promise<AuthSession|null> {
+  const pendingOAuth=await this.storage.getItem(this.storageKey+":oauth-pending");
+  if(pendingOAuth)throw new AuthClientError(
+   "A PKCE OAuth callback was expected; legacy implicit tokens are rejected for pending OAuth flows.",
+   400,
+   "oauth_pkce_required",
+  );
   const params=new URLSearchParams(hash.replace(/^#/,""));
   const accessToken=params.get("access_token");
   const refreshToken=params.get("refresh_token");
