@@ -1604,7 +1604,8 @@ export function CompanyPortalApp() {
                 <button
                   type="button"
                   onClick={() => setAddTeamOpen(true)}
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-[#348CB2] hover:bg-[#236D91] px-4 py-2.5 text-sm font-bold text-white cursor-pointer"
+                  disabled={!auth.canPerformApiAction('master.teams.create') || branches.length === 0}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-[#348CB2] hover:bg-[#236D91] px-4 py-2.5 text-sm font-bold text-white cursor-pointer disabled:opacity-50"
                 >
                   <Plus className="h-4 w-4" />
                   <span>Kelola Struktur Tim</span>
@@ -1661,6 +1662,11 @@ export function CompanyPortalApp() {
                       Buka Absensi Tim →
                     </button>
                   </div>
+                  {teamMembers.length === 0 && (
+                    <div className="rounded-xl border border-dashed border-[var(--color-border-strong)] p-6 text-center text-xs text-[var(--color-text-muted)]">
+                      Belum ada sales profile yang terhubung ke tim pada organisasi aktif.
+                    </div>
+                  )}
                   {teamMembers.map((tm) => (
                     <div
                       key={tm.id}
@@ -3222,8 +3228,23 @@ export function CompanyPortalApp() {
       <AddTeamMemberModal
         open={addTeamOpen}
         branches={branches}
+        supervisors={organizationMembers.filter((member) => member.status === 'active').map((member) => ({
+          userId: member.user_id, name: asText(member.display_name) || asText(member.email) || member.user_id,
+        }))}
+        teams={teams.map((team) => ({ id: asText(team.id), name: asText(team.name) }))}
         onClose={() => setAddTeamOpen(false)}
-        onAdd={(tm) => setTeamMembers((prev) => [tm, ...prev])}
+        onAdd={async (team) => {
+          if (!auth.apiClient || !auth.activeOrganizationId || !auth.canPerformApiAction('master.teams.create')) {
+            throw new Error('Akses pembuatan tim tidak diizinkan.');
+          }
+          const row = await auth.apiClient.createTeam(auth.activeOrganizationId, {
+            code: masterCode(team.name), name: team.name, branch_id: team.branchId,
+            supervisor_user_id: team.supervisorUserId || undefined,
+            parent_team_id: team.parentTeamId || undefined, status: 'active',
+          });
+          setTeams((previous) => [row as TeamRecord, ...previous]);
+          showToast('Struktur tim ' + team.name + ' berhasil disimpan melalui FastAPI.');
+        }}
       />
       <AddTerritoryModal
         open={addTerritoryOpen}
