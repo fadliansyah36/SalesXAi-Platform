@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Plus_Jakarta_Sans, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
+import { salesxTokens } from '../packages/design-tokens/generated/native';
 import { AppProviders } from '@/components/providers/AppProviders';
 
 const plusJakarta = Plus_Jakarta_Sans({
@@ -18,7 +19,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const viewport: Viewport = {
-  themeColor: '#348CB2',
+  themeColor: salesxTokens.primitives.color.brand[600].$value,
   width: 'device-width',
   initialScale: 1,
 };
