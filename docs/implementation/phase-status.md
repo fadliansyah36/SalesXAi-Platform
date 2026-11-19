@@ -532,3 +532,89 @@ This section supersedes earlier Phase 02 addenda where SmartTeam, SmartOrder, Sm
 **Decision: Phase 02 remains PARTIAL / IN PROGRESS — NOT COMPLETED.** The action matrix, 28 API contracts, Web/Expo Phase 02 resolver integration, authorization service/repository, platform audit, RLS/grant evidence and fresh static CI are in place. Do not close Phase 02 until the remaining mutation-specific service/repository separation and handler-level action inventory are complete.
 
 **Phase 03: NOT STARTED in this execution.** A separate parallel workstream may be opened only with isolated Phase 03 migrations, domain ownership and API contracts; it must not alter Phase 02 completion evidence.
+
+
+# Final reconciliation — Phase 02 closure and Phase 03 parallel stream (2026-11-20)
+
+This entry supersedes earlier status addenda below for the current execution. Phase numbering follows root `AGENTS.md` and the Engineering Execution Master Plan v1.0:
+- Phase 02 — Identity, Tenant & Authorization Foundation.
+- Phase 03 — Master Data, Organization, Branch, Territory, Team & Outlet.
+
+The Master PRD v1.0's legacy “Master Phases” list uses a different numbering for its early phases. Root `AGENTS.md` explicitly directs implementation to follow the Engineering Execution Master Plan sequence; this tracker therefore uses the latter sequence without modifying the PRD baseline.
+
+## Phase 02 — COMPLETED
+
+### Implementation and architecture
+- 14 mutation routes moved to dedicated application services and mutation repositories:
+  - Account administration: 1.
+  - Session lifecycle: 3.
+  - Identity lifecycle: 1.
+  - Organization/membership/role: 4.
+  - Invitation lifecycle: 5.
+- Added dedicated read service/repository boundaries for identity context/session/identity reads, organization/member/role-delegation reads, platform user/role/audit reads, and tenant audit reads.
+- BFF session-refresh authorization now delegates database/session checks to `SessionMutationService`.
+- All registered FastAPI router files contain **zero direct connection SQL calls** and **zero domain DML statements**. Router-only HTTP/dependency/validation/service invocation is enforced by `services/api/tests/test_phase02_mutation_architecture.py`.
+- Authorization repository/service, verified Supabase Auth JWT, active tenant context, organization/branch scope, profile, RBAC/ABAC, session lifecycle, invitation lifecycle, platform/tenant audit and shared Web/Expo auth clients are implemented.
+- Existing Web/Expo Phase 02 action gates remain integrated: 18 unique Phase 02 UI action IDs and 40 resolver call sites.
+- Full handler inventory committed at `docs/implementation/handler-level-action-inventory.tsv`: 868 callback/event prop occurrences across seven Web portal components and Expo Sales. It records 443 Web `onClick`, 7 Web `onSubmit`, 17 Expo `onPress`, plus custom component callbacks and UI state handlers. Future-phase actions are explicitly assigned to their owning phase without inventing endpoints or permissions.
+
+### Contracts and authorization
+- Canonical action registries: **50/50** Python and TypeScript action IDs match exactly.
+- Phase 02/platform identity foundation baseline: 28 contracts.
+- Phase 03 master-data/tenant stream: 22 additional contracts, separately documented.
+- Phase 02 route enforcement and default-deny checks remain enforced by startup contract validation and API tests.
+- The full handler inventory is a source-level inventory and scope classification; it does not claim future-phase APIs have already been implemented.
+
+### Supabase evidence
+Target project: `eyofuiyxalbehbqoaeny`.
+
+- **19** applied migrations in the live migration history.
+- **17/17** public tables have RLS enabled.
+- **35** permission keys, **8** roles, **122** role-permission grants.
+- Five Phase 03 master-data tables have their own RLS policies and direct client access is denied.
+- Security Advisor: **0 security lints**.
+- Phase 02 migration history comprises the 16 migrations through `20261119174508`; Phase 03 adds the three migration versions below.
+
+### Engineering validation evidence
+- Phase 02 API Checks run **44591830007**, code commit `8917bcaac8da50e56e6a63c55569cab7c4811fbe`: **SUCCESS**.
+  - 46 Python tests passed.
+  - Python compileall passed.
+  - Ruff passed.
+  - Web TypeScript typecheck and Web lint passed.
+  - Run: https://github.com/fadliansyah36/SalesXAi-Platform/actions/runs/44591830007
+- Foundation Verification run **44588497867**, cross-platform source head `fcacb165b42f290ef8ad785513485fe1d3ee074b`: **SUCCESS**.
+  - Bun frozen install and canonical token reproducibility passed.
+  - Web TypeScript/lint passed.
+  - Expo Native TypeScript, SDK compatibility, Expo config, Metro startup, Android/iOS bundle exports and Turborepo build passed.
+  - Run: https://github.com/fadliansyah36/SalesXAi-Platform/actions/runs/44588497867
+- No staging, deployment, real-world testing, SMTP credential population, Google OAuth credential population or production secret verification was performed or claimed.
+
+**Decision: Phase 02 = COMPLETED.** No Phase 02 implementation-code blocker remains. Deferred provider/deployment credentials are not a code blocker.
+
+## Phase 03 — IN_PROGRESS
+
+### Implemented
+- Supabase core master-data migration:
+  - `20261119175922_p03_master_data_core.sql` — teams, territories, outlets, sales profiles, outlet assignment history, permissions/grants, indexes, constraints and RLS.
+- Supabase branch metadata migration:
+  - `20261119180611_p03_branch_contact_location_fields.sql` — branch contact/location attributes.
+- Supabase branch type migration:
+  - `20261119181929_p03_branch_type.sql` — `head_office`, `branch`, `warehouse`.
+- All three migrations are applied to target project `eyofuiyxalbehbqoaeny`.
+- FastAPI master-data router, Pydantic schema, application service and repository support branch, team, territory, outlet, sales profile and outlet assignment reads/mutations.
+- Tenant-scoped constraints, composite foreign keys, tenant membership/reference validation, unique tenant codes, assignment history and one-active-assignment index are implemented.
+- 22 Phase 03 action contracts are mirrored in Python and TypeScript registries and included in the 50/50 parity result.
+- Shared API contracts and typed API client methods are implemented for master-data resources and assignments.
+- Existing Company Portal branch, territory and outlet screens are partially connected to FastAPI with permission gates and loading/error states.
+- Existing Super Admin tenant list/create/status and organization branch/head-office/warehouse list/create/update screens are connected to platform-scoped FastAPI endpoints. Unsupported billing-plan changes remain read-only; no billing endpoint is fabricated.
+
+### Remaining Phase 03 implementation
+1. Connect the Company Portal Team screen and personnel/assignment modals to live organization memberships, team hierarchy, sales profiles, supervisor hierarchy and role assignments. The underlying API contracts and endpoints exist; the existing personnel UI is not yet fully connected.
+2. Complete Company Portal update flows for territory/outlet and full branch lifecycle; current UI coverage is a partial vertical slice.
+3. Integrate outlet assignment history and sales profile assignment workflows into the existing Company and relevant Sales/Supervisor portal surfaces.
+4. Add master-data import/export with schema validation, row-level error reporting, audit and idempotent batch processing.
+5. Implement private, tenant-authorized Realtime invalidation/broadcast for master-data/assignment events where required. Current screens refresh from FastAPI; private event subscriptions are not yet implemented.
+6. Connect the native Expo assigned outlet/team context to the same typed API and permission contracts.
+7. Run fresh combined static CI after the next Phase 03 UI integration batch.
+
+**Decision: Phase 03 = IN_PROGRESS.** It is not complete and no completion claim is made.
