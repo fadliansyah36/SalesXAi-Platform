@@ -46,7 +46,7 @@ async function proxy(request: NextRequest, context: RouteContext): Promise<Respo
     : {};
   const rateRule = classify(request.method, path, request.nextUrl.searchParams, payload);
   if (rateRule) {
-    const bearer = request.headers.get("authorization")?.replace(/^Bearer\\s+/i,"") ?? "";
+    const bearer = request.headers.get("authorization")?.replace(/^Bearer\s+/i,"") ?? "";
     const identifier = rateRule.identifier
       || subjectFromJwt(bearer)
       || (rateRule.action === "refresh" ? tokenFingerprint(String(payload.refresh_token ?? "")) : undefined);
