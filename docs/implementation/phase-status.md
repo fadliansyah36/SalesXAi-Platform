@@ -347,3 +347,41 @@ DATABASE_URL, SUPABASE_PUBLISHABLE_KEY, SUPABASE_SECRET_KEY, SALESX_API_URL, SAL
 - Full permission-aware feature-screen/action mapping across all existing Web and Expo business actions remains incomplete. The centralized backend policy layer exists, but the current product screens include business capabilities whose corresponding domain APIs/permission contracts are not yet implemented. Phase 02 must remain PARTIAL until the required existing action matrix is explicitly mapped and its server enforcement exists.
 - Latest API and foundation workflow statuses are SUCCESS as recorded above. Latest code/test head before documentation synchronization is 1b9aaece24a6a8c4a983535e4a0da9fe7062be8c. The refresh-gate implementation chain includes ffdf9dd5bcfd55b1c0d74d853aa3752d7ae1a3e0 (expired JWT signature verification mode), b29b189be5e9eaad98aaf7a60f95959f528f56f8 (FastAPI refresh gate), d71eca3f670478865e9e0931ae21f12c21cc645e (BFF gate client), 0a8f8cb9cf449c8fc1e1be09b25d0e7a2c167beb (Web Auth refresh), 47635c857e26581e74e783e4b15f4fa2b87a5b53 (Web API proxy refresh), 1c38b332400778b2797f3347be74cf9bc0124fec (native BFF refresh), 7772f54ccbf18841779c7e536ea8a0fbae76f56f (native prior-token binding), and 1b9aaece24a6a8c4a983535e4a0da9fe7062be8c (revocation-gate tests). Documentation sync commits before this tracker update: 6115ffee6864ecc4519c558bb47e811e0d409569 and af3fd7c6eb85ad1514e906f01766b77ec44ea5bd. The final repository head is the commit created by this tracker synchronization and is reported in the execution summary.
 - Phase 03 remains LOCKED and has not been started.
+
+
+## Phase 02 — action authorization implementation continuation (2026-11-19)
+
+### Implemented on main
+- Added a canonical FastAPI API action registry at `services/api/app/security/action_matrix.py`. It declares all **27 currently registered /api/v1 route-method contracts**, including feature, action, permission key (where applicable), scope and server-enforcement description.
+- FastAPI startup now validates route-to-matrix parity and fails startup if a registered API route is unmapped or a matrix contract is stale.
+- Added a shared TypeScript API action matrix and resolver at `packages/permissions/src/action-matrix.ts`, exported from the permissions package.
+- Web Auth provider and Expo Mobile Sales auth hook expose the shared `canPerformApiAction` resolver using effective active-tenant plus platform permissions. This is a client visibility hint; FastAPI remains authoritative.
+- Added explicit `profile:read:self` and `profile:update:self` checks to session list and session revoke endpoints. Session ownership remains restricted to the authenticated user.
+- Permission dependency denials write credential-free audit records with actor, tenant when resolved, API resource path, action, method, permission and correlation ID. The API error handler also records permission/resource-level 403 denials not already audited by the dependency. No credentials or bearer material are written.
+- Added `services/api/tests/test_action_matrix.py` to check route coverage, uniqueness and permission declaration for tenant/platform actions.
+- No Supabase schema change was required for these code-level controls; no migration was created or applied.
+
+### Commit chain
+- `570e0af01e7c7719a399712d89df87c2f102b5e4` — audit denied permission checks.
+- `500bdcb71d238c677c8ef476759d3963e9a5fc3e` — audit resource-level authorization denials.
+- `6da43ee1042e8836b0f9d0f3cda5e732867bc950` — platform permission dependency request binding.
+- `bcb5eae0655f23ae4b981bf991fdb07e29b3fe6e` — canonical FastAPI action matrix.
+- `3b234dbd26bd21914d7148d64735218264eebe86` — fail startup on unmapped API routes.
+- `6da938adc197d8c7dfa37e43c82756e4de1aa232` — session self-permission enforcement.
+- `b844244387e15812a9c2891d95ff51a80d98e957` — shared TypeScript API action matrix.
+- `19bcc9fe3f61080c72072a5c9fb8ec8f67523395` — export shared action resolver.
+- `9a728dca1e9ed544637585dc60e1573c0aaf4213` — expose resolver to Web consumers.
+- `515174a526819bf28807580166964d212933593f` — expose resolver to Expo consumers.
+- `493f0429a8df83b70ba2dc0cd76c2078b56473bf` — add action matrix tests.
+- `6920f924b5daeb7255eb4e235fe45027c446b023` — Ruff import modernization.
+- `0116be2327154ea12800df64c58ab6f750eac36d` — correct action matrix test assertions.
+
+### Explicit remaining Phase 02 blockers
+- The 27-entry registry covers the **currently implemented FastAPI API surface only**. It does not establish full action coverage for every business screen, navigation item, button and handler in the seven Web portals and Expo.
+- The current repository still lacks FastAPI domain endpoints for multiple UI business capabilities (including sales visits/attendance, orders/catalog/inventory, rewards, location/route, analytics and notifications). Several existing UI interactions remain local state/demo behavior. No endpoint enforcement can be claimed for actions that do not yet have a backend endpoint.
+- The shared Web/Expo resolver is exposed through auth context, but the complete UI action-handler integration and replacement of local-only business mutations remains unfinished.
+- Existing Supabase role_permissions currently contains 23 permission keys across eight roles. No broad role grants were added for not-yet-implemented domain actions; doing so would grant access without corresponding server-side business services.
+- No new database migration, RLS or grant change was required for this code-only continuation. The existing 13 applied Phase 02 migration versions remain unchanged.
+- Latest static CI for the continuation is being reconciled after initial failures in Ruff import modernization and action-matrix test assertions. No green result is claimed in this addendum.
+
+**Official Phase 02 status remains IN PROGRESS / PARTIAL. Phase 03 status remains independently tracked and does not change Phase 02 closure criteria.**
