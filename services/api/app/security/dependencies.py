@@ -43,7 +43,8 @@ async def get_current_principal(
     row = await connection.fetchrow(
         """
         select p.email,p.display_name,p.status,p.session_revoked_at,u.email_confirmed_at,u.phone_confirmed_at,
-               (s.id is not null) session_exists,sd.revoked_at device_revoked_at
+               (s.id is not null) session_exists,s.not_after session_not_after,
+               sd.revoked_at device_revoked_at
         from public.profiles p join auth.users u on u.id=p.id
         left join auth.sessions s on s.id=$2 and s.user_id=p.id
         left join public.session_devices sd on sd.auth_session_id=s.id
@@ -58,6 +59,7 @@ async def get_current_principal(
         raise APIError(403, "identity_unverified", "Verify the account email or phone before continuing.")
     issued_at = datetime.fromtimestamp(float(claims["iat"]), tz=UTC)
     if (not row["session_exists"] or row["device_revoked_at"] is not None
+            or (row["session_not_after"] is not None and row["session_not_after"] <= datetime.now(UTC))
             or (row["session_revoked_at"] is not None and issued_at <= row["session_revoked_at"])):
         raise APIError(401, "session_revoked", "This Supabase Auth session is no longer active.")
     return Principal(user_id,row["email"],row["display_name"],session_id,claims)
