@@ -384,7 +384,8 @@ export function CompanyPortalApp() {
         const branchId = asText(team?.branch_id);
         const branch = nextBranches.find((item) => item.id === branchId);
         return {
-          id: asText(profile.id), name: asText(profile.display_name) || asText(member?.display_name) || asText(member?.email) || 'User',
+          id: asText(profile.id), userId, teamId: asText(profile.team_id), managerUserId: asText(profile.manager_user_id) || undefined,
+          name: asText(profile.display_name) || asText(member?.display_name) || asText(member?.email) || 'User',
           role, area: asText(team?.name) || 'Belum ditempatkan ke tim', branchId,
           phone: asText(profile.phone) || asText(member?.phone), status: profile.status === 'active' ? 'Online' : 'Offline',
           currentLocation: 'Belum tersedia', speedKmh: 0, accuracyM: 0, lastUpdate: 'Belum tersedia',
@@ -1653,7 +1654,7 @@ export function CompanyPortalApp() {
                 <div className="space-y-2.5">
                   <div className="flex items-center justify-between rounded-xl border border-[#ADD8E6] bg-[#F3FAFC] dark:bg-[#172438] px-4 py-2.5 text-xs">
                     <span className="font-semibold text-[#236D91] dark:text-[#87CEEB]">
-                      Kelola peran RBAC, cabang penugasan, atau pantau absensi geofence harian.
+                      Kelola penempatan tim dan supervisor. Role RBAC tetap dikelola melalui Access Console.
                     </span>
                     <button
                       type="button"
@@ -1692,9 +1693,10 @@ export function CompanyPortalApp() {
                         <button
                           type="button"
                           onClick={() => setEditingUserAssignment(tm)}
-                          className="rounded-lg border border-[#348CB2]/40 px-3 py-1.5 text-xs font-semibold text-[#236D91] dark:text-[#87CEEB] hover:bg-[#E5F4F8] dark:hover:bg-[#19394B] cursor-pointer"
+                          disabled={!auth.canPerformApiAction('master.sales_profiles.update')}
+                          className="rounded-lg border border-[#348CB2]/40 px-3 py-1.5 text-xs font-semibold text-[#236D91] dark:text-[#87CEEB] hover:bg-[#E5F4F8] dark:hover:bg-[#19394B] cursor-pointer disabled:opacity-50"
                         >
-                          Atur Peran
+                          Atur Penugasan
                         </button>
                         <button
                           type="button"
@@ -3326,13 +3328,25 @@ export function CompanyPortalApp() {
       <EditUserAssignmentModal
         key={editingUserAssignment?.id || 'none'}
         member={editingUserAssignment}
-        branches={branches}
+        teams={teams.map((team) => ({ id: asText(team.id), name: asText(team.name), branchId: asText(team.branch_id) }))}
+        supervisors={organizationMembers.filter((member) => member.status === 'active').map((member) => ({
+          userId: member.user_id, name: asText(member.display_name) || asText(member.email) || member.user_id,
+        }))}
         onClose={() => setEditingUserAssignment(null)}
-        onSave={(updated) =>
-          setTeamMembers((prev) =>
-            prev.map((m) => (m.id === updated.id ? updated : m))
-          )
-        }
+        onSave={async (updated) => {
+          if (!auth.apiClient || !auth.activeOrganizationId || !auth.canPerformApiAction('master.sales_profiles.update')) {
+            throw new Error('Akses perubahan penugasan sales profile tidak diizinkan.');
+          }
+          const row = await auth.apiClient.updateSalesProfile(auth.activeOrganizationId, updated.id, {
+            team_id: updated.teamId, manager_user_id: updated.managerUserId || undefined,
+            status: updated.status === 'Online' ? 'active' : 'inactive',
+          });
+          setTeamMembers((previous) => previous.map((member) => member.id === updated.id ? {
+            ...member, teamId: asText(row.team_id), managerUserId: asText(row.manager_user_id) || undefined,
+            area: updated.area, branchId: updated.branchId, status: row.status === 'active' ? 'Online' : 'Offline',
+          } : member));
+          setEditingUserAssignment(null);
+        }}
       />
       <EditProductCompanyModal
         key={editingProduct?.sku || 'none'}
