@@ -101,13 +101,17 @@ export function SalesXAuthProvider({children}:{children:React.ReactNode}) {
   },[ensureCsrf]);
 
   const clearCookieSession=useCallback(async()=>{
-    const csrf=await ensureCsrf();
-    const response=await fetch("/api/auth/session",{
+    const send=(csrf:string)=>fetch("/api/auth/session",{
       method:"DELETE",
       credentials:"same-origin",
       headers:{"X-CSRF-Token":csrf},
       cache:"no-store",
     });
+    let response=await send(await ensureCsrf());
+    if(response.status===403){
+      csrfToken.current="";
+      response=await send(await ensureCsrf());
+    }
     if(!response.ok)throw new Error("Web session cookie could not be cleared.");
   },[ensureCsrf]);
 
