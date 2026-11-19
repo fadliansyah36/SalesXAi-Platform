@@ -332,9 +332,9 @@ export function CompanyPortalApp() {
     setMasterDataLoading(true);
     setMasterDataError(null);
     Promise.all([
-      api.listBranches(organizationId),
-      api.listTerritories(organizationId),
-      api.listOutlets(organizationId),
+      auth.canPerformApiAction('master.branches.read') ? api.listBranches(organizationId) : Promise.resolve([]),
+      auth.canPerformApiAction('master.territories.read') ? api.listTerritories(organizationId) : Promise.resolve([]),
+      auth.canPerformApiAction('master.outlets.read') ? api.listOutlets(organizationId) : Promise.resolve([]),
     ]).then(([branchRows, territoryRows, outletRows]) => {
       if (cancelled) return;
       const nextBranches: BranchItem[] = branchRows.map((row) => ({
@@ -369,9 +369,10 @@ export function CompanyPortalApp() {
       if (!cancelled) setMasterDataLoading(false);
     });
     return () => { cancelled = true; };
-  }, [auth.status, auth.activeOrganizationId, auth.apiClient]);
+  }, [auth.status, auth.activeOrganizationId, auth.apiClient, auth.canPerformApiAction]);
 
   const persistBranch = async (branch: BranchItem) => {
+    if (!auth.canPerformApiAction('master.branches.create')) throw new Error('Akses membuat cabang tidak diizinkan.');
     if (!auth.apiClient || !auth.activeOrganizationId) throw new Error('Pilih organisasi aktif sebelum mengelola cabang.');
     const row = await auth.apiClient.createBranch(auth.activeOrganizationId, {
       code: masterCode(branch.name), name: branch.name, city: branch.city,
@@ -389,6 +390,7 @@ export function CompanyPortalApp() {
   };
 
   const persistTerritory = async (territory: TerritoryItem) => {
+    if (!auth.canPerformApiAction('master.territories.create')) throw new Error('Akses membuat teritori tidak diizinkan.');
     if (!auth.apiClient || !auth.activeOrganizationId) throw new Error('Pilih organisasi aktif sebelum mengelola teritori.');
     const branch = branches.find((item) => item.name === territory.branchName);
     const row = await auth.apiClient.createTerritory(auth.activeOrganizationId, {
@@ -401,6 +403,7 @@ export function CompanyPortalApp() {
   };
 
   const persistOutlet = async (outlet: Outlet) => {
+    if (!auth.canPerformApiAction('master.outlets.create')) throw new Error('Akses membuat outlet tidak diizinkan.');
     if (!auth.apiClient || !auth.activeOrganizationId) throw new Error('Pilih organisasi aktif sebelum mengelola outlet.');
     const row = await auth.apiClient.createOutlet(auth.activeOrganizationId, {
       code: masterCode(outlet.name), name: outlet.name, city: outlet.city, address: outlet.address,
@@ -416,7 +419,7 @@ export function CompanyPortalApp() {
 
   const toggleBranchStatus = async (branchId: string) => {
     const branch = branches.find((item) => item.id === branchId);
-    if (!branch || !auth.apiClient || !auth.activeOrganizationId) return;
+    if (!auth.canPerformApiAction('master.branches.update') || !branch || !auth.apiClient || !auth.activeOrganizationId) return;
     const row = await auth.apiClient.updateBranch(auth.activeOrganizationId, branchId, {
       status: branch.status === 'Aktif' ? 'inactive' : 'active',
     });
@@ -426,7 +429,7 @@ export function CompanyPortalApp() {
 
   const toggleOutletStatus = async (outletId: string) => {
     const outlet = outlets.find((item) => item.id === outletId);
-    if (!outlet || !auth.apiClient || !auth.activeOrganizationId) return;
+    if (!auth.canPerformApiAction('master.outlets.update') || !outlet || !auth.apiClient || !auth.activeOrganizationId) return;
     const row = await auth.apiClient.updateOutlet(auth.activeOrganizationId, outletId, {
       status: outlet.status === 'Aktif' ? 'inactive' : 'active',
     });
@@ -759,6 +762,11 @@ export function CompanyPortalApp() {
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-[var(--color-background)] text-[var(--color-text-primary)] flex flex-col lg:flex-row">
+      {(masterDataLoading || masterDataError) && (
+        <div className={`fixed top-0 inset-x-0 z-[60] px-4 py-2 text-center text-xs ${masterDataError ? 'bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-200' : 'bg-sky-50 text-sky-800 dark:bg-sky-950 dark:text-sky-200'}`}>
+          {masterDataError ?? 'Memuat master data tenant dari FastAPI…'}
+        </div>
+      )}
       {/* Desktop Left Sidebar */}
       <aside className="hidden lg:flex lg:w-[260px] lg:shrink-0 lg:flex-col border-r border-[var(--color-border)] bg-[var(--color-surface)] sticky top-0 h-screen overflow-y-auto">
         <div className="flex h-16 items-center justify-between px-4 border-b border-[var(--color-border)] shrink-0">
@@ -1468,6 +1476,7 @@ export function CompanyPortalApp() {
                 <button
                   type="button"
                   onClick={() => setAddBranchOpen(true)}
+                  disabled={!auth.canPerformApiAction('master.branches.create')}
                   className="inline-flex items-center gap-1.5 rounded-xl bg-[#348CB2] hover:bg-[#236D91] px-4 py-2.5 text-sm font-bold text-white cursor-pointer"
                 >
                   <Plus className="h-4 w-4" />
@@ -1676,6 +1685,7 @@ export function CompanyPortalApp() {
                 <button
                   type="button"
                   onClick={() => setAddTerritoryOpen(true)}
+                  disabled={!auth.canPerformApiAction('master.territories.create')}
                   className="inline-flex items-center gap-1.5 rounded-xl bg-[#348CB2] hover:bg-[#236D91] px-4 py-2.5 text-sm font-bold text-white cursor-pointer"
                 >
                   <Plus className="h-4 w-4" />
@@ -1743,6 +1753,7 @@ export function CompanyPortalApp() {
                 <button
                   type="button"
                   onClick={() => setAddOutletOpen(true)}
+                  disabled={!auth.canPerformApiAction('master.outlets.create')}
                   className="inline-flex items-center gap-1.5 rounded-xl bg-[#348CB2] hover:bg-[#236D91] px-4 py-2.5 text-sm font-bold text-white cursor-pointer"
                 >
                   <Plus className="h-4 w-4" />
