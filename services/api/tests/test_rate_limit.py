@@ -1,6 +1,7 @@
 import unittest
 
 from app.services.rate_limit import RateLimitRule, _bucket_key, rule_for_request
+from app.routers.security import EXTERNAL_AUTH_RULES
 
 
 class DistributedRateLimitRuleTests(unittest.TestCase):
@@ -30,6 +31,14 @@ class DistributedRateLimitRuleTests(unittest.TestCase):
         self.assertEqual(first, same)
         self.assertNotEqual(first, different)
         self.assertNotIn("user-123", first)
+
+    def test_external_bff_auth_actions_are_all_rate_limited(self):
+        expected = {
+            "login", "signup", "otp_send", "otp_verify", "password_recovery",
+            "email_verify", "oauth_start", "oauth_complete", "identity_link",
+            "password_update", "refresh", "signout",
+        }
+        self.assertEqual(set(EXTERNAL_AUTH_RULES), expected)
 
 
 if __name__ == "__main__":
