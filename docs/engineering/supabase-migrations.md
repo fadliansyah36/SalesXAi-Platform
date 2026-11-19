@@ -28,4 +28,6 @@ supabase migration list
 ## Phase 00 record
 `20261119101638_p00_create_private_schema.sql` is recorded as migration `20261119101638 / p00_create_private_schema`. It creates only non-exposed schema `app_private`, revokes public/anon/authenticated access, and adds no business tables or tenant data.
 
+`20261119103355_p00_restrict_rls_auto_enable_execution.sql` is recorded as migration `20261119103355 / p00_restrict_rls_auto_enable_execution`. It revokes direct EXECUTE on the postgres-owned `public.rls_auto_enable()` SECURITY DEFINER event-trigger function from PUBLIC, anon and authenticated while retaining service_role execution. The postgres-owned `ensure_rls` event trigger remains enabled. Live privilege verification confirmed anon/authenticated cannot execute it; the Supabase security advisor returned no remaining lints.
+
 Static design tokens do not require a migration or Realtime. Future business Realtime must be private, authorized and tenant-scoped.
