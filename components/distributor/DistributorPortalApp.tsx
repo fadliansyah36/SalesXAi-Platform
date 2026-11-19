@@ -551,11 +551,7 @@ export function DistributorPortalApp() {
               </label>
               <button
                 type="button"
-                onClick={() =>
-                  setAuthNotice(
-                    'Tautan reset password telah dikirim ke email PIC distributor terdaftar.'
-                  )
-                }
+                onClick={() => { void auth.requestPasswordReset(loginEmail).then(() => setAuthNotice('Tautan pemulihan dikirim jika email terdaftar.')).catch(err => setAuthNotice(err instanceof Error ? err.message : 'Reset password gagal.')); }}
                 className="font-semibold text-[#348CB2] hover:underline cursor-pointer"
               >
                 Lupa password?

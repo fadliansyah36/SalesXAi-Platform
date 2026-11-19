@@ -466,7 +466,7 @@ export function SupervisorPortalApp() {
         <SupabaseOtpLoginModal
           open={otpModalOpen}
           onClose={() => setOtpModalOpen(false)}
-          onSuccess={() => setAuthNotice('OTP pada modal ini belum terhubung ke Supabase Auth. Gunakan metode OTP terverifikasi melalui endpoint Auth.')}
+          onSuccess={() => setAuthNotice('Nomor telepon berhasil diverifikasi melalui Supabase Auth.')}
         />
       </div>
     );

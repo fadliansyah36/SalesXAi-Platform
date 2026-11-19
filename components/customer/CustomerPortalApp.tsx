@@ -782,7 +782,7 @@ export function CustomerPortalApp() {
             ) : (
               <button
                 type="button"
-                onClick={() => { void auth.requestPasswordReset(loginId).then(() => setForgotSent(true)).catch(err => setLoginError(err instanceof Error ? err.message : 'Permintaan reset gagal.')); }}
+                onClick={() => { if (!loginId.includes('@')) { setLoginError('Masukkan alamat email untuk pemulihan password.'); return; } void auth.requestPasswordReset(loginId).then(() => setForgotSent(true)).catch(err => setLoginError(err instanceof Error ? err.message : 'Permintaan reset gagal.')); }}
                 className="w-full rounded-xl bg-[#348CB2] py-2.5 font-bold text-white cursor-pointer"
               >
                 Kirim Tautan Pemulihan

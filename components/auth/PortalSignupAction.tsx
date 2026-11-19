@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useSalesXAuth } from "@/components/providers/AppProviders";
 
-export function PortalSignupAction({email,password,onMessage,showRecovery=true}:{email:string;password:string;onMessage:(message:string)=>void;showRecovery?:boolean}){
+export function PortalSignupAction({email,password,onMessage,showRecovery=false}:{email:string;password:string;onMessage:(message:string)=>void;showRecovery?:boolean}){
  const auth=useSalesXAuth();
  const [busy,setBusy]=useState(false);
  return <div className="space-y-2">
