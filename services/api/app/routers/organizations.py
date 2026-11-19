@@ -141,6 +141,14 @@ async def update_member_status(
           organization_id,user_id,payload.status)
         if row is None:
             raise APIError(404,"membership_not_found","Organization membership was not found.")
+        if payload.status=="removed":
+            await connection.execute(
+              """update public.user_role_assignments set revoked_at=coalesce(revoked_at,now())
+              where membership_id=$1 and revoked_at is null""",
+              row["id"])
+            await write_audit(connection,request,principal,"organization.member.roles_revoked_on_removal",
+              "organization_membership",str(row["id"]),tenant,
+              metadata={"member_user_id":str(user_id)})
         await write_audit(connection,request,principal,"organization.member.status_changed",
           "organization_membership",str(row["id"]),tenant,
           metadata={"member_user_id":str(user_id),"status":payload.status})
@@ -438,7 +446,7 @@ async def accept_invitation(
                 on conflict(organization_id,user_id) do update
                 set status='active',branch_id=excluded.branch_id,title=excluded.title,
                     joined_at=coalesce(public.organization_memberships.joined_at,now()),updated_at=now()
-                where public.organization_memberships.status in ('invited','removed','active')
+                where public.organization_memberships.status in ('invited','removed')
                 returning id,organization_id,user_id,status,branch_id""",
                 invitation["organization_id"],principal.user_id,invitation["branch_id"],invitation["title"],
             )
