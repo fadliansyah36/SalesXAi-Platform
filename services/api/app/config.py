@@ -3,8 +3,8 @@ from pydantic import AnyHttpUrl, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
-    supabase_url: AnyHttpUrl = AnyHttpUrl('https://eyofuiyxalbehbqoaeny.supabase.co')
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore", validate_default=True)
+    supabase_url: AnyHttpUrl = "https://eyofuiyxalbehbqoaeny.supabase.co"
     database_url: SecretStr | None = None
     supabase_jwks_url: AnyHttpUrl | None = None
     supabase_jwt_issuer: str | None = None
@@ -65,12 +65,20 @@ class Settings(BaseSettings):
         return value
 
 
-    @field_validator("db_connect_timeout_seconds", "db_max_inactive_connection_lifetime")
+    @field_validator("db_command_timeout_seconds", "db_connect_timeout_seconds", "db_max_inactive_connection_lifetime")
     @classmethod
     def validate_db_timeouts(cls, value: float) -> float:
         if value <= 0 or value > 600:
             raise ValueError("Database timeouts must be between 0 and 600 seconds")
         return value
+
+    @field_validator("cors_origins")
+    @classmethod
+    def validate_cors_origins(cls, value: str) -> str:
+        origins = [origin.strip() for origin in value.split(",") if origin.strip()]
+        if "*" in origins:
+            raise ValueError("Wildcard CORS origins are forbidden when credentials are enabled")
+        return ",".join(origins)
 
     @field_validator("db_statement_timeout_ms")
     @classmethod
