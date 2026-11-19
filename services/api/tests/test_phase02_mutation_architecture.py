@@ -8,8 +8,11 @@ class Phase02MutationArchitectureTests(unittest.TestCase):
         root = Path(__file__).resolve().parents[3]
         router_paths = (root / "services/api/app/routers").glob("*.py")
         dml = re.compile(r"\b(?:insert\s+into|update\s+public\.|delete\s+from)\b", re.IGNORECASE)
+        sql_calls = re.compile(r"\bconnection\.(?:fetch|fetchrow|fetchval|execute|executemany)\s*\(")
         for path in router_paths:
-            self.assertFalse(dml.search(path.read_text()), f"Domain DML remains in {path.name}")
+            source = path.read_text()
+            self.assertFalse(dml.search(source), f"Domain DML remains in {path.name}")
+            self.assertFalse(sql_calls.search(source), f"Direct SQL access remains in {path.name}")
 
     def test_phase02_mutation_services_have_dedicated_repositories(self) -> None:
         root = Path(__file__).resolve().parents[3]
