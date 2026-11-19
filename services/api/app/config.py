@@ -99,9 +99,13 @@ class Settings(BaseSettings):
     @field_validator("cors_origins")
     @classmethod
     def validate_cors_origins(cls, value: str) -> str:
-        origins = [origin.strip() for origin in value.split(",") if origin.strip()]
+        origins = [origin.strip().rstrip("/") for origin in value.split(",") if origin.strip()]
         if "*" in origins:
             raise ValueError("Wildcard CORS origins are forbidden when credentials are enabled")
+        for origin in origins:
+            parsed = urlsplit(origin)
+            if parsed.scheme not in {"http", "https"} or not parsed.netloc or parsed.path or parsed.query or parsed.fragment:
+                raise ValueError("CORS_ORIGINS must contain exact HTTP(S) origins without paths")
         return ",".join(origins)
 
     @field_validator("db_statement_timeout_ms")
