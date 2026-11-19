@@ -75,7 +75,7 @@ Status: PARTIAL
 - Realtime: not applicable; authorization re-reads PostgreSQL state on each protected request.
 
 ### Engineering evidence
-- Previous implementation baseline: 7d5c916d2b6fdb623b71afe1a773456f0dacb6fd. Current Phase 02 code head before documentation commits: 0df9c63f821028e3b2a8bfa9467473ad30be1f6b.
+- Previous implementation baseline: 7d5c916d2b6fdb623b71afe1a773456f0dacb6fd. Current Phase 02 code head before documentation commits: a64466ab462371a3163aecf1c46517dbcc58942a.
 - Phase 02 CI: https://github.com/fadliansyah36/SalesXAi-Platform/actions/runs/44527586864.
 - Bun/Web/Expo CI: https://github.com/fadliansyah36/SalesXAi-Platform/actions/runs/44527586969.
 - FastAPI source: services/api/app/.
@@ -149,7 +149,7 @@ Phase 02 remains in progress. Phase 03 is not authorized until Phase 02 reaches 
 - Supabase JWT/JWKS issuer/audience defaults remain derived from the bound project. Root and API environment examples now list all DB, Auth, CORS, public URL and SMTP variable definitions as placeholders; no secrets were populated.
 - Shared AuthClient now performs Google OAuth PKCE S256, callback-bound random oauth_state validation, pending-flow expiry checks, one-time code exchange and same-user validation for identity linking. Web and Expo callbacks consume the PKCE code/state path; Expo uses the same shared client and SecureStore.
 - Manual identity linking now uses Supabase Auth's user/identities/authorize endpoint rather than the former authorize?link_identity=true pattern.
-- Added packages/api-client and wired it into the Web auth provider and Expo native auth hook. It centralizes bearer token, platform, active organization, one refresh/retry and session invalidation handling. Added package workspace entries and Bun lock references.
+- Added packages/api-client and wired it into the Web auth provider and Expo native auth hook. It imports canonical AuthContext and SessionDeviceRegistration from packages/api-contracts; both Web and Expo now use its typed /auth/me and current-session registration methods. It centralizes bearer token, platform, active organization, one refresh/retry and session invalidation handling. Added package workspace entries and Bun lock references.
 - AuthContext shared contract now includes platform_permissions. /api/v1/auth/me only returns tenant roles/permissions for active memberships.
 - Invitation delivery now has an InvitationDelivery provider interface and SMTP implementation. Create persists the invitation before delivery; verified existing identities use SMTP, unverified identities use Supabase Auth signup verification resend, and new identities use Auth Admin invite. Provider failures are audited; failed new Auth Admin invites are revoked. Resend uses the matching delivery path.
 - Invitation acceptance revalidates active branch and organization scope. Invitation role hierarchy is checked on create and resend. Organization creation remains guarded by platform organization:create.
@@ -170,6 +170,12 @@ Phase 02 remains in progress. Phase 03 is not authorized until Phase 02 reaches 
   - b538cab6f3a6eb13163813bdd90c38d042eadd94 — bound-project DATABASE_URL validation.
   - 23903f7c46ee645cb80d2422936ba0398dde582f — invitation verification resend.
   - ebc54f045cb5b527377ae77c7078505992790fce — invitation delivery failure audit.
+  - d46a5301723c79e7b09f6ff95d136422d0b89dc5 — API client binds to canonical API contracts.
+  - 23d1c0d355cb6aedc46ee756a716e5cbc43c555e — Web /auth/me and session registration use typed API client.
+  - dd253025ebab12e5cf55e7139c7043b1f608d8e3 — Expo /auth/me and session registration use typed API client.
+  - b14ad893ea515c363d9263ccfc3f92cd6a80d95f — auth contract status unions aligned.
+  - 87f18fe0364cf9782d5e9c6eaab98d7e9015f01b — native invitation callback uses shared API client.
+  - a64466ab462371a3163aecf1c46517dbcc58942a — clear pending OAuth state on sign-out/account switch.
 - The GitHub workflow-run query returned no runs for the new code commits; no fresh Web/Expo typecheck, FastAPI compileall/Ruff or API contract suite is claimed for this continuation.
 - No OAuth provider round-trip, /readyz, authenticated /api/v1/auth/me, SMTP delivery, Auth Admin operation or remote session revocation was executed.
 - The live Supabase migration ledger remains at nine versions through 20261119131809_p02_add_missing_foreign_key_indexes. No schema delta was required for these application/package changes; no migration was applied in this continuation.
