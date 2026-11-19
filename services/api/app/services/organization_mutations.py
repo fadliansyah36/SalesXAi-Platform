@@ -81,4 +81,16 @@ class OrganizationMutationService:
    await write_audit(connection,request,principal,"organization.member.role_assigned","user_role_assignment",str(assignment["id"]),tenant,metadata={"member_user_id":str(user_id),"role_key":role["key"]})
   return dict(assignment)
 
+
+ async def list_platform_organizations(self,connection:asyncpg.Connection,limit:int,offset:int)->list[dict]:
+  rows=await self.repository.list_platform_organizations(connection,limit,offset)
+  return [dict(row) for row in rows]
+ async def update_platform_organization_status(self,connection:asyncpg.Connection,request:Request,principal:Principal,organization_id:UUID,status:str)->dict:
+  authorization_service.assert_action_context(request,"platform.organizations.update",principal.user_id)
+  async with connection.transaction():
+   row=await self.repository.update_organization_status(connection,organization_id,status)
+   if row is None: raise APIError(404,"organization_not_found","Organization was not found.")
+   await write_audit(connection,request,principal,"platform.organization.status_changed","organization",str(organization_id),metadata={"status":status})
+  return dict(row)
+
 organization_mutation_service=OrganizationMutationService()
