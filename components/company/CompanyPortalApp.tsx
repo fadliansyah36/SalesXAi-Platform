@@ -118,7 +118,7 @@ export type CompanyTabId =
 
 const asText = (value: unknown): string => typeof value === 'string' ? value : '';
 const asNumber = (value: unknown): number => typeof value === 'number' && Number.isFinite(value) ? value : 0;
-const masterCode = (value: string): string => value.normalize('NFKD').replace(/[\\u0300-\\u036f]/g, '').toUpperCase().replace(/[^A-Z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'MASTER';
+const masterCode = (value: string): string => value.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'MASTER';
 
 const SIDEBAR_GROUPS: Array<{
   group: string;
@@ -3179,6 +3179,7 @@ export function CompanyPortalApp() {
       />
       <BranchDetailModal
         branch={selectedBranch}
+        canToggleStatus={auth.canPerformApiAction('master.branches.update')}
         onClose={() => setSelectedBranch(null)}
         onToggleStatus={(id) => { void toggleBranchStatus(id).catch((error: unknown) => setMasterDataError(error instanceof Error ? error.message : 'Status cabang gagal diperbarui.')); }}
       />
@@ -3347,6 +3348,7 @@ export function CompanyPortalApp() {
             <div className="flex justify-end gap-2">
               <button
                 type="button"
+                disabled={!auth.canPerformApiAction('master.outlets.update')}
                 onClick={() => {
                   void toggleOutletStatus(selectedOutletDetail.id).catch((error: unknown) => setMasterDataError(error instanceof Error ? error.message : 'Status outlet gagal diperbarui.'));
                   setSelectedOutletDetail(null);
