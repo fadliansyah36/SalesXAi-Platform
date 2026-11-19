@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-import json
 from typing import Any
 from uuid import UUID
 import asyncpg
@@ -8,6 +7,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from app.db import get_connection
 from app.errors import APIError
 from app.security.jwt import SupabaseJWTVerifier
+from app.security.policy import abac_conditions_match
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -127,15 +127,7 @@ def require_permission(permission_key: str):
             where rp.permission_key=$5
             """,principal.user_id,tenant.membership_id,tenant.organization_id,branch_id,permission_key)
         resource=getattr(request.state,"resource_attributes",{})
-        allowed=False
-        for assignment in assignments:
-            attributes=assignment["attributes"]
-            if isinstance(attributes,str):
-                attributes=json.loads(attributes)
-            conditions=attributes.get("conditions",{})
-            if all(resource.get(k)==v for k,v in conditions.items()):
-                allowed=True
-                break
+        allowed=any(abac_conditions_match(row["attributes"],resource) for row in assignments)
         if not allowed:
             raise APIError(403,"forbidden","The requested action is not permitted in this tenant context.")
         request.state.authorized_permission=permission_key
