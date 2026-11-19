@@ -118,32 +118,3 @@ async def list_platform_audit_logs(
 ) -> list[PlatformAuditLogResponse]:
     rows = await platform_read_service.list_audit_logs(connection,request,principal,before,limit)
     return [PlatformAuditLogResponse(**row) for row in rows]
-@router.get("/audit", response_model=list[PlatformAuditLogResponse])
-async def list_platform_audit_logs(
-    request: Request,
-    before: datetime | None = Query(default=None),
-    limit: int = Query(default=50, ge=1, le=100),
-    principal: Principal = Depends(require_api_action("platform.audit.read")),
-    connection: asyncpg.Connection = Depends(get_connection),
-) -> list[PlatformAuditLogResponse]:
-    authorization_service.assert_action_context(request,"platform.audit.read",principal.user_id)
-    rows = await connection.fetch(
-        """
-        select l.id,l.actor_user_id,l.organization_id,l.action,l.resource_type,
-          l.resource_id,l.correlation_id,l.occurred_at,l.metadata,
-          coalesce(nullif(p.display_name,''),nullif(p.email,''),
-            case when l.actor_user_id is null then 'System' else l.actor_user_id::text end) actor_label
-        from public.admin_audit_logs l
-        left join public.profiles p on p.id=l.actor_user_id
-        where l.organization_id is null
-          and ($1::timestamptz is null or l.occurred_at<$1)
-        order by l.occurred_at desc,l.id desc
-        limit $2
-        """,
-        before, limit,
-    )
-    await write_audit(
-        connection, request, principal, "platform.audit.read", "admin_audit_log",
-        metadata={"limit": limit, "before": before.isoformat() if before else None},
-    )
-    return [PlatformAuditLogResponse(**dict(row)) for row in rows]
