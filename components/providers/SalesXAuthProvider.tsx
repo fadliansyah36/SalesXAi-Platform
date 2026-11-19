@@ -60,6 +60,17 @@ function browserSession(value:WebSession|null):WebSessionView|null {
   };
 }
 
+function authorizationFingerprintFor(context:SalesXAuthContextData,organizationId:string|null):string {
+  return JSON.stringify({
+    userId:context.user.id,sessionId:context.session_id,organizationId,
+    platformPermissions:[...context.platform_permissions].sort(),
+    memberships:context.memberships.map(m=>({
+      id:m.id,organizationId:m.organization_id,status:m.status,branchId:m.branch_id,
+      roles:[...m.roles].sort(),permissions:[...m.permissions].sort(),
+    })).sort((a,b)=>a.organizationId.localeCompare(b.organizationId)),
+  });
+}
+
 export function SalesXAuthProvider({children}:{children:React.ReactNode}) {
   const [status,setStatus]=useState<AuthStatus>("loading");
   const [session,setSession]=useState<WebSessionView|null>(null);
@@ -70,6 +81,7 @@ export function SalesXAuthProvider({children}:{children:React.ReactNode}) {
   const hydrating=useRef(false);
   const authenticatedUserId=useRef<string|null>(null);
   const activeOrganizationIdRef=useRef<string|null>(null);
+  const authorizationFingerprint=useRef<string|null>(null);
   const csrfToken=useRef("");
   const apiClientRef=useRef<SalesXApiClient|null>(null);
 
@@ -125,6 +137,7 @@ export function SalesXAuthProvider({children}:{children:React.ReactNode}) {
     try{await clearCookieSession();}catch{}
     authenticatedUserId.current=null;
     activeOrganizationIdRef.current=null;
+    authorizationFingerprint.current=null;
     setSession(null);setContext(null);setActiveOrganizationIdState(null);
     setStatus("unauthenticated");setError(null);setConsumerEpoch(value=>value+1);
   },[clearCookieSession]);
@@ -148,9 +161,11 @@ export function SalesXAuthProvider({children}:{children:React.ReactNode}) {
   apiClientRef.current=apiClient;
 
   const loadContext=useCallback(async(current:WebSession)=>{
-    if(authenticatedUserId.current&&authenticatedUserId.current!==current.user.id){
+    const userChanged=Boolean(authenticatedUserId.current&&authenticatedUserId.current!==current.user.id);
+    if(userChanged){
       setConsumerEpoch(value=>value+1);
       activeOrganizationIdRef.current=null;
+      authorizationFingerprint.current=null;
       setActiveOrganizationIdState(null);
       setContext(null);
     }
@@ -164,6 +179,11 @@ export function SalesXAuthProvider({children}:{children:React.ReactNode}) {
       &&next.memberships.some(m=>m.organization_id===activeOrganizationIdRef.current&&m.status==="active")
         ?activeOrganizationIdRef.current
         :next.memberships.find(m=>m.status==="active")?.organization_id??null;
+    const nextFingerprint=authorizationFingerprintFor(next,selectedOrganization);
+    if(!userChanged&&authorizationFingerprint.current&&authorizationFingerprint.current!==nextFingerprint){
+      setConsumerEpoch(value=>value+1);
+    }
+    authorizationFingerprint.current=nextFingerprint;
     activeOrganizationIdRef.current=selectedOrganization;
     setActiveOrganizationIdState(selectedOrganization);
     setSession(browserSession(current));setStatus("authenticated");setError(null);
@@ -180,6 +200,7 @@ export function SalesXAuthProvider({children}:{children:React.ReactNode}) {
         if(authenticatedUserId.current)setConsumerEpoch(value=>value+1);
         authenticatedUserId.current=null;
         activeOrganizationIdRef.current=null;
+        authorizationFingerprint.current=null;
         setSession(null);setContext(null);setActiveOrganizationIdState(null);
         setStatus("unauthenticated");setError(null);return;
       }
@@ -224,6 +245,7 @@ export function SalesXAuthProvider({children}:{children:React.ReactNode}) {
       if(authenticatedUserId.current)setConsumerEpoch(value=>value+1);
       authenticatedUserId.current=null;
       activeOrganizationIdRef.current=null;
+      authorizationFingerprint.current=null;
       setSession(null);setContext(null);setActiveOrganizationIdState(null);setStatus("unauthenticated");
     }
   },[loadContext]);
