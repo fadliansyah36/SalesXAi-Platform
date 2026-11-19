@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse
 from app.config import get_settings
 from app.db import create_database_pool
 from app.errors import APIError,api_error_handler
-from app.routers import admin,audit,auth,organizations,security
+from app.routers import admin,audit,auth,master_data,organizations,security
 from app.security.jwt import SupabaseJWTVerifier
 from app.services.supabase_auth import SupabaseAuthService
 from app.services.invitation_email import SMTPInvitationDelivery
@@ -145,5 +145,6 @@ async def readyz(request: Request):
 app.include_router(auth.router,prefix="/api/v1")
 app.include_router(admin.router,prefix="/api/v1")
 app.include_router(organizations.router,prefix="/api/v1")
+app.include_router(master_data.router,prefix="/api/v1")
 app.include_router(audit.router,prefix="/api/v1")
 app.include_router(security.router,prefix="/api/v1")
