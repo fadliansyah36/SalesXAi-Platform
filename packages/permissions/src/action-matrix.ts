@@ -54,6 +54,6 @@ export function canPerformApiAction(
   authenticated: boolean,
 ): boolean {
   const action = getApiAction(id);
-  if (!action || !authenticated) return false;
+  if (!action || !authenticated || action.scope === "bff") return false;
   return action.permission === null || Boolean(permissions?.includes(action.permission));
 }
