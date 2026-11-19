@@ -11,6 +11,7 @@ from app.errors import APIError,api_error_handler
 from app.routers import admin,audit,auth,organizations
 from app.security.jwt import SupabaseJWTVerifier
 from app.services.supabase_auth import SupabaseAuthService
+from app.services.invitation_email import SMTPInvitationDelivery
 
 logging.basicConfig(level=logging.INFO)
 logger=logging.getLogger("salesx.api")
@@ -22,6 +23,7 @@ async def lifespan(app: FastAPI):
     app.state.db_pool = None
     app.state.jwt_verifier = SupabaseJWTVerifier(settings)
     app.state.supabase_auth = SupabaseAuthService(settings)
+    app.state.invitation_delivery = SMTPInvitationDelivery(settings)
     pool = None
     if settings.database_configured:
         pool = await create_database_pool(settings)
