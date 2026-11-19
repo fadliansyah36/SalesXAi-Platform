@@ -17,8 +17,12 @@ Status: IN_PROGRESS
 - [ ] Record final bootstrap evidence and close remaining structure tasks.
 
 Database:
-- Migration: `p00_create_private_schema`
+- Migration file: `supabase/migrations/20261119180000_p00_create_private_schema.sql`
+- Migration history: `20261119101638 / p00_create_private_schema`
 - Target: `eyofuiyxalbehbqoaeny`
+- Applied: confirmed in Supabase migration history
+- Schema verification: `app_private` exists; no SalesXAi business tables introduced
+- Security advisor: pre-existing warning on `public.rls_auto_enable()` (SECURITY DEFINER callable by anon/authenticated); not modified in Phase 00 because ownership/intent must be investigated in a dedicated security change.
 - Realtime: no application events exist in this phase; no publication/subscription added.
 
 ## Phase 01 — Canonical Design System & Design Tokens
@@ -26,7 +30,7 @@ Database:
 Status: IN_PROGRESS
 
 - [x] Canonical primitive, semantic light/dark, typography, spacing, radius, elevation, motion and breakpoint JSON sources exist.
-- [ ] Add deterministic CSS and React Native token generator.
+- [x] Add deterministic CSS and React Native token generator.
 - [ ] Generate Web CSS and native TypeScript exports from the same JSON sources.
 - [ ] Add shared design-system foundation and theme contract.
 - [ ] Connect generated token artifacts to Web and Expo consumers without redesigning existing UI.
