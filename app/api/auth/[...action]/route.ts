@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
-  ACCESS_COOKIE, REFRESH_COOKIE, EXPIRY_COOKIE, CSRF_COOKIE,
+  ACCESS_COOKIE, REFRESH_COOKIE, EXPIRY_COOKIE,
   OAUTH_STATE_COOKIE, OAUTH_VERIFIER_COOKIE, OAUTH_FLOW_COOKIE, OAUTH_USER_COOKIE, OAUTH_CREATED_COOKIE,
   appOrigin, authError, clearOAuthCookies, clearSessionCookies, csrfCookieOptions, csrfIsValid,
   enforceBffRateLimit, pkceChallenge, randomToken, refreshAuthSession, safeSession,
@@ -277,6 +277,17 @@ export async function POST(request: NextRequest, context: RouteContext) {
     if (!state || !expected || state !== expected) return authError(400, "oauth_state_mismatch", "OAuth error callback state validation failed.");
     const response = NextResponse.json({ cancelled: true }, { headers: { "Cache-Control": "no-store" } });
     clearOAuthCookies(response);
+    return response;
+  }
+
+  if (route === "sign-out") {
+    const scope = payload.scope === "global" || payload.scope === "others" ? String(payload.scope) : "local";
+    if (accessToken) {
+      const result = await supabaseAuthRequest("logout?scope=" + scope, { method: "POST" }, accessToken);
+      if (!result.ok && scope !== "local") return authError(result.status, "signout_failed", supabaseMessage(result.body));
+    }
+    const response = NextResponse.json({ signed_out: true }, { headers: { "Cache-Control": "no-store" } });
+    if (scope !== "others") clearSessionCookies(response);
     return response;
   }
 
