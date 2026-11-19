@@ -166,6 +166,12 @@ export function SalesXAuthProvider({children}:{children:React.ReactNode}) {
   },[ensureCsrf,loadContext]);
 
   useEffect(()=>{
+    // Remove the pre-BFF browser token store during the one-time HttpOnly migration.
+    try{
+      window.localStorage.removeItem("salesx-web-auth");
+      window.localStorage.removeItem("salesx-web-auth:oauth-pending");
+      window.sessionStorage.removeItem("salesx-web-auth:oauth-pending");
+    }catch{}
     void hydrate();
     const onOnline=()=>void hydrate();
     const onFocus=()=>void hydrate();
