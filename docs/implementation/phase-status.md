@@ -691,3 +691,10 @@ Current live state: **17/17 public tables RLS-enabled; 35 permissions; 8 roles; 
 - Foundation Verification **44593859301** — all 20 steps succeeded on the same code commit, including Expo Native TypeScript, SDK compatibility, Metro, Android/iOS bundle exports and Turborepo build.
 
 **Phase 02 remains COMPLETED. Phase 03 remains IN_PROGRESS.**
+
+
+## Auth/access handler inventory extension — 2026-11-20
+
+Added `docs/implementation/handler-level-auth-inventory.tsv` for the Organization Access Console, Platform Account Security Console, shared auth provider, portal login/signup and invitation/reset/callback routes.
+
+The four handler inventories now cover **1,619 callback/event prop occurrences across 25 distinct TSX source files**. Scope tags: 143 Phase 02, 67 Phase 03, 789 future-phase and 620 UI-state callbacks. Event counts include 693 `onClick`, 71 `onSubmit`, 17 `onPress`, 358 `onChange` and 286 `onClose`. These are source occurrences, not unique business actions. The Phase 02 canonical contract remains 18 unique UI action IDs with 40 resolver call sites.
