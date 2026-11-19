@@ -13,7 +13,7 @@ import { NativeInline, NativePageShell, NativeStack, NativeSurface, NativeText, 
 function SalesHome() {
   const { colors, theme } = useNativeTheme();
   return <>
-    <StatusBar barStyle={theme === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
+    <StatusBar barStyle={theme === 'dark' ? 'light-content' : 'dark-content'} />
     <NativePageShell>
       <ScrollView contentContainerStyle={{ flexGrow: 1, paddingBottom: 32 }} showsVerticalScrollIndicator={false}>
         <NativeStack gap="6">
