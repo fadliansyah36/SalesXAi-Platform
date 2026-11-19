@@ -1,0 +1,94 @@
+name: SalesX-Ai Phase 00-01 Foundation Verification
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "package.json"
+      - "bun.lock"
+      - "tsconfig.json"
+      - "turbo.json"
+      - "app/**"
+      - "components/**"
+      - "packages/**"
+      - "apps/mobile-sales/**"
+      - ".github/workflows/phase-00-01-foundation.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: salesx-foundation-main
+  cancel-in-progress: false
+
+jobs:
+  verify-foundation:
+    name: Bun, Web, tokens and Expo
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.16.0"
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+      - name: Record toolchain versions
+        run: |
+          node --version
+          bun --version
+      - name: Install and resolve all workspaces
+        run: bun install
+      - name: Commit Bun lockfile resolution
+        run: |
+          if ! git diff --quiet -- bun.lock; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add bun.lock
+            git commit -m "chore: sync Bun workspace lockfile"
+            git push origin HEAD:main
+          fi
+      - name: Verify frozen Bun installation
+        run: bun install --frozen-lockfile
+      - name: Generate canonical design tokens
+        run: bun run tokens:build
+      - name: Commit generated canonical tokens
+        run: |
+          if ! git diff --quiet -- packages/design-tokens/generated; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add packages/design-tokens/generated
+            git commit -m "chore: regenerate canonical design tokens"
+            git push origin HEAD:main
+          fi
+      - name: Verify generated artifacts are reproducible
+        run: bun run tokens:check
+      - name: Verify Web TypeScript
+        run: bun run typecheck
+      - name: Verify Web lint
+        run: bun run lint
+      - name: Verify Native TypeScript
+        run: bun run mobile:typecheck
+      - name: Verify Expo SDK dependency compatibility
+        working-directory: apps/mobile-sales
+        run: bun run check-deps
+      - name: Resolve Expo app configuration
+        working-directory: apps/mobile-sales
+        run: bun run config
+      - name: Verify Expo Metro startup
+        working-directory: apps/mobile-sales
+        run: bun run verify-start
+      - name: Export Android JavaScript bundle
+        working-directory: apps/mobile-sales
+        run: bun run export:android
+      - name: Export iOS JavaScript bundle
+        working-directory: apps/mobile-sales
+        run: bun run export:ios
+      - name: Build all workspaces through Turborepo
+        run: bun run build:all

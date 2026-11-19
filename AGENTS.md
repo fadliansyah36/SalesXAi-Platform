@@ -218,3 +218,15 @@ Update `Docs/phase-tracker.md` or the relevant phase document with:
 - Remaining gaps and next phase dependencies.
 
 These instructions apply to all agents and contributors. SalesXAi is one ecosystem: one monorepo, one bound Supabase source of truth, one FastAPI business layer, shared API contracts, existing Web portals and native React Native Expo clients.
+
+
+## 15. Canonical JavaScript workspace and Native app foundation
+
+- Bun is the sole JavaScript package manager. Keep one root \`bun.lock\`; do not add pnpm, npm or Yarn lockfiles.
+- Root Bun workspaces include \`apps/*\` and \`packages/*\`. Internal packages use \`workspace:*\`.
+- Turborepo is the task orchestrator; it does not replace Bun.
+- Node.js 22.13+ is required by the canonical Expo SDK 58 mobile workspace.
+- Run \`bun install --frozen-lockfile\` from repository root. Run token generation/check through \`bun run tokens:build\` and \`bun run tokens:check\`.
+- The Native Sales app is runnable from \`apps/mobile-sales/\`; it consumes generated tokens and shared Native design-system exports. Do not introduce a second token source.
+- Exclude \`apps/mobile-sales/\` from the root Next.js TypeScript project; the Expo app has its own \`expo/tsconfig.base\` configuration and typecheck script.
+- Root CI validates Bun install/lockfile, token generation, Web checks and Expo config/dependency resolution, Metro startup and Android/iOS JS bundle exports.

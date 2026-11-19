@@ -5,7 +5,7 @@ Each app/service has an independent release boundary. A commit does not imply de
 | Unit | Canonical path | Runtime | Phase | Boundary status |
 |---|---|---|---:|---|
 | Existing Web app / portals | Root `app/`, `components/`, `lib/` | Next.js 15 / React 19 | Existing | Existing; preserved in place |
-| Native Sales | `apps/mobile-sales/` | React Native Expo | 00–01 foundation; features by domain phase | Native token adapter established; Expo runtime bootstrap remains future app work |
+| Native Sales | `apps/mobile-sales/` | React Native Expo | 00–01 foundation; features by domain phase | Runnable Expo SDK 58 app, native token adapter, EAS build profiles and independent app workspace established; no mobile binary deployed |
 | Business API | `services/api/` | Python 3.12 / FastAPI | 02+ | Documented; runtime not yet implemented |
 | Location worker | `services/location-worker/` | Python | 07 | Documented; runtime not yet implemented |
 | Analytics worker | `services/analytics-worker/` | Python | 08 | Documented; runtime not yet implemented |
