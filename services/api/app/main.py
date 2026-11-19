@@ -49,7 +49,10 @@ async def correlation_id_middleware(request: Request,call_next):
     correlation_id=request.headers.get("x-correlation-id") or str(uuid4())
     request.state.correlation_id=correlation_id
     content_length=request.headers.get("content-length")
-    if content_length is not None:
+    if content_length is None and request.headers.get("transfer-encoding"):
+        response=JSONResponse(status_code=411,content={"error":{"code":"content_length_required",
+          "message":"Chunked request bodies are not accepted by this API.","correlation_id":correlation_id}})
+    elif content_length is not None:
         try:
             declared_length=int(content_length)
         except ValueError:
