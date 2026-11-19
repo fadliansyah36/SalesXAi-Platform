@@ -12,6 +12,7 @@ from app.routers import admin,audit,auth,organizations
 from app.security.jwt import SupabaseJWTVerifier
 from app.services.supabase_auth import SupabaseAuthService
 from app.services.invitation_email import SMTPInvitationDelivery
+from app.services.rate_limit import enforce_request_rate_limit
 
 logging.basicConfig(level=logging.INFO)
 logger=logging.getLogger("salesx.api")
@@ -48,6 +49,7 @@ if settings.allowed_origins:
 async def correlation_id_middleware(request: Request,call_next):
     correlation_id=request.headers.get("x-correlation-id") or str(uuid4())
     request.state.correlation_id=correlation_id
+    await enforce_request_rate_limit(request)
     content_length=request.headers.get("content-length")
     if content_length is None and request.headers.get("transfer-encoding"):
         response=JSONResponse(status_code=411,content={"error":{"code":"content_length_required",
