@@ -22,12 +22,16 @@ export function OrganizationAccessConsole(){
  const [branch,setBranch]=useState("");
  const [message,setMessage]=useState("");
  const [busy,setBusy]=useState(false);
- const canManageInvites=auth.hasPermission("organization:invitations:manage");
- const canReadMembers=auth.hasPermission("organization:members:read");
- const canManageMembers=auth.hasPermission("organization:members:manage");
- const canReadIdentity=auth.hasPermission("identity:read:self");
- const canLinkIdentity=auth.hasPermission("identity:link:self");
- const canUnlinkIdentity=auth.hasPermission("identity:unlink:self");
+ const canManageInvites=auth.canPerformApiAction("organization.invitations.create")
+  &&auth.canPerformApiAction("organization.invitations.read")
+  &&auth.canPerformApiAction("organization.roles.assignable");
+ const canReadMembers=auth.canPerformApiAction("organization.members.read");
+ const canManageMembers=auth.canPerformApiAction("organization.members.update");
+ const canReadIdentity=auth.canPerformApiAction("identity.link.list");
+ const canLinkIdentity=auth.canPerformApiAction("identity.link.authorize");
+ const canUnlinkIdentity=auth.canPerformApiAction("identity.link.unlink");
+ const canReadSessions=auth.canPerformApiAction("identity.session.list");
+ const canRevokeSessions=auth.canPerformApiAction("identity.session.revoke");
 
  const load=useCallback(async()=>{
   if(!org||!auth.apiClient)return;
@@ -45,16 +49,16 @@ export function OrganizationAccessConsole(){
   if(canReadIdentity)jobs.push((async()=>{
    setIdentities(await api.listLinkedIdentities());
   })());
-  jobs.push((async()=>{
+  if(canReadSessions)jobs.push((async()=>{
    setSessions(await api.listSessions());
   })());
   await Promise.all(jobs);
- },[org,canReadMembers,canManageInvites,canReadIdentity,auth.apiClient]);
+ },[org,canReadMembers,canManageInvites,canReadIdentity,canReadSessions,auth.apiClient]);
 
  useEffect(()=>{void load().catch(e=>setMessage(e instanceof Error?e.message:"Gagal memuat akses organisasi."));},[load]);
 
  async function createInvite(event:React.FormEvent){
-  event.preventDefault();if(!org)return;setBusy(true);setMessage("");
+  event.preventDefault();if(!org||!canManageInvites)return;setBusy(true);setMessage("");
   try{
    const api=auth.apiClient;
    if(!api)throw new Error("FastAPI client belum dikonfigurasi.");
@@ -65,7 +69,10 @@ export function OrganizationAccessConsole(){
   finally{setBusy(false);}
  }
  async function inviteAction(id:string,action:"resend"|"revoke"){
-  if(!org)return;setBusy(true);
+  if(!org||!(action==="resend"
+    ?auth.canPerformApiAction("organization.invitations.resend")
+    :auth.canPerformApiAction("organization.invitations.revoke")))return;
+  setBusy(true);
   try{
    const api=auth.apiClient;
    if(!api)throw new Error("FastAPI client belum dikonfigurasi.");
@@ -81,7 +88,8 @@ export function OrganizationAccessConsole(){
   finally{setBusy(false);}
  }
  async function memberStatus(userId:string,status:"active"|"suspended"|"removed"){
-  if(!org)return;setBusy(true);
+  if(!org||!auth.canPerformApiAction("organization.members.update"))return;
+  setBusy(true);
   try{
    const api=auth.apiClient;
    if(!api)throw new Error("FastAPI client belum dikonfigurasi.");
@@ -91,6 +99,7 @@ export function OrganizationAccessConsole(){
   finally{setBusy(false);}
  }
  async function revokeDeviceSession(sessionId:string){
+  if(!canRevokeSessions)return;
   const api=auth.apiClient;
   if(!api)throw new Error("FastAPI client belum dikonfigurasi.");
   await api.revokeSession(sessionId);
@@ -98,10 +107,12 @@ export function OrganizationAccessConsole(){
   setMessage("Akses API SalesX-Ai untuk sesi perangkat tersebut dicabut.");
  }
  async function linkGoogle(){
+  if(!canLinkIdentity)return;
   try{await auth.linkIdentity("google");}
   catch(e){setMessage(e instanceof Error?e.message:"Google identity linking gagal.");}
  }
  async function unlink(id:string){
+  if(!canUnlinkIdentity)return;
   try{await auth.unlinkIdentity(id);await load();setMessage("Identitas dilepas.");}
   catch(e){setMessage(e instanceof Error?e.message:"Identitas tidak dapat dilepas.");}
  }
@@ -110,14 +121,14 @@ export function OrganizationAccessConsole(){
  return <div className="space-y-8">
   <header><h1 className="text-2xl font-bold">Akses & Identitas</h1><p className="mt-1 text-sm text-[var(--color-text-secondary)]">Organisasi aktif: {auth.activeMembership?.organization_name??"Belum dipilih"}</p></header>
   {message&&<p role="status" className="break-all rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-3 text-sm">{message}</p>}
-  <section className="space-y-3 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+  {canReadSessions&&<section className="space-y-3 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
    <h2 className="text-lg font-semibold">Sesi perangkat</h2>
    <p className="text-xs text-[var(--color-text-secondary)]">Cabut akses API untuk perangkat lain. Supabase Auth tidak menyediakan pencabutan refresh token per-perangkat berdasarkan session ID.</p>
    <div className="space-y-2">{sessions.map(session=><div key={session.auth_session_id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--color-border)] p-3">
     <div><p className="font-medium">{session.device_name??session.platform} {session.current?"· Perangkat ini":""}</p><p className="text-xs text-[var(--color-text-muted)]">{session.platform} · {session.revoked_at?"Akses dicabut":session.current?"Aktif sekarang":"Aktif"} · {session.last_seen_at?new Date(session.last_seen_at).toLocaleString():"Belum ada aktivitas"}</p></div>
-    {!session.current&&!session.revoked_at&&<button disabled={busy} onClick={()=>void revokeDeviceSession(session.auth_session_id).catch(e=>setMessage(e instanceof Error?e.message:"Sesi tidak dapat dicabut."))} className="text-xs font-semibold text-red-600">Cabut akses</button>}
+    {canRevokeSessions&&!session.current&&!session.revoked_at&&<button disabled={busy} onClick={()=>void revokeDeviceSession(session.auth_session_id).catch(e=>setMessage(e instanceof Error?e.message:"Sesi tidak dapat dicabut."))} className="text-xs font-semibold text-red-600">Cabut akses</button>}
    </div>)}</div>
-  </section>
+  </section>}
   {canReadIdentity&&<section className="space-y-3 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
    <h2 className="text-lg font-semibold">Identitas login</h2>
    {canLinkIdentity&&<button onClick={()=>void linkGoogle()} className="rounded-lg border border-[var(--color-border)] px-3 py-2 text-sm font-semibold">Hubungkan Google identity</button>}
