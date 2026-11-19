@@ -359,8 +359,18 @@ async def accept_invitation(
             )
             if role is None:
                 raise APIError(409,"invitation_role_unavailable","The invitation role is no longer available.")
-            if role["scope_type"] == "branch" and invitation["branch_id"] is None:
-                raise APIError(409,"invitation_scope_invalid","The invitation is missing its required branch scope.")
+            if role["scope_type"] == "branch":
+                if invitation["branch_id"] is None:
+                    raise APIError(409,"invitation_scope_invalid","The invitation is missing its required branch scope.")
+                branch_active = await connection.fetchval(
+                    """select exists(select 1 from public.branches
+                    where id=$1 and organization_id=$2 and status='active')""",
+                    invitation["branch_id"],invitation["organization_id"],
+                )
+                if not branch_active:
+                    raise APIError(409,"invitation_scope_invalid","The invited branch is no longer active in this organization.")
+            elif invitation["branch_id"] is not None:
+                raise APIError(409,"invitation_scope_invalid","A tenant-scoped invitation cannot include a branch.")
             member = await connection.fetchrow(
                 """insert into public.organization_memberships
                 (organization_id,user_id,branch_id,status,title,joined_at)
