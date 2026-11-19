@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import hmac
 import json
 import logging
 import re
@@ -63,8 +64,11 @@ def _unverified_subject(request: Request) -> str | None:
         return None
 
 
-def _bucket_key(name: str, identity: str) -> str:
-    return hashlib.sha256(f"salesx-rate-limit-v1\0{name}\0{identity}".encode()).hexdigest()
+def _bucket_key(name: str, identity: str, hash_secret: str | None = None) -> str:
+    message = f"salesx-rate-limit-v1\0{name}\0{identity}".encode()
+    if hash_secret:
+        return hmac.new(hash_secret.encode(), message, hashlib.sha256).hexdigest()
+    return hashlib.sha256(message).hexdigest()
 
 
 async def _consume(
@@ -73,8 +77,9 @@ async def _consume(
     name: str,
     identity: str,
     rule: RateLimitRule,
+    hash_secret: str | None = None,
 ) -> tuple[bool, int]:
-    key = _bucket_key(name, identity)
+    key = _bucket_key(name, identity, hash_secret)
     row = await connection.fetchrow(
         """
         insert into app_private.api_rate_limit_buckets
@@ -152,6 +157,8 @@ async def enforce_request_rate_limit(request: Request) -> None:
                     name=f"{rule.name}:{dimension}",
                     identity=identity,
                     rule=rule,
+                    hash_secret=settings.salesx_bff_shared_secret.get_secret_value()
+                        if settings.salesx_bff_shared_secret else None,
                 )
                 if not allowed:
                     logger.warning(
@@ -159,7 +166,9 @@ async def enforce_request_rate_limit(request: Request) -> None:
                         extra={
                             "bucket": rule.name,
                             "dimension": dimension,
-                            "key_fingerprint": _bucket_key(dimension, identity)[:12],
+                            "key_fingerprint": _bucket_key(dimension, identity,
+                                settings.salesx_bff_shared_secret.get_secret_value()
+                                if settings.salesx_bff_shared_secret else None)[:12],
                             "correlation_id": getattr(request.state, "correlation_id", None),
                         },
                     )
@@ -176,7 +185,7 @@ async def enforce_request_rate_limit(request: Request) -> None:
                 )
     except APIError:
         raise
-    except (asyncpg.PostgresError, TimeoutError, OSError) as exc:
+    except (asyncpg.PostgresError, asyncpg.InterfaceError, TimeoutError, OSError) as exc:
         logger.exception("distributed_rate_limit_store_error")
         if settings.rate_limit_fail_closed:
             raise APIError(
