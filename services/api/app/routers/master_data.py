@@ -2,7 +2,6 @@ from uuid import UUID
 from fastapi import APIRouter,Depends,Query,Request
 import asyncpg
 from app.db import get_connection
-from app.errors import APIError
 from app.schemas.master_data import MasterDataWrite,OutletAssignmentCreate
 from app.security.dependencies import Principal,TenantContext,get_current_principal,require_api_action
 from app.services.master_data import master_data_service
