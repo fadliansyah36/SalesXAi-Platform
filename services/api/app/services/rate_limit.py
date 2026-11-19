@@ -35,6 +35,7 @@ RULES: tuple[tuple[str, str, RateLimitRule], ...] = (
     ("GET", r"^/api/v1/organizations/[^/]+/invitations$", RateLimitRule("invitation_list", 60, 60, 180)),
     ("GET", r"^/api/v1/admin/users$", RateLimitRule("admin_user_list", 60, 60, 180)),
     ("GET", r"^/api/v1/admin/roles$", RateLimitRule("admin_role_list", 60, 60, 180)),
+    ("GET", r"^/api/v1/admin/audit$", RateLimitRule("admin_audit_list", 60, 60, 180)),
     ("POST", r"^/api/v1/auth/sessions/current$", RateLimitRule("session_register", 20, 60, 300)),
     ("POST", r"^/api/v1/auth/sign-out$", RateLimitRule("auth_signout", 15, 60, 120)),
     ("POST", r"^/api/v1/auth/identities/link-authorize$", RateLimitRule("identity_link_authorize", 5, 600, 1800)),
