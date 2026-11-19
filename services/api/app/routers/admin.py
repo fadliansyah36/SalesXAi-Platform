@@ -6,10 +6,12 @@ from fastapi import APIRouter, Depends, Query, Request
 
 from app.db import get_connection
 from app.schemas.identity import AccountStatusUpdate, PlatformAuditLogResponse
+from app.schemas.master_data import PlatformOrganizationStatusUpdate
 from app.security.dependencies import Principal, require_api_action
 from app.services.audit import write_audit
 from app.services.authorization import authorization_service
 from app.services.account_administration import account_administration_service
+from app.services.organization_mutations import organization_mutation_service
 
 router = APIRouter(prefix="/admin", tags=["platform-security"])
 
@@ -132,6 +134,29 @@ async def update_account_status(
     return await account_administration_service.update_status(
         connection, request, principal, user_id, payload.status
     )
+
+@router.get("/organizations")
+async def list_platform_organizations(
+    limit: int = Query(default=100,ge=1,le=500),
+    offset: int = Query(default=0,ge=0,le=100000),
+    principal: Principal = Depends(require_api_action("platform.organizations.list")),
+    connection: asyncpg.Connection = Depends(get_connection),
+) -> list[dict]:
+    return await organization_mutation_service.list_platform_organizations(connection,limit,offset)
+
+
+@router.patch("/organizations/{organization_id}")
+async def update_platform_organization(
+    organization_id: UUID,
+    payload: PlatformOrganizationStatusUpdate,
+    request: Request,
+    principal: Principal = Depends(require_api_action("platform.organizations.update")),
+    connection: asyncpg.Connection = Depends(get_connection),
+) -> dict:
+    return await organization_mutation_service.update_platform_organization_status(
+        connection,request,principal,organization_id,payload.status
+    )
+
 
 @router.get("/audit", response_model=list[PlatformAuditLogResponse])
 async def list_platform_audit_logs(
