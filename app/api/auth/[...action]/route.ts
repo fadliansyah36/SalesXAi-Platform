@@ -43,7 +43,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const expiry = Number(request.cookies.get(EXPIRY_COOKIE)?.value ?? 0);
   let refreshed: SupabaseAuthSession | null = null;
   if (!accessToken || expiry <= Math.floor(Date.now() / 1000) + 45) {
-    const limited = await enforceBffRateLimit(request, "refresh");
+    const limited = await enforceBffRateLimit(request, "refresh",
+      tokenFingerprint(request.cookies.get(REFRESH_COOKIE)?.value ?? ""));
     if (limited) return limited;
     refreshed = await refreshAuthSession(request);
     if (!refreshed) {
