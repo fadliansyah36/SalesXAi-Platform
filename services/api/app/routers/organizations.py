@@ -539,13 +539,9 @@ async def resend_invitation(
         role = await connection.fetchrow(
             "select scope_type,hierarchy_level from public.roles where key=$1",row["role_key"]
         )
-        actor_level = await connection.fetchval(
-            """select min(r.hierarchy_level) from public.user_role_assignments ura
-            join public.roles r on r.id=ura.role_id
-            where ura.user_id=$1 and ura.membership_id=$2 and ura.revoked_at is null
-              and ura.starts_at<=now() and (ura.expires_at is null or ura.expires_at>now())""",
-            principal.user_id,tenant.membership_id,
-        )
+        actor_level = await _delegation_hierarchy_level(
+            connection,principal.user_id,tenant.membership_id,organization_id,
+            row["branch_id"] if role and role["scope_type"]=="branch" else None)
         if role is None or actor_level is None or role["hierarchy_level"] <= actor_level:
             raise APIError(403,"privilege_escalation_denied","You cannot resend an equal- or higher-privilege invitation.")
         await write_audit(connection,request,principal,"organization.invitation.resent",
