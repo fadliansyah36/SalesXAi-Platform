@@ -6,11 +6,7 @@ import unittest
 class Phase02MutationArchitectureTests(unittest.TestCase):
     def test_phase02_routers_do_not_execute_domain_dml(self) -> None:
         root = Path(__file__).resolve().parents[3]
-        router_paths = (
-            root / "services/api/app/routers/auth.py",
-            root / "services/api/app/routers/admin.py",
-            root / "services/api/app/routers/organizations.py",
-        )
+        router_paths = (root / "services/api/app/routers").glob("*.py")
         dml = re.compile(r"\b(?:insert\s+into|update\s+public\.|delete\s+from)\b", re.IGNORECASE)
         for path in router_paths:
             self.assertFalse(dml.search(path.read_text()), f"Domain DML remains in {path.name}")
