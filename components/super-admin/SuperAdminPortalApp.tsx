@@ -83,7 +83,6 @@ import {
   INITIAL_AI_SKILLS,
   INITIAL_TELEGRAM_BOTS,
   INITIAL_SECURITY_EVENTS,
-  INITIAL_AUDIT_LOGS,
   INITIAL_SYSTEM_HEALTH_ITEMS,
   INITIAL_CONTENT_TEMPLATES,
   INITIAL_RUNBOOKS,
@@ -172,7 +171,7 @@ export function SuperAdminPortalApp() {
   const [otpModalOpen, setOtpModalOpen] = useState(false);
 
   // Navigation
-  const [activeTab, setActiveTab] = useState<SuperAdminTab>('dashboard');
+  const [activeTab, setActiveTab] = useState<SuperAdminTab>('users');
   const [dashboardPeriod, setDashboardPeriod] = useState<
     'Bulan Ini' | 'Kuartal Ini' | 'Tahun Ini'
   >('Bulan Ini');
@@ -214,7 +213,9 @@ export function SuperAdminPortalApp() {
   const [securityEvents, setSecurityEvents] = useState<SecurityEventItem[]>(
     INITIAL_SECURITY_EVENTS
   );
-  const [auditLogs, setAuditLogs] = useState<AuditLogItem[]>(INITIAL_AUDIT_LOGS);
+  const [auditLogs, setAuditLogs] = useState<AuditLogItem[]>([]);
+  const [auditLoading,setAuditLoading]=useState(false);
+  const [auditError,setAuditError]=useState<string|null>(null);
   const [notifications, setNotifications] = useState<NotificationItem[]>(
     INITIAL_NOTIFICATIONS
   );
@@ -223,7 +224,7 @@ export function SuperAdminPortalApp() {
 
   useEffect(()=>{
     if(activeTab!=="users")return;
-    if(!auth.hasPermission("account:status:manage")||!auth.apiClient){
+    if(!auth.canPerformApiAction("platform.users.list")||!auth.apiClient){
       setPlatformUsers([]);
       setUsersError("Akses direktori pengguna platform tidak diizinkan.");
       return;
@@ -249,7 +250,7 @@ export function SuperAdminPortalApp() {
       .catch(error=>{if(active)setUsersError(error instanceof Error?error.message:"Direktori pengguna tidak dapat dimuat.");})
       .finally(()=>{if(active)setUsersLoading(false);});
     return()=>{active=false;};
-  },[activeTab,auth.apiClient,auth.hasPermission]);
+  },[activeTab,auth.apiClient,auth.canPerformApiAction]);
 
   // Filters & Sub-tabs
   const [tenantSearch, setTenantSearch] = useState('');
@@ -460,8 +461,37 @@ export function SuperAdminPortalApp() {
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   useEffect(()=>{
+    if(activeTab!=="audit_logs")return;
+    if(!auth.canPerformApiAction("platform.audit.read")||!auth.apiClient){
+      setAuditLogs([]);setAuditError("Akses audit platform tidak diizinkan.");return;
+    }
+    let active=true;
+    setAuditLoading(true);setAuditError(null);
+    void auth.apiClient.listPlatformAuditLogs({limit:100})
+      .then(rows=>{
+        if(!active)return;
+        setAuditLogs(rows.map(log=>{
+          const metadata=log.metadata??{};
+          const outcome=typeof metadata.outcome==="string"?metadata.outcome:"";
+          const kind:AuditLogItem["kind"]=outcome==="denied"||log.action.includes("failed")?"warning":
+            log.action.includes("applied")||log.action.includes("accepted")?"success":"info";
+          return {
+            id:log.id,action:log.action,actorLabel:log.actor_label,
+            timestamp:new Date(log.occurred_at).toLocaleString("id-ID"),
+            kind,module:log.resource_type,correlationId:log.correlation_id??"",
+            payloadSummary:JSON.stringify(metadata),
+          };
+        }));
+      })
+      .catch(error=>{if(active){setAuditLogs([]);setAuditError(error instanceof Error?error.message:"Audit log platform tidak dapat dimuat.");}})
+      .finally(()=>{if(active)setAuditLoading(false);});
+    return()=>{active=false;};
+  },[activeTab,auth.apiClient,auth.canPerformApiAction]);
+
+
+  useEffect(()=>{
     if(activeTab!=="roles"&&!(activeTab==="analytics"&&analyticsSubTab==="User"))return;
-    if(!auth.hasPermission("role:assign")||!auth.apiClient){
+    if(!auth.canPerformApiAction("platform.roles.list")||!auth.apiClient){
       setPlatformRoles([]);
       setRolesError("Akses katalog role platform tidak diizinkan.");
       return;
@@ -474,7 +504,7 @@ export function SuperAdminPortalApp() {
       .catch(error=>{if(active)setRolesError(error instanceof Error?error.message:"Katalog role tidak dapat dimuat.");})
       .finally(()=>{if(active)setRolesLoading(false);});
     return()=>{active=false;};
-  },[activeTab,analyticsSubTab,auth.apiClient,auth.hasPermission]);
+  },[activeTab,analyticsSubTab,auth.apiClient,auth.canPerformApiAction]);
 
   const navGroups: PortalNavGroup<SuperAdminTab>[] = [
     {
@@ -524,24 +554,29 @@ export function SuperAdminPortalApp() {
   ];
 
   const hasAdminNavigationPermission=(id:SuperAdminTab):boolean=>{
-    if(id==="users")return auth.hasPermission("account:status:manage");
-    if(id==="roles")return auth.hasPermission("role:assign");
-    if(id==="audit_logs"||id==="security_events")return auth.hasPermission("audit:read");
-    if(id==="organizations")return auth.hasPermission("organization:read");
-    if(id==="tenants")return auth.hasPermission("organization:create");
-    return true;
+    if(id==="users")return auth.canPerformApiAction("platform.users.list");
+    if(id==="roles")return auth.canPerformApiAction("platform.roles.list");
+    if(id==="audit_logs")return auth.canPerformApiAction("platform.audit.read");
+    // Other Super Admin modules are owned by later phases and remain closed until
+    // their real API/action contracts are implemented.
+    return false;
   };
   const authorizedNavGroups=navGroups.map(group=>({
     ...group,
     items:group.items.filter(item=>hasAdminNavigationPermission(item.id)),
   })).filter(group=>group.items.length>0);
 
-  // Matching bottom navigation from the Super Admin reference image: Beranda | Tenant | Analitik | Lainnya
+  useEffect(()=>{
+    if(!hasAdminNavigationPermission(activeTab)){
+      const firstAvailable=(["users","roles","audit_logs"] as SuperAdminTab[]).find(hasAdminNavigationPermission);
+      if(firstAvailable)setActiveTab(firstAvailable);
+    }
+  },[activeTab,auth.canPerformApiAction]);
+
   const bottomNavItems = [
-    { id: 'dashboard' as SuperAdminTab, label: 'Beranda', icon: Home },
-    { id: 'tenants' as SuperAdminTab, label: 'Tenant', icon: Building2 },
-    { id: 'analytics' as SuperAdminTab, label: 'Analitik', icon: BarChart3 },
-    { id: 'more' as SuperAdminTab, label: 'Lainnya', icon: MenuIcon },
+    { id: 'users' as SuperAdminTab, label: 'Pengguna', icon: Users },
+    { id: 'roles' as SuperAdminTab, label: 'Role', icon: ShieldCheck },
+    { id: 'audit_logs' as SuperAdminTab, label: 'Audit', icon: FileClock },
   ].filter(item=>hasAdminNavigationPermission(item.id));
 
   const handleGoogleLogin = async () => {
@@ -1280,10 +1315,11 @@ export function SuperAdminPortalApp() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <button
+                  {auth.canPerformApiAction("platform.users.status")?<button
                     type="button"
                     disabled={userStatusBusyId===usr.id}
                     onClick={()=>{
+                      if(!auth.canPerformApiAction("platform.users.status"))return;
                       const api=auth.apiClient;
                       if(!api)return;
                       const nextStatus=usr.status==="Aktif"?"suspended":"active";
@@ -1300,7 +1336,7 @@ export function SuperAdminPortalApp() {
                     className="cursor-pointer disabled:opacity-50"
                   >
                     <StatusTag label={userStatusBusyId===usr.id?"Memproses…":usr.status} />
-                  </button>
+                  </button>:<StatusTag label={usr.status}/ >}
                   <ChevronRight className="h-4 w-4 text-[var(--color-text-muted)]" />
                 </div>
               </div>
@@ -2755,6 +2791,8 @@ export function SuperAdminPortalApp() {
             </button>
           </div>
 
+          {auditLoading&&<p className="text-xs text-[var(--color-text-muted)]">Memuat audit log dari FastAPI…</p>}
+          {auditError&&<p role="alert" className="text-xs text-red-600">{auditError}</p>}
           <div className="flex flex-wrap gap-2">
             {(
               [
@@ -2944,7 +2982,7 @@ export function SuperAdminPortalApp() {
             </p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {navGroups.flatMap((g) => g.items).map((item) => {
+            {authorizedNavGroups.flatMap((g) => g.items).map((item) => {
               const Icon = item.icon;
               return (
                 <button
