@@ -1,11 +1,11 @@
 from uuid import UUID
 import asyncpg
-from fastapi import APIRouter, Depends, Request, Response
+from fastapi import APIRouter, Depends, Request
 from app.db import get_connection
 from app.errors import APIError
 from app.schemas.identity import AuthContextResponse, MembershipResponse, ProfileResponse, SessionRegistration, SignOutRequest
 from app.security.dependencies import Principal, require_api_action
-from app.services.audit import write_audit
+from app.services.session_mutations import session_mutation_service
 from app.services.authorization import authorization_service
 
 router=APIRouter(prefix="/auth",tags=["identity"])
@@ -61,25 +61,8 @@ async def register_current_session(
     principal: Principal=Depends(require_api_action("identity.session.register")),
     connection: asyncpg.Connection=Depends(get_connection),
 )->None:
-    authorization_service.assert_action_context(request,"identity.session.register",principal.user_id)
-    auth_session=await connection.fetchrow(
-        "select not_after as expires_at from auth.sessions where id=$1 and user_id=$2",
-        principal.session_id,principal.user_id)
-    if auth_session is None:
-        raise APIError(401,"session_revoked","The Supabase Auth session is no longer active.")
-    async with connection.transaction():
-        existing=await connection.fetchrow("select revoked_at from public.session_devices where auth_session_id=$1",principal.session_id)
-        if existing and existing["revoked_at"] is not None:
-            raise APIError(401,"session_revoked","This device session has been revoked.")
-        await connection.execute(
-          """insert into public.session_devices(auth_session_id,user_id,device_id,device_name,platform,user_agent,expires_at,last_seen_at)
-          values ($1,$2,$3,$4,$5,$6,$7,now())
-          on conflict(auth_session_id) do update set device_id=excluded.device_id,device_name=excluded.device_name,
-          platform=excluded.platform,user_agent=excluded.user_agent,expires_at=excluded.expires_at,last_seen_at=now()""",
-          principal.session_id,principal.user_id,payload.device_id,payload.device_name,payload.platform,
-          payload.user_agent or request.headers.get("user-agent","")[:512],auth_session["expires_at"])
-        await write_audit(connection,request,principal,"auth.session.registered","auth_session",
-          str(principal.session_id),metadata={"platform":payload.platform})
+    await session_mutation_service.register(connection,request,principal,payload)
+
 
 @router.get("/sessions")
 async def list_sessions(
@@ -98,66 +81,19 @@ async def revoke_session(
     principal: Principal=Depends(require_api_action("identity.session.revoke")),
     connection: asyncpg.Connection=Depends(get_connection),
 )->None:
-    authorization_service.assert_action_context(request,"identity.session.revoke",principal.user_id)
-    exists=await connection.fetchval("select exists(select 1 from auth.sessions where id=$1 and user_id=$2)",session_id,principal.user_id)
-    if not exists:
-        raise APIError(404,"session_not_found","The requested session was not found.")
-    async with connection.transaction():
-        await connection.execute(
-          """insert into public.session_devices(auth_session_id,user_id,platform,revoked_at)
-          values ($1,$2,'unknown',now()) on conflict(auth_session_id) do update set revoked_at=now()""",
-          session_id,principal.user_id)
-        await write_audit(connection,request,principal,"auth.session.revoked","auth_session",
-          str(session_id),metadata={"current_session":session_id==principal.session_id})
+    await session_mutation_service.revoke(connection,request,principal,session_id)
+
 
 
 @router.post("/sign-out", status_code=204)
 async def sign_out(
     payload: SignOutRequest,
     request: Request,
-    response: Response,
     principal: Principal = Depends(require_api_action("identity.session.signout")),
     connection: asyncpg.Connection = Depends(get_connection),
 ) -> None:
-    authorization_service.assert_action_context(request,"identity.session.signout",principal.user_id)
-    authorization = request.headers.get("authorization", "")
-    access_token = authorization[7:] if authorization.lower().startswith("bearer ") else ""
-    if not access_token:
-        raise APIError(401, "unauthenticated", "A valid access token is required.")
+    await session_mutation_service.sign_out(connection,request,principal,payload)
 
-    # Supabase Auth revokes the refresh-token session(s); FastAPI additionally
-    # enforces the session registry/epoch because already-issued JWTs are stateless.
-    await request.app.state.supabase_auth.sign_out(access_token, payload.scope)
-
-    async with connection.transaction():
-        if payload.scope == "global":
-            await connection.execute(
-                "update public.profiles set session_revoked_at=now(),updated_at=now() where id=$1",
-                principal.user_id,
-            )
-            await connection.execute(
-                "update public.session_devices set revoked_at=coalesce(revoked_at,now()) where user_id=$1",
-                principal.user_id,
-            )
-        elif payload.scope == "others":
-            await connection.execute(
-                """update public.session_devices set revoked_at=coalesce(revoked_at,now())
-                where user_id=$1 and auth_session_id<>$2""",
-                principal.user_id, principal.session_id,
-            )
-        else:
-            await connection.execute(
-                """insert into public.session_devices(auth_session_id,user_id,platform,revoked_at)
-                values ($1,$2,'unknown',now())
-                on conflict(auth_session_id) do update set revoked_at=coalesce(public.session_devices.revoked_at,now())""",
-                principal.session_id, principal.user_id,
-            )
-        await write_audit(
-            connection, request, principal, "auth.session.remote_signed_out",
-            "auth_session", str(principal.session_id),
-            metadata={"scope": payload.scope, "supabase_auth_confirmed": True},
-        )
-    response.status_code = 204
 
 
 @router.post("/identities/link-authorize",status_code=204)
