@@ -111,6 +111,20 @@ export function randomToken(bytes = 32): string {
   return randomBytes(bytes).toString("base64url");
 }
 
+export function subjectFromJwt(token: string): string | undefined {
+  try {
+    const payload = token.split(".")[1];
+    if (!payload) return undefined;
+    const decoded = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as { sub?: unknown };
+    return typeof decoded.sub === "string" ? decoded.sub : undefined;
+  } catch { return undefined; }
+}
+
+export function tokenFingerprint(token: string): string | undefined {
+  if (!token) return undefined;
+  return createHash("sha256").update(token).digest("hex");
+}
+
 export function pkceChallenge(verifier: string): string {
   return createHash("sha256").update(verifier).digest("base64url");
 }
