@@ -6,7 +6,7 @@ Supabase project ref: `eyofuiyxalbehbqoaeny`
 
 ## Phase 00 — Repository Bootstrap & Governance
 
-Status: IMPLEMENTED
+Status: PARTIAL
 
 - [x] Root AGENTS.md and canonical Docs baseline established.
 - [x] Cross-platform vertical-slice flow documented.
@@ -44,7 +44,7 @@ Status: IMPLEMENTED
 
 ## Phase 01 — Canonical Design System & Design Tokens
 
-Status: IMPLEMENTED
+Status: PARTIAL
 
 - [x] Canonical primitive, semantic light/dark, typography, spacing, radius, elevation, motion and breakpoint JSON retained as the only token source.
 - [x] Deterministic generator validates canonical brand values and semantic token references.
@@ -76,17 +76,18 @@ Status: IMPLEMENTED
 - PASS — Bun lockfile JSONC structure check after workspace metadata and root identity updates.
 - PASS — Supabase migration history and schema boundary verification.
 - NOT RUN — `bun install --frozen-lockfile`, `bun run tokens:check`, Next lint/typecheck/build and Expo build. Bun is not installed in the execution environment and repository dependencies/Expo runtime are not installed there. No runtime/build success is claimed.
+- Closure blocker: run the frozen Bun workspace install and package check, then run the existing Web lint/typecheck/build and an Expo app build once the Expo runtime scaffold/dependencies are established. The native canonical-token adapter is present, but the current repository does not yet contain a runnable Expo app package/configuration; therefore the full Native consumer integration is not yet evidenced.
 - Deployment: not performed or claimed.
 
 ### Commit evidence
 - Implementation and integration commits: `cd434677655a809cb5d4ab4f3660a110847e991e`, `35131ad1017f2c66808c8396c0672f0555cbe50d`, `30e8e74fe08c49e328111e6e0a64ff76bb745403`, `8dea3cf0f4f942a06095bb552fa53a1a04a8c74a`, `433d6fe260164fb018caf65b384e3fa3f3b90ee5`, `dd49c1ae83f440717668905d99dbff00972e6947`, `b3d026d2fa4b3452a78d71fec8f1f7d42560df69`.
 - Phase 00 security migration commit: `5edf1716cecdbf955356a11c4a8c87ecaf9a533e`.
 - Evidence/runbook documentation commits: `9ed0199d875112a2744c61d2d8811c7193d8f282`, `b9bbe8ffbcb35f48a12da6c905f3a7a24548c3a9`.
-- This final tracker update is committed separately; its resulting commit becomes the final repository HEAD.
+- Final tracker status intentionally remains PARTIAL pending the listed engineering closure items.
 
 ### Supabase security baseline
 The pre-existing `public.rls_auto_enable()` SECURITY DEFINER function was inspected. It is owned by postgres and attached to the postgres-owned `ensure_rls` DDL event trigger. A versioned Phase 00 migration revoked direct EXECUTE from PUBLIC, anon and authenticated while preserving service_role execution and the event trigger. Live privilege verification confirms the revocation; the subsequent Supabase security advisor returned no lints.
 
 ## Next phase
 
-Phase 02 — Identity, Tenant & Authorization Foundation. Phase 02 is the next authorized implementation scope; do not pull its tenant/business schema into Phase 00–01.
+Phase 02 — Identity, Tenant & Authorization Foundation is the next planned phase, but do not begin it until Phase 00–01 blockers above are closed and both statuses can be promoted to COMPLETED.
