@@ -332,7 +332,7 @@ function TenantDetailForm({
           <select
             value={plan}
             disabled
-            onChange={(e) => setPlan(e.target.value as PlatformTenant['plan'])
+            onChange={(e) => setPlan(e.target.value as PlatformTenant['plan'])}
             className="w-full rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 py-2"
           >
             <option value="Basic">Basic</option>
