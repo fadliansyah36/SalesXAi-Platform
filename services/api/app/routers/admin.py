@@ -1,7 +1,7 @@
 from uuid import UUID
 
 import asyncpg
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
 
 from app.db import get_connection
 from app.errors import APIError
@@ -10,6 +10,77 @@ from app.security.dependencies import Principal, require_platform_permission
 from app.services.audit import write_audit
 
 router = APIRouter(prefix="/admin", tags=["platform-security"])
+
+
+@router.get("/users")
+async def list_platform_users(
+    q: str | None = Query(default=None,max_length=160),
+    limit: int = Query(default=100,ge=1,le=500),
+    offset: int = Query(default=0,ge=0,le=100000),
+    principal: Principal = Depends(require_platform_permission("account:status:manage")),
+    connection: asyncpg.Connection = Depends(get_connection),
+) -> list[dict]:
+    rows = await connection.fetch(
+        """
+        select p.id,
+          coalesce(nullif(p.display_name,''),nullif(u.email,''),'Unknown') name,
+          coalesce(u.email,'') email,
+          coalesce((
+            select string_agg(distinct o.slug,', ' order by o.slug)
+            from public.organization_memberships m
+            join public.organizations o on o.id=m.organization_id
+            where m.user_id=p.id and m.status='active' and o.status='active'
+          ),'') tenant_id,
+          coalesce((
+            select string_agg(distinct o.name,', ' order by o.name)
+            from public.organization_memberships m
+            join public.organizations o on o.id=m.organization_id
+            where m.user_id=p.id and m.status='active' and o.status='active'
+          ),'') tenant_name,
+          coalesce((
+            select string_agg(distinct r.key,', ' order by r.key)
+            from public.user_role_assignments ura
+            join public.roles r on r.id=ura.role_id
+            left join public.organization_memberships m on m.id=ura.membership_id
+            left join public.organizations o on o.id=m.organization_id
+            left join public.branches b on b.id=ura.scope_id
+            where ura.user_id=p.id and ura.revoked_at is null
+              and ura.starts_at<=now() and (ura.expires_at is null or ura.expires_at>now())
+              and (
+                (ura.scope_type='platform' and ura.membership_id is null and ura.scope_id is null)
+                or (ura.scope_type='tenant' and m.status='active' and o.status='active' and ura.scope_id=o.id)
+                or (ura.scope_type='branch' and m.status='active' and o.status='active'
+                    and b.organization_id=o.id and b.status='active' and ura.scope_id=b.id)
+              )
+          ),'unassigned') role,
+          p.status,
+          exists(select 1 from auth.mfa_factors mf where mf.user_id=p.id and mf.status='verified') mfa_enabled,
+          (select max(sd.last_seen_at) from public.session_devices sd
+            where sd.user_id=p.id and sd.revoked_at is null) last_active
+        from public.profiles p
+        join auth.users u on u.id=p.id
+        where $1::text is null
+          or lower(coalesce(u.email,'')) like '%'||lower($1)||'%'
+          or lower(coalesce(p.display_name,'')) like '%'||lower($1)||'%'
+        order by u.created_at desc
+        limit $2 offset $3
+        """,
+        q.strip() if q and q.strip() else None,limit,offset,
+    )
+    return [
+        {
+            "id":str(row["id"]),
+            "name":row["name"],
+            "email":row["email"],
+            "tenant_id":row["tenant_id"],
+            "tenant_name":row["tenant_name"],
+            "role":row["role"],
+            "status":row["status"],
+            "mfa_enabled":row["mfa_enabled"],
+            "last_active":row["last_active"].isoformat() if row["last_active"] else None,
+        }
+        for row in rows
+    ]
 
 
 @router.get("/roles")
