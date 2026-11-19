@@ -13,11 +13,17 @@ type WebSession = {
   expires_in: number;
   token_type: string;
 };
+type WebSessionView = {
+  user: AuthSession["user"];
+  expires_at: number;
+  expires_in: number;
+  token_type: string;
+};
 type AuthResponse = { session: WebSession | null; verification_required?: boolean };
 
 interface SalesXAuthValue {
   status: AuthStatus;
-  session: AuthSession | null;
+  session: WebSessionView | null;
   context: SalesXAuthContextData | null;
   activeMembership: SalesXAuthContextData["memberships"][number] | null;
   activeOrganizationId: string | null;
@@ -42,13 +48,10 @@ interface SalesXAuthValue {
 }
 const SalesXAuthContext=createContext<SalesXAuthValue|null>(null);
 
-function browserSession(value:WebSession|null):AuthSession|null {
+function browserSession(value:WebSession|null):WebSessionView|null {
   if(!value)return null;
-  // Access and refresh tokens stay in HttpOnly cookies; these empty fields preserve the
-  // existing consumer type without exposing credential material to browser JavaScript.
+  // The Web session view intentionally has no access/refresh token fields.
   return {
-    access_token:"",
-    refresh_token:"",
     token_type:value.token_type||"bearer",
     expires_in:value.expires_in,
     expires_at:value.expires_at,
@@ -58,7 +61,7 @@ function browserSession(value:WebSession|null):AuthSession|null {
 
 export function SalesXAuthProvider({children}:{children:React.ReactNode}) {
   const [status,setStatus]=useState<AuthStatus>("loading");
-  const [session,setSession]=useState<AuthSession|null>(null);
+  const [session,setSession]=useState<WebSessionView|null>(null);
   const [context,setContext]=useState<SalesXAuthContextData|null>(null);
   const [activeOrganizationId,setActiveOrganizationIdState]=useState<string|null>(null);
   const [error,setError]=useState<string|null>(null);
