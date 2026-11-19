@@ -186,10 +186,11 @@ export class SalesXAuthClient {
   const pending=await this.createOAuthPending("signin",null);
   const url=new URL(this.baseUrl+"/auth/v1/authorize");
   url.searchParams.set("provider",provider);
-  url.searchParams.set("redirect_to",redirectTo);
+  const callback = new URL(redirectTo);
+  callback.searchParams.set("oauth_state",pending.state);
+  url.searchParams.set("redirect_to",callback.toString());
   url.searchParams.set("code_challenge",base64Url(sha256(verifierBytes(pending.codeVerifier))));
   url.searchParams.set("code_challenge_method","s256");
-  url.searchParams.set("state",pending.state);
   return url.toString();
  }
  async beginIdentityLink(provider:"google",redirectTo:string):Promise<string> {
@@ -198,10 +199,11 @@ export class SalesXAuthClient {
   const pending=await this.createOAuthPending("link",session.user.id);
   const url=new URL(this.baseUrl+"/auth/v1/user/identities/authorize");
   url.searchParams.set("provider",provider);
-  url.searchParams.set("redirect_to",redirectTo);
+  const callback = new URL(redirectTo);
+  callback.searchParams.set("oauth_state",pending.state);
+  url.searchParams.set("redirect_to",callback.toString());
   url.searchParams.set("code_challenge",base64Url(sha256(verifierBytes(pending.codeVerifier))));
   url.searchParams.set("code_challenge_method","s256");
-  url.searchParams.set("state",pending.state);
   url.searchParams.set("skip_http_redirect","true");
   const response=await this.fetcher(url.toString(),{
    headers:{apikey:this.key,Authorization:"Bearer "+session.access_token},
