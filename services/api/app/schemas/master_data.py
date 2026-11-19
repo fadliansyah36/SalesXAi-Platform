@@ -6,6 +6,7 @@ from pydantic import BaseModel,Field,ConfigDict
 class MasterDataWrite(BaseModel):
  model_config=ConfigDict(extra="forbid")
  code:str|None=Field(default=None,min_length=1,max_length=60)
+ branch_type:Literal["head_office","branch","warehouse"]|None=None
  name:str|None=Field(default=None,min_length=2,max_length=180)
  status:Literal["active","inactive","archived","suspended"]|None=None
  branch_id:UUID|None=None
