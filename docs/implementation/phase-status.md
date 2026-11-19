@@ -384,4 +384,24 @@ DATABASE_URL, SUPABASE_PUBLISHABLE_KEY, SUPABASE_SECRET_KEY, SALESX_API_URL, SAL
 - No new database migration, RLS or grant change was required for this code-only continuation. The existing 13 applied Phase 02 migration versions remain unchanged.
 - Latest static CI for the continuation is being reconciled after initial failures in Ruff import modernization and action-matrix test assertions. No green result is claimed in this addendum.
 
+
+
+### Validation evidence — action authorization continuation
+
+- API workflow **44572852325** on code head `0116be2327154ea12800df64c58ab6f750eac36d`: SUCCESS.
+  - 26 Python unit tests passed, including 3 action-matrix coverage tests.
+  - FastAPI `compileall` passed.
+  - Ruff passed.
+  - Web TypeScript passed.
+  - Web lint passed.
+- Foundation workflow **44572686520** on code head `515174a526819bf28807580166964d212933593f`: SUCCESS.
+  - Bun frozen workspace install and canonical token generation/reproducibility passed.
+  - Web TypeScript/lint passed.
+  - Expo Native TypeScript and SDK compatibility passed.
+  - Expo app config and Metro startup passed.
+  - Android and iOS JS bundle exports passed.
+  - Turborepo workspace build passed.
+- The follow-up commit `4b4b411e8258af68fb5a70722e110551d0eec975` additionally makes BFF-only API action IDs return false from the client resolver. Its new push workflow was still running at the time of this record; do not treat that commit as independently validated until its run concludes.
+- No live Auth provider, SMTP, runtime DB, deployment, or real-world behavior is claimed.
+
 **Official Phase 02 status remains IN PROGRESS / PARTIAL. Phase 03 status remains independently tracked and does not change Phase 02 closure criteria.**
