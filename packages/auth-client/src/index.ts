@@ -286,6 +286,7 @@ export class SalesXAuthClient {
  }
  async clearSession():Promise<void> {
   await this.storage.removeItem(this.storageKey);
+  await this.storage.removeItem(this.storageKey+":oauth-pending");
   this.emit(null);
  }
  async recoverPassword(email:string,redirectTo?:string):Promise<void> {
