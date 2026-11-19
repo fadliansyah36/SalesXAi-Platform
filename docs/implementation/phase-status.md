@@ -618,3 +618,40 @@ Target project: `eyofuiyxalbehbqoaeny`.
 7. Run fresh combined static CI after the next Phase 03 UI integration batch.
 
 **Decision: Phase 03 = IN_PROGRESS.** It is not complete and no completion claim is made.
+
+
+## Phase 03 continuation update — Company Team vertical slice (2026-11-20)
+
+This update supersedes the earlier Phase 03 remaining-work note where it said the Company Team screen was not yet connected.
+
+### Newly implemented
+- Company Portal now reads live teams, sales profiles and organization memberships through the typed API client and FastAPI.
+- Existing Team Structure modal creates tenant-scoped teams with branch, optional active supervisor and optional parent-team references.
+- Existing Team Structure screen renders actual team/branch/supervisor/parent relationships; hardcoded team hierarchy counts were removed.
+- Existing personnel assignment modal updates a sales profile's team, manager/supervisor and status through `updateSalesProfile`; nullable repository updates now preserve explicit null so supervisor assignments can be cleared.
+- Company Portal Team personnel no longer initialize from `INITIAL_TEAM_MEMBERS`. GPS maps are withheld until real location telemetry exists; no fabricated location coordinates are displayed.
+- Role changes remain managed through the existing Access Console. The Company Team modal does not simulate RBAC role assignment.
+
+### Updated Phase 03 remaining work
+- Create sales profiles for existing active organization members from the Company Portal.
+- Complete team role assignment through the existing RBAC delegation contract and expose only roles actually assignable to the actor.
+- Connect outlet assignment history and assignment create/revoke flows to Company/Sales/Supervisor surfaces.
+- Complete territory/team/outlet update/deactivation screens and branch lifecycle.
+- Add import/export with validation, row-level errors, audit and idempotent batches.
+- Add private tenant-authorized Realtime events/subscriptions where required.
+- Connect Expo assigned team/outlet context to the shared API.
+
+### Expanded source handler inventory
+The combined route/portal/modal inventory now has **1,575 callback/event prop occurrences across 21 TSX source files**:
+- `handler-level-action-inventory.tsv` — seven Web portal roots and Expo Sales.
+- `handler-level-modal-inventory.tsv` — 11 modal/dialog components.
+- `handler-level-route-inventory.tsv` — 13 Next.js route pages.
+Scope tags: 99 Phase 02, 67 Phase 03, 789 future-phase and 620 UI-state callbacks. These are source occurrences, not unique business actions.
+
+### Latest engineering validation
+- API Checks run **44593859276**, code head `6f314455b6e344f9519abfe6a53bf8162779ca29`: **SUCCESS** — 46 Python tests, compileall, Ruff, Web typecheck and lint.
+  - https://github.com/fadliansyah36/SalesXAi-Platform/actions/runs/44593859276
+- Foundation Verification run **44593859301**, same code head: all 20 engineering steps succeeded — Bun workspace, token reproducibility, Web TypeScript/lint, Expo Native TypeScript, SDK compatibility, Expo config, Metro, Android/iOS exports and Turborepo build.
+  - https://github.com/fadliansyah36/SalesXAi-Platform/actions/runs/44593859301
+
+**Status remains: Phase 02 = COMPLETED; Phase 03 = IN_PROGRESS.** The new Team slice is partial; the remaining Phase 03 tasks above are still open.
