@@ -193,6 +193,29 @@ export async function enforceBffRateLimit(
   }
 }
 
+export async function authorizeBffRefresh(accessToken: string): Promise<Response | null> {
+  const origin = apiUrl();
+  const secret = process.env.SALESX_BFF_SHARED_SECRET ?? "";
+  if (!origin || secret.length < 32 || !accessToken) {
+    return Response.json({ error: { code: "refresh_authorization_unavailable", message: "The registered session refresh gate is not configured." } }, { status: 503 });
+  }
+  try {
+    const response = await fetch(origin + "/api/v1/security/refresh-authorize", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + accessToken, "X-SalesX-BFF-Secret": secret },
+      cache: "no-store",
+      signal: AbortSignal.timeout(5000),
+    });
+    if (response.status === 204) return null;
+    return new Response(await response.text(), {
+      status: response.status,
+      headers: { "Content-Type": response.headers.get("content-type") ?? "application/json", "Cache-Control": "no-store" },
+    });
+  } catch {
+    return Response.json({ error: { code: "refresh_authorization_unavailable", message: "The registered session refresh gate is unavailable." } }, { status: 503 });
+  }
+}
+
 export async function refreshAuthSession(request: NextRequest): Promise<SupabaseAuthSession | null> {
   const refreshToken = request.cookies.get(REFRESH_COOKIE)?.value;
   if (!refreshToken) return null;
