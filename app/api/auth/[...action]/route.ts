@@ -298,6 +298,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
   if (route === "sign-out") {
     const scope = payload.scope === "global" || payload.scope === "others" ? String(payload.scope) : "local";
+    const limited = await enforceBffRateLimit(request, "signout");
+    if (limited) return limited;
     if (accessToken) {
       const result = await supabaseAuthRequest("logout?scope=" + scope, { method: "POST" }, accessToken);
       if (!result.ok && scope !== "local") return authError(result.status, "signout_failed", supabaseMessage(result.body));
