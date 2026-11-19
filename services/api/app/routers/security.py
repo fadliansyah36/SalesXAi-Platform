@@ -5,7 +5,6 @@ import ipaddress
 import logging
 from typing import Literal
 
-import asyncpg
 from fastapi import APIRouter, Request, Response
 from datetime import UTC, datetime
 from uuid import UUID
@@ -13,6 +12,7 @@ from pydantic import BaseModel, Field
 
 from app.errors import APIError
 from app.services.rate_limit import RateLimitRule, _consume
+from app.services.session_mutations import session_mutation_service
 
 router = APIRouter(prefix="/security", tags=["security"])
 
@@ -34,27 +34,11 @@ async def authorize_session_refresh(request: Request) -> Response:
         issued_at = datetime.fromtimestamp(float(claims["iat"]), tz=UTC)
     except (KeyError, ValueError, TypeError, OverflowError) as exc:
         raise APIError(401, "invalid_token", "Refresh session identity is invalid.") from exc
-    pool: asyncpg.Pool | None = getattr(request.app.state, "db_pool", None)
+    pool = getattr(request.app.state, "db_pool", None)
     if pool is None:
         raise APIError(503, "database_not_ready", "Session registry is unavailable.")
     async with pool.acquire() as connection:
-        row = await connection.fetchrow(
-            """select p.status,p.session_revoked_at,u.email_confirmed_at,u.phone_confirmed_at,
-                      s.id session_id,s.not_after,sd.id device_id,sd.revoked_at,sd.expires_at
-               from public.profiles p join auth.users u on u.id=p.id
-               left join auth.sessions s on s.id=$2 and s.user_id=p.id
-               left join public.session_devices sd on sd.auth_session_id=s.id and sd.user_id=p.id
-               where p.id=$1""", user_id, session_id)
-    if row is None or row["status"] != "active":
-        raise APIError(403, "account_inactive", "This account is not active.")
-    if row["email_confirmed_at"] is None and row["phone_confirmed_at"] is None:
-        raise APIError(403, "identity_unverified", "Verify the account before refreshing this session.")
-    now = datetime.now(UTC)
-    if (row["session_id"] is None or row["device_id"] is None or row["revoked_at"] is not None
-            or (row["not_after"] is not None and row["not_after"] <= now)
-            or (row["expires_at"] is not None and row["expires_at"] <= now)
-            or (row["session_revoked_at"] is not None and issued_at <= row["session_revoked_at"])):
-        raise APIError(401, "session_revoked", "This device session is no longer authorized to refresh.")
+        await session_mutation_service.authorize_refresh(connection,user_id,session_id,issued_at)
     return Response(status_code=204)
 logger = logging.getLogger("salesx.api.security")
 
