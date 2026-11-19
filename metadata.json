@@ -1,0 +1,6 @@
+{
+  "name": "SalesX-Ai",
+  "description": "AI-Native Sales, Distribution & Field Operations PWA Platform — SmartTeam, SmartOrder, SmartReward, Realtime GPS, AI Sales Assistant, Content Studio & Google Workspace.",
+  "requestFramePermissions": ["geolocation", "microphone", "camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
