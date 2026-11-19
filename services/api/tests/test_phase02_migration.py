@@ -14,6 +14,9 @@ PLATFORM_READ_MIGRATION = (
 AUDIT_GRANT_MIGRATION = (
     MIGRATIONS / "20261119173915_p02_restrict_audit_mutation_grants.sql"
 )
+AUDIT_PRIVILEGE_MIGRATION = (
+    MIGRATIONS / "20261119174508_p02_revoke_audit_reference_trigger_grants.sql"
+)
 
 
 class Phase02MigrationConsistencyTests(unittest.TestCase):
@@ -46,6 +49,11 @@ class Phase02MigrationConsistencyTests(unittest.TestCase):
         migration = AUDIT_GRANT_MIGRATION.read_text(encoding="utf-8").lower()
         self.assertIn("revoke update, delete, truncate", migration)
         self.assertIn("grant select, insert", migration)
+
+    def test_service_role_has_only_audit_read_and_append_grants(self) -> None:
+        self.assertTrue(AUDIT_PRIVILEGE_MIGRATION.is_file())
+        migration = AUDIT_PRIVILEGE_MIGRATION.read_text(encoding="utf-8").lower()
+        self.assertIn("revoke references, trigger", migration)
 
     def test_platform_audit_index_is_null_tenant_scoped(self) -> None:
         migration = PLATFORM_READ_MIGRATION.read_text(encoding="utf-8")
