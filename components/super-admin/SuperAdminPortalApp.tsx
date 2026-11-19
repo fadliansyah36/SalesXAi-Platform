@@ -3079,14 +3079,17 @@ export function SuperAdminPortalApp() {
         open={addTenantOpen}
         onClose={() => setAddTenantOpen(false)}
         onAddTenant={(t) => {
-          setTenants((prev) => [t, ...prev]);
-          appendAudit(
-            'Registrasi Tenant Baru',
-            'Manajemen Tenant',
-            `Tenant ${t.name} (${t.id}) terdaftar pada paket ${t.plan}.`,
-            'success'
-          );
-          showToast(`Tenant ${t.name} (${t.id}) berhasil ditambahkan.`);
+          if (!auth.apiClient || !auth.canPerformApiAction('organization.create')) {
+            setOrganizationsError('Akses pembuatan tenant tidak diizinkan.');
+            return;
+          }
+          const slug = t.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 48);
+          void auth.apiClient.createOrganization({ name: t.name, slug, legal_name: null })
+            .then(() => {
+              setOrganizationsRefreshKey((value) => value + 1);
+              showToast('Tenant ' + t.name + ' berhasil dibuat melalui FastAPI.');
+            })
+            .catch((error: unknown) => setOrganizationsError(error instanceof Error ? error.message : 'Tenant gagal dibuat.'));
         }}
       />
 
