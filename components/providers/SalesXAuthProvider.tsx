@@ -132,6 +132,7 @@ export function SalesXAuthProvider({children}:{children:React.ReactNode}) {
         try{await authRequest("refresh");return true;}
         catch{return false;}
       },
+      getCsrfToken:ensureCsrf,
       getOrganizationId:()=>activeOrganizationId,
       onSessionInvalidated:invalidateSession,
     },
