@@ -1,4 +1,5 @@
 from functools import lru_cache
+from urllib.parse import unquote, urlsplit
 from pydantic import AnyHttpUrl, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -30,6 +31,29 @@ class Settings(BaseSettings):
     smtp_from_name: str = "SalesX-Ai"
     smtp_starttls: bool = True
     smtp_timeout_seconds: float = 10.0
+
+    @field_validator("supabase_url")
+    @classmethod
+    def validate_supabase_project(cls, value: AnyHttpUrl) -> AnyHttpUrl:
+        if urlsplit(str(value)).hostname != "eyofuiyxalbehbqoaeny.supabase.co":
+            raise ValueError("SUPABASE_URL must reference the bound SalesX-Ai project eyofuiyxalbehbqoaeny")
+        return value
+
+    @field_validator("database_url")
+    @classmethod
+    def validate_database_project(cls, value: SecretStr | None) -> SecretStr | None:
+        if value is None or not value.get_secret_value().strip():
+            return None
+        parsed = urlsplit(value.get_secret_value())
+        if parsed.scheme not in {"postgres", "postgresql"}:
+            raise ValueError("DATABASE_URL must use PostgreSQL")
+        host = parsed.hostname or ""
+        username = unquote(parsed.username or "")
+        direct_target = host == "db.eyofuiyxalbehbqoaeny.supabase.co"
+        pooler_target = host.endswith(".pooler.supabase.com") and username.endswith(".eyofuiyxalbehbqoaeny")
+        if not (direct_target or pooler_target):
+            raise ValueError("DATABASE_URL must connect to the bound Supabase project eyofuiyxalbehbqoaeny")
+        return value
 
     @field_validator("supabase_jwt_secret","supabase_publishable_key","supabase_secret_key","smtp_password",mode="before")
     @classmethod
