@@ -9,6 +9,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from app.db import get_connection
 from app.errors import APIError
 from app.security.jwt import SupabaseJWTVerifier
+from app.security.action_matrix import API_ACTION_MATRIX
 from app.security.policy import abac_conditions_match
 
 bearer_scheme = HTTPBearer(auto_error=False)
@@ -247,3 +248,32 @@ def require_platform_permission(permission_key: str):
             raise APIError(403,"forbidden","A platform-scoped permission is required.")
         return principal
     return dependency
+
+
+_ACTION_CONTRACTS_BY_ID = {item.id: item for item in API_ACTION_MATRIX}
+
+
+def require_api_action(action_id: str):
+    """Resolve a route dependency from the canonical action contract.
+
+    The registry selects the enforcement primitive; resource ownership and
+    tenant membership remain validated by the selected server dependency and
+    the route's domain checks. BFF-only contracts must use their explicit
+    shared-secret gate and can never be attached as a user dependency.
+    """
+    contract = _ACTION_CONTRACTS_BY_ID.get(action_id)
+    if contract is None:
+        raise RuntimeError(f"Unknown API action contract: {action_id}")
+    if contract.scope == "bff":
+        raise RuntimeError(f"BFF-only action cannot use user authorization dependency: {action_id}")
+    if contract.scope == "self":
+        return require_self_permission(contract.permission_key) if contract.permission_key else get_current_principal
+    if contract.scope == "tenant":
+        if not contract.permission_key:
+            raise RuntimeError(f"Tenant action has no permission key: {action_id}")
+        return require_permission(contract.permission_key)
+    if contract.scope == "platform":
+        if not contract.permission_key:
+            raise RuntimeError(f"Platform action has no permission key: {action_id}")
+        return require_platform_permission(contract.permission_key)
+    raise RuntimeError(f"Unsupported API action scope for {action_id}: {contract.scope}")
