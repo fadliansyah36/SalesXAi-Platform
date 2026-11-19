@@ -22,6 +22,8 @@ class Settings(BaseSettings):
     db_max_inactive_connection_lifetime: float = 300.0
     db_statement_timeout_ms: int = 30000
     max_request_body_bytes: int = 1048576
+    rate_limit_enabled: bool = True
+    rate_limit_fail_closed: bool = True
     cors_origins: str = ""
     jwt_clock_skew_seconds: int = 30
     smtp_host: str | None = None
