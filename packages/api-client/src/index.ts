@@ -1,4 +1,25 @@
-import type { AuthContext, SessionDeviceRegistration } from "@salesx-ai/api-contracts";
+import type {
+  AccountStatusUpdateRequest,
+  AssignableRole,
+  AuthContext,
+  InvitationAcceptResponse,
+  InvitationActionResponse,
+  InvitationCreateRequest,
+  InvitationDeliveryResult,
+  InvitationRecord,
+  InvitationTokenRequest,
+  MemberCreateRequest,
+  MemberStatusResponse,
+  MemberStatusUpdateRequest,
+  MyOrganizationSummary,
+  OrganizationCreateRequest,
+  OrganizationMember,
+  OrganizationSummary,
+  RoleAssignmentRequest,
+  RoleAssignmentResponse,
+  SessionDeviceRegistration,
+  SessionDeviceSummary,
+} from "@salesx-ai/api-contracts";
 
 export type ApiPlatform = "web" | "android" | "ios" | "unknown";
 export type AuthFailureCode = "session_revoked" | "account_inactive" | "identity_unverified";
@@ -123,6 +144,105 @@ export class SalesXApiClient {
       method: "POST",
       body: JSON.stringify(payload),
     });
+  }
+
+  listMyOrganizations(): Promise<MyOrganizationSummary[]> {
+    return this.request<MyOrganizationSummary[]>("/api/v1/organizations");
+  }
+
+  createOrganization(payload: OrganizationCreateRequest): Promise<OrganizationSummary> {
+    return this.request<OrganizationSummary>("/api/v1/organizations", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  }
+
+  listOrganizationMembers(organizationId: string): Promise<OrganizationMember[]> {
+    return this.request<OrganizationMember[]>(`/api/v1/organizations/${encodeURIComponent(organizationId)}/members`);
+  }
+
+  addExistingOrganizationMember(organizationId: string, payload: MemberCreateRequest): Promise<unknown> {
+    return this.request(`/api/v1/organizations/${encodeURIComponent(organizationId)}/members`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  }
+
+  updateOrganizationMember(
+    organizationId: string,
+    userId: string,
+    payload: MemberStatusUpdateRequest,
+  ): Promise<MemberStatusResponse> {
+    return this.request<MemberStatusResponse>(
+      `/api/v1/organizations/${encodeURIComponent(organizationId)}/members/${encodeURIComponent(userId)}`,
+      { method: "PATCH", body: JSON.stringify(payload) },
+    );
+  }
+
+  assignMemberRole(
+    organizationId: string,
+    userId: string,
+    payload: RoleAssignmentRequest,
+  ): Promise<RoleAssignmentResponse> {
+    return this.request<RoleAssignmentResponse>(
+      `/api/v1/organizations/${encodeURIComponent(organizationId)}/members/${encodeURIComponent(userId)}/roles`,
+      { method: "POST", body: JSON.stringify(payload) },
+    );
+  }
+
+  listAssignableRoles(organizationId: string): Promise<AssignableRole[]> {
+    return this.request<AssignableRole[]>(
+      `/api/v1/organizations/${encodeURIComponent(organizationId)}/assignable-roles`,
+    );
+  }
+
+  listInvitations(organizationId: string): Promise<InvitationRecord[]> {
+    return this.request<InvitationRecord[]>(
+      `/api/v1/organizations/${encodeURIComponent(organizationId)}/invitations`,
+    );
+  }
+
+  createInvitation(organizationId: string, payload: InvitationCreateRequest): Promise<InvitationDeliveryResult> {
+    return this.request<InvitationDeliveryResult>(
+      `/api/v1/organizations/${encodeURIComponent(organizationId)}/invitations`,
+      { method: "POST", body: JSON.stringify(payload) },
+    );
+  }
+
+  resendInvitation(organizationId: string, invitationId: string): Promise<InvitationDeliveryResult> {
+    return this.request<InvitationDeliveryResult>(
+      `/api/v1/organizations/${encodeURIComponent(organizationId)}/invitations/${encodeURIComponent(invitationId)}/resend`,
+      { method: "POST" },
+    );
+  }
+
+  revokeInvitation(organizationId: string, invitationId: string): Promise<InvitationActionResponse> {
+    return this.request<InvitationActionResponse>(
+      `/api/v1/organizations/${encodeURIComponent(organizationId)}/invitations/${encodeURIComponent(invitationId)}/revoke`,
+      { method: "POST" },
+    );
+  }
+
+  acceptInvitation(payload: InvitationTokenRequest): Promise<InvitationAcceptResponse> {
+    return this.request<InvitationAcceptResponse>("/api/v1/organizations/invitations/accept", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  }
+
+  rejectInvitation(payload: InvitationTokenRequest): Promise<InvitationActionResponse> {
+    return this.request<InvitationActionResponse>("/api/v1/organizations/invitations/reject", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  }
+
+  listSessions(): Promise<SessionDeviceSummary[]> {
+    return this.request<SessionDeviceSummary[]>("/api/v1/auth/sessions");
+  }
+
+  revokeSession(sessionId: string): Promise<void> {
+    return this.request<void>(`/api/v1/auth/sessions/${encodeURIComponent(sessionId)}`, { method: "DELETE" });
   }
 
   signOut(scope: "local" | "global" | "others" = "local"): Promise<void> {
