@@ -74,7 +74,7 @@ Status: PARTIAL
 - Realtime: not applicable; authorization re-reads PostgreSQL state on each protected request.
 
 ### Engineering evidence
-- Final code head: 7d5c916d2b6fdb623b71afe1a773456f0dacb6fd.
+- Previous implementation baseline: 7d5c916d2b6fdb623b71afe1a773456f0dacb6fd. Current Phase 02 code head before documentation commits: 61bedc9e6f4e286b4771e07981036f7dcc08b1c6.
 - Phase 02 CI: https://github.com/fadliansyah36/SalesXAi-Platform/actions/runs/44527586864.
 - Bun/Web/Expo CI: https://github.com/fadliansyah36/SalesXAi-Platform/actions/runs/44527586969.
 - FastAPI source: services/api/app/.
@@ -84,7 +84,7 @@ Status: PARTIAL
 - Auth/security architecture: docs/engineering/identity-and-authorization.md.
 - API workflow: .github/workflows/phase-02-api-checks.yml.
 
-Phase 02 remains PARTIAL. Expo and static CI validation are complete, and migration-source parity is restored. Closure is blocked by unavailable FastAPI runtime/database credentials, unverified Supabase OAuth/manual-linking configuration, missing transactional email delivery for existing-user invite resend, incomplete action-level permission visibility, and absent live authenticated API/session-revocation evidence.
+Phase 02 remains PARTIAL. Expo and static CI validation are complete, and migration-source parity is restored. Closure is blocked by unavailable FastAPI runtime/database credentials, unverified Supabase OAuth/manual-linking configuration, unconfigured SMTP/Auth Admin email delivery, incomplete action-level permission visibility, per-device provider refresh-token revocation limits, and absent live authenticated API/session-revocation evidence.
  
 
 ## Phase 02 — Revalidation & additive database hardening (2026-11-19)
@@ -123,7 +123,7 @@ Phase 02 remains in progress. Phase 03 is not authorized until Phase 02 reaches 
 - `e38faad2638733ed185930295fd8443798b72bbc` — initial permission catalog update (immediately corrected in the next commit).
 - `1e2bbfc36ff99f3f75f8cb7ecab07df02b08e141` — corrected permission catalog formatting.
 - `61bedc9e6f4e286b4771e07981036f7dcc08b1c6` — normalize optional SMTP password configuration.
-- This phase-status/documentation update is committed separately below.
+- Identity/security documentation commit: `87594e8ae51ab76f6cb148328febe0ab1eb730cf`. Phase-status update commit: `6a5a8e99ee0140541baa1141b2287c2e258316cf`.
 
 ### Current evidence and remaining blockers
 - Supabase project remains `ACTIVE_HEALTHY`, PostgreSQL 17.12, target ref `eyofuiyxalbehbqoaeny`.
