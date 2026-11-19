@@ -1084,6 +1084,12 @@ export function SuperAdminPortalApp() {
       {/* -------------------- SCREEN 3: MANAJEMEN TENANT -------------------- */}
       {activeTab === 'tenants' && (
         <div className="space-y-4">
+          {(organizationsLoading || organizationsError) && (
+            <div className={`rounded-xl px-3 py-2 text-xs ${organizationsError ? 'bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-200' : 'bg-sky-50 text-sky-800 dark:bg-sky-950 dark:text-sky-200'}`}>
+              {organizationsError ?? 'Memuat data tenant dan cabang dari FastAPI…'}
+            </div>
+          )}
+
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2 w-full sm:flex-1 sm:min-w-[240px]">
               <div className="relative w-full sm:flex-1 sm:min-w-[180px]">
@@ -1116,6 +1122,7 @@ export function SuperAdminPortalApp() {
             <button
               type="button"
               onClick={() => setAddTenantOpen(true)}
+              disabled={!auth.canPerformApiAction('organization.create')}
               className="inline-flex items-center gap-1.5 rounded-xl bg-[#194F70] hover:bg-[#123A54] px-4 py-2.5 text-xs font-bold text-white cursor-pointer"
             >
               <Plus className="h-4 w-4" />
@@ -1192,6 +1199,12 @@ export function SuperAdminPortalApp() {
       {/* -------------------- SCREEN 4: ORGANISASI / ORG MGMT -------------------- */}
       {activeTab === 'organizations' && (
         <div className="space-y-4">
+          {(organizationsLoading || organizationsError) && (
+            <div className={`rounded-xl px-3 py-2 text-xs ${organizationsError ? 'bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-200' : 'bg-sky-50 text-sky-800 dark:bg-sky-950 dark:text-sky-200'}`}>
+              {organizationsError ?? 'Memuat data tenant dan cabang dari FastAPI…'}
+            </div>
+          )}
+
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2.5 w-full sm:flex-1">
               <div className="relative w-full sm:flex-1 sm:min-w-[200px]">
@@ -1219,6 +1232,7 @@ export function SuperAdminPortalApp() {
             <button
               type="button"
               onClick={() => setAddOrgOpen(true)}
+              disabled={!auth.canPerformApiAction('platform.organizations.branches.create') || tenants.length === 0}
               className="inline-flex items-center gap-1.5 rounded-xl bg-[#194F70] px-4 py-2.5 text-xs font-bold text-white cursor-pointer"
             >
               <Plus className="h-4 w-4" />
