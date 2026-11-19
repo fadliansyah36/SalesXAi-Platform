@@ -102,7 +102,7 @@ export function useMobileSalesAuth(){
    const oauthError=params.get("error");
    const code=params.get("code");
    if(oauthError){
-    await client.cancelOAuthFlow();
+    await client.cancelOAuthFlow(params.get("oauth_state")??params.get("state"));
     throw new AuthClientError(params.get("error_description")??"OAuth provider authorization was denied.",400,oauthError);
    }
    let next:AuthSession|null=null;
