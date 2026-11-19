@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 from uuid import UUID
 from pydantic import BaseModel, Field
 
@@ -67,3 +67,16 @@ class MemberStatusUpdate(BaseModel):
 class RoleAssignmentCreate(BaseModel):
     role_key: str = Field(min_length=2,max_length=80)
     branch_id: UUID | None = None
+
+
+class PlatformAuditLogResponse(BaseModel):
+    id: UUID
+    actor_user_id: UUID | None
+    actor_label: str
+    organization_id: UUID | None
+    action: str
+    resource_type: str
+    resource_id: str | None
+    correlation_id: str | None
+    occurred_at: datetime
+    metadata: dict[str, Any] = Field(default_factory=dict)
