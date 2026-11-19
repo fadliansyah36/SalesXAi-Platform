@@ -52,7 +52,7 @@ export function PortalLoginView({ onCompleteLogin }: PortalLoginViewProps) {
   });
   const [gpsLoading, setGpsLoading] = useState(false);
   const [workspaceLoading, setWorkspaceLoading] = useState(false);
-  const [workspaceInfo, setWorkspaceInfo] = useState<{
+  const [workspaceInfo] = useState<{
     name: string;
     email: string;
   } | null>(null);

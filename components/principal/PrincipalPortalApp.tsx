@@ -48,7 +48,6 @@ import { PortalAiCoachModal } from '@/components/design-system/PortalAiCoachModa
 import { SalesGoogleMap } from '@/components/maps/SalesGoogleMap';
 import { useSalesXAuth } from '@/components/providers/AppProviders';
 import { PortalSignupAction } from '@/components/auth/PortalSignupAction';
-import { SupabaseOtpLoginModal } from '@/components/auth/SupabaseOtpLoginModal';
 import {
   formatRupiah,
   INITIAL_NOTIFICATIONS,

@@ -58,7 +58,6 @@ import { PluginActivationModal } from '@/components/design-system/PluginActivati
 import { PortalAiCoachModal } from '@/components/design-system/PortalAiCoachModal';
 import { useSalesXAuth } from '@/components/providers/AppProviders';
 import { PortalSignupAction } from '@/components/auth/PortalSignupAction';
-import { SupabaseOtpLoginModal } from '@/components/auth/SupabaseOtpLoginModal';
 import { INITIAL_NOTIFICATIONS, type NotificationItem, type Outlet } from '@/lib/salesx-data';
 import {
   SUPER_ADMIN_PROFILE,

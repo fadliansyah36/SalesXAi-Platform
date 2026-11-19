@@ -77,7 +77,7 @@ export function useMobileSalesAuth(){
   }finally{busy.current=false;}
  },[loadContext]);
 
- const handleAuthUrl=useCallback(async(url:string|null)=>{
+ const handleAuthUrl=useCallback(async(url:string|null|undefined)=>{
   if(!url||!client)return;
   try{
    const parsed=Linking.parse(url);
@@ -245,6 +245,10 @@ export function useMobileSalesAuth(){
   return apiRequest("/api/v1/auth/identities/"+encodeURIComponent(identityId),{method:"DELETE"});
  },[apiRequest]);
 
+ const unlinkIdentity=useCallback(async(identityId:string)=>{
+  return apiRequest("/api/v1/auth/identities/"+encodeURIComponent(identityId),{method:"DELETE"});
+ },[apiRequest]);
+
  const acceptInvitation=useCallback(async(token:string)=>{
   return apiRequest("/api/v1/organizations/invitations/accept",{method:"POST",body:JSON.stringify({token})});
  },[apiRequest]);
@@ -261,6 +265,6 @@ export function useMobileSalesAuth(){
   apiRequest,acceptInvitation,unlinkIdentity,hasPermission,retry:()=>client?hydrate(client):Promise.resolve(),
  }),[status,session,context,activeOrganizationId,error,recoveryPending,signInWithPassword,
   signUp,signInWithOtp,verifyOtp,signInWithOAuth,linkIdentity,requestPasswordReset,
-  updatePassword,signOut,switchAccount,setActiveOrganization,apiRequest,acceptInvitation,
+  updatePassword,signOut,switchAccount,setActiveOrganization,apiRequest,acceptInvitation,unlinkIdentity,
   hasPermission,client,hydrate]);
 }

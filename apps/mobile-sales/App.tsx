@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StatusBar, TextInput, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, StatusBar, TextInput } from "react-native";
 import { useFonts } from "expo-font";
 import { PlusJakartaSans_400Regular } from "@expo-google-fonts/plus-jakarta-sans/400Regular";
 import { PlusJakartaSans_500Medium } from "@expo-google-fonts/plus-jakarta-sans/500Medium";
@@ -21,7 +21,7 @@ function Field({value,onChangeText,placeholder,secureTextEntry=false,keyboardTyp
  return <TextInput value={value} onChangeText={onChangeText} placeholder={placeholder}
   placeholderTextColor={colors.textMuted} secureTextEntry={secureTextEntry}
   keyboardType={keyboardType} autoCapitalize={keyboardType==="email-address"?"none":"sentences"}
-  style={{padding:14,borderRadius:12,borderWidth:1,borderColor:colors.border,color:colors.text}}/>;
+  style={{padding:14,borderRadius:12,borderWidth:1,borderColor:colors.border,color:colors.textPrimary}}/>;
 }
 
 function Action({label,onPress,disabled=false,secondary=false}:{label:string;onPress:()=>void;disabled?:boolean;secondary?:boolean}){
