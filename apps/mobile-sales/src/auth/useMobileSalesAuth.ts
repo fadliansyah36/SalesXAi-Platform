@@ -246,8 +246,8 @@ export function useMobileSalesAuth(){
   status,session,context,activeOrganizationId,contextEpoch,error,recoveryPending,
   signInWithPassword,signUp,signInWithOtp,verifyOtp,signInWithOAuth,linkIdentity,
   requestPasswordReset,updatePassword,signOut,switchAccount,setActiveOrganization,
-  apiRequest,acceptInvitation,unlinkIdentity,hasPermission,retry:()=>client?hydrate(client):Promise.resolve(),
- }),[status,session,context,activeOrganizationId,contextEpoch,error,recoveryPending,signInWithPassword,
+  apiRequest,acceptInvitation,unlinkIdentity,hasPermission,apiClient,retry:()=>client?hydrate(client):Promise.resolve(),
+ }),[status,session,context,activeOrganizationId,contextEpoch,error,recoveryPending,apiClient,signInWithPassword,
   signUp,signInWithOtp,verifyOtp,signInWithOAuth,linkIdentity,requestPasswordReset,
   updatePassword,signOut,switchAccount,setActiveOrganization,apiRequest,acceptInvitation,unlinkIdentity,
   hasPermission,client,hydrate]);
