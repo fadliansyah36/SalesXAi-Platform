@@ -46,8 +46,8 @@ Status: PARTIAL
 ### Remaining — phase completion blockers
 - [x] Expo native auth uses Expo SecureStore, shared AuthClient, Supabase signup/login/verification/recovery/OTP/Google OAuth, session restoration/refresh, FastAPI auth/me and tenant context, account switching, identity link/unlink and remote logout. Frozen-lockfile install, Native TypeScript, Expo SDK compatibility, app config, Metro startup, Android/iOS JS bundle export and Turbo workspace build passed in GitHub Actions run 44527586969.
 - [ ] Supabase manual identity linking provider setting and Google OAuth callback/provider configuration are not verified in the target project; this requires project Auth provider configuration access.
-- [ ] Existing-user invitation email delivery is not connected to a configured transactional email provider: create/resend returns a one-time URL for authorized delivery. New unregistered identities receive Supabase Auth Admin invite email only when SUPABASE_SECRET_KEY is configured.
-- [ ] Permission-aware navigation is wired as portal-level UX guards; action-level visibility across every existing feature is not yet exhaustively mapped. FastAPI remains the authorization boundary.
+- [ ] Existing-user invitation delivery code now sends through the server-side SMTP adapter; SMTP host/from address/credentials are still not configured in a deployment secret manager, so delivery is not operationally verified. New unregistered identities still require Supabase Auth Admin invite delivery and SUPABASE_SECRET_KEY.
+- [ ] The shared permissions package now contains all 22 permission identifiers in the live permissions catalog, and organization creation is enforced by platform-scoped organization:create. Action-level visibility across every existing feature action is not yet exhaustively mapped. FastAPI remains the authorization boundary.
 - [ ] FastAPI runtime is not configured/verified. DATABASE_URL (database password/session-pooler URL), SUPABASE_PUBLISHABLE_KEY, SUPABASE_SECRET_KEY, APP_PUBLIC_URL, exact CORS origins and API deployment secrets are not present in repository/runtime.
 - [ ] Account status endpoint requires SUPABASE_SECRET_KEY for Auth Admin ban/unban; this secret is not available through the repository or database connector.
 - [ ] Live FastAPI /readyz, authenticated /api/v1/auth/me, remote sign-out, invitation email delivery and Auth Admin ban checks remain unevidenced.
@@ -103,3 +103,38 @@ Phase 02 remains PARTIAL. Expo and static CI validation are complete, and migrat
 ## Next phase
 
 Phase 02 remains in progress. Phase 03 is not authorized until Phase 02 reaches COMPLETED.
+
+
+## Phase 02 — Security and invitation implementation continuation (2026-11-19)
+
+### Code changes committed to main
+- Added `services/api/app/services/invitation_email.py`: asynchronous server-side SMTP delivery for existing-user organization invitations; no token or credential logging.
+- Extended FastAPI settings and `services/api/.env.example` with SMTP host, port, username/password, sender, STARTTLS and timeout placeholders. SMTP password empty-string normalization is included.
+- Updated organization invitation create/resend to send existing-user email through SMTP; new Auth identities continue through Supabase Auth Admin invitation.
+- Invitation accept/reject now requires a verified Auth email matching the invitation email.
+- Organization creation now requires the platform-scoped `organization:create` permission; authenticated-only tenant creation is no longer allowed.
+- Expanded `packages/permissions` to expose all 22 permission identifiers currently present in the target Supabase permission catalog. This is UI vocabulary, not a replacement for FastAPI enforcement.
+
+### Commits
+- `9c0168016e5b58a5cd52ddede93c8773b1484a9a` — SMTP invitation delivery service.
+- `222e805df328bef9fb2b565503d741c619e0a22a` — SMTP runtime settings.
+- `98f6d56396b35b81897f878ed6c98a1ee9683509` — organization authorization and invitation workflow hardening.
+- `d3ecf18c47ab171908c475523ebe5b11531cf787` — SMTP environment template.
+- `e38faad2638733ed185930295fd8443798b72bbc` — initial permission catalog update (immediately corrected in the next commit).
+- `1e2bbfc36ff99f3f75f8cb7ecab07df02b08e141` — corrected permission catalog formatting.
+- `61bedc9e6f4e286b4771e07981036f7dcc08b1c6` — normalize optional SMTP password configuration.
+- This phase-status/documentation update is committed separately below.
+
+### Current evidence and remaining blockers
+- Supabase project remains `ACTIVE_HEALTHY`, PostgreSQL 17.12, target ref `eyofuiyxalbehbqoaeny`.
+- Live migration ledger has nine versions through `20261119131809_p02_add_missing_foreign_key_indexes`; no new migration was needed for these application-layer changes.
+- The 12 FK indexes from the applied migration are present in `pg_indexes`. Performance Advisor reports no `unindexed_foreign_keys`; remaining findings are informational unused-index notices on the low-volume/new Phase 02 schema.
+- Security Advisor returned zero lints.
+- The GitHub connector did not return any status checks for the new commits, and the available workflow-run query returned no runs for the latest push. Therefore no fresh CI pass is claimed for these latest changes. Previous API/Web/Expo CI evidence remains historical and predates this continuation.
+- No FastAPI runtime host/deployment secret manager is connected in this execution context. `DATABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `APP_PUBLIC_URL`, exact CORS origins and SMTP credentials remain unconfigured/unverified. Supabase connector SQL access is not proof of FastAPI process connectivity.
+- Supabase Auth provider configuration for Google OAuth/manual identity linking is not accessible through the connected database operations and remains unverified.
+- No verified remote API request to `/readyz`, authenticated `/api/v1/auth/me`, Auth Admin ban/unban, OAuth callback or SMTP delivery has been executed.
+- A selected other-device session is denied by FastAPI's session registry, but the current supported Supabase Auth operation cannot revoke only that other device's refresh token. Global/others/local Auth logout are invoked only when an active session token is available.
+- Action-level permission visibility across all feature actions and every Web portal/Expo screen is not proven complete; no blanket completion claim is made.
+
+**Phase 02 status remains IN PROGRESS / PARTIAL. Phase 03 remains locked.**
