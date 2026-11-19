@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { authError, enforceBffRateLimit, publishableKey, supabaseUrl } from "@/lib/auth/web-session";
+import { authError, enforceBffRateLimit, publishableKey, subjectFromJwt, tokenFingerprint, supabaseUrl } from "@/lib/auth/web-session";
 
 export const runtime = "nodejs";
 type RouteContext = { params: Promise<{ path: string[] }> };
@@ -46,7 +46,11 @@ async function proxy(request: NextRequest, context: RouteContext): Promise<Respo
     : {};
   const rateRule = classify(request.method, path, request.nextUrl.searchParams, payload);
   if (rateRule) {
-    const limited = await enforceBffRateLimit(request, rateRule.action, rateRule.identifier);
+    const bearer = request.headers.get("authorization")?.replace(/^Bearer\\s+/i,"") ?? "";
+    const identifier = rateRule.identifier
+      || subjectFromJwt(bearer)
+      || (rateRule.action === "refresh" ? tokenFingerprint(String(payload.refresh_token ?? "")) : undefined);
+    const limited = await enforceBffRateLimit(request, rateRule.action, identifier);
     if (limited) return limited;
   }
 
