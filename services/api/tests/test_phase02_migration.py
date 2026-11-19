@@ -11,6 +11,9 @@ PYTHON_ACTION_REGISTRY = ROOT / "services" / "api" / "app" / "security" / "actio
 PLATFORM_READ_MIGRATION = (
     MIGRATIONS / "20261119172508_p02_platform_read_permissions_and_audit_index.sql"
 )
+AUDIT_GRANT_MIGRATION = (
+    MIGRATIONS / "20261119173915_p02_restrict_audit_mutation_grants.sql"
+)
 
 
 class Phase02MigrationConsistencyTests(unittest.TestCase):
@@ -37,6 +40,12 @@ class Phase02MigrationConsistencyTests(unittest.TestCase):
 
         self.assertIn("where r.key = 'platform_admin'", migration)
         self.assertIn("on conflict (role_id, permission_key) do nothing", migration)
+
+    def test_audit_grants_are_append_only_for_service_role(self) -> None:
+        self.assertTrue(AUDIT_GRANT_MIGRATION.is_file())
+        migration = AUDIT_GRANT_MIGRATION.read_text(encoding="utf-8").lower()
+        self.assertIn("revoke update, delete, truncate", migration)
+        self.assertIn("grant select, insert", migration)
 
     def test_platform_audit_index_is_null_tenant_scoped(self) -> None:
         migration = PLATFORM_READ_MIGRATION.read_text(encoding="utf-8")
