@@ -2,6 +2,7 @@
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { SalesXAuthClient, AuthClientError, type AuthSession, type SessionStorage } from "@salesx-ai/auth-client";
+import { SalesXApiClient } from "@salesx-ai/api-client";
 import type { AuthContext as SalesXAuthContextData, PortalKey } from "@salesx-ai/shared-types";
 import { canAccessPortal as permissionCanAccessPortal, hasPermission as permissionHasPermission } from "@salesx-ai/permissions";
 
@@ -43,6 +44,19 @@ export function SalesXAuthProvider({children}:{children:React.ReactNode}) {
   const [activeOrganizationId,setActiveOrganizationIdState]=useState<string|null>(null);
   const [error,setError]=useState<string|null>(null);
   const hydrating=useRef(false);
+  const apiClient=useMemo(()=>client?new SalesXApiClient({
+    baseUrl:apiOrigin,
+    platform:"web",
+    auth:{
+      getAccessToken:async()=>(await client.getSession())?.access_token??null,
+      refreshAccessToken:async()=>(await client.refreshSession())?.access_token??null,
+      getOrganizationId:()=>activeOrganizationId,
+      onSessionInvalidated:async()=>{
+        await client.clearSession();
+        setSession(null);setContext(null);setActiveOrganizationIdState(null);setStatus("unauthenticated");
+      },
+    },
+  }):null,[client,activeOrganizationId]);
 
   useEffect(()=>{
     if(!supabaseUrl||!publishableKey||!apiOrigin) {
@@ -257,33 +271,9 @@ export function SalesXAuthProvider({children}:{children:React.ReactNode}) {
     permissionCanAccessPortal([...(activeMembership?.permissions??[]),...(context?.platform_permissions??[])],portal),[activeMembership]);
 
   const apiFetch=useCallback(async(path:string,init:RequestInit={})=>{
-    if(!client||!apiOrigin)throw new Error("Supabase Auth atau FastAPI belum dikonfigurasi.");
-    let current=await client.getSession();
-    if(!current)throw new Error("Sesi autentikasi tidak tersedia.");
-    const send=(token:string)=> {
-      const headers=new Headers(init.headers);
-      headers.set("Authorization","Bearer "+token);
-      headers.set("X-Client-Platform","web");
-      if(activeOrganizationId)headers.set("X-Organization-ID",activeOrganizationId);
-      if(init.body&&!headers.has("Content-Type"))headers.set("Content-Type","application/json");
-      return fetch(apiOrigin+path,{...init,headers,cache:"no-store"});
-    };
-    let response=await send(current.access_token);
-    if(response.status===401) {
-      current=await client.refreshSession();
-      if(!current)throw new Error("Sesi telah kedaluwarsa atau dicabut.");
-      setSession(current);
-      response=await send(current.access_token);
-    }
-    if(response.status===401||response.status===403) {
-      const body=await response.clone().json().catch(()=>({}));
-      if(response.status===401||["session_revoked","account_inactive","identity_unverified"].includes(body?.error?.code)){
-        await client.clearSession();setSession(null);setContext(null);setActiveOrganizationIdState(null);
-        setStatus("unauthenticated");
-      }
-    }
-    return response;
-  },[client,activeOrganizationId]);
+    if(!apiClient)throw new Error("Supabase Auth atau FastAPI belum dikonfigurasi.");
+    return apiClient.fetch(path,init);
+  },[apiClient]);
 
   const value=useMemo<SalesXAuthValue>(()=>({
     status,session,context,activeMembership,activeOrganizationId,error,
