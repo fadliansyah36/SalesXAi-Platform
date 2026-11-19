@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   ACCESS_COOKIE, REFRESH_COOKIE, EXPIRY_COOKIE, CSRF_COOKIE,
   OAUTH_STATE_COOKIE, OAUTH_VERIFIER_COOKIE, OAUTH_FLOW_COOKIE, OAUTH_USER_COOKIE, OAUTH_CREATED_COOKIE,
-  appOrigin, authError, clearOAuthCookies, clearSessionCookies, csrfCookieOptions, csrfIsValid,
+  apiUrl, appOrigin, authError, clearOAuthCookies, clearSessionCookies, csrfCookieOptions, csrfIsValid,
   enforceBffRateLimit, pkceChallenge, randomToken, refreshAuthSession, safeSession,
   setCsrfCookie, setSessionCookies, supabaseAuthRequest, supabaseUrl, type SupabaseAuthSession,
 } from "@/lib/auth/web-session";
