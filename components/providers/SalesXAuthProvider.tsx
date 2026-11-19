@@ -154,15 +154,9 @@ export function SalesXAuthProvider({children}:{children:React.ReactNode}) {
 
   const unlinkIdentity=useCallback(async(identityId:string)=>{
     if(!client)throw new Error("Supabase Auth belum siap.");
-    const current=await client.getSession();
-    if(!current)throw new Error("Sesi autentikasi tidak tersedia.");
-    const response=await fetch(apiOrigin+"/api/v1/auth/identities/"+encodeURIComponent(identityId),{
-      method:"DELETE",headers:{Authorization:"Bearer "+current.access_token,"X-Client-Platform":"web"},cache:"no-store",
-    });
-    if(!response.ok){
-      const body=await response.json().catch(()=>({}));
-      throw new Error(body?.error?.message??"Identitas tidak dapat dilepas.");
-    }
+    const transport=apiClientRef.current;
+    if(!transport)throw new Error("FastAPI client belum dikonfigurasi.");
+    await transport.unlinkIdentity(identityId);
     await hydrate(client);
   },[client,hydrate]);
 
