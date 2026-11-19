@@ -17,6 +17,7 @@ import type {
   OrganizationCreateRequest,
   OrganizationMember,
   OrganizationSummary,
+  PlatformRole,
   RoleAssignmentRequest,
   RoleAssignmentResponse,
   SessionDeviceRegistration,
@@ -260,6 +261,10 @@ export class SalesXApiClient {
       method: "POST",
       body: JSON.stringify(payload),
     });
+  }
+
+  listPlatformRoles(): Promise<PlatformRole[]> {
+    return this.request<PlatformRole[]>("/api/v1/admin/roles");
   }
 
   updateAccountStatus(userId: string, payload: AccountStatusUpdateRequest): Promise<AccountStatusUpdateResponse> {
