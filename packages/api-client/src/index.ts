@@ -74,13 +74,13 @@ export class SalesXApiClient {
     if (!path.startsWith("/") || path.startsWith("//")) {
       throw new Error("API paths must be relative to the configured FastAPI origin.");
     }
-    let token = this.authMode === "cookie" ? "http-only-cookie-session" : await this.auth.getAccessToken();
-    if (!token) throw new SalesXApiError("An authenticated session is required.", 401, "unauthenticated");
+    let token = this.authMode === "cookie" ? null : await this.auth.getAccessToken();
+    if (this.authMode === "bearer" && !token) throw new SalesXApiError("An authenticated session is required.", 401, "unauthenticated");
 
-    const send = (accessToken: string) => {
+    const send = (accessToken: string | null) => {
       const headers = new Headers(init.headers);
       if (this.authMode === "cookie") headers.delete("Authorization");
-      else headers.set("Authorization", "Bearer " + accessToken);
+      else if (accessToken) headers.set("Authorization", "Bearer " + accessToken);
       headers.set("X-Client-Platform", this.platform);
       const organizationId = this.auth.getOrganizationId?.();
       if (organizationId) headers.set("X-Organization-ID", organizationId);
