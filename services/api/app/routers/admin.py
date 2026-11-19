@@ -30,11 +30,10 @@ async def update_account_status(
     if target is None:
         raise APIError(404, "identity_not_found", "Target profile was not found.")
 
-    # Supabase Auth Admin is the credential authority. Do this before the database
-    # transition so a missing/rejected admin credential cannot create split-brain state.
     ban_duration = "876000h" if payload.status in {"suspended", "deactivated"} else "none"
-    await request.app.state.supabase_auth.set_user_ban(str(user_id), ban_duration)
 
+    # Commit the API deny state first. If Auth Admin is unavailable, suspended
+    # identities still fail closed at FastAPI and existing JWTs remain revoked.
     async with connection.transaction():
         if payload.status in {"suspended", "deactivated"}:
             row = await connection.fetchrow(
@@ -64,7 +63,25 @@ async def update_account_status(
             connection, request, principal, "platform.account.status_changed",
             "profile", str(user_id),
             metadata={"previous_status": target["status"], "status": payload.status,
-                      "auth_ban_applied": True},
+                      "auth_ban_applied": False, "auth_ban_pending": True},
+        )
+
+    try:
+        await request.app.state.supabase_auth.set_user_ban(str(user_id), ban_duration)
+    except Exception:
+        async with connection.transaction():
+            await write_audit(
+                connection, request, principal, "platform.account.auth_ban_failed",
+                "profile", str(user_id),
+                metadata={"status": payload.status, "api_deny_enforced": True},
+            )
+        raise
+
+    async with connection.transaction():
+        await write_audit(
+            connection, request, principal, "platform.account.auth_ban_applied",
+            "profile", str(user_id),
+            metadata={"status": payload.status, "ban_duration": ban_duration},
         )
     return {
         "user_id": str(row["id"]),
