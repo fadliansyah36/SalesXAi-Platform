@@ -48,26 +48,19 @@ export function useMobileSalesAuth(){
  },[]);
 
  const loadContext=useCallback(async(current:AuthSession)=>{
-  const response=await fetch(apiOrigin+"/api/v1/auth/me",{
-   headers:{Authorization:"Bearer "+current.access_token,"X-Client-Platform":Platform.OS==="ios"?"ios":"android"},
-   cache:"no-store",
-  });
-  const body=await response.json().catch(()=>({}));
-  if(!response.ok)throw new AuthClientError(body?.error?.message??"FastAPI menolak sesi.",response.status,body?.error?.code);
-  const next=body as AuthContext;
+  if(!apiClient)throw new Error("FastAPI client belum dikonfigurasi.");
+  const next=await apiClient.getAuthContext();
   setContext(next);
   setActiveOrganizationIdState(previous=>
    previous&&next.memberships.some(m=>m.organization_id===previous&&m.status==="active")
     ?previous:next.memberships.find(m=>m.status==="active")?.organization_id??null);
-  const registered=await fetch(apiOrigin+"/api/v1/auth/sessions/current",{
-   method:"POST",
-   headers:{Authorization:"Bearer "+current.access_token,"Content-Type":"application/json","X-Client-Platform":Platform.OS==="ios"?"ios":"android"},
-   body:JSON.stringify({platform:Platform.OS==="ios"?"ios":"android",device_name:"SalesX-Ai Mobile Sales"}),
-   cache:"no-store",
+  await apiClient.registerCurrentSession({
+   platform:Platform.OS==="ios"?"ios":"android",
+   device_name:"SalesX-Ai Mobile Sales",
   });
-  if(!registered.ok)throw new Error("Sesi tidak dapat diregistrasikan ke FastAPI.");
-  setSession(current);setStatus("authenticated");setError(null);
- },[]);
+  const resolvedSession=client?await client.getSession():null;
+  setSession(resolvedSession??current);setStatus("authenticated");setError(null);
+ },[apiClient,client]);
 
  const hydrate=useCallback(async(authClient:SalesXAuthClient)=>{
   if(busy.current)return;
