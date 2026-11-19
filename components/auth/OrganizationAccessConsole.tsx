@@ -48,8 +48,9 @@ export function OrganizationAccessConsole(){
  async function createInvite(event:React.FormEvent){
   event.preventDefault();if(!org)return;setBusy(true);setMessage("");
   try{
-   if(!auth.apiClient)throw new Error("FastAPI client belum dikonfigurasi.");
-   const body=await auth.apiClient.createInvitation(org,{email,role_key:role,branch_id:branch||null});
+   const api=auth.apiClient;
+   if(!api)throw new Error("FastAPI client belum dikonfigurasi.");
+   const body=await api.createInvitation(org,{email,role_key:role,branch_id:branch||null});
    setMessage("Undangan dibuat. Tautan sekali pakai: "+body.invitation_url);
    setEmail("");await load();
   }catch(e){setMessage(e instanceof Error?e.message:"Undangan gagal dibuat.");}
@@ -58,12 +59,13 @@ export function OrganizationAccessConsole(){
  async function inviteAction(id:string,action:"resend"|"revoke"){
   if(!org)return;setBusy(true);
   try{
-   if(!auth.apiClient)throw new Error("FastAPI client belum dikonfigurasi.");
+   const api=auth.apiClient;
+   if(!api)throw new Error("FastAPI client belum dikonfigurasi.");
    if(action==="resend"){
-    const body=await auth.apiClient.resendInvitation(org,id);
+    const body=await api.resendInvitation(org,id);
     setMessage("Tautan undangan baru: "+body.invitation_url);
    }else{
-    await auth.apiClient.revokeInvitation(org,id);
+    await api.revokeInvitation(org,id);
     setMessage("Undangan dicabut.");
    }
    await load();
@@ -73,8 +75,9 @@ export function OrganizationAccessConsole(){
  async function memberStatus(userId:string,status:"active"|"suspended"|"removed"){
   if(!org)return;setBusy(true);
   try{
-   if(!auth.apiClient)throw new Error("FastAPI client belum dikonfigurasi.");
-   await auth.apiClient.updateOrganizationMember(org,userId,{status});
+   const api=auth.apiClient;
+   if(!api)throw new Error("FastAPI client belum dikonfigurasi.");
+   await api.updateOrganizationMember(org,userId,{status});
    setMessage("Status membership diperbarui.");await load();
   }catch(e){setMessage(e instanceof Error?e.message:"Pembaruan membership gagal.");}
   finally{setBusy(false);}
