@@ -1913,7 +1913,7 @@ export function EditUserAssignmentModal({
     <Modal
       open={Boolean(member)}
       onClose={onClose}
-      title={\`Penugasan Tim: \${member.name}\`}
+      title={`Penugasan Tim: ${member.name}`}
       subtitle="Hubungkan sales profile ke tim dan supervisor yang aktif pada organisasi ini"
       maxWidthClass="max-w-md"
     >
@@ -1973,9 +1973,9 @@ export function EditUserAssignmentModal({
           <button
             type="button"
             onClick={() => setStatus((current) => current === 'Online' ? 'Offline' : 'Online')}
-            className={\`rounded-lg px-3 py-1 font-bold cursor-pointer \${
+            className={`rounded-lg px-3 py-1 font-bold cursor-pointer ${
               status === 'Online' ? 'bg-[#ECFDF5] text-[#047857]' : 'bg-[var(--color-surface-muted)] text-[var(--color-text-muted)]'
-            }\`}
+            }`}
           >
             {status}
           </button>
