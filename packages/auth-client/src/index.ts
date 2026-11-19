@@ -119,11 +119,12 @@ export class SalesXAuthClient {
  constructor(options:AuthClientOptions) {
   this.baseUrl=options.supabaseUrl.replace(/\/$/,"");
   this.key=options.publishableKey;
+  this.authProxy=options.authProxy??false;
   this.storage=options.storage;
   this.oauthStorage=options.oauthStorage??options.storage;
   this.fetcher=options.fetcher??fetch;
   this.storageKey=options.storageKey??"salesx-auth-session";
-  if(!this.baseUrl||!this.key)throw new Error("Supabase URL and publishable key are required.");
+  if(!this.baseUrl||(!this.key&&!this.authProxy))throw new Error("Supabase URL and publishable key (or server Auth proxy) are required.");
  }
  subscribe(listener:(session:AuthSession|null)=>void):()=>void {
   this.listeners.add(listener);
