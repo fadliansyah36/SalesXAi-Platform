@@ -65,6 +65,7 @@ export function SalesXAuthProvider({children}:{children:React.ReactNode}) {
   const [consumerEpoch,setConsumerEpoch]=useState(0);
   const hydrating=useRef(false);
   const authenticatedUserId=useRef<string|null>(null);
+  const activeOrganizationIdRef=useRef<string|null>(null);
   const csrfToken=useRef("");
   const apiClientRef=useRef<SalesXApiClient|null>(null);
 
@@ -119,6 +120,7 @@ export function SalesXAuthProvider({children}:{children:React.ReactNode}) {
   const invalidateSession=useCallback(async()=>{
     try{await clearCookieSession();}catch{}
     authenticatedUserId.current=null;
+    activeOrganizationIdRef.current=null;
     setSession(null);setContext(null);setActiveOrganizationIdState(null);
     setStatus("unauthenticated");setError(null);setConsumerEpoch(value=>value+1);
   },[clearCookieSession]);
@@ -135,24 +137,31 @@ export function SalesXAuthProvider({children}:{children:React.ReactNode}) {
         catch{return false;}
       },
       getCsrfToken:ensureCsrf,
-      getOrganizationId:()=>activeOrganizationId,
+      getOrganizationId:()=>activeOrganizationIdRef.current,
       onSessionInvalidated:invalidateSession,
     },
-  }),[activeOrganizationId,authRequest,invalidateSession]);
+  }),[authRequest,invalidateSession,ensureCsrf]);
   apiClientRef.current=apiClient;
 
   const loadContext=useCallback(async(current:WebSession)=>{
-    if(authenticatedUserId.current&&authenticatedUserId.current!==current.user.id)
+    if(authenticatedUserId.current&&authenticatedUserId.current!==current.user.id){
       setConsumerEpoch(value=>value+1);
+      activeOrganizationIdRef.current=null;
+      setActiveOrganizationIdState(null);
+      setContext(null);
+    }
     authenticatedUserId.current=current.user.id;
     const transport=apiClientRef.current;
     if(!transport)throw new Error("FastAPI cookie transport belum siap.");
     await transport.registerCurrentSession({platform:"web",device_name:"SalesX-Ai Web Portal"});
     const next=await transport.getAuthContext();
     setContext(next);
-    setActiveOrganizationIdState(previous=>
-      previous&&next.memberships.some(m=>m.organization_id===previous&&m.status==="active")
-        ?previous:next.memberships.find(m=>m.status==="active")?.organization_id??null);
+    const selectedOrganization=activeOrganizationIdRef.current
+      &&next.memberships.some(m=>m.organization_id===activeOrganizationIdRef.current&&m.status==="active")
+        ?activeOrganizationIdRef.current
+        :next.memberships.find(m=>m.status==="active")?.organization_id??null;
+    activeOrganizationIdRef.current=selectedOrganization;
+    setActiveOrganizationIdState(selectedOrganization);
     setSession(browserSession(current));setStatus("authenticated");setError(null);
   },[]);
 
@@ -166,6 +175,7 @@ export function SalesXAuthProvider({children}:{children:React.ReactNode}) {
       if(!response.ok||!body.session){
         if(authenticatedUserId.current)setConsumerEpoch(value=>value+1);
         authenticatedUserId.current=null;
+        activeOrganizationIdRef.current=null;
         setSession(null);setContext(null);setActiveOrganizationIdState(null);
         setStatus("unauthenticated");setError(null);return;
       }
@@ -202,6 +212,7 @@ export function SalesXAuthProvider({children}:{children:React.ReactNode}) {
     else{
       if(authenticatedUserId.current)setConsumerEpoch(value=>value+1);
       authenticatedUserId.current=null;
+      activeOrganizationIdRef.current=null;
       setSession(null);setContext(null);setActiveOrganizationIdState(null);setStatus("unauthenticated");
     }
   },[loadContext]);
@@ -303,7 +314,10 @@ export function SalesXAuthProvider({children}:{children:React.ReactNode}) {
   const setActiveOrganization=useCallback((id:string)=>{
     if(!context?.memberships.some(m=>m.organization_id===id&&m.status==="active"))
       throw new Error("Membership aktif untuk organisasi tersebut tidak ditemukan.");
-    if(id!==activeOrganizationId)setConsumerEpoch(value=>value+1);
+    if(id!==activeOrganizationId){
+      setConsumerEpoch(value=>value+1);
+      activeOrganizationIdRef.current=id;
+    }
     setActiveOrganizationIdState(id);
   },[context,activeOrganizationId]);
 
