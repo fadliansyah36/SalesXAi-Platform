@@ -49,28 +49,36 @@ if settings.allowed_origins:
 async def correlation_id_middleware(request: Request,call_next):
     correlation_id=request.headers.get("x-correlation-id") or str(uuid4())
     request.state.correlation_id=correlation_id
-    await enforce_request_rate_limit(request)
-    content_length=request.headers.get("content-length")
-    if content_length is None and request.headers.get("transfer-encoding"):
-        response=JSONResponse(status_code=411,content={"error":{"code":"content_length_required",
-          "message":"Chunked request bodies are not accepted by this API.","correlation_id":correlation_id}})
-    elif content_length is not None:
-        try:
-            declared_length=int(content_length)
-        except ValueError:
-            response=JSONResponse(status_code=400,content={"error":{"code":"invalid_content_length",
-              "message":"Content-Length must be a valid non-negative integer.","correlation_id":correlation_id}})
-        else:
-            if declared_length<0:
+    try:
+        await enforce_request_rate_limit(request)
+    except APIError as exc:
+        response=JSONResponse(
+            status_code=exc.status_code,
+            headers=exc.headers,
+            content={"error":{"code":exc.code,"message":exc.message,"correlation_id":correlation_id}},
+        )
+    else:
+        content_length=request.headers.get("content-length")
+        if content_length is None and request.headers.get("transfer-encoding"):
+            response=JSONResponse(status_code=411,content={"error":{"code":"content_length_required",
+              "message":"Chunked request bodies are not accepted by this API.","correlation_id":correlation_id}})
+        elif content_length is not None:
+            try:
+                declared_length=int(content_length)
+            except ValueError:
                 response=JSONResponse(status_code=400,content={"error":{"code":"invalid_content_length",
                   "message":"Content-Length must be a valid non-negative integer.","correlation_id":correlation_id}})
-            elif declared_length>settings.max_request_body_bytes:
-                response=JSONResponse(status_code=413,content={"error":{"code":"request_too_large",
-                  "message":"The request body exceeds the configured API limit.","correlation_id":correlation_id}})
             else:
-                response=await call_next(request)
-    else:
-        response=await call_next(request)
+                if declared_length<0:
+                    response=JSONResponse(status_code=400,content={"error":{"code":"invalid_content_length",
+                      "message":"Content-Length must be a valid non-negative integer.","correlation_id":correlation_id}})
+                elif declared_length>settings.max_request_body_bytes:
+                    response=JSONResponse(status_code=413,content={"error":{"code":"request_too_large",
+                      "message":"The request body exceeds the configured API limit.","correlation_id":correlation_id}})
+                else:
+                    response=await call_next(request)
+        else:
+            response=await call_next(request)
     response.headers["X-Correlation-ID"]=correlation_id
     response.headers["Cache-Control"]="no-store"
     response.headers["X-Content-Type-Options"]="nosniff"
