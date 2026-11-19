@@ -19,6 +19,7 @@ export function useMobileSalesAuth(){
  const [activeOrganizationId,setActiveOrganizationIdState]=useState<string|null>(null);
  const [error,setError]=useState<string|null>(null);
  const [recoveryPending,setRecoveryPending]=useState(false);
+ const [contextEpoch,setContextEpoch]=useState(0);
  const busy=useRef(false);
  const processedAuthUrls=useRef<Set<string>>(new Set());
  const apiClient=useMemo(()=>client?new SalesXApiClient({
@@ -31,6 +32,7 @@ export function useMobileSalesAuth(){
    onSessionInvalidated:async()=>{
     await client.clearSession();
     setSession(null);setContext(null);setActiveOrganizationIdState(null);setStatus("unauthenticated");
+    setContextEpoch(value=>value+1);
    },
   },
  }):null,[client,activeOrganizationId]);
@@ -203,6 +205,7 @@ export function useMobileSalesAuth(){
    if(scope!=="others"){
     await client.clearSession();
     setSession(null);setContext(null);setActiveOrganizationIdState(null);setStatus("unauthenticated");
+    setContextEpoch(value=>value+1);
    }
   }
   if(!remoteConfirmed)throw new Error("Sesi lokal dibersihkan, tetapi remote refresh-token revocation belum terkonfirmasi.");
@@ -216,8 +219,9 @@ export function useMobileSalesAuth(){
  const setActiveOrganization=useCallback((id:string)=>{
   if(!context?.memberships.some(m=>m.organization_id===id&&m.status==="active"))
    throw new Error("Membership aktif untuk organisasi tersebut tidak ditemukan.");
+  if(id!==activeOrganizationId)setContextEpoch(value=>value+1);
   setActiveOrganizationIdState(id);
- },[context]);
+ },[context,activeOrganizationId]);
 
  const apiRequest=useCallback(async<T=unknown>(path:string,init:RequestInit={})=>{
   if(!apiClient)throw new Error("Supabase Auth atau FastAPI belum dikonfigurasi.");
@@ -242,11 +246,11 @@ export function useMobileSalesAuth(){
  },[context,activeOrganizationId]);
 
  return useMemo(()=>({
-  status,session,context,activeOrganizationId,error,recoveryPending,
+  status,session,context,activeOrganizationId,contextEpoch,error,recoveryPending,
   signInWithPassword,signUp,signInWithOtp,verifyOtp,signInWithOAuth,linkIdentity,
   requestPasswordReset,updatePassword,signOut,switchAccount,setActiveOrganization,
   apiRequest,acceptInvitation,unlinkIdentity,hasPermission,retry:()=>client?hydrate(client):Promise.resolve(),
- }),[status,session,context,activeOrganizationId,error,recoveryPending,signInWithPassword,
+ }),[status,session,context,activeOrganizationId,contextEpoch,error,recoveryPending,signInWithPassword,
   signUp,signInWithOtp,verifyOtp,signInWithOAuth,linkIdentity,requestPasswordReset,
   updatePassword,signOut,switchAccount,setActiveOrganization,apiRequest,acceptInvitation,unlinkIdentity,
   hasPermission,client,hydrate]);
