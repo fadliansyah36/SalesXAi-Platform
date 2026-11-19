@@ -141,6 +141,14 @@ export function useMobileSalesAuth(){
   return()=>{unsubscribe();linkSubscription.remove();appStateSubscription.remove();};
  },[client,hydrate,handleAuthUrl]);
 
+ useEffect(()=>{
+  if(!client||status!=="authenticated")return;
+  const heartbeat=setInterval(()=>{
+   if(AppState.currentState==="active")void hydrate(client);
+  },60_000);
+  return()=>clearInterval(heartbeat);
+ },[client,status,hydrate]);
+
  const signInWithPassword=useCallback(async(identifier:string,password:string)=>{
   if(!client)throw new Error("Supabase Auth belum siap.");
   const next=await client.signInWithPassword(identifier.trim(),password);
