@@ -202,9 +202,16 @@ export function SalesXAuthProvider({children}:{children:React.ReactNode}) {
     void hydrate();
     const onOnline=()=>void hydrate();
     const onFocus=()=>void hydrate();
+    const heartbeat=window.setInterval(()=>{
+      if(document.visibilityState==="visible")void hydrate();
+    },60_000);
     window.addEventListener("online",onOnline);
     window.addEventListener("focus",onFocus);
-    return()=>{window.removeEventListener("online",onOnline);window.removeEventListener("focus",onFocus);};
+    return()=>{
+      window.clearInterval(heartbeat);
+      window.removeEventListener("online",onOnline);
+      window.removeEventListener("focus",onFocus);
+    };
   },[hydrate]);
 
   const acceptSession=useCallback(async(result:AuthResponse)=>{
