@@ -396,116 +396,112 @@ export function BranchDetailModal({
 export function AddTeamMemberModal({
   open,
   branches,
+  supervisors,
+  teams,
   onClose,
   onAdd,
 }: {
   open: boolean;
   branches: BranchItem[];
+  supervisors: Array<{ userId: string; name: string }>;
+  teams: Array<{ id: string; name: string }>;
   onClose: () => void;
-  onAdd: (member: TeamMemberItem) => void;
+  onAdd: (team: { name: string; branchId: string; supervisorUserId: string | null; parentTeamId: string | null }) => Promise<void>;
 }) {
   const [name, setName] = useState('');
-  const [role, setRole] = useState<TeamMemberItem['role']>('Sales Rep');
-  const [branchId, setBranchId] = useState(branches[0]?.id || 'br-1');
-  const [phone, setPhone] = useState('0812-7700-8899');
+  const [branchId, setBranchId] = useState(branches[0]?.id || '');
+  const [supervisorUserId, setSupervisorUserId] = useState('');
+  const [parentTeamId, setParentTeamId] = useState('');
+  const [saving, setSaving] = useState(false);
 
   return (
     <Modal
       open={open}
       onClose={onClose}
       title="Kelola & Tambah Struktur Tim"
-      subtitle="Tambahkan personel sales atau supervisor ke cabang terkait"
+      subtitle="Buat unit tim, hubungkan ke cabang, dan tetapkan supervisor atau parent team"
       maxWidthClass="max-w-md"
     >
       <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (!name.trim()) return;
-          const branch = branches.find((b) => b.id === branchId) || branches[0];
-          onAdd({
-            id: `tm-${Date.now()}`,
-            name: name.trim(),
-            role,
-            area: `${role === 'Sales Rep' ? 'Sales' : role} - ${branch?.city || 'Area Bogor'}`,
-            branchId,
-            phone,
-            status: 'Online',
-            currentLocation: branch?.address || 'Kantor Cabang',
-            speedKmh: 0,
-            accuracyM: 6,
-            lastUpdate: 'Baru saja',
-            lat: branch?.lat || -6.595204,
-            lng: branch?.lng || 106.797781,
-            monthlyOrderValue: 28_500_000,
-            visitsToday: 4,
-            targetVisits: 8,
-          });
-          setName('');
-          onClose();
+        onSubmit={async (event) => {
+          event.preventDefault();
+          if (!name.trim() || !branchId || saving) return;
+          setSaving(true);
+          try {
+            await onAdd({
+              name: name.trim(),
+              branchId,
+              supervisorUserId: supervisorUserId || null,
+              parentTeamId: parentTeamId || null,
+            });
+            setName('');
+            setSupervisorUserId('');
+            setParentTeamId('');
+            onClose();
+          } finally {
+            setSaving(false);
+          }
         }}
         className="space-y-3.5 text-xs sm:text-sm"
       >
         <div>
-          <label className="block text-xs font-semibold mb-1">
-            Nama Personel
-          </label>
+          <label className="block text-xs font-semibold mb-1">Nama Tim</label>
           <input
             required
             type="text"
-            placeholder="contoh: Wahyu Saputra"
+            minLength={2}
+            maxLength={160}
+            placeholder="contoh: Tim Sales Bogor Selatan"
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(event) => setName(event.target.value)}
             className="w-full rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3.5 py-2"
           />
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-semibold mb-1">Peran</label>
-            <select
-              value={role}
-              onChange={(e) =>
-                setRole(e.target.value as TeamMemberItem['role'])
-              }
-              className="w-full rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 py-2 text-xs"
-            >
-              <option value="Sales Rep">Sales Rep</option>
-              <option value="Supervisor">Supervisor</option>
-              <option value="Area Manager">Area Manager</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-semibold mb-1">
-              Cabang Penugasan
-            </label>
-            <select
-              value={branchId}
-              onChange={(e) => setBranchId(e.target.value)}
-              className="w-full rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 py-2 text-xs"
-            >
-              {branches.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name}
-                </option>
-              ))}
-            </select>
-          </div>
+        <div>
+          <label className="block text-xs font-semibold mb-1">Cabang</label>
+          <select
+            required
+            value={branchId}
+            onChange={(event) => setBranchId(event.target.value)}
+            className="w-full rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 py-2"
+          >
+            {branches.map((branch) => (
+              <option key={branch.id} value={branch.id}>{branch.name}</option>
+            ))}
+          </select>
         </div>
         <div>
-          <label className="block text-xs font-semibold mb-1">
-            No. Kontak / WhatsApp
-          </label>
-          <input
-            type="tel"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            className="w-full rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3.5 py-2 tabular-nums"
-          />
+          <label className="block text-xs font-semibold mb-1">Supervisor (opsional)</label>
+          <select
+            value={supervisorUserId}
+            onChange={(event) => setSupervisorUserId(event.target.value)}
+            className="w-full rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 py-2"
+          >
+            <option value="">Belum ditetapkan</option>
+            {supervisors.map((person) => (
+              <option key={person.userId} value={person.userId}>{person.name}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-semibold mb-1">Parent Team (opsional)</label>
+          <select
+            value={parentTeamId}
+            onChange={(event) => setParentTeamId(event.target.value)}
+            className="w-full rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 py-2"
+          >
+            <option value="">Tidak ada parent team</option>
+            {teams.map((team) => (
+              <option key={team.id} value={team.id}>{team.name}</option>
+            ))}
+          </select>
         </div>
         <button
           type="submit"
-          className="w-full rounded-xl bg-[#348CB2] hover:bg-[#236D91] py-2.5 text-sm font-bold text-white cursor-pointer"
+          disabled={saving || branches.length === 0}
+          className="w-full rounded-xl bg-[#348CB2] hover:bg-[#236D91] py-2.5 text-sm font-bold text-white cursor-pointer disabled:opacity-50"
         >
-          Simpan Anggota Tim
+          {saving ? 'Menyimpan…' : 'Simpan Struktur Tim'}
         </button>
       </form>
     </Modal>
