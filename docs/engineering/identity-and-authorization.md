@@ -12,7 +12,7 @@ Target: eyofuiyxalbehbqoaeny / https://eyofuiyxalbehbqoaeny.supabase.co
 
 ## Auth lifecycle
 
-Web uses the shared @salesx-ai/auth-client and GET /api/v1/auth/me context provider. Email/password signup, verification callback, password recovery/reset, Google OAuth, SMS OTP, refresh and local account switching are connected to the shared provider. The callback accepts Supabase implicit-flow tokens and token_hash verification links. Manual Google identity linking is initiated only by an authenticated user and requires Supabase Auth manual linking to be enabled in the target project.
+Web uses the shared @salesx-ai/auth-client and @salesx-ai/api-client packages with GET /api/v1/auth/me as its context contract. Email/password signup, verification callback, password recovery/reset, Google OAuth, SMS OTP, refresh and local account switching are connected to the shared provider. Google OAuth now uses PKCE (S256), a random callback-bound oauth_state, a ten-minute pending-flow lifetime and one-time code exchange. Manual Google identity linking uses the Supabase Auth user/identities/authorize endpoint and binds the returned session to the original user ID before replacing the stored session. Supabase Auth manual linking must still be enabled in the target project.
 
 The browser adapter persists Supabase session material in browser local storage. This is compatible with the current client-only portal architecture but remains exposed to same-origin XSS; a future SSR-only HttpOnly cookie session is a separate hardening step. Do not store any server key in browser code.
 
@@ -28,7 +28,7 @@ Account suspension/deactivation requires SUPABASE_SECRET_KEY for the Auth Admin 
 
 ## Invitation lifecycle
 
-Organization invitations are stored as SHA-256 token hashes, expire after seven days and are bound to the verified Auth email. Create, accept, reject, expire, revoke and resend operations are tenant-scoped and audited. Role assignment is checked against the inviter's hierarchy and the invited role's tenant/branch scope. Acceptance and rejection require the signed-in Auth user's email to match the invitation and `email_confirmed_at` to be non-null. New Auth identities require Supabase Auth Admin invitation email; existing identities are sent the one-time invitation URL through the server-side SMTP adapter (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM_EMAIL`, `SMTP_STARTTLS`). The raw token is stored only as a SHA-256 hash in PostgreSQL and included only in the email/response delivery path. SMTP implementation is committed, but delivery is not operationally verified until deployment secrets are configured.
+Organization invitations are stored as SHA-256 token hashes, expire after seven days and are bound to the verified Auth email. Create, accept, reject, expire, revoke and resend operations are tenant-scoped and audited. Role assignment is checked against the inviter's hierarchy and the invited role's tenant/branch scope; branch activity and organization ownership are revalidated at acceptance. Acceptance and rejection require the signed-in Auth user's email to match the invitation and email_confirmed_at to be non-null. New Auth identities receive Supabase Auth Admin invitations; existing but unverified identities receive Supabase Auth signup-verification resend; verified existing identities receive the one-time organization invitation through the InvitationDelivery provider interface and SMTP adapter (SMTP_HOST, SMTP_PORT, SMTP_USERNAME, SMTP_PASSWORD, SMTP_FROM_EMAIL, SMTP_STARTTLS). The invitation record is persisted before delivery; failed Auth Admin delivery revokes the pending record and is audited, while SMTP/resend delivery failures are audited and can be retried. The raw token is stored only as a SHA-256 hash in PostgreSQL and included only in the delivery path/authorized create response. Providers remain unconfigured until deployment secrets are supplied.
 
 ## Expo native session storage
 
@@ -36,7 +36,7 @@ The Expo app uses the shared Auth REST client with an Expo SecureStore adapter. 
 
 ## Runtime environment
 
-FastAPI requires DATABASE_URL for the exact Supabase project, TLS, Supabase issuer/JWKS/audience configuration, exact CORS origins, APP_PUBLIC_URL, SUPABASE_PUBLISHABLE_KEY for remote logout and SUPABASE_SECRET_KEY for Auth Admin operations. Values are provided only through server environment/secrets. The committed .env.example files contain placeholders only.
+FastAPI configuration is code-ready without secret values: settings are loaded lazily, the Supabase URL/JWKS/issuer/audience defaults are bound to project eyofuiyxalbehbqoaeny, and DATABASE_URL is validated to target the project's direct database host or Supabase pooler username. The asyncpg pool uses TLS, bounded connection/command/statement timeouts, a pool lifecycle and disabled statement cache for pooler compatibility. If DATABASE_URL is absent, the process can import/start for health checks but /readyz returns 503 and database dependencies fail closed. Runtime still requires deployment values for DATABASE_URL, exact CORS origins, APP_PUBLIC_URL, SUPABASE_PUBLISHABLE_KEY, SUPABASE_SECRET_KEY and SMTP. Values are supplied only through server environment/secrets; committed .env.example files contain placeholders only.
 
 The repository connector can verify project metadata and SQL schema but does not expose the database password or deployment environment secret values. Runtime database connectivity and Auth Admin operations must not be reported as verified until the server environment has those secrets and /readyz plus authenticated API checks pass.
 
@@ -49,3 +49,19 @@ The repository connector can verify project metadata and SQL schema but does not
 - Invitation acceptance/rejection now requires a verified email identity matching the invited email, preventing a phone-verified account with an unverified matching email from accepting an invitation.
 - No schema change was required for these application-layer changes. The target Supabase migration ledger remains at nine applied versions.
 - Manual identity-linking/Google OAuth provider settings, runtime secrets, live API verification and per-device provider refresh-token revocation remain external/runtime blockers.
+
+
+## Shared API contract and consumer integration
+
+- The AuthContext response includes platform_permissions in both FastAPI's Pydantic response schema and packages/api-contracts.
+- The shared @salesx-ai/api-client transport is consumed by the Web auth provider and Expo native auth hook. It adds the bearer token, client platform and active organization, performs one refresh/retry, and clears client session/context when FastAPI explicitly rejects a revoked/inactive session.
+- Web portals continue to share the root SalesXAuthProvider; no UI redesign was introduced. Expo continues to use expo-secure-store for auth session storage and the same shared AuthClient/API client contracts.
+- Account switching clears the current Supabase session and active organization/membership context. No separate persistent business cache is introduced by the auth layer.
+- Client-side permission helpers are navigation/action visibility hints only. Every protected API mutation still uses FastAPI dependencies and server-derived tenant/resource context.
+
+## Code-ready OAuth, invitation and runtime implementation — 2026-11-19
+
+- OAuth sign-in and manual identity linking use PKCE S256 with a secure random verifier, a callback-bound random oauth_state, expiry validation and one-time code exchange. Manual linking is bound to the same Supabase user ID that initiated the flow.
+- Invitation delivery is routed through InvitationDelivery; SMTP is the current configurable adapter. Unverified existing identities use Supabase Auth signup-verification resend; new identities use Auth Admin invite.
+- FastAPI runtime and database pool can be imported/started with secrets intentionally unset. /readyz remains unavailable until the target DATABASE_URL is supplied; this is readiness behavior, not a successful database connection claim.
+- No provider credentials, OAuth provider settings, runtime deployment variables or Supabase project configuration were changed by these code changes.
