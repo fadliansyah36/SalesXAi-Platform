@@ -172,7 +172,7 @@ export function SalesXAuthProvider({children}:{children:React.ReactNode}) {
     const code=params.get("code");
     let next:AuthSession|null=null;
     if(oauthError) {
-      await client.cancelOAuthFlow();
+      await client.cancelOAuthFlow(params.get("oauth_state")??params.get("state"));
       throw new AuthClientError(params.get("error_description")??"OAuth provider authorization was denied.",400,oauthError);
     }
     if(code) {
