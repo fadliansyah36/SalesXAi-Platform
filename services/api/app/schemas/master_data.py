@@ -40,3 +40,8 @@ class MasterDataRecord(BaseModel):
  organization_id:UUID
  created_at:datetime
  updated_at:datetime
+
+
+class PlatformOrganizationStatusUpdate(BaseModel):
+ model_config=ConfigDict(extra="forbid")
+ status:Literal["active","suspended","archived"]
