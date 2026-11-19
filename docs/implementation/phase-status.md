@@ -54,7 +54,7 @@ Status: PARTIAL
 - [x] Web TypeScript and lint passed in GitHub Actions run 44527347416 (head 7ee0ffade24200816e7593b63eee6f13428dba2d) and again in foundation run 44527586969.
 - [x] FastAPI unittest, compileall and Ruff passed in GitHub Actions run 44527586864.
 - [x] Native TypeScript, Expo SDK dependency check, app config, Metro, Android/iOS bundle exports and Turborepo build passed in GitHub Actions run 44527586969.
-- [x] Source files for all 8 applied migration versions are now present in the GitHub migration directory. The 20261119115701, 20261119120627 and 20261119120742 SQL files were restored as idempotent source mirrors from the live schema and applied migration evidence; no migration was re-applied during this continuation.
+- [x] Source files for all 9 applied migration versions are now present in the GitHub migration directory. The 20261119115701, 20261119120627 and 20261119120742 SQL files were restored as idempotent source mirrors from the live schema and applied migration evidence; no migration was re-applied during this continuation.
 - [ ] Specific remote refresh-token revocation for a different device cannot be claimed from DELETE /auth/sessions/{id}; this endpoint denies that session at FastAPI only. Supabase global/others/local logout are remotely invoked when the active session is available.
 - [ ] Runtime secrets and PostgreSQL connection remain unset by instruction. The code is prepared to fail closed and return 503 from /readyz until the matching project DATABASE_URL is supplied. Supabase connector SQL access is not evidence of FastAPI process connectivity.
 
@@ -69,12 +69,13 @@ Status: PARTIAL
   - 20261119115701 p02_invitation_lifecycle_and_session_revocation_epoch
   - 20261119120627 p02_restrict_account_status_to_platform_admin
   - 20261119120742 p02_auth_identity_link_audit_trigger
+  - 20261119131809 p02_add_missing_foreign_key_indexes
 - RLS enabled on all 12 Phase 02 public tables.
 - Security Advisor: zero lints.
 - Realtime: not applicable; authorization re-reads PostgreSQL state on each protected request.
 
 ### Engineering evidence
-- Previous implementation baseline: 7d5c916d2b6fdb623b71afe1a773456f0dacb6fd. Current Phase 02 code head before documentation commits: 61bedc9e6f4e286b4771e07981036f7dcc08b1c6.
+- Previous implementation baseline: 7d5c916d2b6fdb623b71afe1a773456f0dacb6fd. Current Phase 02 code head before documentation commits: 0df9c63f821028e3b2a8bfa9467473ad30be1f6b.
 - Phase 02 CI: https://github.com/fadliansyah36/SalesXAi-Platform/actions/runs/44527586864.
 - Bun/Web/Expo CI: https://github.com/fadliansyah36/SalesXAi-Platform/actions/runs/44527586969.
 - FastAPI source: services/api/app/.
@@ -84,7 +85,7 @@ Status: PARTIAL
 - Auth/security architecture: docs/engineering/identity-and-authorization.md.
 - API workflow: .github/workflows/phase-02-api-checks.yml.
 
-Phase 02 remains PARTIAL. Expo and static CI validation are complete, and migration-source parity is restored. Closure is blocked by unavailable FastAPI runtime/database credentials, unverified Supabase OAuth/manual-linking configuration, unconfigured SMTP/Auth Admin email delivery, incomplete action-level permission visibility, per-device provider refresh-token revocation limits, and absent live authenticated API/session-revocation evidence.
+Phase 02 remains PARTIAL. Earlier Expo and static CI validation are complete, and migration-source parity is restored. Current code is prepared for runtime secrets, PKCE OAuth, invitation providers and shared Web/Expo API transport; closure is still blocked by unconfigured runtime/provider values, unverified Supabase Auth provider settings, per-device provider refresh-token revocation limits, and absent fresh CI/live API evidence.
  
 
 ## Phase 02 — Revalidation & additive database hardening (2026-11-19)
