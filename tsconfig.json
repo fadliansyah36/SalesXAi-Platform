@@ -33,7 +33,11 @@
       "@salesx-ai/design-tokens/native": [
         "./packages/design-tokens/generated/native.ts"
       ]
-    }
+    },
+    "types": [
+      "google.maps",
+      "node"
+    ]
   },
   "include": [
     "next-env.d.ts",
