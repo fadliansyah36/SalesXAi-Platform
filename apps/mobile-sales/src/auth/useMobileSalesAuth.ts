@@ -52,6 +52,17 @@ export function useMobileSalesAuth(){
  }):null,[client,activeOrganizationId]);
  const apiClientRef=useRef<SalesXApiClient|null>(null);
  apiClientRef.current=apiClient;
+ const tenantPermissions=useMemo(
+  ()=>context?.memberships.find(m=>m.organization_id===activeOrganizationId)?.permissions??[],
+  [context,activeOrganizationId],
+ );
+ const permissionValues=useMemo(
+  ()=>[...tenantPermissions,...(context?.platform_permissions??[])],
+  [tenantPermissions,context?.platform_permissions],
+ );
+ const hasPermission=useCallback((permission:string)=>permissionValues.includes(permission),[permissionValues]);
+ const canPerformApiAction=useCallback((actionId:ApiActionId)=>
+  permissionCanPerformApiAction(actionId,permissionValues,status==="authenticated"),[permissionValues,status]);
 
  useEffect(()=>{
   if(!authBffUrl||!apiOrigin){
@@ -146,6 +157,8 @@ export function useMobileSalesAuth(){
     if(invitationToken){
      const transport=apiClientRef.current;
      if(!transport)throw new Error("FastAPI client belum dikonfigurasi.");
+     if(!permissionCanPerformApiAction("organization.invitations.accept",[],true))
+      throw new Error("Permission untuk menerima undangan tidak tersedia.");
      await transport.acceptInvitation({token:invitationToken});
      await loadContext(next);
     }
@@ -204,6 +217,7 @@ export function useMobileSalesAuth(){
  },[client]);
 
  const linkIdentity=useCallback(async()=>{
+  if(!canPerformApiAction("identity.link.authorize"))throw new Error("Permission untuk menghubungkan identity tidak tersedia.");
   if(!client)throw new Error("Supabase Auth belum siap.");
   const transport=apiClientRef.current;
   if(!transport)throw new Error("FastAPI client belum dikonfigurasi.");
@@ -211,7 +225,7 @@ export function useMobileSalesAuth(){
   if(!authorization.ok)throw new Error("Identity linking tidak diizinkan untuk akun ini.");
   const authorizationUrl=await client.beginIdentityLink("google",redirectUrl);
   await Linking.openURL(authorizationUrl);
- },[client]);
+ },[client,canPerformApiAction]);
 
  const requestPasswordReset=useCallback(async(email:string)=>{
   if(!client)throw new Error("Supabase Auth belum siap.");
@@ -242,6 +256,7 @@ export function useMobileSalesAuth(){
    if(scope!=="others"){
     await client.clearSession();
     setSession(null);setContext(null);setActiveOrganizationIdState(null);setStatus("unauthenticated");
+    activeOrganizationIdRef.current=null;authorizationFingerprint.current=null;
     setContextEpoch(value=>value+1);
    }
   }
@@ -257,6 +272,8 @@ export function useMobileSalesAuth(){
   if(!context?.memberships.some(m=>m.organization_id===id&&m.status==="active"))
    throw new Error("Membership aktif untuk organisasi tersebut tidak ditemukan.");
   if(id!==activeOrganizationId)setContextEpoch(value=>value+1);
+  activeOrganizationIdRef.current=id;
+  if(context)authorizationFingerprint.current=authorizationFingerprintFor(context,id);
   setActiveOrganizationIdState(id);
  },[context,activeOrganizationId]);
 
@@ -266,22 +283,18 @@ export function useMobileSalesAuth(){
  },[apiClient]);
 
  const unlinkIdentity=useCallback(async(identityId:string)=>{
+  if(!canPerformApiAction("identity.link.unlink"))throw new Error("Permission untuk melepas identity tidak tersedia.");
   const transport=apiClientRef.current;
   if(!transport)throw new Error("FastAPI client belum dikonfigurasi.");
   return transport.unlinkIdentity(identityId);
- },[]);
+ },[canPerformApiAction]);
 
  const acceptInvitation=useCallback(async(token:string)=>{
+  if(!canPerformApiAction("organization.invitations.accept"))throw new Error("Permission untuk menerima undangan tidak tersedia.");
   const transport=apiClientRef.current;
   if(!transport)throw new Error("FastAPI client belum dikonfigurasi.");
   return transport.acceptInvitation({token});
- },[]);
-
- const tenantPermissions=context?.memberships.find(m=>m.organization_id===activeOrganizationId)?.permissions??[];
- const permissionValues=[...tenantPermissions,...(context?.platform_permissions??[])];
- const hasPermission=useCallback((permission:string)=>permissionValues.includes(permission),[permissionValues]);
- const canPerformApiAction=useCallback((actionId:ApiActionId)=>
-  permissionCanPerformApiAction(actionId,permissionValues,status==="authenticated"),[permissionValues,status]);
+ },[canPerformApiAction]);
 
  return useMemo(()=>({
   status,session,context,activeOrganizationId,contextEpoch,error,recoveryPending,
