@@ -39,6 +39,28 @@ class Settings(BaseSettings):
             raise ValueError("SUPABASE_URL must reference the bound SalesX-Ai project eyofuiyxalbehbqoaeny")
         return value
 
+    @field_validator("supabase_jwks_url")
+    @classmethod
+    def validate_jwks_project(cls, value: AnyHttpUrl | None) -> AnyHttpUrl | None:
+        if value and urlsplit(str(value)).hostname != "eyofuiyxalbehbqoaeny.supabase.co":
+            raise ValueError("SUPABASE_JWKS_URL must use the bound SalesX-Ai Supabase project")
+        return value
+
+    @field_validator("supabase_jwt_issuer")
+    @classmethod
+    def validate_jwt_issuer(cls, value: str | None) -> str | None:
+        expected = "https://eyofuiyxalbehbqoaeny.supabase.co/auth/v1"
+        if value and value.rstrip("/") != expected:
+            raise ValueError("SUPABASE_JWT_ISSUER must match the bound SalesX-Ai Auth issuer")
+        return value
+
+    @field_validator("supabase_jwt_audience")
+    @classmethod
+    def validate_jwt_audience(cls, value: str) -> str:
+        if value != "authenticated":
+            raise ValueError("SUPABASE_JWT_AUDIENCE must be authenticated for SalesX-Ai user sessions")
+        return value
+
     @field_validator("database_url")
     @classmethod
     def validate_database_project(cls, value: SecretStr | None) -> SecretStr | None:
