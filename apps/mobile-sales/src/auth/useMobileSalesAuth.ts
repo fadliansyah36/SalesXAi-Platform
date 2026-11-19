@@ -82,9 +82,11 @@ export function useMobileSalesAuth(){
    setStatus("loading");
    await loadContext(current);
   }catch(cause){
-   if(cause instanceof AuthClientError&&(cause.status===401||cause.status===403)){
+   const status=(cause as {status?:number})?.status;
+   if((cause instanceof AuthClientError&&(cause.status===401||cause.status===403))||status===401||status===403){
     await authClient.clearSession();
-    setSession(null);setContext(null);setActiveOrganizationIdState(null);setStatus("unauthenticated");
+    setSession(null);setContext(null);setActiveOrganizationIdState(null);
+    setRecoveryPending(false);setStatus("unauthenticated");
    }else{
     setStatus("error");
     setError(cause instanceof Error?cause.message:"Koneksi terputus. Coba pulihkan sesi saat jaringan tersedia.");
