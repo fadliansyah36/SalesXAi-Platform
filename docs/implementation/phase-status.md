@@ -655,3 +655,39 @@ Scope tags: 99 Phase 02, 67 Phase 03, 789 future-phase and 620 UI-state callback
   - https://github.com/fadliansyah36/SalesXAi-Platform/actions/runs/44593859301
 
 **Status remains: Phase 02 = COMPLETED; Phase 03 = IN_PROGRESS.** The new Team slice is partial; the remaining Phase 03 tasks above are still open.
+
+
+## Final evidence refresh — 2026-11-20
+
+### Handler inventory correction
+The combined inventory was expanded beyond the seven portal roots and Expo screen to include nested dialogs and Next.js route pages. The current combined total is **1,575 callback/event prop occurrences across 21 distinct TSX source files**, split into:
+- 99 Phase 02 identity/session.
+- 67 Phase 03 master-data/tenant.
+- 789 future-phase domain callbacks.
+- 620 UI-state callbacks.
+
+The three committed source inventories are:
+- `docs/implementation/handler-level-action-inventory.tsv`
+- `docs/implementation/handler-level-modal-inventory.tsv`
+- `docs/implementation/handler-level-route-inventory.tsv`
+
+These are source occurrences, not unique business actions. Future-phase entries are inventory-only until their owning phase defines a real contract.
+
+### Phase 03 Company Team progress correction
+Company Portal Team Structure now reads live teams, sales profiles and organization memberships from FastAPI. The existing structure modal creates tenant-scoped teams with branch/supervisor/parent references. The existing personnel modal updates a sales profile's team, supervisor/manager and status through FastAPI. Team members no longer use the initial demo array; GPS screens do not show maps until actual location telemetry is available.
+
+Remaining Phase 03 tasks include sales profile creation from active memberships, outlet assignment UI/history, complete update/deactivation surfaces, import/export, private realtime events where needed, and Expo assigned team/outlet context.
+
+### Supabase state re-verified
+Live migration history contains **19 applied versions**: 2 Phase 00 foundation migrations, 14 Phase 02 migrations through `20261119174508`, and 3 Phase 03 migrations:
+- `20261119175922_p03_master_data_core`
+- `20261119180611_p03_branch_contact_location_fields`
+- `20261119181929_p03_branch_type`
+
+Current live state: **17/17 public tables RLS-enabled; 35 permissions; 8 roles; 122 role-permission grants; five Phase 03 RLS policies; seven branch metadata/type columns; Security Advisor 0 lints**.
+
+### Final validation for the current Phase 03 UI/code batch
+- API Checks **44593859276** — success on code commit `6f314455b6e344f9519abfe6a53bf8162779ca29`; 46 Python tests, compileall, Ruff, Web TypeScript and lint passed.
+- Foundation Verification **44593859301** — all 20 steps succeeded on the same code commit, including Expo Native TypeScript, SDK compatibility, Metro, Android/iOS bundle exports and Turborepo build.
+
+**Phase 02 remains COMPLETED. Phase 03 remains IN_PROGRESS.**
