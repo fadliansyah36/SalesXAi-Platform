@@ -73,6 +73,7 @@ async def enforce_bff_rate_limit(payload: ExternalRateLimitRequest, request: Req
                 name=f"{rule.name}:{dimension}",
                 identity=value,
                 rule=rule,
+                hash_secret=expected.get_secret_value(),
             )
             if not allowed:
                 logger.warning(
