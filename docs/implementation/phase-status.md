@@ -75,7 +75,7 @@ Status: PARTIAL
 - Realtime: not applicable; authorization re-reads PostgreSQL state on each protected request.
 
 ### Engineering evidence
-- Previous implementation baseline: 7d5c916d2b6fdb623b71afe1a773456f0dacb6fd. Current Phase 02 code head before documentation commits: fbcab8eb4ee832158eb41fe09cbb459421ba1e47.
+- Previous implementation baseline: 7d5c916d2b6fdb623b71afe1a773456f0dacb6fd. Current Phase 02 code head before documentation commits: 8c926bd9ad07964447043df51887806cacfda696.
 - Phase 02 CI: https://github.com/fadliansyah36/SalesXAi-Platform/actions/runs/44527586864.
 - Bun/Web/Expo CI: https://github.com/fadliansyah36/SalesXAi-Platform/actions/runs/44527586969.
 - FastAPI source: services/api/app/.
@@ -195,6 +195,10 @@ Phase 02 remains in progress. Phase 03 is not authorized until Phase 02 reaches 
   - 3aecaf9e98253a83f72e445bccac999d3818fc46 — add typed platform account status API method.
   - 1c9693c0abfb8cf7394fc48d47f8d5913a7fc025 — add typed organization/invitation/member/session API methods.
   - fbcab8eb4ee832158eb41fe09cbb459421ba1e47 — use typed invitation acceptance in Expo callback.
+  - 2bc1cb4194439bb11283a7a4f295ade69a57c2ab — add linked identity contract.
+  - ed42fe1eea9ca690cb2f685b86c991c93250abe3 — add typed identity list/unlink API methods.
+  - b19bbdffa28afef4d441affbb0f23341e170941d — Web identity unlink uses shared API client.
+  - 8c926bd9ad07964447043df51887806cacfda696 — Expo identity and invitation actions use typed API methods.
 - The GitHub workflow-run query returned no runs for the new code commits; no fresh Web/Expo typecheck, FastAPI compileall/Ruff or API contract suite is claimed for this continuation.
 - No OAuth provider round-trip, /readyz, authenticated /api/v1/auth/me, SMTP delivery, Auth Admin operation or remote session revocation was executed.
 - The live Supabase migration ledger remains at nine versions through 20261119131809_p02_add_missing_foreign_key_indexes. No schema delta was required for these application/package changes; no migration was applied in this continuation.
