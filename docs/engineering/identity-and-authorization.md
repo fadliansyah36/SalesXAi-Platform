@@ -44,18 +44,18 @@ The repository connector can verify project metadata and SQL schema but does not
 ## Phase 02 implementation continuation — 2026-11-19
 
 - Organization creation now requires the platform-scoped `organization:create` permission. The API no longer permits any authenticated identity to create a tenant without an explicit permission.
-- The shared permissions package now exports all 22 permission identifiers currently present in the bound Supabase `public.permissions` table. This is a client-side visibility vocabulary only; FastAPI dependencies remain the enforcement boundary.
+- The shared permissions package now exports all 23 permission identifiers currently present in the bound Supabase `public.permissions` table. This is a client-side visibility vocabulary only; FastAPI dependencies remain the enforcement boundary.
 - Existing-user organization invitation delivery now uses the server-side SMTP adapter. New, unregistered identities continue to receive Supabase Auth Admin invitations. SMTP values are documented as placeholders in `services/api/.env.example`; no live SMTP credentials or provider have been configured.
 - Invitation acceptance/rejection now requires a verified email identity matching the invited email, preventing a phone-verified account with an unverified matching email from accepting an invitation.
 - No schema change was required for these application-layer changes. The target Supabase migration ledger remains at nine applied versions.
-- Manual identity-linking/Google OAuth provider settings, runtime secrets, live API verification and per-device provider refresh-token revocation remain external/runtime blockers.
+- Google OAuth provider settings, runtime secrets and live API/provider verification remain DEPLOYMENT_PENDING. Supabase does not support arbitrary other-device refresh-token revocation; application refresh/API enforcement is implemented through the server-side session registry gate.
 
 
 ## Shared API contract and consumer integration
 
 - The AuthContext response includes platform_permissions in both FastAPI's Pydantic response schema and packages/api-contracts.
 - The shared @salesx-ai/api-client transport is consumed by the Web auth provider and Expo native auth hook. It imports canonical AuthContext, session, organization, membership, role, invitation, account-status and error contracts from packages/api-contracts. It exposes typed Phase 02 operations for /auth/me, session registration/list/revocation/sign-out, linked identity list/unlink, organization/member/role CRUD, invitation lifecycle and platform account status; /auth/me and current-session registration now use this typed transport. It adds the bearer token, client platform and active organization, performs one refresh/retry, and clears client session/context when FastAPI explicitly rejects a revoked/inactive session.
-- Web portals continue to share the root SalesXAuthProvider; no UI redesign was introduced. Browser auth sessions remain in the existing session storage adapter while the short-lived PKCE verifier/state is isolated to tab-scoped sessionStorage. Expo continues to use expo-secure-store for both auth session and pending PKCE material, with the same shared AuthClient/API client contracts.
+- Web portals continue to share the root SalesXAuthProvider; no UI redesign was introduced. Web access/refresh tokens remain in server-only HttpOnly cookies through the Auth BFF; the browser receives a tokenless session view. Expo uses expo-secure-store for auth session and pending PKCE material, with the same shared AuthClient/API client contracts.
 - Account switching clears the current Supabase session, pending OAuth verifier/state and active organization/membership context. Native invitation callback accepts organization_invite through the same FastAPI API client after Supabase email verification. No separate persistent business cache is introduced by the auth layer.
 - Client-side permission helpers are navigation/action visibility hints only. Every protected API mutation still uses FastAPI dependencies and server-derived tenant/resource context.
 
@@ -105,7 +105,7 @@ FastAPI checks the live Supabase Auth session, device revocation record, profile
 - Device session registration stores the actual Auth `not_after` timestamp as the device registry expiry. Principal resolution enforces that expiry in addition to live `auth.sessions`, device revocation and profile revocation epoch.
 - The Web access console and native Sales app expose session list/revocation through typed API client methods. The revoke action is explicitly an API deny-list operation; it is not described as arbitrary remote Supabase refresh-token revocation.
 - FastAPI security middleware sets security response headers, enforces the configured declared Content-Length maximum and rejects chunked request bodies. `APP_PUBLIC_URL` is validated as an exact origin and must be included in CORS origins when CORS is configured.
-- API rate limiting and broader abuse controls are still outstanding. The current middleware is not a rate limiter. Fresh static CI/typecheck/build evidence is also outstanding for the latest code head.
+- Distributed PostgreSQL-backed API and Auth BFF rate limiting is implemented. Current workflow evidence is recorded in docs/implementation/phase-status.md. Full permission-aware feature-action mapping across every business screen and action remains incomplete.
 
 
 ## Latest implementation evidence — 2026-11-19
