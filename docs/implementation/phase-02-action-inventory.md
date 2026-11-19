@@ -195,3 +195,25 @@ The Foundation workflow commit predates only later database migration/test/docum
 The identity/tenant action matrix, 28 endpoint contracts, Web/Expo Phase 02 action gates, authorization service/repository, platform audit endpoint, database grants/RLS evidence and fresh static CI are implemented. Do not mark Phase 02 complete until the remaining mutation-specific service/repository separation and requested full handler-level action inventory are closed.
 
 **Phase 03: NOT STARTED in this execution.** It remains eligible for a separate parallel workstream only after its migration, domain ownership and API contracts are isolated from Phase 02.
+
+
+## 11. Phase 02 final mutation-service/repository refactor (2026-11-20)
+
+The following Phase 02 mutation routes now delegate to dedicated application services and mutation repositories. Router functions are limited to request parsing, dependency injection, service invocation and response mapping.
+
+| Domain | Mutation operations moved | Application service | Mutation repository |
+|---|---:|---|---|
+| Account administration | 1 — account status change, including session revocation | `AccountAdministrationService` | `AccountAdministrationRepository` |
+| Session lifecycle | 3 — register, revoke, sign out | `SessionMutationService` | `SessionMutationRepository` |
+| Identity lifecycle | 1 — unlink own provider identity | `IdentityMutationService` | `IdentityMutationRepository` |
+| Organization/membership | 4 — create organization, add member, update membership status, assign role | `OrganizationMutationService` | `OrganizationMutationRepository` |
+| Invitation lifecycle | 5 — create, accept, reject, revoke, resend | `InvitationMutationService` | `InvitationMutationRepository` |
+| **Total mutation routes** | **14** | **5 dedicated services** | **5 dedicated repositories** |
+
+Invitation expiry is also performed by `InvitationMutationService.list_invitations` with transaction and audit handling, rather than as a side effect in the HTTP router.
+
+A source scan of every registered router file (`admin.py`, `audit.py`, `auth.py`, `master_data.py`, `organizations.py`, `security.py`) found **zero domain DML statements** (`INSERT`, `UPDATE public.*`, `DELETE FROM`) in router source. Domain SQL mutations now reside in repositories and are orchestrated by services with tenant/ownership checks, transactions and audit receipts. Provider actions (Supabase Auth invitation delivery, session signout and identity unlink) are orchestrated by application services; credentials remain deferred.
+
+The Phase 02 UI action contract scope remains 18 unique UI action IDs and 40 resolver call sites across Web access/security, Super Admin, invitation and Expo auth surfaces. The source inventory records 443 Web `onClick`, 7 Web `onSubmit`, and 17 Expo `onPress` sites across the seven Web portal components and Expo Sales screen. The six business-domain portals whose actions belong to later phases are explicitly recorded as future-phase surfaces rather than misrepresented as Phase 02 identity actions.
+
+Phase 03 has since added its own 22 master-data and platform-tenant action contracts. Those contracts are recorded separately in `docs/implementation/phase-03-action-inventory.md` and do not change the Phase 02 contract baseline of 28 actions.
