@@ -93,3 +93,15 @@ export interface PlatformRole {
   permissions:string[];
   assigned_users:number;
 }
+
+export interface PlatformUserSummary {
+  id:UUID;
+  name:string;
+  email:string;
+  tenant_id:string;
+  tenant_name:string;
+  role:string;
+  status:AccountStatus;
+  mfa_enabled:boolean;
+  last_active:ISODateTime|null;
+}
