@@ -105,3 +105,17 @@ export interface PlatformUserSummary {
   mfa_enabled:boolean;
   last_active:ISODateTime|null;
 }
+
+
+export interface PlatformAuditLog {
+  id:UUID;
+  actor_user_id:UUID|null;
+  actor_label:string;
+  organization_id:UUID|null;
+  action:string;
+  resource_type:string;
+  resource_id:string|null;
+  correlation_id:string|null;
+  occurred_at:ISODateTime;
+  metadata:Record<string,unknown>;
+}
