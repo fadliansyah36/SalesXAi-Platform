@@ -202,6 +202,7 @@ async def update_account_status(
 
 @router.get("/audit", response_model=list[PlatformAuditLogResponse])
 async def list_platform_audit_logs(
+    request: Request,
     before: datetime | None = Query(default=None),
     limit: int = Query(default=50, ge=1, le=100),
     principal: Principal = Depends(require_api_action("platform.audit.read")),
@@ -221,5 +222,9 @@ async def list_platform_audit_logs(
         limit $2
         """,
         before, limit,
+    )
+    await write_audit(
+        connection, request, principal, "platform.audit.read", "admin_audit_log",
+        metadata={"limit": limit, "before": before.isoformat() if before else None},
     )
     return [PlatformAuditLogResponse(**dict(row)) for row in rows]
