@@ -202,3 +202,61 @@ async def list_assignable_roles(
     return [dict(row) for row in rows]
 
 
+
+
+@router.get("/{organization_id}/invitations")
+async def list_invitations(
+    organization_id: UUID, request: Request,
+    tenant: TenantContext = Depends(require_api_action("organization.invitations.read")),
+    principal: Principal = Depends(get_current_principal),
+    connection: asyncpg.Connection = Depends(get_connection),
+) -> list[dict]:
+    return await invitation_mutation_service.list_invitations(connection,request,principal,tenant,organization_id)
+
+
+@router.post("/{organization_id}/invitations", status_code=201)
+async def create_invitation(
+    organization_id: UUID, payload: InvitationCreate, request: Request,
+    principal: Principal = Depends(get_current_principal),
+    tenant: TenantContext = Depends(require_api_action("organization.invitations.create")),
+    connection: asyncpg.Connection = Depends(get_connection),
+) -> dict:
+    return await invitation_mutation_service.create_invitation(connection,request,principal,tenant,organization_id,payload)
+
+
+@router.post("/invitations/accept")
+async def accept_invitation(
+    payload: InvitationToken, request: Request,
+    principal: Principal = Depends(require_api_action("organization.invitations.accept")),
+    connection: asyncpg.Connection = Depends(get_connection),
+) -> dict:
+    return await invitation_mutation_service.accept_invitation(connection,request,principal,payload)
+
+
+@router.post("/invitations/reject")
+async def reject_invitation(
+    payload: InvitationToken, request: Request,
+    principal: Principal = Depends(require_api_action("organization.invitations.reject")),
+    connection: asyncpg.Connection = Depends(get_connection),
+) -> dict:
+    return await invitation_mutation_service.reject_invitation(connection,request,principal,payload)
+
+
+@router.post("/{organization_id}/invitations/{invitation_id}/revoke")
+async def revoke_invitation(
+    organization_id: UUID, invitation_id: UUID, request: Request,
+    principal: Principal = Depends(get_current_principal),
+    tenant: TenantContext = Depends(require_api_action("organization.invitations.revoke")),
+    connection: asyncpg.Connection = Depends(get_connection),
+) -> dict:
+    return await invitation_mutation_service.revoke_invitation(connection,request,principal,tenant,organization_id,invitation_id)
+
+
+@router.post("/{organization_id}/invitations/{invitation_id}/resend")
+async def resend_invitation(
+    organization_id: UUID, invitation_id: UUID, request: Request,
+    principal: Principal = Depends(get_current_principal),
+    tenant: TenantContext = Depends(require_api_action("organization.invitations.resend")),
+    connection: asyncpg.Connection = Depends(get_connection),
+) -> dict:
+    return await invitation_mutation_service.resend_invitation(connection,request,principal,tenant,organization_id,invitation_id)
