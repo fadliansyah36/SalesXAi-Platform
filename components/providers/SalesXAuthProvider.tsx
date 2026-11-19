@@ -1,12 +1,20 @@
 'use client';
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { SalesXAuthClient, AuthClientError, type AuthSession, type SessionStorage } from "@salesx-ai/auth-client";
+import { AuthClientError, type AuthSession } from "@salesx-ai/auth-client";
 import { SalesXApiClient } from "@salesx-ai/api-client";
 import type { AuthContext as SalesXAuthContextData, PortalKey } from "@salesx-ai/shared-types";
 import { canAccessPortal as permissionCanAccessPortal, hasPermission as permissionHasPermission } from "@salesx-ai/permissions";
 
 type AuthStatus = "loading" | "unauthenticated" | "authenticated" | "configuration_error" | "error";
+type WebSession = {
+  user: { id: string; email?: string | null; phone?: string | null };
+  expires_at: number;
+  expires_in: number;
+  token_type: string;
+};
+type AuthResponse = { session: WebSession | null; verification_required?: boolean };
+
 interface SalesXAuthValue {
   status: AuthStatus;
   session: AuthSession | null;
@@ -33,12 +41,22 @@ interface SalesXAuthValue {
   apiClient:SalesXApiClient|null;
 }
 const SalesXAuthContext=createContext<SalesXAuthValue|null>(null);
-const supabaseUrl=process.env.NEXT_PUBLIC_SUPABASE_URL??"";
-const publishableKey=process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY??"";
-const apiOrigin=(process.env.NEXT_PUBLIC_SALESX_API_URL??"").replace(/\/$/,"");
+
+function browserSession(value:WebSession|null):AuthSession|null {
+  if(!value)return null;
+  // Access and refresh tokens stay in HttpOnly cookies; these empty fields preserve the
+  // existing consumer type without exposing credential material to browser JavaScript.
+  return {
+    access_token:"",
+    refresh_token:"",
+    token_type:value.token_type||"bearer",
+    expires_in:value.expires_in,
+    expires_at:value.expires_at,
+    user:{id:value.user.id,email:value.user.email??undefined,phone:value.user.phone??undefined},
+  };
+}
 
 export function SalesXAuthProvider({children}:{children:React.ReactNode}) {
-  const [client,setClient]=useState<SalesXAuthClient|null>(null);
   const [status,setStatus]=useState<AuthStatus>("loading");
   const [session,setSession]=useState<AuthSession|null>(null);
   const [context,setContext]=useState<SalesXAuthContextData|null>(null);
@@ -46,200 +64,206 @@ export function SalesXAuthProvider({children}:{children:React.ReactNode}) {
   const [error,setError]=useState<string|null>(null);
   const [consumerEpoch,setConsumerEpoch]=useState(0);
   const hydrating=useRef(false);
-  const apiClient=useMemo(()=>client?new SalesXApiClient({
-    baseUrl:apiOrigin,
-    platform:"web",
-    auth:{
-      getAccessToken:async()=>(await client.getSession())?.access_token??null,
-      refreshAccessToken:async()=>(await client.refreshSession())?.access_token??null,
-      getOrganizationId:()=>activeOrganizationId,
-      onSessionInvalidated:async()=>{
-        await client.clearSession();
-        setSession(null);setContext(null);setActiveOrganizationIdState(null);setStatus("unauthenticated");
-        setConsumerEpoch(value=>value+1);
-      },
-    },
-  }):null,[client,activeOrganizationId]);
+  const csrfToken=useRef("");
   const apiClientRef=useRef<SalesXApiClient|null>(null);
-  apiClientRef.current=apiClient;
 
-  useEffect(()=>{
-    if(!supabaseUrl||!publishableKey||!apiOrigin) {
-      setError("NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY dan NEXT_PUBLIC_SALESX_API_URL wajib dikonfigurasi.");
-      setStatus("configuration_error");return;
-    }
-    const storage:SessionStorage={
-      getItem:async key=>window.localStorage.getItem(key),
-      setItem:async(key,value)=>window.localStorage.setItem(key,value),
-      removeItem:async key=>window.localStorage.removeItem(key),
-    };
-    const oauthStorage:SessionStorage={
-      getItem:async key=>window.sessionStorage.getItem(key),
-      setItem:async(key,value)=>window.sessionStorage.setItem(key,value),
-      removeItem:async key=>window.sessionStorage.removeItem(key),
-    };
-    setClient(new SalesXAuthClient({supabaseUrl,publishableKey,storage,oauthStorage,storageKey:"salesx-web-auth"}));
+  const ensureCsrf=useCallback(async()=>{
+    if(csrfToken.current)return csrfToken.current;
+    const response=await fetch("/api/auth/csrf",{method:"GET",credentials:"same-origin",cache:"no-store"});
+    const body=await response.json().catch(()=>({}));
+    if(!response.ok||typeof body.csrfToken!=="string")throw new Error("CSRF session bootstrap failed.");
+    csrfToken.current=body.csrfToken;
+    return csrfToken.current;
   },[]);
 
-  const loadContext=useCallback(async(current:AuthSession)=>{
+  const authRequest=useCallback(async<T=Record<string,unknown>>(action:string,payload?:Record<string,unknown>):Promise<T>=>{
+    const csrf=await ensureCsrf();
+    const response=await fetch("/api/auth/"+action,{
+      method:"POST",
+      credentials:"same-origin",
+      headers:{"Content-Type":"application/json","X-CSRF-Token":csrf},
+      body:JSON.stringify(payload??{}),
+      cache:"no-store",
+    });
+    const body=await response.json().catch(()=>({}));
+    if(!response.ok)throw new AuthClientError(
+      body?.error?.message??"Web authentication request failed.",
+      response.status,
+      body?.error?.code,
+    );
+    return body as T;
+  },[ensureCsrf]);
+
+  const clearCookieSession=useCallback(async()=>{
+    const csrf=await ensureCsrf();
+    const response=await fetch("/api/auth/session",{
+      method:"DELETE",
+      credentials:"same-origin",
+      headers:{"X-CSRF-Token":csrf},
+      cache:"no-store",
+    });
+    if(!response.ok)throw new Error("Web session cookie could not be cleared.");
+  },[ensureCsrf]);
+
+  const invalidateSession=useCallback(async()=>{
+    try{await clearCookieSession();}catch{}
+    setSession(null);setContext(null);setActiveOrganizationIdState(null);
+    setStatus("unauthenticated");setError(null);setConsumerEpoch(value=>value+1);
+  },[clearCookieSession]);
+
+  const apiClient=useMemo(()=>new SalesXApiClient({
+    baseUrl:"/api/backend",
+    platform:"web",
+    authMode:"cookie",
+    auth:{
+      getAccessToken:async()=>null,
+      refreshAccessToken:async()=>{
+        try{
+          await authRequest("refresh");
+          return "http-only-cookie-session";
+        }catch{return null;}
+      },
+      getOrganizationId:()=>activeOrganizationId,
+      onSessionInvalidated:invalidateSession,
+    },
+  }),[activeOrganizationId,authRequest,invalidateSession]);
+  apiClientRef.current=apiClient;
+
+  const loadContext=useCallback(async(current:WebSession)=>{
     const transport=apiClientRef.current;
-    if(!transport)throw new Error("FastAPI client belum dikonfigurasi.");
+    if(!transport)throw new Error("FastAPI cookie transport belum siap.");
     const next=await transport.getAuthContext();
     setContext(next);
     setActiveOrganizationIdState(previous=>
       previous&&next.memberships.some(m=>m.organization_id===previous&&m.status==="active")
         ?previous:next.memberships.find(m=>m.status==="active")?.organization_id??null);
     await transport.registerCurrentSession({platform:"web",device_name:"SalesX-Ai Web Portal"});
-    const resolvedSession=client?await client.getSession():null;
-    setSession(resolvedSession??current);setStatus("authenticated");setError(null);
-  },[client]);
+    setSession(browserSession(current));setStatus("authenticated");setError(null);
+  },[]);
 
-  const hydrate=useCallback(async(authClient:SalesXAuthClient)=>{
+  const hydrate=useCallback(async()=>{
     if(hydrating.current)return;
     hydrating.current=true;
-    try {
-      const current=await authClient.getSession();
-      if(!current) {
+    try{
+      await ensureCsrf();
+      const response=await fetch("/api/auth/session",{method:"GET",credentials:"same-origin",cache:"no-store"});
+      const body=await response.json().catch(()=>({session:null})) as AuthResponse;
+      if(!response.ok||!body.session){
         setSession(null);setContext(null);setActiveOrganizationIdState(null);
         setStatus("unauthenticated");setError(null);return;
       }
       setStatus("loading");
-      await loadContext(current);
-    } catch(cause) {
-      const message=cause instanceof Error?cause.message:"Sesi tidak dapat dipulihkan.";
-      if(cause instanceof AuthClientError&&(cause.status===401||cause.status===403)) {
-        await authClient.clearSession();
-        setSession(null);setContext(null);setActiveOrganizationIdState(null);setStatus("unauthenticated");
-      } else {
-        setStatus("error");setError(message);
-      }
-    } finally {hydrating.current=false;}
-  },[loadContext]);
+      await loadContext(body.session);
+    }catch(cause){
+      setStatus("error");
+      setError(cause instanceof Error?cause.message:"Web session could not be restored.");
+    }finally{hydrating.current=false;}
+  },[ensureCsrf,loadContext]);
 
   useEffect(()=>{
-    if(!client)return;
-    void hydrate(client);
-    const unsubscribe=client.subscribe(next=>setSession(next));
-    const onStorage=(event:StorageEvent)=>{
-      if(event.key==="salesx-web-auth")void hydrate(client);
-    };
-    const onOnline=()=>void hydrate(client);
-    window.addEventListener("storage",onStorage);
+    void hydrate();
+    const onOnline=()=>void hydrate();
+    const onFocus=()=>void hydrate();
     window.addEventListener("online",onOnline);
-    return()=>{unsubscribe();window.removeEventListener("storage",onStorage);window.removeEventListener("online",onOnline);};
-  },[client,hydrate]);
+    window.addEventListener("focus",onFocus);
+    return()=>{window.removeEventListener("online",onOnline);window.removeEventListener("focus",onFocus);};
+  },[hydrate]);
 
-  const signInWithPassword=useCallback(async(email:string,password:string)=>{
-    if(!client)throw new Error("Supabase Auth belum siap.");
-    const next=await client.signInWithPassword(email.trim(),password);
-    await loadContext(next);
-  },[client,loadContext]);
+  const acceptSession=useCallback(async(result:AuthResponse)=>{
+    if(result.session)await loadContext(result.session);
+    else{
+      setSession(null);setContext(null);setActiveOrganizationIdState(null);setStatus("unauthenticated");
+    }
+  },[loadContext]);
+
+  const signInWithPassword=useCallback(async(identifier:string,password:string)=>{
+    const result=await authRequest<AuthResponse>("sign-in",{identifier:identifier.trim(),password});
+    await acceptSession(result);
+  },[authRequest,acceptSession]);
 
   const signUp=useCallback(async(email:string,password:string)=>{
-    if(!client)throw new Error("Supabase Auth belum siap.");
-    const redirect=window.location.origin+"/auth/callback";
-    const next=await client.signUp(email.trim(),password,redirect);
-    if(next)await loadContext(next);
-    return !next;
-  },[client,loadContext]);
+    const result=await authRequest<AuthResponse>("sign-up",{email:email.trim().toLowerCase(),password});
+    await acceptSession(result);
+    return result.verification_required===true;
+  },[authRequest,acceptSession]);
 
   const signInWithOAuth=useCallback(async(provider:"google")=>{
-    if(!client)throw new Error("Supabase Auth belum siap.");
-    const authorizationUrl=await client.signInWithOAuth(provider,window.location.origin+"/auth/callback");
-    window.location.assign(authorizationUrl);
-  },[client]);
+    const result=await authRequest<{authorization_url:string}>("oauth-start",{provider,flow:"signin"});
+    if(!result.authorization_url)throw new Error("Supabase did not return an OAuth authorization URL.");
+    window.location.assign(result.authorization_url);
+  },[authRequest]);
 
   const linkIdentity=useCallback(async(provider:"google")=>{
-    if(!client)throw new Error("Supabase Auth belum siap.");
-    const authorizationUrl=await client.beginIdentityLink(provider,window.location.origin+"/auth/callback?identity_link=1");
-    window.location.assign(authorizationUrl);
-  },[client]);
+    const result=await authRequest<{authorization_url:string}>("oauth-start",{provider,flow:"link"});
+    if(!result.authorization_url)throw new Error("Supabase did not return an identity-link authorization URL.");
+    window.location.assign(result.authorization_url);
+  },[authRequest]);
 
   const unlinkIdentity=useCallback(async(identityId:string)=>{
-    if(!client)throw new Error("Supabase Auth belum siap.");
     const transport=apiClientRef.current;
-    if(!transport)throw new Error("FastAPI client belum dikonfigurasi.");
+    if(!transport)throw new Error("FastAPI cookie transport belum siap.");
     await transport.unlinkIdentity(identityId);
-    await hydrate(client);
-  },[client,hydrate]);
+    await hydrate();
+  },[hydrate]);
 
   const completeAuthCallback=useCallback(async()=>{
-    if(!client)throw new Error("Supabase Auth belum siap.");
     const params=new URLSearchParams(window.location.search);
     const tokenHash=params.get("token_hash");
-    const type=params.get("type");
+    const type=params.get("type")??params.get("flow")??"signup";
     const oauthError=params.get("error");
     const code=params.get("code");
-    let next:AuthSession|null=null;
-    if(oauthError) {
-      await client.cancelOAuthFlow(params.get("oauth_state")??params.get("state"));
+    let result:AuthResponse;
+    if(oauthError){
+      await authRequest("oauth-error",{state:params.get("oauth_state")??params.get("state")});
       throw new AuthClientError(params.get("error_description")??"OAuth provider authorization was denied.",400,oauthError);
     }
-    if(code) {
-      next=await client.completeOAuthCallback(code,params.get("oauth_state")??params.get("state"));
-    } else {
-      next=await client.acceptOAuthCallback(window.location.hash);
-    }
-    if(!next&&tokenHash) {
-      next=await client.verifyEmailToken(tokenHash,
-        type==="recovery"?"recovery":type==="invite"?"invite":type==="magiclink"?"magiclink":type==="email_change"?"email_change":"signup");
-    }
-    if(!next)return "none" as const;
-    await loadContext(next);
+    if(code){
+      const limited=await authRequest<AuthResponse>("oauth-complete",{
+        code,state:params.get("oauth_state")??params.get("state")??"",
+      });
+      result=limited;
+    }else if(tokenHash){
+      result=await authRequest<AuthResponse>("verify",{
+        token_hash:tokenHash,
+        type:type==="recovery"?"recovery":type==="invite"?"invite":type==="magiclink"?"magiclink":type==="email_change"?"email_change":"signup",
+      });
+    }else return "none" as const;
+    if(!result.session)return "none" as const;
+    await acceptSession(result);
     return type==="recovery"?"recovery" as const:"authenticated" as const;
-  },[client,loadContext]);
+  },[authRequest,acceptSession]);
 
   const requestPasswordReset=useCallback(async(email:string)=>{
-    if(!client)throw new Error("Supabase Auth belum siap.");
-    await client.recoverPassword(email.trim(),window.location.origin+"/auth/callback?flow=recovery");
-  },[client]);
+    await authRequest("recover",{email:email.trim().toLowerCase()});
+  },[authRequest]);
 
   const updatePassword=useCallback(async(password:string)=>{
-    if(!client)throw new Error("Supabase Auth belum siap.");
-    await client.updatePassword(password);
-  },[client]);
+    await authRequest("update-password",{password});
+  },[authRequest]);
 
   const signInWithOtp=useCallback(async(phone:string)=>{
-    if(!client)throw new Error("Supabase Auth belum siap.");
-    await client.signInWithOtp(phone.trim());
-  },[client]);
+    await authRequest("otp-send",{phone:phone.trim()});
+  },[authRequest]);
 
   const verifyOtp=useCallback(async(phone:string,token:string)=>{
-    if(!client)throw new Error("Supabase Auth belum siap.");
-    const next=await client.verifyOtp(phone.trim(),token.trim());
-    await loadContext(next);
-  },[client,loadContext]);
+    const result=await authRequest<AuthResponse>("otp-verify",{phone:phone.trim(),token:token.trim()});
+    await acceptSession(result);
+  },[authRequest,acceptSession]);
 
   const signOut=useCallback(async(scope:"local"|"global"|"others"="local")=>{
-    if(!client)throw new Error("Supabase Auth belum siap.");
-    const current=await client.getSession();
-    if(!current) {
-      await client.clearSession();
-      setSession(null);setContext(null);setActiveOrganizationIdState(null);setStatus("unauthenticated");
+    if(scope==="others"){
+      await apiClient.signOut(scope);
       return;
     }
-    if(current) {
-      const transport=apiClientRef.current;
-      if(transport) {
-        try {
-          await transport.signOut(scope);
-        } catch(remoteError) {
-          setError(remoteError instanceof Error?remoteError.message:"Remote logout belum terkonfirmasi.");
-          // Fallback remains provider-native and is attempted only after the API path fails.
-          await client.signOut(scope);
-        }
-      } else {
-        await client.signOut(scope);
-      }
+    try{
+      await apiClient.signOut(scope);
+    }catch{
+      // Provider-native logout is attempted by the server BFF if the API cannot complete.
+      try{await authRequest("sign-out",{scope});}catch{}
+    }finally{
+      await invalidateSession();
     }
-    if(scope!=="others") {
-      await client.clearSession();
-      setSession(null);setContext(null);setActiveOrganizationIdState(null);setStatus("unauthenticated");
-      setConsumerEpoch(value=>value+1);
-    } else if(current) {
-      setSession(current);
-    }
-  },[client]);
+  },[apiClient,authRequest,invalidateSession]);
 
   const switchAccount=useCallback(async()=>{
     await signOut("local");
@@ -257,13 +281,14 @@ export function SalesXAuthProvider({children}:{children:React.ReactNode}) {
     ()=>context?.memberships.find(m=>m.organization_id===activeOrganizationId&&m.status==="active")??null,
     [context,activeOrganizationId],
   );
+  const permissionValues=[...(activeMembership?.permissions??[]),...(context?.platform_permissions??[])];
   const hasPermission=useCallback((permission:string)=>
-    permissionHasPermission([...(activeMembership?.permissions??[]),...(context?.platform_permissions??[])],permission as never),[activeMembership]);
+    permissionHasPermission(permissionValues,permission as never),[activeMembership,context?.platform_permissions]);
   const canAccessPortal=useCallback((portal:PortalKey)=>
-    permissionCanAccessPortal([...(activeMembership?.permissions??[]),...(context?.platform_permissions??[])],portal),[activeMembership]);
+    permissionCanAccessPortal(permissionValues,portal),[activeMembership,context?.platform_permissions]);
 
   const apiFetch=useCallback(async(path:string,init:RequestInit={})=>{
-    if(!apiClient)throw new Error("Supabase Auth atau FastAPI belum dikonfigurasi.");
+    if(!apiClient)throw new Error("FastAPI cookie transport belum dikonfigurasi.");
     return apiClient.fetch(path,init);
   },[apiClient]);
 
