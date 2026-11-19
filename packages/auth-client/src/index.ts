@@ -22,6 +22,7 @@ export class AuthClientError extends Error {
 
 type OAuthPending = {
  state:string;
+ nonce:string;
  codeVerifier:string;
  flow:"signin"|"link";
  userId:string|null;
@@ -180,7 +181,8 @@ export class SalesXAuthClient {
  private async createOAuthPending(flow:"signin"|"link",userId:string|null):Promise<OAuthPending> {
   const verifier=base64Url(secureRandom(32));
   const state=base64Url(secureRandom(32));
-  const pending:OAuthPending={state,codeVerifier:verifier,flow,userId,createdAt:Date.now()};
+  const nonce=base64Url(secureRandom(32));
+  const pending:OAuthPending={state,nonce,codeVerifier:verifier,flow,userId,createdAt:Date.now()};
   await this.oauthStorage.setItem(this.storageKey+":oauth-pending",JSON.stringify(pending));
   return pending;
  }
@@ -188,6 +190,8 @@ export class SalesXAuthClient {
   const pending=await this.createOAuthPending("signin",null);
   const url=new URL(this.baseUrl+"/auth/v1/authorize");
   url.searchParams.set("provider",provider);
+  // Supabase Auth forwards the OIDC nonce to Google and validates the returned ID token.
+  url.searchParams.set("nonce",pending.nonce);
   const callback = new URL(redirectTo);
   callback.searchParams.set("oauth_state",pending.state);
   url.searchParams.set("redirect_to",callback.toString());
@@ -201,6 +205,8 @@ export class SalesXAuthClient {
   const pending=await this.createOAuthPending("link",session.user.id);
   const url=new URL(this.baseUrl+"/auth/v1/user/identities/authorize");
   url.searchParams.set("provider",provider);
+  // Supabase Auth forwards the OIDC nonce to Google and validates the returned ID token.
+  url.searchParams.set("nonce",pending.nonce);
   const callback = new URL(redirectTo);
   callback.searchParams.set("oauth_state",pending.state);
   url.searchParams.set("redirect_to",callback.toString());
