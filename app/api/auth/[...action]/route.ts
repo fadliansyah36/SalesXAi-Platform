@@ -4,7 +4,7 @@ import {
   OAUTH_STATE_COOKIE, OAUTH_VERIFIER_COOKIE, OAUTH_FLOW_COOKIE, OAUTH_USER_COOKIE, OAUTH_CREATED_COOKIE,
   appOrigin, authError, clearOAuthCookies, clearSessionCookies, csrfCookieOptions, csrfIsValid,
   enforceBffRateLimit, pkceChallenge, randomToken, refreshAuthSession, safeSession,
-  setCsrfCookie, setSessionCookies, supabaseAuthRequest, type SupabaseAuthSession,
+  setCsrfCookie, setSessionCookies, supabaseAuthRequest, supabaseUrl, type SupabaseAuthSession,
 } from "@/lib/auth/web-session";
 
 export const runtime = "nodejs";
