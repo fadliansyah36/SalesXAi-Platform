@@ -276,5 +276,5 @@ def require_api_action(action_id: str):
         dependency = require_platform_permission(contract.permission_key)
     else:
         raise RuntimeError(f"Unsupported API action scope for {action_id}: {contract.scope}")
-    setattr(dependency, "__api_action_id__", action_id)
+    dependency.__api_action_id__ = action_id
     return dependency
