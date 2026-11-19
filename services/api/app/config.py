@@ -1,11 +1,11 @@
 from functools import lru_cache
-from pydantic import AnyHttpUrl, SecretStr, field_validator
+from pydantic import AnyHttpUrl, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
-    supabase_url: AnyHttpUrl
-    database_url: SecretStr
+    supabase_url: AnyHttpUrl = AnyHttpUrl('https://eyofuiyxalbehbqoaeny.supabase.co')
+    database_url: SecretStr | None = None
     supabase_jwks_url: AnyHttpUrl | None = None
     supabase_jwt_issuer: str | None = None
     supabase_jwt_audience: str = "authenticated"
@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     db_pool_min_size: int = 1
     db_pool_max_size: int = 10
     db_command_timeout_seconds: float = 30.0
+    db_connect_timeout_seconds: float = 10.0
+    db_max_inactive_connection_lifetime: float = 300.0
+    db_statement_timeout_ms: int = 30000
     cors_origins: str = ""
     jwt_clock_skew_seconds: int = 30
     smtp_host: str | None = None
@@ -61,12 +64,38 @@ class Settings(BaseSettings):
             raise ValueError("SMTP timeout must be between 0 and 60 seconds")
         return value
 
+
+    @field_validator("db_connect_timeout_seconds", "db_max_inactive_connection_lifetime")
+    @classmethod
+    def validate_db_timeouts(cls, value: float) -> float:
+        if value <= 0 or value > 600:
+            raise ValueError("Database timeouts must be between 0 and 600 seconds")
+        return value
+
+    @field_validator("db_statement_timeout_ms")
+    @classmethod
+    def validate_statement_timeout(cls, value: int) -> int:
+        if value < 1000 or value > 300000:
+            raise ValueError("Database statement timeout must be between 1000 and 300000 ms")
+        return value
+
     @field_validator("db_pool_min_size", "db_pool_max_size")
     @classmethod
     def validate_pool_size(cls, value: int) -> int:
         if value < 1 or value > 50:
             raise ValueError("Database pool size must be between 1 and 50")
         return value
+
+
+    @model_validator(mode="after")
+    def validate_pool_bounds(self):
+        if self.db_pool_min_size > self.db_pool_max_size:
+            raise ValueError("DB_POOL_MIN_SIZE cannot exceed DB_POOL_MAX_SIZE")
+        return self
+
+    @property
+    def database_configured(self) -> bool:
+        return self.database_url is not None and bool(self.database_url.get_secret_value().strip())
 
     @property
     def auth_issuer(self) -> str:
