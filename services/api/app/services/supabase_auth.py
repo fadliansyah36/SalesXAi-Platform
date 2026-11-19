@@ -58,6 +58,17 @@ class SupabaseAuthService:
         await self._request("DELETE", "user/identities/" + identity_id,
                             api_key=self.publishable_key.get_secret_value(), bearer=access_token)
 
+    async def resend_signup_confirmation(self, email: str, redirect_to: str) -> None:
+        if self.publishable_key is None:
+            raise APIError(503, "auth_api_key_not_configured",
+                           "SUPABASE_PUBLISHABLE_KEY is required to resend email verification.")
+        await self._request(
+            "POST",
+            "resend?" + urlencode({"redirect_to": redirect_to}),
+            api_key=self.publishable_key.get_secret_value(),
+            payload={"type": "signup", "email": email},
+        )
+
     async def invite_user(self, email: str, redirect_to: str) -> None:
         if self.secret_key is None:
             raise APIError(503, "auth_admin_not_configured",
