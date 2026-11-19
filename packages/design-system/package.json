@@ -5,6 +5,20 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./styles.css": "./src/styles.css"
+    "./styles.css": "./src/styles.css",
+    "./native": "./src/native/index.ts"
+  },
+  "types": "./src/index.ts",
+  "dependencies": {
+    "@salesx-ai/design-tokens": "workspace:*"
+  },
+  "peerDependencies": {
+    "react": ">=19.2.0 <20.0.0",
+    "react-native": ">=0.86.0 <0.90.0"
+  },
+  "peerDependenciesMeta": {
+    "react-native": {
+      "optional": true
+    }
   }
 }

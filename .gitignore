@@ -5,3 +5,12 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Expo / native build output
+.expo/
+.expo-shared/
+web-build/
+apps/mobile-sales/.expo/
+apps/mobile-sales/dist/
+apps/mobile-sales/android/
+apps/mobile-sales/ios/

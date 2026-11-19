@@ -1,9 +1,19 @@
-# Native Sales Application
+# SalesX-Ai Mobile Sales
 
-Canonical location: `apps/mobile-sales/` (React Native Expo, Android/iOS).
+Runnable React Native application using Expo SDK 58, React Native 0.88 and React 19.3. It is a first-class Bun workspace at `apps/mobile-sales/`.
 
-Phase 00–01 establishes native ownership and canonical design-token consumption only; it does not implement business features early or create a second backend/database.
+## Run
 
-Import `mobileThemes` and `MobileThemeMode` from `./src/theme/tokens`. This adapter reads the generated native token export built from the same JSON sources as Web CSS.
+From repository root: `bun install --frozen-lockfile` then `bun run mobile:start` (or `mobile:android` / `mobile:ios`). Node.js 22.13+ is required by Expo SDK 58.
 
-Authentication, secure storage, feature modules, offline outbox, GPS and notifications are implemented in their designated domain phases. No Expo runtime deployment is claimed by this foundation.
+## Engineering checks
+
+From this directory run `bun run typecheck`, `bun run check-deps`, `bun run config`, `bun run export:android`, `bun run export:ios`, and `bun run verify-start`.
+
+## Native design system
+
+The app imports `@salesx-ai/design-system/native`, which reads the generated `@salesx-ai/design-tokens/native` export. The same canonical JSON files generate Web CSS and Native TypeScript. Do not duplicate token values in this app.
+
+The Native foundation includes semantic light/dark colors, Plus Jakarta Sans and JetBrains Mono font assets, typography scales, spacing, radius, elevation adapters, motion durations/easing and responsive breakpoints. Theme defaults to light and can be toggled through an accessible control.
+
+Authentication, secure session storage, API client, offline outbox, GPS and business feature modules remain in their assigned domain phases.

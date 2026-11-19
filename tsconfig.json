@@ -43,6 +43,9 @@
     ".next/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "apps/mobile-sales",
+    ".expo",
+    "dist"
   ]
 }
