@@ -7,7 +7,7 @@ import type { Outlet } from './salesx-data';
 export interface PlatformTenant {
   id: string; // e.g. TEN-0001
   name: string;
-  plan: 'Basic' | 'Pro' | 'Enterprise' | 'Trial';
+  plan: 'Basic' | 'Pro' | 'Enterprise' | 'Trial' | 'Belum dikonfigurasi';
   status: 'Aktif' | 'Trial' | 'Nonaktif';
   usersCount: number;
   monthlyOrders: number;
