@@ -9,9 +9,11 @@ export function PlatformAccountSecurityConsole(){
  const [status,setStatus]=useState<"active"|"suspended"|"deactivated">("suspended");
  const [message,setMessage]=useState("");
  const [busy,setBusy]=useState(false);
- if(!auth.hasPermission("account:status:manage"))return <p className="text-sm text-[var(--color-text-secondary)]">Administrasi status akun hanya tersedia untuk platform administrator.</p>;
+ if(!auth.canPerformApiAction("platform.users.status"))return <p className="text-sm text-[var(--color-text-secondary)]">Administrasi status akun hanya tersedia untuk platform administrator.</p>;
  async function update(event:React.FormEvent){
-  event.preventDefault();setBusy(true);setMessage("");
+  event.preventDefault();
+  if(!auth.canPerformApiAction("platform.users.status"))return;
+  setBusy(true);setMessage("");
   try{
    const api=auth.apiClient;
    if(!api)throw new Error("FastAPI client belum dikonfigurasi.");
