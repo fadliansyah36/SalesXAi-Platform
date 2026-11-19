@@ -59,6 +59,41 @@ async def _delegation_hierarchy_level(
         if abac_conditions_match(row["attributes"], resource_attributes or {})
     ]
     return min(allowed_levels) if allowed_levels else None
+
+
+async def _member_hierarchy_level(
+    connection: asyncpg.Connection,
+    user_id: UUID,
+    membership_id: UUID,
+    organization_id: UUID,
+) -> int | None:
+    """Return the target member's highest active tenant/branch role level."""
+    return await connection.fetchval(
+        """
+        with recursive role_tree(role_id, parent_role_id) as (
+          select r.id, r.parent_role_id
+          from public.user_role_assignments ura
+          join public.roles r on r.id=ura.role_id
+          where ura.user_id=$1 and ura.membership_id=$2 and ura.revoked_at is null
+            and ura.starts_at<=now() and (ura.expires_at is null or ura.expires_at>now())
+            and (
+              (ura.scope_type='tenant' and ura.scope_id=$3)
+              or (ura.scope_type='branch' and exists(
+                select 1 from public.branches b
+                where b.id=ura.scope_id and b.organization_id=$3 and b.status='active'
+              ))
+            )
+          union
+          select parent.id, parent.parent_role_id
+          from role_tree child join public.roles parent on parent.id=child.parent_role_id
+        )
+        select min(r.hierarchy_level)
+        from role_tree tree join public.roles r on r.id=tree.role_id
+        """,
+        user_id,membership_id,organization_id,
+    )
+
+
 @router.get("")
 async def list_my_organizations(
     principal: Principal=Depends(get_current_principal),
@@ -143,6 +178,30 @@ async def update_member_status(
     if user_id==principal.user_id and payload.status!="active":
         raise APIError(409,"self_lockout_prevented","You cannot suspend or remove your own membership.")
     async with connection.transaction():
+        member=await connection.fetchrow(
+          """select id,branch_id,status from public.organization_memberships
+          where organization_id=$1 and user_id=$2 for update""",
+          organization_id,user_id)
+        if member is None:
+            raise APIError(404,"membership_not_found","Organization membership was not found.")
+        if user_id!=principal.user_id:
+            target_is_platform_admin=await connection.fetchval(
+              """select exists(select 1 from public.user_role_assignments
+              where user_id=$1 and scope_type='platform' and revoked_at is null
+                and starts_at<=now() and (expires_at is null or expires_at>now()))""",
+              user_id)
+            if target_is_platform_admin:
+                raise APIError(403,"platform_identity_protected",
+                               "Tenant administrators cannot change a platform-scoped identity.")
+            actor_level=await _delegation_hierarchy_level(
+              connection,principal.user_id,tenant.membership_id,organization_id,
+              "organization:members:manage",member["branch_id"],
+              getattr(request.state,"resource_attributes",{}))
+            target_level=await _member_hierarchy_level(
+              connection,user_id,member["id"],organization_id)
+            if actor_level is None or (target_level is not None and actor_level>=target_level):
+                raise APIError(403,"privilege_escalation_denied",
+                               "You cannot change a membership with equal or higher privilege.")
         row=await connection.fetchrow(
           """update public.organization_memberships set status=$3,
           joined_at=case when $3='active' then coalesce(joined_at,now()) else joined_at end,updated_at=now()
