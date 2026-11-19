@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StatusBar, TextInput } from "react-native";
 import { useFonts } from "expo-font";
 import { PlusJakartaSans_400Regular } from "@expo-google-fonts/plus-jakarta-sans/400Regular";
@@ -13,6 +13,7 @@ import { useMobileSalesAuth } from "./src/auth/useMobileSalesAuth";
 
 type AuthState=ReturnType<typeof useMobileSalesAuth>;
 type AuthMode="login"|"signup"|"recovery"|"otp";
+type Session={auth_session_id:string;device_name:string|null;platform:string;last_seen_at:string|null;expires_at:string|null;revoked_at:string|null;current:boolean};
 
 function Field({value,onChangeText,placeholder,secureTextEntry=false,keyboardType="default"}:{
  value:string;onChangeText:(value:string)=>void;placeholder:string;secureTextEntry?:boolean;keyboardType?:"default"|"email-address"|"phone-pad"
@@ -42,6 +43,24 @@ function SalesHome({auth}:{auth:AuthState}){
  const [otpSent,setOtpSent]=useState(false);
  const [notice,setNotice]=useState("");
  const [busy,setBusy]=useState(false);
+ const [sessions,setSessions]=useState<Session[]>([]);
+
+ useEffect(()=>{
+  const api=auth.apiClient;
+  if(auth.status!=="authenticated"||!api){setSessions([]);return;}
+  let active=true;
+  void api.listSessions().then(items=>{if(active)setSessions(items);}).catch(error=>{
+   if(active)setNotice(error instanceof Error?error.message:"Daftar sesi tidak dapat dimuat.");
+  });
+  return()=>{active=false;};
+ },[auth.status,auth.apiClient,auth.contextEpoch]);
+
+ async function revokeDeviceSession(sessionId:string){
+  const api=auth.apiClient;
+  if(!api)throw new Error("FastAPI client belum dikonfigurasi.");
+  await api.revokeSession(sessionId);
+  setSessions(await api.listSessions());
+ }
 
  async function run(action:()=>Promise<unknown>,success:string){
   setBusy(true);setNotice("");
@@ -94,6 +113,17 @@ function SalesHome({auth}:{auth:AuthState}){
         <NativeText variant="title" weight="semibold">Hak akses aktif</NativeText>
         <NativeText color={colors.textSecondary}>{activeMembership.permissions.length} permission dimuat dari FastAPI.</NativeText>
        </NativeStack>}
+       <NativeStack gap="2">
+        <NativeText variant="title" weight="semibold">Sesi perangkat</NativeText>
+        <NativeText variant="caption" color={colors.textSecondary}>Pencabutan ini memblokir akses API SalesX-Ai. Supabase Auth tidak menyediakan revoke refresh token untuk satu perangkat lain berdasarkan session ID.</NativeText>
+        {sessions.map(item=><NativeSurface key={item.auth_session_id} elevation="sm" radius="lg" style={{padding:12}}>
+         <NativeStack gap="2">
+          <NativeText weight="semibold">{item.device_name??item.platform}{item.current?" · Perangkat ini":""}</NativeText>
+          <NativeText variant="caption" color={colors.textSecondary}>{item.platform} · {item.revoked_at?"Akses dicabut":item.current?"Aktif sekarang":"Aktif"} · {item.last_seen_at?new Date(item.last_seen_at).toLocaleString():"Belum ada aktivitas"}</NativeText>
+          {!item.current&&!item.revoked_at&&<Action label="Cabut akses API" secondary onPress={()=>void run(()=>revokeDeviceSession(item.auth_session_id),"Akses API perangkat dicabut.")}/>}
+         </NativeStack>
+        </NativeSurface>)}
+       </NativeStack>
        <Action label="Hubungkan Google identity" secondary onPress={()=>void run(auth.linkIdentity,"Google identity linking dimulai. Selesaikan verifikasi di browser.")}/>
        <Action label="Keluar dari perangkat ini" onPress={()=>void run(()=>auth.signOut("local"),"Sesi perangkat ini dicabut.")}/>
        <Action label="Ganti akun" secondary onPress={()=>void run(auth.switchAccount,"Akun sebelumnya dibersihkan. Silakan masuk dengan akun lain.")}/>
