@@ -289,16 +289,20 @@ export class SalesXAuthClient {
   if(this.refreshInFlight)return this.refreshInFlight;
   this.refreshInFlight=(async()=>{
    let token=refreshToken;
-   if(!token) {
-    const raw=await this.storage.getItem(this.storageKey);
-    if(!raw)return null;
-    try{token=(JSON.parse(raw) as AuthSession).refresh_token;}
-    catch{await this.clearSession();return null;}
+   let priorAccessToken:string|undefined;
+   const raw=await this.storage.getItem(this.storageKey);
+   if(raw) {
+    try {
+     const prior=JSON.parse(raw) as AuthSession;
+     priorAccessToken=prior.access_token;
+     if(!token)token=prior.refresh_token;
+    } catch { await this.clearSession(); return null; }
    }
+   if(!token)return null;
    try {
     const session=await this.request<AuthSession>("token?grant_type=refresh_token",{
      method:"POST",body:JSON.stringify({refresh_token:token}),
-    });
+    },priorAccessToken);
     await this.saveSession(session);return session;
    } catch(error){if(error instanceof AuthClientError&&[400,401,403].includes(error.status))await this.clearSession();throw error;}
   })();
