@@ -61,10 +61,20 @@ export class SalesXApiClient {
 
     let response = await send(token);
     if (response.status === 401) {
-      const refreshed = await this.auth.refreshAccessToken();
-      if (refreshed) {
-        token = refreshed;
-        response = await send(token);
+      try {
+        const refreshed = await this.auth.refreshAccessToken();
+        if (refreshed) {
+          token = refreshed;
+          response = await send(token);
+        } else {
+          await this.auth.onSessionInvalidated?.("refresh_token_missing");
+        }
+      } catch (cause) {
+        const status = (cause as { status?: number })?.status;
+        if (status === 400 || status === 401 || status === 403) {
+          await this.auth.onSessionInvalidated?.("refresh_token_rejected");
+        }
+        throw cause;
       }
     }
 
