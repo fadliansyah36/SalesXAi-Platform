@@ -7,7 +7,7 @@ from uuid import UUID
 from app.db import get_connection
 from app.errors import APIError
 from app.schemas.identity import MemberCreate,MemberStatusUpdate,OrganizationCreate,OrganizationResponse,RoleAssignmentCreate,InvitationCreate,InvitationToken
-from app.security.dependencies import Principal,TenantContext,get_current_principal,require_permission,require_platform_permission
+from app.security.dependencies import Principal,TenantContext,get_current_principal,require_api_action
 from app.security.policy import abac_conditions_match
 from app.services.audit import write_audit
 
@@ -96,7 +96,7 @@ async def _member_hierarchy_level(
 
 @router.get("")
 async def list_my_organizations(
-    principal: Principal=Depends(get_current_principal),
+    principal: Principal=Depends(require_api_action("organization.list.self")),
     connection: asyncpg.Connection=Depends(get_connection),
 )->list[dict]:
     rows=await connection.fetch(
@@ -108,7 +108,7 @@ async def list_my_organizations(
 @router.post("",response_model=OrganizationResponse,status_code=201)
 async def create_organization(
     payload: OrganizationCreate,request: Request,
-    principal: Principal=Depends(require_platform_permission("organization:create")),
+    principal: Principal=Depends(require_api_action("organization.create")),
     connection: asyncpg.Connection=Depends(get_connection),
 )->OrganizationResponse:
     async with connection.transaction():
@@ -130,7 +130,7 @@ async def create_organization(
 @router.get("/{organization_id}/members")
 async def list_members(
     organization_id: UUID,
-    tenant: TenantContext=Depends(require_permission("organization:members:read")),
+    tenant: TenantContext=Depends(require_api_action("organization.members.read")),
     connection: asyncpg.Connection=Depends(get_connection),
 )->list[dict]:
     if tenant.organization_id!=organization_id:
@@ -146,7 +146,7 @@ async def list_members(
 async def add_existing_member(
     organization_id: UUID,payload: MemberCreate,request: Request,
     principal: Principal=Depends(get_current_principal),
-    tenant: TenantContext=Depends(require_permission("organization:members:manage")),
+    tenant: TenantContext=Depends(require_api_action("organization.members.invite")),
     connection: asyncpg.Connection=Depends(get_connection),
 )->dict:
     if tenant.organization_id!=organization_id:
@@ -170,7 +170,7 @@ async def add_existing_member(
 async def update_member_status(
     organization_id: UUID,user_id: UUID,payload: MemberStatusUpdate,request: Request,
     principal: Principal=Depends(get_current_principal),
-    tenant: TenantContext=Depends(require_permission("organization:members:manage")),
+    tenant: TenantContext=Depends(require_api_action("organization.members.update")),
     connection: asyncpg.Connection=Depends(get_connection),
 )->dict:
     if tenant.organization_id!=organization_id:
@@ -226,7 +226,7 @@ async def update_member_status(
 async def assign_member_role(
     organization_id: UUID,user_id: UUID,payload: RoleAssignmentCreate,request: Request,
     principal: Principal=Depends(get_current_principal),
-    tenant: TenantContext=Depends(require_permission("role:assign")),
+    tenant: TenantContext=Depends(require_api_action("organization.roles.assign")),
     connection: asyncpg.Connection=Depends(get_connection),
 )->dict:
     if tenant.organization_id!=organization_id:
@@ -276,7 +276,7 @@ async def list_assignable_roles(
     organization_id: UUID,
     request: Request,
     principal: Principal = Depends(get_current_principal),
-    tenant: TenantContext = Depends(require_permission("organization:invitations:manage")),
+    tenant: TenantContext = Depends(require_api_action("organization.roles.assignable")),
     connection: asyncpg.Connection = Depends(get_connection),
 ) -> list[dict]:
     if tenant.organization_id != organization_id:
@@ -334,7 +334,7 @@ def _invitation_callback_url(request: Request, token: str) -> str:
 async def list_invitations(
     organization_id: UUID,
     request: Request,
-    tenant: TenantContext = Depends(require_permission("organization:invitations:manage")),
+    tenant: TenantContext = Depends(require_api_action("organization.invitations.read")),
     principal: Principal = Depends(get_current_principal),
     connection: asyncpg.Connection = Depends(get_connection),
 ) -> list[dict]:
@@ -366,7 +366,7 @@ async def create_invitation(
     payload: InvitationCreate,
     request: Request,
     principal: Principal = Depends(get_current_principal),
-    tenant: TenantContext = Depends(require_permission("organization:invitations:manage")),
+    tenant: TenantContext = Depends(require_api_action("organization.invitations.create")),
     connection: asyncpg.Connection = Depends(get_connection),
 ) -> dict:
     if tenant.organization_id != organization_id:
@@ -477,7 +477,7 @@ async def create_invitation(
 async def accept_invitation(
     payload: InvitationToken,
     request: Request,
-    principal: Principal = Depends(get_current_principal),
+    principal: Principal = Depends(require_api_action("organization.invitations.accept")),
     connection: asyncpg.Connection = Depends(get_connection),
 ) -> dict:
     expired = False
@@ -570,7 +570,7 @@ async def accept_invitation(
 async def reject_invitation(
     payload: InvitationToken,
     request: Request,
-    principal: Principal = Depends(get_current_principal),
+    principal: Principal = Depends(require_api_action("organization.invitations.reject")),
     connection: asyncpg.Connection = Depends(get_connection),
 ) -> dict:
     async with connection.transaction():
@@ -596,7 +596,7 @@ async def reject_invitation(
 async def revoke_invitation(
     organization_id: UUID,invitation_id: UUID,request: Request,
     principal: Principal = Depends(get_current_principal),
-    tenant: TenantContext = Depends(require_permission("organization:invitations:manage")),
+    tenant: TenantContext = Depends(require_api_action("organization.invitations.revoke")),
     connection: asyncpg.Connection = Depends(get_connection),
 ) -> dict:
     if tenant.organization_id != organization_id:
@@ -619,7 +619,7 @@ async def revoke_invitation(
 async def resend_invitation(
     organization_id: UUID,invitation_id: UUID,request: Request,
     principal: Principal = Depends(get_current_principal),
-    tenant: TenantContext = Depends(require_permission("organization:invitations:manage")),
+    tenant: TenantContext = Depends(require_api_action("organization.invitations.resend")),
     connection: asyncpg.Connection = Depends(get_connection),
 ) -> dict:
     if tenant.organization_id != organization_id:
