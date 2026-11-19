@@ -262,3 +262,40 @@ Phase 02 remains in progress. Phase 03 is not authorized until Phase 02 reaches 
 - Full permission-aware visibility/action mapping across every existing portal feature screen is not yet evidenced exhaustively. FastAPI remains the authoritative default-deny boundary for the Phase 02 protected endpoints.
 
 **Official status remains IN PROGRESS / PARTIAL. Phase 03 remains LOCKED and has not been started.**
+
+
+## Phase 02 — final continuation hardening (2026-11-19)
+
+### Additional implementation completed
+
+- OAuth pending transactions now consistently use the platform-specific `oauthStorage` adapter for create, read, expiry cleanup, successful exchange, cancellation and sign-out cleanup. This fixes the previous Web adapter mismatch where pending PKCE state could be read/cleared from localStorage instead of tab-scoped sessionStorage. Provider-denial callbacks now validate the callback-bound state before clearing the pending flow.
+- Google sign-in and manual identity linking carry an independent cryptographically random OIDC nonce to Supabase Auth together with PKCE S256. Supabase Auth is the provider-side ID-token nonce validation boundary; no Google credentials were committed.
+- Invitation callback URLs for create/resend carry the raw token in `organization_invite=<token>`. Web preserves the explicit accept/reject screen; Expo accepts through the typed API client after verification. Invitation role hierarchy now uses inherited roles, exact tenant/branch scope, the permission that authorizes the action and the same ABAC conditions as `require_permission`.
+- Member status changes now compare the actor's delegable hierarchy with the target member's effective hierarchy, protect platform-scoped identities from tenant-admin status changes, and revoke active role assignments when a membership is removed. Invitation acceptance cannot rebind an already-active membership; invite creation rejects active/suspended memberships; resend rejects stale/inactive branch scope.
+- Platform account suspension/deactivation now commits the FastAPI deny state, revocation epoch and device revocations before calling Supabase Auth Admin. If Auth Admin credentials/provider calls fail, the database still denies access and the failed provider ban is audited. Reactivation preserves the prior session revocation epoch.
+- Session registration records Supabase `auth.sessions.not_after` into `session_devices.expires_at`; the principal resolver rejects expired `not_after` sessions as well as missing Auth sessions, revoked device rows, inactive accounts and old JWTs relative to the revocation epoch.
+- Web portal access screens now use typed API client methods for organization members, assignable roles, invitations, linked identities, platform account status and session list/revocation. The Web auth context exposes the shared typed client. Expo uses the same typed client for auth context, session registration, sign-out, invitation acceptance, identity unlink and session list/revocation.
+- Web portal descendants and the Expo Sales auth screen are remounted on account/tenant context changes, clearing prior in-memory screen state. Existing UI layout and design tokens were preserved.
+- FastAPI now adds security response headers, a configurable request `Content-Length` bound (default 1 MiB), rejects unbounded chunked request bodies, and validates `APP_PUBLIC_URL` as an exact HTTP(S) origin consistent with configured CORS origins.
+- No database schema delta was required by these application-layer changes. The target migration ledger remains at 9 applied versions.
+
+### Latest validation evidence
+
+- Read-only Supabase SQL verified the recursive permission/ABAC delegation CTE and target-member hierarchy CTE parse against the live schema.
+- Read-only schema inspection confirmed `auth.sessions.not_after` and `public.session_devices.expires_at`; code maps the actual Auth column `not_after` rather than assuming an `expires_at` column on `auth.sessions`.
+- The current Supabase migration ledger remains nine applied versions through `20261119131809_p02_add_missing_foreign_key_indexes`.
+- Public schema inventory remains 12 tables, all 12 have RLS enabled and one explicit policy each. Security Advisor remains zero lints. Performance Advisor currently reports 24 informational unused-index notices only.
+- Latest code head: `8ff15f6e6abecde6400207ab2331908a15076848`. GitHub combined commit status has no status entries and workflow-run query returned no runs for this head. No fresh Web/Expo typecheck/build, FastAPI compileall/Ruff, or API contract suite is claimed.
+- No live API, OAuth/Google provider, SMTP, Auth Admin, runtime DB connection or session-revocation request was executed.
+
+### Remaining mandatory blockers
+
+- Supabase Auth does not expose a supported API to revoke one arbitrary other device's refresh token by session ID. The backend deny-list blocks that device from every protected SalesX-Ai API request, while supported Supabase logout scopes remain local/global/others. Provider-level single-device refresh-token revocation remains unresolved.
+- Google OAuth credentials, provider enablement, callback allowlist and manual identity-linking setting remain deployment-dependent.
+- Deployment secrets remain intentionally unset: `DATABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `APP_PUBLIC_URL`, exact `CORS_ORIGINS` and SMTP credentials. Auth Admin invite/ban, SMTP delivery and runtime readiness cannot be reported as live.
+- API rate limiting and broader abuse controls are not yet implemented in FastAPI; Supabase Auth's own rate-limit configuration is not verified. The current middleware only enforces bounded declared request bodies and rejects chunked bodies.
+- Full permission-aware visibility/action mapping across every existing portal feature screen is not yet evidenced exhaustively. The Phase 02 organization, identity, invitation, membership, role, account-status and session surfaces now use typed API methods and server-side authorization.
+- Browser Supabase sessions remain in the existing localStorage adapter; same-origin XSS exposure is documented and an HttpOnly SSR cookie migration remains outside this continuation.
+- No fresh static CI/typecheck/build evidence exists for the latest commits.
+
+**Official status remains IN PROGRESS / PARTIAL. Phase 03 remains LOCKED and has not been started.**
