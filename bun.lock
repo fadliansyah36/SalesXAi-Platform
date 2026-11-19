@@ -7,6 +7,7 @@
       "dependencies": {
         "@google/genai": "^3.6.1",
         "@hookform/resolvers": "^5.2.1",
+        "@salesx-ai/api-client": "workspace:*",
         "@salesx-ai/auth-client": "workspace:*",
         "@salesx-ai/design-system": "workspace:*",
         "@salesx-ai/design-tokens": "workspace:*",
@@ -51,6 +52,7 @@
       "dependencies": {
         "@expo-google-fonts/jetbrains-mono": "^0.4.1",
         "@expo-google-fonts/plus-jakarta-sans": "^0.4.2",
+        "@salesx-ai/api-client": "workspace:*",
         "@salesx-ai/auth-client": "workspace:*",
         "@salesx-ai/design-system": "workspace:*",
         "@salesx-ai/design-tokens": "workspace:*",
