@@ -92,6 +92,25 @@ async def correlation_id_middleware(request: Request,call_next):
 
 @app.exception_handler(APIError)
 async def handle_api_error(request: Request,exc: APIError):
+    if exc.status_code == 403 and not getattr(request.state,"authorization_denial_audited",False):
+        principal=getattr(request.state,"principal",None)
+        pool=getattr(request.app.state,"db_pool",None)
+        if principal is not None and pool is not None:
+            try:
+                async with pool.acquire() as connection:
+                    import json
+                    tenant=getattr(request.state,"tenant_context",None)
+                    await connection.execute(
+                        """insert into public.admin_audit_logs
+                          (actor_user_id,organization_id,action,resource_type,resource_id,correlation_id,user_agent,metadata)
+                          values ($1,$2,'authorization.denied','api_action',$3,$4,$5,$6::jsonb)""",
+                        principal.user_id,tenant.organization_id if tenant else None,
+                        request.url.path[:512],getattr(request.state,"correlation_id",None),
+                        request.headers.get("user-agent","")[:512],
+                        json.dumps({"method":request.method,"permission":getattr(request.state,"required_permission",None),"outcome":"denied"}),
+                    )
+            except Exception:
+                logger.exception("authorization_denial_audit_failed",extra={"correlation_id":getattr(request.state,"correlation_id",None)})
     return await api_error_handler(request,exc)
 
 @app.exception_handler(Exception)
