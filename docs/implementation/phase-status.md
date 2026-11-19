@@ -405,3 +405,40 @@ DATABASE_URL, SUPABASE_PUBLISHABLE_KEY, SUPABASE_SECRET_KEY, SALESX_API_URL, SAL
 - No live Auth provider, SMTP, runtime DB, deployment, or real-world behavior is claimed.
 
 **Official Phase 02 status remains IN PROGRESS / PARTIAL. Phase 03 status remains independently tracked and does not change Phase 02 closure criteria.**
+
+
+## Phase 02 — full action authorization continuation (2026-11-20)
+
+### New implementation on main
+- Added explicit `resource` and `rolePolicy` metadata to the shared TypeScript action contracts and matching `resource` / `role_policy` metadata to the FastAPI registry. The `scope` field remains the self/tenant/platform/BFF boundary. This makes the existing 27 endpoint contracts express resource, action, permission, role policy, scope and endpoint together.
+- Expanded action-matrix unit coverage to require non-empty resource and role-policy metadata and a valid scope for every contract.
+- Wired the shared resolver into the existing Web Organization Access Console for session list/revoke, linked identity list/link/unlink, membership read/update, assignable roles, invitation read/create/resend/revoke; the Platform Account Security Console now gates account-status mutation through the same resolver.
+- Fixed the session-list consumer so it does not call the protected endpoint when the effective self-scoped read permission is absent. Mutation handlers re-check the resolver before sending the typed API request.
+- Added `docs/implementation/phase-02-action-inventory.md` with the seven Web portal surfaces, Expo surface, current 27 API contracts, 13 Web action gates, live permission/role evidence and remaining gaps.
+
+### Commits
+- `e076ed934ee17fa95ce95742c12bee2eeee71df9` — Web access UI resolver integration.
+- `662da074c5088cf40be3aa30e3d9f6fb89afe6b8` — platform account status UI resolver integration.
+- `fcb43e5a6256c6a6252a91cc8cda2018f259897c` — shared TypeScript resource/role-policy contract metadata.
+- `03dcdc66419537857e5b56c481667f34dcd959f7` — FastAPI resource/role-policy metadata parity.
+- `f18b7904ad2c127486d60243d66033d9f1aecf1e` — metadata completeness tests.
+
+### Live database evidence (read-only; target ref verified)
+- Project ref `eyofuiyxalbehbqoaeny`; current project remains ACTIVE_HEALTHY.
+- `public` schema: 12 tables, all 12 have RLS enabled.
+- Permission catalogue: 23 keys; 8 roles; 90 role-permission grants.
+- Supabase Security Advisor: zero lints.
+- Existing Phase 02 migration ledger remains at 13 applied versions. No new migration was required for this application-code-only continuation; no RLS/grant/schema/Realtime publication change was made.
+
+### Validation status
+- Earlier API workflow `44572989578` and foundation workflow `44572989593` both completed SUCCESS on code head `4b4b411e8258af68fb5a70722e110551d0eec975` (including API tests/compileall/Ruff, Web typecheck/lint, Expo Native typecheck/config/Metro and Android/iOS bundle exports, plus workspace build).
+- The commits in this continuation were made after that successful run. No fresh successful CI result for `e076ed9`, `662da07`, `fcb43e5`, `03dcdc6` or `f18b790` is claimed here.
+
+### Remaining closure blockers
+- Full page/route/menu/button/handler inventory across all seven Web portals and Expo has not been proven exhaustive; the repository surface inventory is documented, but not every screen/action has been inspected and mapped.
+- Expo exposes the shared resolver but full native screen/action-handler wiring remains unproven.
+- The 27 contracts cover existing FastAPI routes only. SmartTeam, SmartOrder, SmartReward, Location, Analytics and Workflow business mutations still do not have their complete domain API/service slices in this Phase 02 implementation; no placeholder endpoints or broad permission grants were added.
+- Local/demo-only business interactions in existing feature screens have not been comprehensively replaced by server-backed mutations or proven fail-closed.
+- Fresh static validation is required for the latest commits before any completion decision.
+
+**Decision: Phase 02 remains PARTIAL / IN PROGRESS. Phase 03 remains NOT STARTED.**
