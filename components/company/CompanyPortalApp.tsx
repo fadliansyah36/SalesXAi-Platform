@@ -93,6 +93,8 @@ import {
   EditProductCompanyModal,
   SetTargetModal,
   PromoDetailCompanyModal,
+  EditCompanyMasterDataModal,
+  type CompanyMasterDataResource,
 } from '@/components/company/CompanyModals';
 
 export type CompanyTabId =
@@ -252,6 +254,8 @@ export function CompanyPortalApp() {
   const [masterDataError, setMasterDataError] = useState<string | null>(null);
   const [masterDataRevision, setMasterDataRevision] = useState(0);
   const [assignmentHistory, setAssignmentHistory] = useState<Array<Record<string, unknown>>>([]);
+  const [masterDataRows, setMasterDataRows] = useState<Record<CompanyMasterDataResource, Array<Record<string, unknown>>>>({ branches: [], teams: [], territories: [], outlets: [] });
+  const [editingMasterData, setEditingMasterData] = useState<{ resource: CompanyMasterDataResource; record: Record<string, unknown> } | null>(null);
   const [newSalesUserId, setNewSalesUserId] = useState('');
   const [newSalesEmployeeCode, setNewSalesEmployeeCode] = useState('');
   const [newSalesTeamId, setNewSalesTeamId] = useState('');
@@ -362,6 +366,7 @@ export function CompanyPortalApp() {
       setTeamMembers([]);
       setOrganizationMembers([]);
       setAssignmentHistory([]);
+      setMasterDataRows({ branches: [], teams: [], territories: [], outlets: [] });
       setMasterDataLoading(false);
       return;
     }
@@ -424,6 +429,7 @@ export function CompanyPortalApp() {
           lat: 0, lng: 0, monthlyOrderValue: 0, visitsToday: 0, targetVisits: 0,
         };
       });
+      setMasterDataRows({ branches: branchRows as Array<Record<string, unknown>>, teams: teamRows as Array<Record<string, unknown>>, territories: territoryRows as Array<Record<string, unknown>>, outlets: outletRows as Array<Record<string, unknown>> });
       setBranches(nextBranches);
       setTerritories(nextTerritories);
       setOutlets(nextOutlets);
@@ -494,9 +500,13 @@ export function CompanyPortalApp() {
     if (auth.status !== 'authenticated' || !auth.activeOrganizationId || !auth.canPerformApiAction('master.data.events.read')) return;
     const organizationId = auth.activeOrganizationId;
     const source = new EventSource('/api/backend/api/v1/organizations/' + encodeURIComponent(organizationId) + '/master-data/events', { withCredentials: true });
-    source.addEventListener('master_data.changed', () => setMasterDataRevision((value) => value + 1));
-    source.onerror = () => { /* EventSource reconnects automatically; API remains the source of truth. */ };
-    return () => source.close();
+    let refreshTimer: ReturnType<typeof setTimeout> | undefined;
+    source.addEventListener('master_data.changed', () => {
+      if (refreshTimer) clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(() => setMasterDataRevision((value) => value + 1), 150);
+    });
+    source.onerror = () => { /* EventSource reconnects automatically; FastAPI remains the source of truth. */ };
+    return () => { if (refreshTimer) clearTimeout(refreshTimer); source.close(); };
   }, [auth.status, auth.activeOrganizationId, auth.canPerformApiAction]);
 
   const createSalesProfile = async () => {
@@ -522,6 +532,46 @@ export function CompanyPortalApp() {
     });
     const rows = await auth.apiClient.listOutletAssignments(auth.activeOrganizationId);
     setAssignmentHistory(rows as unknown as Array<Record<string, unknown>>);
+  };
+
+  const openMasterDataEdit = (resource: CompanyMasterDataResource, id: string) => {
+    const record = masterDataRows[resource].find((item) => asText(item.id) === id);
+    if (!record) { setMasterDataError('Data master tidak ditemukan. Muat ulang daftar lalu coba kembali.'); return; }
+    setEditingMasterData({ resource, record });
+  };
+
+  const saveMasterDataEdit = async (resource: CompanyMasterDataResource, id: string, values: Record<string, unknown>) => {
+    const api = auth.apiClient;
+    const organizationId = auth.activeOrganizationId;
+    if (!api || !organizationId) throw new Error('Pilih organisasi aktif terlebih dahulu.');
+    const payload = values as Parameters<typeof api.updateBranch>[2];
+    if (resource === 'branches') {
+      if (!auth.canPerformApiAction('master.branches.update')) throw new Error('Akses edit cabang tidak diizinkan.');
+      await api.updateBranch(organizationId, id, payload);
+    } else if (resource === 'teams') {
+      if (!auth.canPerformApiAction('master.teams.update')) throw new Error('Akses edit tim tidak diizinkan.');
+      await api.updateTeam(organizationId, id, payload);
+    } else if (resource === 'territories') {
+      if (!auth.canPerformApiAction('master.territories.update')) throw new Error('Akses edit teritori tidak diizinkan.');
+      await api.updateTerritory(organizationId, id, payload);
+    } else {
+      if (!auth.canPerformApiAction('master.outlets.update')) throw new Error('Akses edit outlet tidak diizinkan.');
+      await api.updateOutlet(organizationId, id, payload);
+    }
+    setEditingMasterData(null);
+    setMasterDataRevision((value) => value + 1);
+  };
+
+  const unassignOutletAssignment = async (assignmentId: string) => {
+    if (!auth.canPerformApiAction('master.assignments.unassign')) throw new Error('Akses unassignment tidak diizinkan.');
+    if (!auth.apiClient || !auth.activeOrganizationId) throw new Error('Pilih organisasi aktif terlebih dahulu.');
+    const reason = window.prompt('Alasan unassignment (opsional):', 'manual_unassign');
+    if (reason === null) return;
+    if (!window.confirm('Akhiri assignment outlet ini? Histori sebelumnya tetap disimpan.')) return;
+    await auth.apiClient.unassignOutletAssignment(auth.activeOrganizationId, assignmentId, { reason: reason.trim() || 'manual_unassign' });
+    const rows = await auth.apiClient.listOutletAssignments(auth.activeOrganizationId);
+    setAssignmentHistory(rows as unknown as Array<Record<string, unknown>>);
+    setMasterDataRevision((value) => value + 1);
   };
 
   const toggleTeamStatus = async (teamId: string) => {
@@ -1793,6 +1843,7 @@ export function CompanyPortalApp() {
                               {branch?.name || 'Cabang belum ditetapkan'} · Supervisor: {asText(supervisor?.display_name) || 'Belum ditetapkan'}
                             </p>
                             {parent && <p className="mt-1 text-[11px] text-[var(--color-text-muted)]">Parent: {asText(parent.name)}</p>}
+                            <button type="button" disabled={!auth.canPerformApiAction('master.teams.update')} onClick={() => openMasterDataEdit('teams', asText(team.id))} className="mt-2 ml-2 rounded-lg border border-[var(--color-border-strong)] px-3 py-1.5 text-[11px] font-semibold">Edit Data</button>
                             <button type="button" disabled={!auth.canPerformApiAction('master.teams.update')} onClick={() => void toggleTeamStatus(asText(team.id)).catch((error) => setMasterDataError(error instanceof Error ? error.message : 'Status tim gagal diperbarui.'))} className="mt-2 rounded-lg border border-[var(--color-border-strong)] px-3 py-1.5 text-[11px] font-semibold">{asText(team.status) === 'active' ? 'Nonaktifkan Tim' : 'Aktifkan Tim'}</button>
                           </div>
                         );
@@ -1853,7 +1904,7 @@ export function CompanyPortalApp() {
                     <button type="button" disabled={!selectedAssignmentOutletId || !selectedAssignmentProfileId || !auth.canPerformApiAction('master.assignments.manage')} onClick={() => void assignOutletToSalesProfile().catch((error) => setMasterDataError(error instanceof Error ? error.message : 'Assignment outlet gagal.'))} className="rounded-xl bg-[#348CB2] px-4 py-2 text-xs font-bold text-white disabled:opacity-50">Simpan Assignment</button>
                     <div className="space-y-2">
                       <p className="text-xs font-bold">Riwayat Assignment</p>
-                      {assignmentHistory.slice(0, 8).map((entry) => <div key={asText(entry.id)} className="flex flex-wrap justify-between gap-2 rounded-lg bg-[var(--color-background)] p-2 text-[11px]"><span>{asText(entry.outlet_name)} · {asText(entry.team_name) || 'Tanpa tim'} · {asText(entry.territory_name) || 'Tanpa teritori'}</span><span className="text-[var(--color-text-muted)]">{entry.unassigned_at ? 'Selesai' : 'Aktif'} · {asText(entry.assigned_at)}</span></div>)}
+                      {assignmentHistory.slice(0, 8).map((entry) => <div key={asText(entry.id)} className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-[var(--color-background)] p-2 text-[11px]"><span>{asText(entry.outlet_name)} · {asText(entry.team_name) || 'Tanpa tim'} · {asText(entry.supervisor_name) || 'Tanpa supervisor'} · {asText(entry.territory_name) || 'Tanpa teritori'}<span className="block text-[var(--color-text-muted)]">Dibuat {asText(entry.assigned_at)} · oleh {asText(entry.assigned_by)}{entry.unassigned_at ? ' · diakhiri ' + asText(entry.unassigned_at) + ' oleh ' + asText(entry.unassigned_by) : ''}</span></span><span className="flex items-center gap-2"><span className="text-[var(--color-text-muted)]">{entry.unassigned_at ? 'Selesai' : 'Aktif'}</span>{!entry.unassigned_at && <button type="button" disabled={!auth.canPerformApiAction('master.assignments.unassign')} onClick={() => void unassignOutletAssignment(asText(entry.id)).catch((error) => setMasterDataError(error instanceof Error ? error.message : 'Unassignment gagal.'))} className="rounded-lg border border-[var(--color-border-strong)] px-2 py-1 font-semibold disabled:opacity-50">Unassign</button>}</span></div>)}
                       {assignmentHistory.length === 0 && <p className="text-[11px] text-[var(--color-text-muted)]">Belum ada histori assignment.</p>}
                     </div>
                   </div>
@@ -1966,6 +2017,7 @@ export function CompanyPortalApp() {
                     </div>
                     <span className="font-bold text-[#123A54] dark:text-[#87CEEB] tabular-nums">
 {ter.outletCount} Outlet
+                      <button type="button" disabled={!auth.canPerformApiAction('master.territories.update')} onClick={() => openMasterDataEdit('territories', ter.id)} className="ml-2 rounded-lg border border-[var(--color-border-strong)] px-2 py-1 text-[10px] font-semibold">Edit</button>
                       <button type="button" disabled={!auth.canPerformApiAction('master.territories.update')} onClick={() => void toggleTerritoryStatus(ter.id).catch((error) => setMasterDataError(error instanceof Error ? error.message : 'Status teritori gagal diperbarui.'))} className="ml-2 rounded-lg border border-[var(--color-border-strong)] px-2 py-1 text-[10px] font-semibold">{ter.status === 'Aktif' ? 'Nonaktifkan' : 'Aktifkan'}</button>
                     </span>
                   </div>
@@ -3422,6 +3474,7 @@ export function CompanyPortalApp() {
         branch={selectedBranch}
         canToggleStatus={auth.canPerformApiAction('master.branches.update')}
         onClose={() => setSelectedBranch(null)}
+        onEdit={(id) => { setSelectedBranch(null); openMasterDataEdit('branches', id); }}
         onToggleStatus={(id) => { void toggleBranchStatus(id).catch((error: unknown) => setMasterDataError(error instanceof Error ? error.message : 'Status cabang gagal diperbarui.')); }}
       />
       <AddTeamMemberModal
@@ -3547,6 +3600,19 @@ export function CompanyPortalApp() {
           setEditingUserAssignment(null);
         }}
       />
+      <EditCompanyMasterDataModal
+        key={editingMasterData ? editingMasterData.resource + ':' + asText(editingMasterData.record.id) : 'master-data-closed'}
+        resource={editingMasterData?.resource ?? null}
+        record={editingMasterData?.record ?? null}
+        branches={branches.map((item) => ({ id: item.id, name: item.name }))}
+        teams={teams.map((item) => ({ id: asText(item.id), name: asText(item.name) }))}
+        territories={territories.map((item) => ({ id: item.id, name: item.name, branchId: item.branchId }))}
+        supervisors={organizationMembers.filter((member) => member.status === 'active').map((member) => ({
+          userId: member.user_id, name: asText(member.display_name) || asText(member.email) || member.user_id,
+        }))}
+        onClose={() => setEditingMasterData(null)}
+        onSave={saveMasterDataEdit}
+      />
       <EditProductCompanyModal
         key={editingProduct?.sku || 'none'}
         product={editingProduct}
@@ -3616,6 +3682,7 @@ export function CompanyPortalApp() {
               </div>
             </div>
             <div className="flex justify-end gap-2">
+              <button type="button" disabled={!auth.canPerformApiAction('master.outlets.update')} onClick={() => { const id = selectedOutletDetail.id; setSelectedOutletDetail(null); openMasterDataEdit('outlets', id); }} className="rounded-xl border border-[var(--color-border-strong)] px-4 py-2 font-semibold">Edit Data</button>
               <button
                 type="button"
                 disabled={!auth.canPerformApiAction('master.outlets.update')}

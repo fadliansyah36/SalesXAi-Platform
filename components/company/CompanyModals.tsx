@@ -318,11 +318,13 @@ export function BranchDetailModal({
   branch,
   onClose,
   onToggleStatus,
+  onEdit,
   canToggleStatus = true,
 }: {
   branch: BranchItem | null;
   onClose: () => void;
   onToggleStatus: (branchId: string) => void;
+  onEdit?: (branchId: string) => void;
   canToggleStatus?: boolean;
 }) {
   if (!branch) return null;
@@ -369,6 +371,7 @@ export function BranchDetailModal({
           </div>
         </div>
         <div className="flex items-center justify-end gap-2">
+          {onEdit && <button type="button" onClick={() => onEdit(branch.id)} className="rounded-xl border border-[var(--color-border-strong)] px-4 py-2 font-semibold">Edit Data</button>}
           <button
             type="button"
             onClick={() => onToggleStatus(branch.id)}
@@ -2291,6 +2294,99 @@ export function PromoDetailCompanyModal({
           </button>
         </div>
       </div>
+    </Modal>
+  );
+}
+
+export type CompanyMasterDataResource = 'branches' | 'teams' | 'territories' | 'outlets';
+type CompanyMasterDataField = { key: string; label: string; kind?: 'text' | 'number' | 'select' | 'json'; options?: Array<{ value: string; label: string }> };
+
+export function EditCompanyMasterDataModal({
+  resource, record, branches, teams, territories, supervisors, onClose, onSave,
+}: {
+  resource: CompanyMasterDataResource | null;
+  record: Record<string, unknown> | null;
+  branches: Array<{ id: string; name: string }>;
+  teams: Array<{ id: string; name: string }>;
+  territories: Array<{ id: string; name: string; branchId?: string }>;
+  supervisors: Array<{ userId: string; name: string }>;
+  onClose: () => void;
+  onSave: (resource: CompanyMasterDataResource, id: string, values: Record<string, unknown>) => Promise<void>;
+}) {
+  const [values, setValues] = useState<Record<string, string>>(() => {
+    const initial: Record<string, string> = {};
+    if (record) for (const [key, value] of Object.entries(record)) initial[key] = value == null ? '' : typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value);
+    return initial;
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  if (!resource || !record) return null;
+  const branchOptions = [{ value: '', label: 'Tidak ditetapkan' }, ...branches.map((item) => ({ value: item.id, label: item.name }))];
+  const teamOptions = [{ value: '', label: 'Tidak ditetapkan' }, ...teams.filter((item) => item.id !== String(record.id)).map((item) => ({ value: item.id, label: item.name }))];
+  const territoryOptions = [{ value: '', label: 'Tidak ditetapkan' }, ...territories.map((item) => ({ value: item.id, label: item.name }))];
+  const supervisorOptions = [{ value: '', label: 'Tidak ditetapkan' }, ...supervisors.map((item) => ({ value: item.userId, label: item.name }))];
+  const statusOptions = [{ value: 'active', label: 'Aktif' }, { value: 'inactive', label: 'Nonaktif' }, { value: 'archived', label: 'Arsip' }];
+  const fields: CompanyMasterDataField[] = resource === 'branches' ? [
+    { key: 'code', label: 'Kode Cabang' }, { key: 'name', label: 'Nama Cabang' },
+    { key: 'branch_type', label: 'Tipe Cabang', kind: 'select', options: [{ value: 'head_office', label: 'Kantor Pusat' }, { value: 'branch', label: 'Cabang' }, { value: 'warehouse', label: 'Gudang' }] },
+    { key: 'city', label: 'Kota' }, { key: 'address', label: 'Alamat' }, { key: 'manager_name', label: 'Nama Manager' },
+    { key: 'phone', label: 'Telepon' }, { key: 'latitude', label: 'Latitude', kind: 'number' }, { key: 'longitude', label: 'Longitude', kind: 'number' },
+    { key: 'status', label: 'Status', kind: 'select', options: statusOptions },
+  ] : resource === 'teams' ? [
+    { key: 'code', label: 'Kode Tim' }, { key: 'name', label: 'Nama Tim' },
+    { key: 'branch_id', label: 'Cabang', kind: 'select', options: branchOptions },
+    { key: 'parent_team_id', label: 'Tim Induk', kind: 'select', options: teamOptions },
+    { key: 'supervisor_user_id', label: 'Supervisor', kind: 'select', options: supervisorOptions },
+    { key: 'status', label: 'Status', kind: 'select', options: statusOptions },
+  ] : resource === 'territories' ? [
+    { key: 'code', label: 'Kode Teritori' }, { key: 'name', label: 'Nama Teritori' },
+    { key: 'branch_id', label: 'Cabang', kind: 'select', options: branchOptions },
+    { key: 'parent_territory_id', label: 'Teritori Induk', kind: 'select', options: [{ value: '', label: 'Tidak ditetapkan' }, ...territories.filter((item) => item.id !== String(record.id)).map((item) => ({ value: item.id, label: item.name }))] },
+    { key: 'boundary_geojson', label: 'Boundary GeoJSON', kind: 'json' },
+    { key: 'status', label: 'Status', kind: 'select', options: statusOptions },
+  ] : [
+    { key: 'code', label: 'Kode Outlet' }, { key: 'name', label: 'Nama Outlet' },
+    { key: 'branch_id', label: 'Cabang', kind: 'select', options: branchOptions },
+    { key: 'territory_id', label: 'Teritori', kind: 'select', options: territoryOptions },
+    { key: 'category', label: 'Kategori' }, { key: 'address', label: 'Alamat' },
+    { key: 'city', label: 'Kota' }, { key: 'province', label: 'Provinsi' }, { key: 'postal_code', label: 'Kode Pos' },
+    { key: 'phone', label: 'Telepon' }, { key: 'pic_name', label: 'Nama PIC' },
+    { key: 'latitude', label: 'Latitude', kind: 'number' }, { key: 'longitude', label: 'Longitude', kind: 'number' },
+    { key: 'status', label: 'Status', kind: 'select', options: statusOptions },
+  ];
+  return (
+    <Modal open={Boolean(resource && record)} onClose={onClose} title={resource === 'branches' ? 'Edit Cabang' : resource === 'teams' ? 'Edit Tim' : resource === 'territories' ? 'Edit Teritori' : 'Edit Outlet'} subtitle="Perubahan disimpan melalui FastAPI dan divalidasi berdasarkan tenant serta relasi master data." maxWidthClass="max-w-xl">
+      <form className="space-y-3 text-xs" onSubmit={async (event) => {
+        event.preventDefault(); if (saving) return; setSaving(true); setError(null);
+        try {
+          const payload: Record<string, unknown> = {};
+          for (const field of fields) {
+            const value = values[field.key] ?? '';
+            if (field.kind === 'json') payload[field.key] = value.trim() ? JSON.parse(value) : null;
+            else if (field.kind === 'number') payload[field.key] = value.trim() ? Number(value) : null;
+            else payload[field.key] = value.trim() === '' ? null : value.trim();
+          }
+          if (!String(payload.name ?? '').trim()) throw new Error('Nama wajib diisi.');
+          await onSave(resource, String(record.id), payload); onClose();
+        } catch (submitError) {
+          setError(submitError instanceof Error ? submitError.message : 'Perubahan master data gagal disimpan.');
+        } finally { setSaving(false); }
+      }}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {fields.map((field) => <label key={field.key} className={field.kind === 'json' ? 'sm:col-span-2 block font-semibold' : 'block font-semibold'}>
+            <span className="mb-1 block">{field.label}</span>
+            {field.kind === 'select' ? <select value={values[field.key] ?? ''} onChange={(event) => setValues((current) => ({ ...current, [field.key]: event.target.value }))} className="w-full rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 py-2">
+              {(field.options ?? []).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+            </select> : field.kind === 'json' ? <textarea rows={5} value={values[field.key] ?? ''} onChange={(event) => setValues((current) => ({ ...current, [field.key]: event.target.value }))} className="w-full rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 py-2 font-mono" spellCheck={false} /> :
+              <input type={field.kind === 'number' ? 'number' : 'text'} step={field.kind === 'number' ? 'any' : undefined} value={values[field.key] ?? ''} onChange={(event) => setValues((current) => ({ ...current, [field.key]: event.target.value }))} className="w-full rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 py-2" />}
+          </label>)}
+        </div>
+        {error && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700 dark:bg-red-950 dark:text-red-200">{error}</p>}
+        <div className="flex justify-end gap-2">
+          <button type="button" onClick={onClose} disabled={saving} className="rounded-xl border border-[var(--color-border-strong)] px-4 py-2 font-semibold">Batal</button>
+          <button type="submit" disabled={saving} className="rounded-xl bg-[#348CB2] px-4 py-2 font-bold text-white disabled:opacity-50">{saving ? 'Menyimpan…' : 'Simpan Perubahan'}</button>
+        </div>
+      </form>
     </Modal>
   );
 }
