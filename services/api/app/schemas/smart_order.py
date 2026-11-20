@@ -170,6 +170,10 @@ class PriceListLineWrite(BaseModel):
     maximum_quantity: Decimal | None = Field(default=None, gt=0, max_digits=18, decimal_places=3)
 
 
+class PromotionUpdate(PromotionWrite):
+    status: Literal["active", "inactive", "archived"] = "active"
+
+
 class PriceListWrite(BaseModel):
     model_config = ConfigDict(extra="forbid")
     name: str = Field(min_length=2, max_length=180)

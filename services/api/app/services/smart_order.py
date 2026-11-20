@@ -33,6 +33,18 @@ class SmartOrderService:
   except asyncpg.UniqueViolationError as exc: raise APIError(409,"product_code_or_sku_conflict","Product code, SKU or barcode already exists.") from exc
   except asyncpg.ForeignKeyViolationError as exc: raise APIError(422,"invalid_product_reference","Category, brand or unit is not owned by this tenant.") from exc
 
+ async def update_product(self,db,organization_id,tenant,actor,product_id,payload):
+  self._tenant(organization_id,tenant)
+  return await repo.update_product(db,organization_id,actor,product_id,payload)
+
+ async def update_price_list(self,db,organization_id,tenant,actor,price_list_id,payload):
+  self._tenant(organization_id,tenant)
+  return await repo.update_price_list(db,organization_id,actor,price_list_id,payload)
+
+ async def update_promotion(self,db,organization_id,tenant,actor,promotion_id,payload):
+  self._tenant(organization_id,tenant)
+  return await repo.update_promotion(db,organization_id,actor,promotion_id,payload)
+
  async def update_product_status(self,db,organization_id,tenant,actor,product_id,status):
   self._tenant(organization_id,tenant)
   row=await repo.update_product_status(db,organization_id,actor,product_id,status)

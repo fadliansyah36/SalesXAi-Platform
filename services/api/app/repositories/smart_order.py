@@ -48,6 +48,28 @@ class SmartOrderRepository:
    await self.audit(db,org,actor,"product.created","product",r["id"],{"variants":len(p.variants)})
   return await self.get_product(db,org,r["id"])
 
+ async def update_product(self,db,org,actor,pid,p):
+  async with db.transaction():
+   current=await db.fetchrow("select id from public.products where organization_id=$1 and id=$2 for update",org,pid)
+   if not current:raise APIError(404,"product_not_found","Product was not found in this organization.")
+   r=await db.fetchrow("""update public.products set product_code=$3,name=$4,description=$5,category_id=$6,brand_id=$7,unit_id=$8,tax_rate=$9,
+    specifications=$10::jsonb,status=$11,published_at=case when $11='published' then coalesce(published_at,now()) else published_at end,
+    updated_by=$12,updated_at=now() where organization_id=$1 and id=$2 returning id""",
+    org,pid,p.product_code.strip(),p.name.strip(),p.description,p.category_id,p.brand_id,p.unit_id,p.tax_rate,json.dumps(p.specifications),p.status,actor)
+   sku_keys=[v.sku.strip() for v in p.variants]
+   if len(sku_keys)!=len(set(sku_keys)):raise APIError(422,"duplicate_product_sku","A product update cannot contain duplicate SKU codes.")
+   for v in p.variants:
+    existing=await db.fetchrow("select id from public.product_variants where organization_id=$1 and product_id=$2 and sku=$3 for update",org,pid,v.sku.strip())
+    if existing:
+     await db.execute("""update public.product_variants set name=$4,barcode=$5,attributes=$6::jsonb,specifications=$7::jsonb,weight_grams=$8,status='active',updated_at=now()
+      where organization_id=$1 and product_id=$2 and id=$3""",org,pid,existing["id"],v.name.strip(),v.barcode,json.dumps(v.attributes),json.dumps(v.specifications),v.weight_grams)
+    else:
+     await db.execute("""insert into public.product_variants(organization_id,product_id,sku,name,barcode,attributes,specifications,weight_grams)
+      values($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8)""",org,pid,v.sku.strip(),v.name.strip(),v.barcode,json.dumps(v.attributes),json.dumps(v.specifications),v.weight_grams)
+   await db.execute("update public.product_variants set status='archived',updated_at=now() where organization_id=$1 and product_id=$2 and not (sku=any($3::text[])) and status<>'archived'",org,pid,sku_keys)
+   await self.audit(db,org,actor,"product.updated","product",pid,{"variants":len(p.variants),"status":p.status})
+  return await self.get_product(db,org,pid)
+
  async def update_product_status(self,db,org,actor,pid,status):
   async with db.transaction():
    r=await db.fetchrow("""update public.products set status=$3,published_at=case when $3='published' then coalesce(published_at,now()) else published_at end,updated_by=$4,updated_at=now()
@@ -133,6 +155,21 @@ class SmartOrderRepository:
    from public.promotions p left join public.promotion_rules r on r.organization_id=p.organization_id and r.promotion_id=p.id
    where p.organization_id=$1 and p.status='active' and p.starts_at<=now() and p.ends_at>now() group by p.id order by p.priority""",org)
   return [dict(r) for r in rows]
+
+ async def update_promotion(self,db,org,actor,promotion_id,p):
+  async with db.transaction():
+   current=await db.fetchrow("select id from public.promotions where organization_id=$1 and id=$2 for update",org,promotion_id)
+   if not current:raise APIError(404,"promotion_not_found","Promotion was not found in this organization.")
+   row=await db.fetchrow("""update public.promotions set code=$3,name=$4,description=$5,priority=$6,stackable=$7,stacking_group=$8,
+    starts_at=$9::timestamptz,ends_at=$10::timestamptz,status=$11,updated_at=now()
+    where organization_id=$1 and id=$2 returning *""",org,promotion_id,p.code.upper(),p.name,p.description,p.priority,p.stackable,p.stacking_group,p.starts_at,p.ends_at,p.status)
+   await db.execute("delete from public.promotion_rules where organization_id=$1 and promotion_id=$2",org,promotion_id)
+   for rule in p.rules:
+    if rule.get("rule_type") not in {"minimum_value","minimum_quantity","product","category","customer","discount_percent","discount_amount","voucher"} or not isinstance(rule.get("rule_config",{}),dict):
+     raise APIError(422,"invalid_promotion_rule","Promotion rule type or configuration is invalid.")
+    await db.execute("insert into public.promotion_rules(organization_id,promotion_id,rule_type,rule_config) values($1,$2,$3,$4::jsonb)",org,promotion_id,rule["rule_type"],json.dumps(rule.get("rule_config",{})))
+   await self.audit(db,org,actor,"promotion.updated","promotion",promotion_id,{"code":p.code,"status":p.status,"rules":len(p.rules)})
+  return dict(row)
 
  async def create_promotion(self,db,org,actor,p):
   async with db.transaction():
@@ -577,6 +614,36 @@ class SmartOrderRepository:
    coalesce((select jsonb_agg(jsonb_build_object('id',pp.id,'product_id',pp.product_id,'variant_id',pp.variant_id,'unit_price',pp.unit_price,'minimum_quantity',pp.minimum_quantity,'maximum_quantity',pp.maximum_quantity,'effective_from',pp.effective_from,'effective_until',pp.effective_until)) from public.product_prices pp where pp.organization_id=pl.organization_id and pp.price_list_id=pl.id),'[]'::jsonb) prices
    from public.price_lists pl where pl.organization_id=$1 order by pl.priority,pl.created_at desc""",org)
   return [dict(x) for x in rows]
+
+ async def update_price_list(self,db,org,actor,price_list_id,p):
+  async with db.transaction():
+   await db.execute("select set_config('app.actor_id',$1,true)",str(actor))
+   current=await db.fetchrow("select * from public.price_lists where organization_id=$1 and id=$2 for update",org,price_list_id)
+   if not current:raise APIError(404,"price_list_not_found","Price list was not found in this organization.")
+   await db.execute("""update public.price_lists set name=$3,code=$4,currency=$5,scope_type=$6,scope_id=$7,channel=$8,priority=$9,
+    effective_from=$10::timestamptz,effective_until=$11::timestamptz,status=$12,updated_at=now()
+    where organization_id=$1 and id=$2""",org,price_list_id,p.name,p.code.upper(),p.currency.upper(),p.scope_type,p.scope_id,p.channel,p.priority,p.effective_from,p.effective_until,p.status)
+   wanted={(str(line.product_id),str(line.variant_id),str(line.minimum_quantity)) for line in p.prices}
+   old_lines=await db.fetch("select * from public.product_prices where organization_id=$1 and price_list_id=$2 for update",org,price_list_id)
+   for old in old_lines:
+    key=(str(old["product_id"]),str(old["variant_id"]),str(old["minimum_quantity"]))
+    if key not in wanted:
+     end=max(datetime.now(UTC),old["effective_from"]+timedelta(microseconds=1))
+     await db.execute("update public.product_prices set effective_until=$3 where organization_id=$1 and id=$2",org,old["id"],end)
+   for line in p.prices:
+    valid=await db.fetchval("""select exists(select 1 from public.products p join public.product_variants v on v.organization_id=p.organization_id and v.product_id=p.id
+      where p.organization_id=$1 and p.id=$2 and v.id=$3 and p.status<>'archived' and v.status<>'archived')""",org,line.product_id,line.variant_id)
+    if not valid:raise APIError(422,"invalid_price_product","Every price line must reference a product and SKU owned by this tenant.")
+    existing=await db.fetchrow("""select id from public.product_prices where organization_id=$1 and price_list_id=$2 and product_id=$3 and variant_id=$4 and minimum_quantity=$5
+     order by effective_from desc limit 1 for update""",org,price_list_id,line.product_id,line.variant_id,line.minimum_quantity)
+    if existing:
+     await db.execute("""update public.product_prices set unit_price=$3,maximum_quantity=$4,effective_from=$5::timestamptz,effective_until=$6::timestamptz
+      where organization_id=$1 and id=$2""",org,existing["id"],line.unit_price,line.maximum_quantity,p.effective_from,p.effective_until)
+    else:
+     await db.execute("""insert into public.product_prices(organization_id,price_list_id,product_id,variant_id,unit_price,minimum_quantity,maximum_quantity,effective_from,effective_until)
+      values($1,$2,$3,$4,$5,$6,$7,$8::timestamptz,$9::timestamptz)""",org,price_list_id,line.product_id,line.variant_id,line.unit_price,line.minimum_quantity,line.maximum_quantity,p.effective_from,p.effective_until)
+   await self.audit(db,org,actor,"pricing.price_list.updated","price_list",price_list_id,{"status":p.status,"price_count":len(p.prices)})
+  return await db.fetchrow("select * from public.price_lists where organization_id=$1 and id=$2",org,price_list_id)
 
  async def create_price_list(self,db,org,actor,p):
   async with db.transaction():

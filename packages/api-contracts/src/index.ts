@@ -289,6 +289,7 @@ export interface SmartOrderPriceQuote {unit_price:string|number;currency:string;
 export interface SmartOrderInventoryBalance {id:UUID;warehouse_id:UUID;warehouse_code:string;warehouse_name:string;product_id:UUID;variant_id:UUID;on_hand:string|number;reserved:string|number;committed:string|number;available:string|number;version:number;}
 export interface SmartOrderStockMovementWrite {warehouse_id:UUID;product_id:UUID;variant_id:UUID;movement_type:"stock_in"|"stock_out"|"adjustment";quantity:number;adjustment_delta?:number;reason:string;idempotency_key:string;}
 export interface SmartOrderPromotion {id:UUID;code:string;name:string;description?:string|null;priority:number;stackable:boolean;starts_at:string;ends_at:string;rules:Array<{rule_type:string;rule_config:Record<string,unknown>}>;}
+export interface SmartOrderPromotionUpdate extends SmartOrderPromotionWrite {status:"active"|"inactive"|"archived";}
 export interface SmartOrderPromotionWrite {code:string;name:string;description?:string|null;starts_at:string;ends_at:string;priority?:number;stackable?:boolean;stacking_group?:string|null;rules:Array<{rule_type:string;rule_config:Record<string,unknown>}>;}
 export interface SmartOrderCart {cart:Record<string,unknown>;items:Array<Record<string,unknown>>;}
 export interface SmartOrderCartItemWrite {product_id:UUID;variant_id:UUID;quantity:number;notes?:string|null;}

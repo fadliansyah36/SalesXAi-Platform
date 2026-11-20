@@ -8,7 +8,7 @@ from app.errors import APIError
 import asyncpg
 from app.db import get_connection
 from app.security.dependencies import Principal, TenantContext, get_current_principal, require_api_action
-from app.schemas.smart_order import ProductWrite, ProductStatusWrite, CartItemWrite, CartItemUpdate, StockMovementWrite, PromotionWrite, PromotionEvaluation, OrderCreate, OrderDecision, FulfillmentCreate, FulfillmentUpdate, PriceListWrite, WarehouseWrite, CategoryWrite, BrandWrite, UnitWrite, CatalogAccessWrite, StockTransferWrite, OrderCancel, PartnerLinkWrite, AssistedCartWrite, OrderApprovalPolicyWrite
+from app.schemas.smart_order import ProductWrite, ProductStatusWrite, CartItemWrite, CartItemUpdate, StockMovementWrite, PromotionWrite, PromotionUpdate, PromotionEvaluation, OrderCreate, OrderDecision, FulfillmentCreate, FulfillmentUpdate, PriceListWrite, WarehouseWrite, CategoryWrite, BrandWrite, UnitWrite, CatalogAccessWrite, StockTransferWrite, OrderCancel, PartnerLinkWrite, AssistedCartWrite, OrderApprovalPolicyWrite
 from app.services.smart_order import smart_order_service
 
 router=APIRouter(prefix="/organizations",tags=["smart-order"])
@@ -37,6 +37,18 @@ async def get_product(organization_id:UUID,product_id:UUID,principal:Principal=D
 @router.post("/{organization_id}/smart-order/products",status_code=201)
 async def create_product(organization_id:UUID,payload:ProductWrite,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartorder.catalog.product.create")),db:asyncpg.Connection=Depends(get_connection)):
  return await smart_order_service.create_product(db,organization_id,tenant,principal.user_id,payload)
+
+@router.patch("/{organization_id}/smart-order/products/{product_id}")
+async def update_product(organization_id:UUID,product_id:UUID,payload:ProductWrite,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartorder.catalog.product.update")),db:asyncpg.Connection=Depends(get_connection)):
+ return await smart_order_service.update_product(db,organization_id,tenant,principal.user_id,product_id,payload)
+
+@router.patch("/{organization_id}/smart-order/pricing/price-lists/{price_list_id}")
+async def update_price_list(organization_id:UUID,price_list_id:UUID,payload:PriceListWrite,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartorder.pricing.list.update")),db:asyncpg.Connection=Depends(get_connection)):
+ return await smart_order_service.update_price_list(db,organization_id,tenant,principal.user_id,price_list_id,payload)
+
+@router.patch("/{organization_id}/smart-order/promotions/{promotion_id}")
+async def update_promotion(organization_id:UUID,promotion_id:UUID,payload:PromotionUpdate,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartorder.promotions.update")),db:asyncpg.Connection=Depends(get_connection)):
+ return await smart_order_service.update_promotion(db,organization_id,tenant,principal.user_id,promotion_id,payload)
 
 @router.patch("/{organization_id}/smart-order/products/{product_id}/status")
 async def update_product_status(organization_id:UUID,product_id:UUID,payload:ProductStatusWrite,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartorder.catalog.product.status")),db:asyncpg.Connection=Depends(get_connection)):
