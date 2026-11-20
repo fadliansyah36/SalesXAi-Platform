@@ -72,10 +72,15 @@ class Phase04ActionCoverageTests(unittest.TestCase):
         for action_id in ("smartteam.attendance.clock_in", "smartteam.attendance.clock_out", "smartteam.visits.execute", "smartteam.visits.checkout", "smartteam.activities.create", "smartteam.visits.evidence.upload"):
             self.assertIn(f'auth.canPerformApiAction("{action_id}")', source, action_id)
 
-    def test_active_phase04_ui_does_not_mutate_supabase_directly(self) -> None:
-        for path in (SMARTTEAM_UI, SUPER_ADMIN_UI, MOBILE_UI, *PORTAL_COMPONENTS):
+    def test_all_portal_ui_sources_do_not_mutate_supabase_directly(self) -> None:
+        source_files = set(ROOT.glob("components/**/*.tsx"))
+        source_files.update(ROOT.glob("apps/*/app/**/*.tsx"))
+        source_files.update(ROOT.glob("apps/mobile-sales/src/**/*.tsx"))
+        for path in sorted(source_files):
             source = path.read_text(encoding="utf-8")
             self.assertIsNone(re.search(r"supabase\s*\.\s*(?:from|rpc|storage)\b", source, re.I), str(path))
+
+    def test_active_phase04_portals_mount_the_shared_smartteam_console(self) -> None:
         for path in PORTAL_COMPONENTS:
             source = path.read_text(encoding="utf-8")
             self.assertIn("const LEGACY_SMARTTEAM_UI_ENABLED = false", source, str(path))
