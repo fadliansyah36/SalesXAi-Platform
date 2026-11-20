@@ -20,7 +20,8 @@ class Phase03MasterDataContractTests(unittest.TestCase):
             "master.territories.read", "master.territories.create", "master.territories.update",
             "master.outlets.read", "master.outlets.create", "master.outlets.update",
             "master.sales_profiles.read", "master.sales_profiles.create", "master.sales_profiles.update",
-            "master.assignments.read", "master.assignments.manage",
+            "master.assignments.read", "master.assignments.manage", "master.assignments.context.read",
+            "master.data.import", "master.data.export", "master.data.events.read",
             "platform.organizations.list", "platform.organizations.update",
             "platform.organizations.branches.read", "platform.organizations.branches.create",
             "platform.organizations.branches.update",
@@ -60,6 +61,8 @@ class Phase03MasterDataContractTests(unittest.TestCase):
         self.assertIn("foreign key (organization_id,branch_id)", sql)
         self.assertTrue((root / "supabase/migrations/20261119180611_p03_branch_contact_location_fields.sql").exists())
         self.assertTrue((root / "supabase/migrations/20261119181929_p03_branch_type.sql").exists())
+        for version in ("20261120190000_p03_master_data_completion.sql", "20261120193000_p03_master_data_event_stream.sql", "20261120194000_p03_assignment_status.sql"):
+            self.assertTrue((root / "supabase/migrations" / version).exists())
 
 
 if __name__ == "__main__":
