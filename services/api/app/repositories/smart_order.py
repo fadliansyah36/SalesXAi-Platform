@@ -232,13 +232,37 @@ class SmartOrderRepository:
    await db.execute("update public.carts set version=version+1,updated_at=now() where id=$1",r["cart_id"])
   return {"removed":True}
 
- async def evaluate_promotions(self,db,org,codes,subtotal,qty,customer,lines=None):
+ async def evaluate_promotions(self,db,org,codes,subtotal,qty,customer,lines=None,lock=False,customer_user_id=None):
   if not codes:return [],Decimal("0")
-  rows=await db.fetch("""select p.*,coalesce(jsonb_agg(jsonb_build_object('rule_type',r.rule_type,'rule_config',r.rule_config) order by r.created_at,r.id) filter(where r.id is not null),'[]'::jsonb) rules
+  consumer=customer or org
+  normalized=[x.upper() for x in codes]
+  if lock:
+   ids=await db.fetch("""select p.organization_id,p.id from public.promotions p
+    where upper(p.code)=any($2::text[]) and p.status='active' and p.starts_at<=now() and p.ends_at>now()
+     and (p.organization_id=$1 or exists(select 1 from public.commerce_partner_links l
+      where l.organization_id=p.organization_id and l.partner_organization_id=$3
+       and l.relationship_type in ('principal','distributor') and l.status='active'
+       and l.starts_at<=now() and (l.ends_at is null or l.ends_at>now())))
+    order by p.organization_id,p.id""",org,normalized,consumer)
+   for item in ids:
+    await db.execute("select pg_advisory_xact_lock(hashtextextended($1,0))",f"promotion:{item['organization_id']}:{item['id']}")
+  rows=await db.fetch("""select p.*,
+    coalesce(jsonb_agg(jsonb_build_object('rule_type',r.rule_type,'rule_config',r.rule_config) order by r.created_at,r.id) filter(where r.id is not null),'[]'::jsonb) rules,
+    (select count(*) from public.promotion_redemptions pr where pr.promotion_owner_organization_id=p.organization_id and pr.promotion_id=p.id and pr.status in ('reserved','redeemed')) redemption_count,
+    (select count(*) from public.promotion_redemptions pr where pr.promotion_owner_organization_id=p.organization_id and pr.promotion_id=p.id and pr.customer_organization_id=$3 and pr.status in ('reserved','redeemed')) customer_redemption_count
    from public.promotions p left join public.promotion_rules r on r.organization_id=p.organization_id and r.promotion_id=p.id
-   where p.organization_id=$1 and upper(p.code)=any($2::text[]) and p.status='active' and p.starts_at<=now() and p.ends_at>now()
-   group by p.id order by p.priority asc,p.created_at asc,p.id asc""",org,[x.upper() for x in codes])
-  return evaluate_promotion_candidates([dict(row) for row in rows],subtotal,qty,customer,lines or [])
+   where upper(p.code)=any($2::text[]) and p.status='active' and p.starts_at<=now() and p.ends_at>now()
+    and (p.organization_id=$1 or exists(select 1 from public.commerce_partner_links l
+     where l.organization_id=p.organization_id and l.partner_organization_id=$3
+      and l.relationship_type in ('principal','distributor') and l.status='active'
+      and l.starts_at<=now() and (l.ends_at is null or l.ends_at>now())))
+   group by p.id order by p.priority asc,p.created_at asc,p.id asc""",org,normalized,consumer)
+  eligible=[]
+  for row in rows:
+   if row["max_redemptions"] is not None and int(row["redemption_count"])>=int(row["max_redemptions"]):continue
+   if row["max_per_customer"] is not None and int(row["customer_redemption_count"])>=int(row["max_per_customer"]):continue
+   eligible.append(dict(row))
+  return evaluate_promotion_candidates(eligible,subtotal,qty,consumer,lines or [])
 
  async def create_order(self,db,org,actor,p,snapshot,region_id=None):
   async with db.transaction():
@@ -258,7 +282,7 @@ class SmartOrderRepository:
     subtotal+=line;tax+=t;qty_total+=qty
     snaps.append({"product_owner_organization_id":str(i["product_owner_organization_id"]),"product_id":str(i["product_id"]),"variant_id":str(i["variant_id"]),"product_name":i["product_name"],"product_code":i["product_code"],"category_id":str(i["category_id"]) if i["category_id"] else None,"sku":i["sku"],"variant_name":i["variant_name"],"quantity":str(qty),"unit_price":str(unit),"line_subtotal":str(line),"tax_rate":str(i["tax_rate"]),"tax_amount":str(t),"price_list_id":str(q["price_list_id"]),"currency":q["currency"]})
    promo_lines=[{"product_id":x["product_id"],"category_id":x["category_id"],"subtotal":x["line_subtotal"]} for x in snaps]
-   promos,discount=await self.evaluate_promotions(db,org,p.promotion_codes,subtotal,qty_total,(c["customer_organization_id"] or org),promo_lines)
+   promos,discount=await self.evaluate_promotions(db,org,p.promotion_codes,subtotal,qty_total,(c["customer_organization_id"] or org),promo_lines,lock=True,customer_user_id=actor)
    oid=uuid4();number="SO-"+oid.hex[:12].upper();grand=max(Decimal(0),subtotal-discount+tax)
    o=await db.fetchrow("""insert into public.orders(id,organization_id,order_number,cart_id,customer_organization_id,customer_user_id,channel,status,currency,subtotal,discount_total,tax_total,grand_total,price_snapshot,promotion_snapshot,customer_snapshot,shipping_snapshot,notes,idempotency_key)
     values($1,$2,$3,$4,$5,$6,$7,'draft','IDR',$8,$9,$10,$11,$12::jsonb,$13::jsonb,$14::jsonb,$15::jsonb,$16,$17) returning *""",
@@ -267,7 +291,7 @@ class SmartOrderRepository:
     await db.execute("""insert into public.order_items(organization_id,order_id,product_id,variant_id,product_snapshot,quantity,unit_price,tax_amount,line_total,product_owner_organization_id)
      values($1,$2,$3,$4,$5::jsonb,$6,$7,$8,$9,$10)""",org,oid,i["product_id"],i["variant_id"],json.dumps(s),i["quantity"],s["unit_price"],s["tax_amount"],s["line_subtotal"],i["product_owner_organization_id"])
    for promo in promos:
-    await db.execute("insert into public.promotion_redemptions(organization_id,promotion_id,order_id,customer_user_id,discount_amount) values($1,$2,$3,$4,$5)",org,promo["promotion_id"],oid,actor,promo["discount_amount"])
+    await db.execute("insert into public.promotion_redemptions(organization_id,promotion_owner_organization_id,promotion_id,order_id,customer_user_id,customer_organization_id,discount_amount) values($1,$2,$3,$4,$5,$6,$7)",org,promo["promotion_owner_organization_id"],promo["promotion_id"],oid,actor,(c["customer_organization_id"] or org),promo["discount_amount"])
    await db.execute("insert into public.order_status_history(organization_id,order_id,from_status,to_status,actor_user_id) values($1,$2,null,'draft',$3)",org,oid,actor)
    await db.execute("update public.carts set status='submitted',version=version+1,updated_at=now() where id=$1",c["id"])
    await self.audit(db,org,actor,"order.draft.created","order",oid,{"order_number":number,"total":str(money(grand))})
