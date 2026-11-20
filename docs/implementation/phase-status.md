@@ -19,7 +19,7 @@ Supabase project ref: eyofuiyxalbehbqoaeny
 
 **Live database:** 55/55 public tables have RLS enabled and 55 public policies are present, with 281 public indexes. The 30 SmartOrder tables have 30 explicit RLS policies; 27 SmartOrder broadcast triggers and 3 private `realtime.messages` policies are installed. Supabase Security Advisor reports zero lints and Performance Advisor now reports zero unindexed foreign keys; unused-index notices are informational on the newly created low-volume schema. The private SmartTeam evidence bucket remains private. Security Advisor is not re-queried in this Phase 05 continuation.
 
-The dated Phase 02 PARTIAL / Phase 03 LOCKED and earlier Phase 04 IN_PROGRESS entries below are historical snapshots. The Phase 04 closure addendum and Phase 05 status record are authoritative for the current execution. Latest Phase 05 source commit: `d79a01c9b9cb6d7b6d57b200d931030f0702da48`.
+The dated Phase 02 PARTIAL / Phase 03 LOCKED and earlier Phase 04 IN_PROGRESS entries below are historical snapshots. The Phase 04 closure addendum and Phase 05 status record are authoritative for the current execution. Latest Phase 05 source commit: `70d964bb6310879d16357581b9e0f89868c32821`. The latest Railway API/Web deployment set for this continuation is queued; do not infer deployment completion from the successful earlier API deployment.
 
 ## Phase 00 — Repository Bootstrap & Governance
 
