@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
+import { SmartTeamConsole } from '@/components/smart-team/SmartTeamConsole';
 import Link from 'next/link';
 import {
   LayoutDashboard,
@@ -112,6 +113,7 @@ export type CompanyTabId =
   | 'gps_history'
   | 'visits'
   | 'attendance'
+  | 'smartteam'
   | 'orders'
   | 'promotions'
   | 'reports'
@@ -185,6 +187,7 @@ const SIDEBAR_GROUPS: Array<{
       { id: 'gps_history', label: 'GPS History', icon: Route },
       { id: 'visits', label: 'Visit Monitoring', icon: CalendarCheck },
       { id: 'attendance', label: 'Absensi & Geofence', icon: Clock },
+      { id: 'smartteam', label: 'SmartTeam Operations', icon: CalendarCheck },
       { id: 'orders', label: 'Order Overview', icon: ShoppingBag },
       { id: 'promotions', label: 'Manajemen Promosi', icon: Tag },
     ],
@@ -2688,6 +2691,8 @@ export function CompanyPortalApp() {
           {/* ================================================================
            * SCREEN 13 (15): VISIT MONITORING
            * ================================================================ */}
+          {activeTab === 'smartteam' && <SmartTeamConsole surface="company" />}
+
           {activeTab === 'visits' && (
             <div className="space-y-5">
               <div className="flex flex-wrap items-center justify-between gap-3">
