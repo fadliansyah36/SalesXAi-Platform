@@ -8,6 +8,7 @@ from app.db import get_connection
 from app.errors import APIError
 from app.schemas.smart_team import (
     VisitCreate,
+    VisitAssign,
     VisitUpdate,
     VisitExecution,
     VisitCancel,
@@ -212,6 +213,22 @@ async def create_visit(
 ):
     return await smart_team_service.create_visit(
         connection, request, organization_id, tenant, principal, payload.model_dump()
+    )
+
+
+@router.post("/{organization_id}/smart-team/visits/{visit_id}/assign", response_model=SmartTeamVisitResponse)
+async def assign_visit(
+    organization_id: UUID,
+    visit_id: UUID,
+    payload: VisitAssign,
+    request: Request,
+    principal: Principal = Depends(get_current_principal),
+    tenant: TenantContext = Depends(require_api_action("smartteam.visits.assign")),
+    connection: asyncpg.Connection = Depends(get_connection),
+):
+    return await smart_team_service.assign_visit(
+        connection, request, organization_id, tenant, principal,
+        visit_id, payload.sales_profile_id, payload.idempotency_key
     )
 
 
