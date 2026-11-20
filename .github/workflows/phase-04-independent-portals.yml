@@ -20,6 +20,7 @@ on:
       - "package.json"
       - "tsconfig.json"
       - "postcss.config.mjs"
+      - "infrastructure/scripts/**"
       - ".github/workflows/phase-04-independent-portals.yml"
   workflow_dispatch:
 jobs:
@@ -39,3 +40,8 @@ jobs:
           node-version: 22.16.0
       - run: bun install --frozen-lockfile
       - run: bun run --filter "@salesx-ai/${{ matrix.workspace }}" build
+      - name: Verify standalone runtime and static assets
+        run: |
+          test -f "apps/${{ matrix.workspace }}/.next/standalone/apps/${{ matrix.workspace }}/server.js"
+          test -d "apps/${{ matrix.workspace }}/.next/standalone/apps/${{ matrix.workspace }}/.next/static"
+          test -d "apps/${{ matrix.workspace }}/.next/standalone/apps/${{ matrix.workspace }}/public"
