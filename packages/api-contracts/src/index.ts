@@ -157,6 +157,16 @@ export interface MasterDataRecord {
   [field: string]: unknown;
 }
 export interface OutletAssignmentCreate { sales_profile_id: UUID; note?: string | null; }
+export interface MasterDataImportRequest { idempotency_key: string; rows: Array<Record<string, unknown>>; }
+export interface MasterDataImportRowError { row: number; code: string; message: string; }
+export interface MasterDataImportResult {
+  batch_id: UUID; resource: string; total_rows: number; imported_rows: number; failed_rows: number;
+  errors: MasterDataImportRowError[];
+}
+export interface SalesAssignmentContext {
+  sales_profile: (MasterDataRecord & Record<string, unknown>) | null;
+  assignments: Array<Record<string, unknown>>;
+}
 export interface OutletAssignmentRecord {
   id: UUID;
   organization_id: UUID;

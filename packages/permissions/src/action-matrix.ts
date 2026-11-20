@@ -85,3 +85,9 @@ export function canPerformApiAction(
   if (!action || !authenticated || action.scope === "bff") return false;
   return action.permission === null || Boolean(permissions?.includes(action.permission));
 }
+
+export const MASTER_DATA_PHASE_03_ACTIONS = {
+  "master.assignments.context.read": "master_data:assignment_context:read",
+  "master.data.import": "master_data:import",
+  "master.data.export": "master_data:export",
+} as const;

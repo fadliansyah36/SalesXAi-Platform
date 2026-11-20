@@ -357,6 +357,18 @@ export class SalesXApiClient {
   updateSalesProfile(organizationId: string, id: string, payload: MasterDataWrite): Promise<MasterDataRecord> {
     return this.request(`/api/v1/organizations/${encodeURIComponent(organizationId)}/sales-profiles/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(payload) });
   }
+  getMySalesAssignmentContext(organizationId: string): Promise<SalesAssignmentContext> {
+    return this.request(`/api/v1/organizations/${encodeURIComponent(organizationId)}/sales-profiles/me/assignment-context`);
+  }
+  importMasterData(organizationId: string, resource: string, payload: MasterDataImportRequest): Promise<MasterDataImportResult> {
+    return this.request(`/api/v1/organizations/${encodeURIComponent(organizationId)}/master-data/${encodeURIComponent(resource)}/import`, {
+      method: "POST", body: JSON.stringify(payload),
+    });
+  }
+  exportMasterData(organizationId: string, resource: string): Promise<Response> {
+    return this.fetch(`/api/v1/organizations/${encodeURIComponent(organizationId)}/master-data/${encodeURIComponent(resource)}/export`);
+  }
+
   listOutletAssignments(organizationId: string): Promise<OutletAssignmentRecord[]> {
     return this.request(`/api/v1/organizations/${encodeURIComponent(organizationId)}/outlet-assignments`);
   }
