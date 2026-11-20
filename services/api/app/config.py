@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     db_connect_timeout_seconds: float = 10.0
     db_max_inactive_connection_lifetime: float = 300.0
     db_statement_timeout_ms: int = 30000
-    max_request_body_bytes: int = 1048576
+    max_request_body_bytes: int = 10485760
     rate_limit_enabled: bool = True
     rate_limit_fail_closed: bool = True
     cors_origins: str = ""
