@@ -14,13 +14,17 @@ type AuthState={
  canPerformApiAction:(id:import("@salesx-ai/permissions").ApiActionId)=>boolean;
 };
 type QueueKind="clock_in"|"clock_out"|"visit_check_in"|"visit_check_out"|"activity_create";
-type OutboxRow={id:string;organization_id:string;kind:QueueKind;payload_json:string;created_at:string;attempts:number;last_error:string|null};
+type OutboxRow={id:string;organization_id:string;kind:QueueKind;payload_json:string;created_at:string;attempts:number;last_error:string|null;status:"pending"|"blocked";next_attempt_at:string};
+type CacheRow={payload_json:string;updated_at:string};
 const makeKey=()=>Date.now().toString(36)+"-"+Math.random().toString(36).slice(2)+"-"+Math.random().toString(36).slice(2);
 const dateText=(value:string|null|undefined)=>value?new Date(value).toLocaleString("id-ID"):"—";
 
 async function getQueueDatabase(){
  const db=await SQLite.openDatabaseAsync("salesx-smartteam.db");
- await db.execAsync("PRAGMA journal_mode = WAL; CREATE TABLE IF NOT EXISTS smartteam_outbox (id TEXT PRIMARY KEY NOT NULL, organization_id TEXT NOT NULL, kind TEXT NOT NULL, payload_json TEXT NOT NULL, created_at TEXT NOT NULL, attempts INTEGER NOT NULL DEFAULT 0, last_error TEXT); CREATE INDEX IF NOT EXISTS smartteam_outbox_org_created_idx ON smartteam_outbox(organization_id,created_at);");
+ await db.execAsync("PRAGMA journal_mode = WAL; CREATE TABLE IF NOT EXISTS smartteam_outbox (id TEXT PRIMARY KEY NOT NULL, organization_id TEXT NOT NULL, kind TEXT NOT NULL, payload_json TEXT NOT NULL, created_at TEXT NOT NULL, attempts INTEGER NOT NULL DEFAULT 0, last_error TEXT, status TEXT NOT NULL DEFAULT 'pending', next_attempt_at TEXT NOT NULL DEFAULT ''); CREATE INDEX IF NOT EXISTS smartteam_outbox_org_created_idx ON smartteam_outbox(organization_id,status,next_attempt_at,created_at); CREATE TABLE IF NOT EXISTS smartteam_cache (organization_id TEXT NOT NULL, cache_key TEXT NOT NULL, payload_json TEXT NOT NULL, updated_at TEXT NOT NULL, PRIMARY KEY(organization_id,cache_key));");
+ const columns=await db.getAllAsync<{name:string}>("PRAGMA table_info(smartteam_outbox)");
+ if(!columns.some(column=>column.name==="status"))await db.execAsync("ALTER TABLE smartteam_outbox ADD COLUMN status TEXT NOT NULL DEFAULT 'pending'");
+ if(!columns.some(column=>column.name==="next_attempt_at"))await db.execAsync("ALTER TABLE smartteam_outbox ADD COLUMN next_attempt_at TEXT NOT NULL DEFAULT ''");
  return db;
 }
 
