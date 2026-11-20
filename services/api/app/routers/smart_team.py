@@ -70,8 +70,8 @@ async def update_activity(organization_id:UUID,activity_id:UUID,payload:Activity
 
 @router.get("/{organization_id}/smart-team/targets")
 async def list_targets(organization_id:UUID,limit:int=Query(100,ge=1,le=500),offset:int=Query(0,ge=0),
- tenant:TenantContext=Depends(require_api_action("smartteam.targets.read")),connection:asyncpg.Connection=Depends(get_connection)):
- return await smart_team_service.list_targets(connection,organization_id,tenant,limit,offset)
+ tenant:TenantContext=Depends(require_api_action("smartteam.targets.read")),principal:Principal=Depends(get_current_principal),connection:asyncpg.Connection=Depends(get_connection)):
+ return await smart_team_service.list_targets(connection,organization_id,tenant,principal,limit,offset)
 
 @router.post("/{organization_id}/smart-team/targets",status_code=201)
 async def create_target(organization_id:UUID,payload:TargetWrite,request:Request,principal:Principal=Depends(get_current_principal),
