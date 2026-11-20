@@ -12,11 +12,12 @@ from app.services.account_administration import account_administration_service
 from app.services.organization_mutations import organization_mutation_service
 from app.services.platform_reads import platform_read_service
 from app.services.smart_team import smart_team_service
+from app.schemas.smart_team import PlatformSmartTeamOverviewResponse
 
 router = APIRouter(prefix="/admin", tags=["platform-security"])
 
 
-@router.get("/smart-team/overview")
+@router.get("/smart-team/overview", response_model=list[PlatformSmartTeamOverviewResponse])
 async def list_platform_smartteam_overview(
     limit: int = Query(default=100, ge=1, le=500),
     offset: int = Query(default=0, ge=0, le=100000),
