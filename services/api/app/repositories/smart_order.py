@@ -588,10 +588,10 @@ class SmartOrderRepository:
    f=await db.fetchrow("select * from public.fulfillments where lower(carrier)=lower($1) and tracking_number=$2 for update",provider,tracking)
    if not f:raise APIError(404,"shipping_tracking_not_found","No fulfillment matches this provider and tracking number.")
    prior=await db.fetchrow("select id from public.shipping_provider_events where provider=$1 and provider_event_id=$2",provider,event_id)
-   if prior:return {"accepted":True,"duplicate":True,"fulfillment_id":str(f["id"]),"status":f["status"]}
+   if prior or f["status"]==status:return {"accepted":True,"duplicate":True,"fulfillment_id":str(f["id"]),"status":f["status"]}
    if status=="delivered" and f["status"]!="handed_over":
     raise APIError(409,"shipping_status_transition_invalid","A signed delivery event is only accepted after carrier handover.")
-   if status=="failed" and f["status"] not in {"handed_over","picking","packed"}:
+   if status=="failed" and f["status"] not in {"handed_over","queued","picking","packed"}:
     raise APIError(409,"shipping_status_transition_invalid","Provider failure event does not match the current fulfillment state.")
    await db.execute("""insert into public.shipping_provider_events(organization_id,provider,provider_event_id,tracking_number,event_type,payload,processed_at)
     values($1,$2,$3,$4,$5,$6::jsonb,now())""",f["organization_id"],provider,event_id,tracking,status,json.dumps({"event_id":event_id,"tracking_number":tracking,"status":status}))
@@ -600,7 +600,7 @@ class SmartOrderRepository:
     await db.execute("update public.orders set status='completed',updated_at=now() where organization_id=$1 and id=$2 and status='fulfilled'",f["organization_id"],f["order_id"])
     await db.execute("insert into public.order_status_history(organization_id,order_id,from_status,to_status,reason) values($1,$2,'fulfilled','completed','Verified carrier delivery webhook')",f["organization_id"],f["order_id"])
    elif status=="failed":
-    if f["status"] in {"picking","packed"}:
+    if f["status"] in {"queued","picking","packed"}:
      allocations=await db.fetch("""select a.*,oi.product_id,oi.variant_id,oi.product_owner_organization_id
       from public.order_item_fulfillment_allocations a join public.order_items oi on oi.organization_id=a.buyer_organization_id and oi.id=a.order_item_id
       where a.buyer_organization_id=$1 and a.fulfillment_id=$2 for update of a""",f["organization_id"],f["id"])
@@ -610,13 +610,13 @@ class SmartOrderRepository:
       await db.execute("""insert into public.stock_movements(organization_id,warehouse_id,product_id,variant_id,movement_type,quantity,committed_delta,reference_type,reference_id,reason,actor_user_id,idempotency_key,product_owner_organization_id)
        values($1,$2,$3,$4,'release',$5,-$5,'fulfillment',$6,'Carrier reported failure before handover',$7,$8,$9)""",a["inventory_owner_organization_id"],a["warehouse_id"],a["product_id"],a["variant_id"],a["quantity"],f["id"],f["created_by"],f"fulfillment:{f['id']}:provider-failure:{event_id}:{a['order_item_id']}",a["product_owner_organization_id"])
     await db.execute("update public.fulfillments set status='failed',external_status_at=now(),updated_at=now() where organization_id=$1 and id=$2",f["organization_id"],f["id"])
-    if f["status"] in {"picking","packed"}:
+    if f["status"] in {"queued","picking","packed"}:
      other_open=await db.fetchval("select count(*) from public.fulfillments where organization_id=$1 and order_id=$2 and status not in ('handed_over','delivered','cancelled','failed') and id<>$3",f["organization_id"],f["order_id"],f["id"])
      other_handed=await db.fetchval("select count(*) from public.fulfillments where organization_id=$1 and order_id=$2 and status in ('handed_over','delivered') and id<>$3",f["organization_id"],f["order_id"],f["id"])
      if not other_open and not other_handed:
       await db.execute("update public.orders set status='approved',updated_at=now() where organization_id=$1 and id=$2 and status='processing'",f["organization_id"],f["order_id"])
       await db.execute("insert into public.order_status_history(organization_id,order_id,from_status,to_status,reason) values($1,$2,'processing','approved','Carrier failure before handover; stock released')",f["organization_id"],f["order_id"])
-   await self.audit(db,f["organization_id"],None,"shipping.provider_event.processed","fulfillment",f["id"],{"provider":provider,"event_id":event_id,"status":status,"released_before_handover":status=="failed" and f["status"] in {"picking","packed"}})
+   await self.audit(db,f["organization_id"],None,"shipping.provider_event.processed","fulfillment",f["id"],{"provider":provider,"event_id":event_id,"status":status,"released_before_handover":status=="failed" and f["status"] in {"queued","picking","packed"}})
   return {"accepted":True,"duplicate":False,"fulfillment_id":str(f["id"]),"status":status}
  async def partner_order_buyer(self,db,partner_org,order_id):
   return await db.fetchval("""select o.organization_id from public.orders o
