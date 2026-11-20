@@ -2366,6 +2366,7 @@ export function EditCompanyMasterDataModal({
             else if (field.kind === 'number') payload[field.key] = value.trim() ? Number(value) : null;
             else payload[field.key] = value.trim() === '' ? null : value.trim();
           }
+          if (!String(payload.code ?? '').trim()) throw new Error('Kode wajib diisi.');
           if (!String(payload.name ?? '').trim()) throw new Error('Nama wajib diisi.');
           await onSave(resource, String(record.id), payload); onClose();
         } catch (submitError) {
@@ -2378,7 +2379,7 @@ export function EditCompanyMasterDataModal({
             {field.kind === 'select' ? <select value={values[field.key] ?? ''} onChange={(event) => setValues((current) => ({ ...current, [field.key]: event.target.value }))} className="w-full rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 py-2">
               {(field.options ?? []).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
             </select> : field.kind === 'json' ? <textarea rows={5} value={values[field.key] ?? ''} onChange={(event) => setValues((current) => ({ ...current, [field.key]: event.target.value }))} className="w-full rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 py-2 font-mono" spellCheck={false} /> :
-              <input type={field.kind === 'number' ? 'number' : 'text'} step={field.kind === 'number' ? 'any' : undefined} value={values[field.key] ?? ''} onChange={(event) => setValues((current) => ({ ...current, [field.key]: event.target.value }))} className="w-full rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 py-2" />}
+              <input type={field.kind === 'number' ? 'number' : 'text'} required={field.key === 'code' || field.key === 'name'} step={field.kind === 'number' ? 'any' : undefined} value={values[field.key] ?? ''} onChange={(event) => setValues((current) => ({ ...current, [field.key]: event.target.value }))} className="w-full rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 py-2" />}
           </label>)}
         </div>
         {error && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700 dark:bg-red-950 dark:text-red-200">{error}</p>}
