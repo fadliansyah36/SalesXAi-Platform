@@ -863,3 +863,27 @@ The latest application-code commit is `b03459f7ed95bf43bb90653afa60305d0501b24c`
 - The connected Supabase project API exposes project metadata, URL and publishable keys, but does not expose the database password/connection secret or server secret key. These cannot be derived from the project ref, URL, anon key or publishable key. No guessed credential was written. The server-only variables `DATABASE_URL` and `SUPABASE_SECRET_KEY` remain to be added securely to Railway production Variables; `SALESX_BFF_SHARED_SECRET` remains conditional on enabling the BFF shared-secret contract.
 - The eight independent portal roots remain absent in the repository tree. No empty portal services were created; doing so would produce invalid deployments rather than independently runnable apps. Existing Mobile Railway service remains untouched.
 - Phase 04 remains **IN_PROGRESS / NOT COMPLETED**. API Default Domain exists but is not yet a healthy production endpoint; portal domains and CORS/trusted origins cannot be completed until portal app roots exist and API readiness is healthy.
+
+
+## Phase 04 — API recovery and portal deployment continuation — 2026-11-20
+
+### Source and implementation review
+- Re-read repository `AGENTS.md`, canonical Master PRD v1.0, Engineering Execution Master Plan v1.0 and Cross-Platform Implementation Flow on `main`.
+- Repository HEAD at start of this continuation: `18501d1201d8c93a9895397b63b3684cab05ed45`.
+- Confirmed `services/api/app/main.py` registers auth, admin, organizations, master_data, smart_team, audit and security routers under `/api/v1`; `/healthz` is process health and `/readyz` performs an actual PostgreSQL `select 1` readiness check.
+- Confirmed API container build and Uvicorn startup succeeded. Railway deployment `b5b51d28-f8ab-4248-b84f-e51ccd40d39c` ended **FAILED at HEALTHCHECK**, with repeated HTTP 503 from `/readyz`. Root cause: Railway production variables do not contain `DATABASE_URL`; the code intentionally leaves `db_pool` unset without it and does not report database readiness.
+- Confirmed `SUPABASE_PUBLISHABLE_KEY` is configured on `salesx-api`, together with project URL, JWKS, JWT issuer/audience and pool/runtime settings. Supabase connector can return only public/publishable keys; no database password/connection secret or server secret-key retrieval operation is exposed. No credential was guessed or printed.
+- Supabase project `eyofuiyxalbehbqoaeny` is `ACTIVE_HEALTHY`, PostgreSQL 17.12, region `ap-northeast-1`. The database connection must be supplied securely to Railway as `DATABASE_URL`; `SUPABASE_SECRET_KEY` is still required for privileged Auth/Storage flows that use it.
+- API Default Domain remains `https://salesx-api-production.up.railway.app`; it is not a healthy API endpoint until the real database connection passes `/readyz`.
+
+### Portal boundary inspection
+- The recursive Git tree at HEAD `18501d1201d8c93a9895397b63b3684cab05ed45` confirms all eight requested app roots remain absent: `apps/website`, `apps/customer-portal`, `apps/company-portal`, `apps/sales-portal`, `apps/distributor-portal`, `apps/principal-portal`, `apps/supervisor-portal`, `apps/super-admin`.
+- Existing Next.js routes remain in root `app/`; the route inventory includes Website `app/page.tsx`, Sales `app/portal/page.tsx`, Company `app/company/page.tsx`, Customer `app/customer/page.tsx`, Distributor `app/distributor/page.tsx`, Principal `app/principal/page.tsx`, Supervisor `app/supervisor/page.tsx`, and Super Admin `app/super-admin/page.tsx`, with existing nested SmartTeam routes and shared root components.
+- Root workspace is Bun + Turborepo, with `apps/*` and `packages/*` workspaces. Portal extraction must preserve root build context/shared packages and existing UI routes/assets. No empty wrappers, duplicated monolith copies, or invalid Railway service placeholders were created.
+- Consequently, only two services are currently visible in the connected Railway production project: pre-existing `@salesx-ai/mobile-sales` (left untouched) and `salesx-api`. The other eight requested portal services are not yet provisioned because their independent app roots/build targets do not yet exist.
+
+### Phase status
+- Existing SmartTeam and Expo Mobile Evidence implementation/migrations are preserved. Previously recorded 35 applied migrations, 25/25 public-table RLS coverage and 0 Security Advisor lints remain the latest verified database evidence; no new schema delta was introduced in this continuation.
+- Expo production API base URL remains configured to the API Default Domain; Auth BFF origin remains pending Website app/domain extraction.
+- `CORS_ORIGINS` / `APP_PUBLIC_URL` remain unset until independent portal domains exist.
+- Phase 04 remains **IN_PROGRESS — NOT COMPLETED**. No Phase 05 work is started.
