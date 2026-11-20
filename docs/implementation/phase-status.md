@@ -698,3 +698,13 @@ Current live state: **17/17 public tables RLS-enabled; 35 permissions; 8 roles; 
 Added `docs/implementation/handler-level-auth-inventory.tsv` for the Organization Access Console, Platform Account Security Console, shared auth provider, portal login/signup and invitation/reset/callback routes.
 
 The four handler inventories now cover **1,619 callback/event prop occurrences across 25 distinct TSX source files**. Scope tags: 143 Phase 02, 67 Phase 03, 789 future-phase and 620 UI-state callbacks. Event counts include 693 `onClick`, 71 `onSubmit`, 17 `onPress`, 358 `onChange` and 286 `onClose`. These are source occurrences, not unique business actions. The Phase 02 canonical contract remains 18 unique UI action IDs with 40 resolver call sites.
+
+
+## Phase 03 final implementation continuation — 2026-11-20
+
+- Manual outlet assignment unassignment is available through the tenant-scoped FastAPI endpoint, transaction-wrapped repository update, actor/time/reason snapshot, and audit receipt. Existing history rows remain immutable except for their lifecycle closure fields.
+- Company Portal now exposes an unassign action on active assignment history rows with a confirmation/reason prompt and displays outlet, sales, team, supervisor, territory, assignment actor/time and unassignment actor/time.
+- Company Portal now has reusable full-edit forms for Branch, Team, Territory and Outlet covering every mutable column declared by the master-data repository, including hierarchy, branch type, supervisor, outlet contacts/coordinates and territory GeoJSON.
+- Shared API contract, typed client and both action registries include manual unassignment.
+- The next migration installs minimal private tenant-scoped invalidation triggers on all master-data and assignment-history tables. Company Portal debounces SSE invalidation and refetches from FastAPI; Expo refreshes assigned context on resume and every 30 seconds while foregrounded with overlapping requests suppressed.
+- Phase 03 remains IN_PROGRESS until fresh CI and database security/schema checks on the final commit pass.

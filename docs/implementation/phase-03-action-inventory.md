@@ -97,3 +97,11 @@ The current UI still does not create a new sales profile from an organization me
 - Connect Expo assigned team/outlet context to the same typed API and permission contracts.
 
 **Phase 03 remains IN_PROGRESS.** This update records an additional connected vertical slice; it does not imply full phase completion.
+
+
+## Final implementation continuation — 2026-11-20
+
+- Added manual outlet assignment unassignment: POST `/api/v1/organizations/{organization_id}/outlet-assignments/{assignment_id}/unassign`; requires tenant permission `assignment:manage`, preserves the history row, writes actor/time/reason and records an audit receipt.
+- Company Portal assignment history exposes the guarded unassign action and displays assignment snapshots and actor/timestamp metadata.
+- Added a shared Company Portal edit modal for Branch, Team, Territory and Outlet with all mutable repository fields; updates use the existing typed update methods and FastAPI services.
+- Added database triggers for tenant-scoped minimal Realtime invalidations; the portal SSE consumer debounces invalidation and refetches authoritative state from FastAPI. Expo refreshes context on app resume and on a bounded 30-second foreground cadence.

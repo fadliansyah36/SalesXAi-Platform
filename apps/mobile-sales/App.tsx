@@ -82,7 +82,10 @@ function SalesHome({auth}:{auth:AuthState}){
    setAssignmentContext(null);setAssignmentContextOffline(false);return;
   }
   let active=true;
+  let refreshing=false;
   const refresh=async()=>{
+   if(refreshing)return;
+   refreshing=true;
    try{
     const result=await api.getMySalesAssignmentContext(organizationId);
     if(!active)return;
@@ -96,11 +99,11 @@ function SalesHome({auth}:{auth:AuthState}){
      if(cached){try{setAssignmentContext(JSON.parse(cached) as AssignmentContext);setAssignmentContextOffline(true);}catch{}}
     }
     setNotice(error instanceof Error?error.message:"Konteks assignment tidak dapat diperbarui.");
-   }
+   }finally{refreshing=false;}
   };
   void refresh();
   const subscription=AppState.addEventListener("change",state=>{if(state==="active")void refresh();});
-  const heartbeat=setInterval(()=>{if(AppState.currentState==="active")void refresh();},60_000);
+  const heartbeat=setInterval(()=>{if(AppState.currentState==="active")void refresh();},30_000);
   return()=>{active=false;subscription.remove();clearInterval(heartbeat);};
  },[auth.status,auth.apiClient,auth.activeOrganizationId,auth.contextEpoch,canReadAssignmentContext]);
 
