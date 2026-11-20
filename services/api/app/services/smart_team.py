@@ -31,6 +31,8 @@ class SmartTeamService:
           "active_shift_not_found":(409,"active_shift_not_found","No active shift is available to clock out."),
           "shift_not_found":(404,"shift_not_found","Attendance shift was not found."),
           "target_scope_not_found":(404,"target_scope_not_found","Target scope was not found in this organization."),
+          "profile_scope_forbidden":(403,"forbidden","The sales profile is outside the actor's authorized team or ownership scope."),
+          "visit_profile_mismatch":(422,"visit_profile_mismatch","The linked visit belongs to a different sales profile."),
         }
         status,code,message=mapping.get(str(error),(422,"smartteam_validation_error","The SmartTeam operation violates a domain rule."))
         raise APIError(status,code,message) from error
@@ -107,14 +109,15 @@ class SmartTeamService:
 
     async def update_activity(self,connection,request,organization_id,tenant,principal,activity_id,payload):
         self._tenant(organization_id,tenant)
-        row=await self.repository.update_activity(connection,organization_id,activity_id,payload)
+        try:row=await self.repository.update_activity(connection,organization_id,principal.user_id,activity_id,payload)
+        except ValueError as error:self._translate(error)
         if row is None:raise APIError(404,"activity_not_found","Activity was not found.")
         await write_audit(connection,request,principal,"smartteam.activity.updated","smartteam_activity",str(activity_id),tenant,{"status":row["status"]})
         return dict(row)
 
-    async def list_targets(self,connection,organization_id,tenant,limit,offset):
+    async def list_targets(self,connection,organization_id,tenant,principal,limit,offset):
         self._tenant(organization_id,tenant)
-        return [dict(row) for row in await self.repository.list_targets(connection,organization_id,limit,offset)]
+        return [dict(row) for row in await self.repository.list_targets(connection,organization_id,principal.user_id,limit,offset)]
 
     async def create_target(self,connection,request,organization_id,tenant,principal,payload):
         self._tenant(organization_id,tenant)
