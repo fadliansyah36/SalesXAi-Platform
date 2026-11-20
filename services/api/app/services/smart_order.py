@@ -156,10 +156,18 @@ class SmartOrderService:
 
  async def create_fulfillment(self,db,organization_id,tenant,actor,order_id,payload):
   self._tenant(organization_id,tenant)
+  if payload.warehouse_id is None:
+   raise APIError(422,"fulfillment_warehouse_required","A warehouse owned by this organization is required.")
+  warehouse_owner=await db.fetchval("select organization_id from public.warehouses where id=$1 and status='active'",payload.warehouse_id)
+  if warehouse_owner!=organization_id:
+   raise APIError(403,"fulfillment_warehouse_scope_denied","Tenant fulfillment can only use its own warehouse; use the partner fulfillment workflow for partner-owned stock.")
   return await repo.create_fulfillment(db,organization_id,actor,order_id,payload)
 
  async def update_fulfillment(self,db,organization_id,tenant,actor,fulfillment_id,payload):
   self._tenant(organization_id,tenant)
+  owner=await db.fetchval("select fulfillment_organization_id from public.fulfillments where organization_id=$1 and id=$2",organization_id,fulfillment_id)
+  if owner!=organization_id:
+   raise APIError(403,"fulfillment_owner_scope_denied","Only the fulfillment-owning organization may update this fulfillment.")
   return await repo.update_fulfillment(db,organization_id,actor,fulfillment_id,payload)
 
 
