@@ -557,74 +557,74 @@ export class SalesXApiClient {
 
   listSmartOrderProducts(organizationId:string,options:{search?:string;categoryId?:string;page?:number;pageSize?:number}={}):Promise<import("@salesx-ai/api-contracts").SmartOrderProductPage>{
     const q=new URLSearchParams();if(options.search)q.set("search",options.search);if(options.categoryId)q.set("category_id",options.categoryId);q.set("page",String(options.page??1));q.set("page_size",String(options.pageSize??24));
-    return this.request(\`/api/v1/organizations/\${encodeURIComponent(organizationId)}/smart-order/catalog/products?\${q.toString()}\`);
+    return this.request(`/api/v1/organizations/${encodeURIComponent(organizationId)}/smart-order/catalog/products?${q.toString()}`);
   }
   getSmartOrderProduct(organizationId:string,productId:string):Promise<import("@salesx-ai/api-contracts").SmartOrderProduct>{
-    return this.request(\`/api/v1/organizations/\${encodeURIComponent(organizationId)}/smart-order/catalog/products/\${encodeURIComponent(productId)}\`);
+    return this.request(`/api/v1/organizations/${encodeURIComponent(organizationId)}/smart-order/catalog/products/${encodeURIComponent(productId)}`);
   }
   createSmartOrderProduct(organizationId:string,payload:import("@salesx-ai/api-contracts").SmartOrderProductWrite):Promise<import("@salesx-ai/api-contracts").SmartOrderProduct>{
-    return this.request(\`/api/v1/organizations/\${encodeURIComponent(organizationId)}/smart-order/products\`,{method:"POST",body:JSON.stringify(payload)});
+    return this.request(`/api/v1/organizations/${encodeURIComponent(organizationId)}/smart-order/products`,{method:"POST",body:JSON.stringify(payload)});
   }
   updateSmartOrderProductStatus(organizationId:string,productId:string,status:"draft"|"published"|"inactive"|"archived"):Promise<import("@salesx-ai/api-contracts").SmartOrderProduct>{
-    return this.request(\`/api/v1/organizations/\${encodeURIComponent(organizationId)}/smart-order/products/\${encodeURIComponent(productId)}/status\`,{method:"PATCH",body:JSON.stringify({status})});
+    return this.request(`/api/v1/organizations/${encodeURIComponent(organizationId)}/smart-order/products/${encodeURIComponent(productId)}/status`,{method:"PATCH",body:JSON.stringify({status})});
   }
   quoteSmartOrderPrice(organizationId:string,productId:string,variantId:string,quantity:number,customerOrganizationId?:string):Promise<import("@salesx-ai/api-contracts").SmartOrderPriceQuote>{
     const q=new URLSearchParams({product_id:productId,variant_id:variantId,quantity:String(quantity)});if(customerOrganizationId)q.set("customer_organization_id",customerOrganizationId);
-    return this.request(\`/api/v1/organizations/\${encodeURIComponent(organizationId)}/smart-order/pricing/quote?\${q.toString()}\`);
+    return this.request(`/api/v1/organizations/${encodeURIComponent(organizationId)}/smart-order/pricing/quote?${q.toString()}`);
   }
   getSmartOrderInventory(organizationId:string,options:{variantId?:string;warehouseId?:string}={}):Promise<import("@salesx-ai/api-contracts").SmartOrderInventoryBalance[]>{
     const q=new URLSearchParams();if(options.variantId)q.set("variant_id",options.variantId);if(options.warehouseId)q.set("warehouse_id",options.warehouseId);
-    return this.request(\`/api/v1/organizations/\${encodeURIComponent(organizationId)}/smart-order/inventory?\${q.toString()}\`);
+    return this.request(`/api/v1/organizations/${encodeURIComponent(organizationId)}/smart-order/inventory?${q.toString()}`);
   }
   createSmartOrderStockMovement(organizationId:string,payload:import("@salesx-ai/api-contracts").SmartOrderStockMovementWrite):Promise<Record<string,unknown>>{
-    return this.request(\`/api/v1/organizations/\${encodeURIComponent(organizationId)}/smart-order/inventory/movements\`,{method:"POST",body:JSON.stringify(payload)});
+    return this.request(`/api/v1/organizations/${encodeURIComponent(organizationId)}/smart-order/inventory/movements`,{method:"POST",body:JSON.stringify(payload)});
   }
   listSmartOrderPromotions(organizationId:string):Promise<import("@salesx-ai/api-contracts").SmartOrderPromotion[]>{
-    return this.request(\`/api/v1/organizations/\${encodeURIComponent(organizationId)}/smart-order/promotions\`);
+    return this.request(`/api/v1/organizations/${encodeURIComponent(organizationId)}/smart-order/promotions`);
   }
   createSmartOrderPromotion(organizationId:string,payload:import("@salesx-ai/api-contracts").SmartOrderPromotionWrite):Promise<import("@salesx-ai/api-contracts").SmartOrderPromotion>{
-    return this.request(\`/api/v1/organizations/\${encodeURIComponent(organizationId)}/smart-order/promotions\`,{method:"POST",body:JSON.stringify(payload)});
+    return this.request(`/api/v1/organizations/${encodeURIComponent(organizationId)}/smart-order/promotions`,{method:"POST",body:JSON.stringify(payload)});
   }
   evaluateSmartOrderPromotions(organizationId:string,cartId:string,codes:string[]):Promise<Record<string,unknown>>{
-    return this.request(\`/api/v1/organizations/\${encodeURIComponent(organizationId)}/smart-order/promotions/evaluate\`,{method:"POST",body:JSON.stringify({cart_id:cartId,codes})});
+    return this.request(`/api/v1/organizations/${encodeURIComponent(organizationId)}/smart-order/promotions/evaluate`,{method:"POST",body:JSON.stringify({cart_id:cartId,codes})});
   }
   getSmartOrderCart(organizationId:string):Promise<import("@salesx-ai/api-contracts").SmartOrderCart>{
-    return this.request(\`/api/v1/organizations/\${encodeURIComponent(organizationId)}/smart-order/cart\`);
+    return this.request(`/api/v1/organizations/${encodeURIComponent(organizationId)}/smart-order/cart`);
   }
   addSmartOrderCartItem(organizationId:string,payload:import("@salesx-ai/api-contracts").SmartOrderCartItemWrite):Promise<Record<string,unknown>>{
-    return this.request(\`/api/v1/organizations/\${encodeURIComponent(organizationId)}/smart-order/cart/items\`,{method:"POST",body:JSON.stringify(payload)});
+    return this.request(`/api/v1/organizations/${encodeURIComponent(organizationId)}/smart-order/cart/items`,{method:"POST",body:JSON.stringify(payload)});
   }
   updateSmartOrderCartItem(organizationId:string,itemId:string,payload:{quantity:number;notes?:string|null}):Promise<Record<string,unknown>>{
-    return this.request(\`/api/v1/organizations/\${encodeURIComponent(organizationId)}/smart-order/cart/items/\${encodeURIComponent(itemId)}\`,{method:"PATCH",body:JSON.stringify(payload)});
+    return this.request(`/api/v1/organizations/${encodeURIComponent(organizationId)}/smart-order/cart/items/${encodeURIComponent(itemId)}`,{method:"PATCH",body:JSON.stringify(payload)});
   }
   removeSmartOrderCartItem(organizationId:string,itemId:string):Promise<{removed:boolean}>{
-    return this.request(\`/api/v1/organizations/\${encodeURIComponent(organizationId)}/smart-order/cart/items/\${encodeURIComponent(itemId)}\`,{method:"DELETE"});
+    return this.request(`/api/v1/organizations/${encodeURIComponent(organizationId)}/smart-order/cart/items/${encodeURIComponent(itemId)}`,{method:"DELETE"});
   }
   createSmartOrderOrder(organizationId:string,payload:import("@salesx-ai/api-contracts").SmartOrderOrderCreate):Promise<import("@salesx-ai/api-contracts").SmartOrderOrder>{
-    return this.request(\`/api/v1/organizations/\${encodeURIComponent(organizationId)}/smart-order/orders\`,{method:"POST",body:JSON.stringify(payload)});
+    return this.request(`/api/v1/organizations/${encodeURIComponent(organizationId)}/smart-order/orders`,{method:"POST",body:JSON.stringify(payload)});
   }
   listMySmartOrderOrders(organizationId:string,page=1,pageSize=20,status?:string):Promise<import("@salesx-ai/api-contracts").SmartOrderOrderPage>{
     const q=new URLSearchParams({page:String(page),page_size:String(pageSize)});if(status)q.set("status",status);
-    return this.request(\`/api/v1/organizations/\${encodeURIComponent(organizationId)}/smart-order/orders?\${q.toString()}\`);
+    return this.request(`/api/v1/organizations/${encodeURIComponent(organizationId)}/smart-order/orders?${q.toString()}`);
   }
   listSmartOrderOperations(organizationId:string,page=1,pageSize=20,status?:string):Promise<import("@salesx-ai/api-contracts").SmartOrderOrderPage>{
     const q=new URLSearchParams({page:String(page),page_size:String(pageSize)});if(status)q.set("status",status);
-    return this.request(\`/api/v1/organizations/\${encodeURIComponent(organizationId)}/smart-order/orders/operations?\${q.toString()}\`);
+    return this.request(`/api/v1/organizations/${encodeURIComponent(organizationId)}/smart-order/orders/operations?${q.toString()}`);
   }
   getSmartOrderOrder(organizationId:string,orderId:string):Promise<import("@salesx-ai/api-contracts").SmartOrderOrder>{
-    return this.request(\`/api/v1/organizations/\${encodeURIComponent(organizationId)}/smart-order/orders/\${encodeURIComponent(orderId)}\`);
+    return this.request(`/api/v1/organizations/${encodeURIComponent(organizationId)}/smart-order/orders/${encodeURIComponent(orderId)}`);
   }
   submitSmartOrderOrder(organizationId:string,orderId:string):Promise<import("@salesx-ai/api-contracts").SmartOrderOrder>{
-    return this.request(\`/api/v1/organizations/\${encodeURIComponent(organizationId)}/smart-order/orders/\${encodeURIComponent(orderId)}/submit\`,{method:"POST"});
+    return this.request(`/api/v1/organizations/${encodeURIComponent(organizationId)}/smart-order/orders/${encodeURIComponent(orderId)}/submit`,{method:"POST"});
   }
   decideSmartOrderOrder(organizationId:string,orderId:string,payload:{decision:"approved"|"rejected"|"revision_requested";reason?:string|null}):Promise<import("@salesx-ai/api-contracts").SmartOrderOrder>{
-    return this.request(\`/api/v1/organizations/\${encodeURIComponent(organizationId)}/smart-order/orders/\${encodeURIComponent(orderId)}/decision\`,{method:"POST",body:JSON.stringify(payload)});
+    return this.request(`/api/v1/organizations/${encodeURIComponent(organizationId)}/smart-order/orders/${encodeURIComponent(orderId)}/decision`,{method:"POST",body:JSON.stringify(payload)});
   }
   createSmartOrderFulfillment(organizationId:string,orderId:string,payload:import("@salesx-ai/api-contracts").SmartOrderFulfillmentWrite):Promise<Record<string,unknown>>{
-    return this.request(\`/api/v1/organizations/\${encodeURIComponent(organizationId)}/smart-order/orders/\${encodeURIComponent(orderId)}/fulfillments\`,{method:"POST",body:JSON.stringify(payload)});
+    return this.request(`/api/v1/organizations/${encodeURIComponent(organizationId)}/smart-order/orders/${encodeURIComponent(orderId)}/fulfillments`,{method:"POST",body:JSON.stringify(payload)});
   }
   updateSmartOrderFulfillment(organizationId:string,fulfillmentId:string,payload:import("@salesx-ai/api-contracts").SmartOrderFulfillmentUpdate):Promise<Record<string,unknown>>{
-    return this.request(\`/api/v1/organizations/\${encodeURIComponent(organizationId)}/smart-order/fulfillments/\${encodeURIComponent(fulfillmentId)}\`,{method:"PATCH",body:JSON.stringify(payload)});
+    return this.request(`/api/v1/organizations/${encodeURIComponent(organizationId)}/smart-order/fulfillments/${encodeURIComponent(fulfillmentId)}`,{method:"PATCH",body:JSON.stringify(payload)});
   }
 
   signOut(scope: "local" | "global" | "others" = "local"): Promise<void> {

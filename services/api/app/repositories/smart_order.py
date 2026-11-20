@@ -12,15 +12,15 @@ def rowdict(r): return dict(r) if r is not None else None
 class SmartOrderRepository:
  async def list_products(self,db,org,search,category,page,size):
   where=["p.status='published'","(p.organization_id=$1 or exists(select 1 from public.commerce_catalog_access ca where ca.owner_organization_id=p.organization_id and ca.consumer_organization_id=$1 and ca.access_type='catalog' and ca.starts_at<=now() and (ca.ends_at is null or ca.ends_at>now()) and (ca.product_id is null or ca.product_id=p.id)))"]; args=[org]
-  if search: args.append(search); where.append(f"to_tsvector('simple',coalesce(p.name,'')||' '||coalesce(p.product_code,'')||' '||coalesce(p.description,'')) @@ plainto_tsquery('simple',\${len(args)})")
-  if category: args.append(category); where.append(f"p.category_id=\${len(args)}")
+  if search: args.append(search); where.append(f"to_tsvector('simple',coalesce(p.name,'')||' '||coalesce(p.product_code,'')||' '||coalesce(p.description,'')) @@ plainto_tsquery('simple',${len(args)})")
+  if category: args.append(category); where.append(f"p.category_id=${len(args)}")
   clause=" and ".join(where); total=await db.fetchval(f"select count(*) from public.products p where {clause}",*args)
   args.extend([size,(page-1)*size])
   rows=await db.fetch(f"""select p.id,p.organization_id,p.product_code,p.name,p.description,p.specifications,p.tax_rate,p.category_id,c.name category_name,b.name brand_name,
    coalesce((select jsonb_agg(jsonb_build_object('id',v.id,'sku',v.sku,'name',v.name,'attributes',v.attributes,'weight_grams',v.weight_grams)) from public.product_variants v where v.organization_id=p.organization_id and v.product_id=p.id and v.status='active'),'[]'::jsonb) variants
    from public.products p left join public.product_categories c on c.organization_id=p.organization_id and c.id=p.category_id
    left join public.product_brands b on b.organization_id=p.organization_id and b.id=p.brand_id where {clause}
-   order by p.updated_at desc,p.name limit \${len(args)-1} offset \${len(args)}""",*args)
+   order by p.updated_at desc,p.name limit ${len(args)-1} offset ${len(args)}""",*args)
   return {"items":[dict(r) for r in rows],"page":page,"page_size":size,"total":total}
 
  async def get_product(self,db,org,pid):
@@ -67,8 +67,8 @@ class SmartOrderRepository:
   q="""select ib.id,ib.warehouse_id,w.code warehouse_code,w.name warehouse_name,ib.product_id,ib.variant_id,ib.on_hand,ib.reserved,ib.committed,ib.available,ib.version,ib.updated_at
    from public.inventory_balances ib join public.warehouses w on w.organization_id=ib.organization_id and w.id=ib.warehouse_id where ib.organization_id=$1"""
   args=[org]
-  if variant: args.append(variant); q+=f" and ib.variant_id=\${len(args)}"
-  if warehouse: args.append(warehouse); q+=f" and ib.warehouse_id=\${len(args)}"
+  if variant: args.append(variant); q+=f" and ib.variant_id=${len(args)}"
+  if warehouse: args.append(warehouse); q+=f" and ib.warehouse_id=${len(args)}"
   return [dict(r) for r in await db.fetch(q+" order by w.name",*args)]
 
  async def move_stock(self,db,org,actor,p):
@@ -275,10 +275,10 @@ class SmartOrderRepository:
  async def list_orders(self,db,org,actor,page,size,status=None,tenant_scope=False):
   where=["organization_id=$1"] if tenant_scope else ["organization_id=$1","customer_user_id=$2"]
   args=[org] if tenant_scope else [org,actor]
-  if status:args.append(status);where.append(f"status=\${len(args)}")
+  if status:args.append(status);where.append(f"status=${len(args)}")
   clause=" and ".join(where); total=await db.fetchval(f"select count(*) from public.orders where {clause}",*args)
   args.extend([size,(page-1)*size])
-  rows=await db.fetch(f"select id,order_number,status,currency,subtotal,discount_total,tax_total,grand_total,created_at,updated_at from public.orders where {clause} order by created_at desc limit \${len(args)-1} offset \${len(args)}",*args)
+  rows=await db.fetch(f"select id,order_number,status,currency,subtotal,discount_total,tax_total,grand_total,created_at,updated_at from public.orders where {clause} order by created_at desc limit ${len(args)-1} offset ${len(args)}",*args)
   return {"items":[dict(r) for r in rows],"page":page,"page_size":size,"total":total}
 
  async def get_order(self,db,org,actor,oid,allow_tenant=False):
