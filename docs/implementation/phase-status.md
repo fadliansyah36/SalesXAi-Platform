@@ -787,3 +787,43 @@ The four handler inventories now cover **1,619 callback/event prop occurrences a
 - No staging environment, staging deployment, field test or Product Owner Acceptance gate was introduced.
 
 **Phase 04 is NOT COMPLETED.** Code-level work is substantially integrated, but the required production deployment cannot be completed until the Railway connector is switched to the intended SalesXAi workspace and the Web deployment boundary decision is resolved. Do not begin Phase 05 until Phase 04 is closed with the deployment status and remaining evidence recorded.
+
+
+## Phase 04 — final implementation continuation and Railway API provisioning — 2026-11-20
+
+This entry corrects the earlier Railway identity note above. The connected Railway connector is named **SalesXAi**. Its production project is `heroic-expression` in workspace `Arrohmaniyah's Projects`; the project contains a pre-existing service linked to this exact repository and `main`. The project is therefore being used as the currently connected SalesXAi deployment target; no unrelated Railway account was substituted.
+
+### Mobile evidence implementation added
+
+- `apps/mobile-sales` now includes Expo SDK 58-compatible `expo-document-picker` at `~58.0.5`, registered in the Expo config and Bun workspace lock.
+- SmartTeam Mobile can select JPEG, PNG and PDF documents, validates MIME and file size (10 MB maximum), copies selected files into app document storage, and enqueues metadata for offline-safe upload.
+- Shared API client upload now supports byte progress callbacks, cancellation via AbortSignal, and bearer-token refresh. Mobile exposes upload progress and cancellation; cancellation retains the local file and pending outbox row for retry.
+- EAS production profile now has `EXPO_PUBLIC_SALESX_API_URL=https://salesx-api-production.up.railway.app`. The Auth BFF URL remains pending the independent Website deployment URL; no secret is embedded in the mobile bundle.
+- Implementation commits include: `e58498a7af592c0099281b2f7fd5b7c53ee8c0c7`, `71812613d5cb1d1ec4afb2e0b4a991981dc3ef9d`, `4c5b8e1473d768870634ac8b4e7e94bf23ca2e42`, `b197693ac01d81ef62735d0817a514c4e757f24c`, `71f1de588bca77f15e4b73e3694a502c428c0fd7`, `0ce75eb2fc8fa5c0f3227d4713b9467569f3411f`, `4090ae92d94beaa4fbe1a2a1c6d26ae5f0ed5bea`, `2760219025b3cf4a927d602c538b3b2f7441df2d`, and `b03459f7ed95bf43bb90653afa60305d0501b24c`.
+
+### Fresh engineering validation
+
+- API Checks run `44680288962` succeeded on `0ce75eb2fc8fa5c0f3227d4713b9467569f3411f`: Python unit tests, compileall, Ruff, Web typecheck and lint passed. This run does not include the later SDK version alignment or production API URL change.
+- Foundation Verification run `44680288934` failed on `0ce75eb2fc8fa5c0f3227d4713b9467569f3411f` because Expo expected `expo-document-picker ~58.0.5`; the package was updated to that version.
+- API Checks run `44680626066` and Foundation Verification run `44680626014` were triggered for implementation commit `b03459f7ed95bf43bb90653afa60305d0501b24c`; final outcomes are pending at the time of this tracker entry. Do not treat earlier runs as validation of this latest commit.
+
+### Railway API service provisioned
+
+- Project: `heroic-expression`; environment: `production`.
+- Service: `salesx-api`; service ID: `14b0489c-8431-480d-828f-d001b5c82fdd`.
+- Source: `fadliansyah36/SalesXAi-Platform`, branch `main`.
+- Root directory: `/services/api`; Dockerfile: `Dockerfile`; healthcheck: `/readyz`; target port: `8080`.
+- Railway Default Domain: `https://salesx-api-production.up.railway.app`.
+- The container built and Uvicorn started. Railway readiness currently returns HTTP 503 because `DATABASE_URL` has not yet been added. The API config also requires deployment-time Supabase server credentials for private Storage/Auth operations. The health check remains `/readyz`; it was not weakened to report a database-disconnected API as ready.
+- Required secret values to complete API readiness: `DATABASE_URL` (Supabase PostgreSQL connection string with TLS), `SUPABASE_SECRET_KEY`, `SUPABASE_PUBLISHABLE_KEY` (for server-side Auth BFF interactions), and `SALESX_BFF_SHARED_SECRET` where the BFF/API shared-secret contract is enabled. Configure these in Railway's production secret variables, not in Git.
+- `CORS_ORIGINS` and `APP_PUBLIC_URL` remain pending the actual independent portal domains.
+- A pre-existing service `@salesx-ai/mobile-sales` remains untouched; it is not one of the nine target Railway services, has no public domain, and its latest deployment was failed. No new Mobile Railway service was created.
+
+### Remaining Phase 04 work / status
+
+- The eight independent portal roots (`apps/website`, `apps/customer-portal`, `apps/company-portal`, `apps/sales-portal`, `apps/distributor-portal`, `apps/principal-portal`, `apps/supervisor-portal`, `apps/super-admin`) still do not exist. Existing portal UI remains in the root Next.js application. Do not create eight empty wrappers or point eight services at the same monolith.
+- The other eight Railway portal services are not provisioned because their application roots and independent build/runtime boundaries are not implemented yet.
+- API production runtime is not ready until the deployment secrets above are configured and `/readyz` reports database connectivity.
+- Expo production API origin is set, but Auth BFF origin awaits the Website portal's Railway Default Domain. Portal CORS/trusted origins and portal-to-API connectivity await the independent portal deployments.
+- Supabase migration history was re-queried and contains **35 applied migrations**, including the nine Phase 04 SmartTeam migrations already listed above. No new database migration was required for this client-side document picker/API upload progress change.
+- Phase 04 remains **IN_PROGRESS / NOT COMPLETED**. Do not begin Phase 05 until all ten Definition of Done items, including all eight portal builds and nine Railway service domains/health states, have current evidence.
