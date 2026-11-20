@@ -152,7 +152,9 @@ class SmartTeamRepository:
 
     async def list_shifts(self, connection: asyncpg.Connection, organization_id: UUID, actor_id: UUID, limit: int, offset: int):
         return await connection.fetch(
-            """select sh.*,sp.employee_code,p.display_name,tm.name team_name
+            """select sh.*,sp.employee_code,p.display_name,tm.name team_name,
+                      case when sh.status='cancelled' then 'cancelled' when sh.clock_in_at is null then 'absent'
+                           when sh.clock_out_at is null then 'present' else 'completed' end attendance_status
                from public.smartteam_shifts sh join public.sales_profiles sp on sp.organization_id=sh.organization_id and sp.id=sh.sales_profile_id
                join public.profiles p on p.id=sh.user_id left join public.teams tm on tm.organization_id=sh.organization_id and tm.id=sh.team_id
                where sh.organization_id=$1 and (sh.user_id=$2 or sp.manager_user_id=$2 or exists(
@@ -166,9 +168,11 @@ class SmartTeamRepository:
         profile=await self.profile_for_user(connection,organization_id,actor_id)
         if profile is None: raise ValueError("active_sales_profile_required")
         async with connection.transaction():
+            local_date=await connection.fetchval(
+                "select (now() at time zone coalesce(timezone,'UTC'))::date from public.profiles where id=$1",actor_id)
             existing=await connection.fetchrow(
-                "select * from public.smartteam_shifts where organization_id=$1 and user_id=$2 and shift_date=current_date",
-                organization_id,actor_id)
+                "select * from public.smartteam_shifts where organization_id=$1 and user_id=$2 and shift_date=$3",
+                organization_id,actor_id,local_date)
             if existing:
                 if existing["status"]=="active": return existing
                 raise ValueError("shift_already_closed_today")
@@ -176,8 +180,8 @@ class SmartTeamRepository:
                 """insert into public.smartteam_shifts(organization_id,sales_profile_id,user_id,branch_id,team_id,shift_date,status,
                 clock_in_at,clock_in_latitude,clock_in_longitude,clock_in_accuracy_m,clock_in_source,idempotency_key,created_by)
                 values($1,$2,$3,(select branch_id from public.outlets where organization_id=$1 and id=(select outlet_id from public.outlet_assignment_history where organization_id=$1 and sales_profile_id=$2 and assignment_status='active' limit 1)),
-                $4,current_date,'active',now(),$5,$6,$7,$8,$9,$3) returning *""",
-                organization_id,profile["id"],actor_id,profile["team_id"],location["latitude"],location["longitude"],
+                $4,$5,'active',now(),$6,$7,$8,$9,$10,$3) returning *""",
+                organization_id,profile["id"],actor_id,profile["team_id"],local_date,location["latitude"],location["longitude"],
                 location["accuracy_m"],location["source"],key)
 
     async def clock_out(self, connection: asyncpg.Connection, organization_id: UUID, actor_id: UUID, location: dict[str,Any]):
