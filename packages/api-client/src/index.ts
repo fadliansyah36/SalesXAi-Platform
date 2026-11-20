@@ -1,4 +1,4 @@
-export type { MasterDataChangedEvent, MasterDataResource, PlatformAuditLog, PlatformRole, PlatformUserSummary, SmartTeamActivity, SmartTeamAttendance, SmartTeamDashboard, SmartTeamLocationCapture, SmartTeamTarget, SmartTeamTargetUpdate, SmartTeamTargetWrite, SmartTeamVisit, SmartTeamVisitCreate } from "@salesx-ai/api-contracts";
+export type { MasterDataChangedEvent, MasterDataResource, PlatformAuditLog, PlatformRole, PlatformUserSummary, SmartTeamActivity, SmartTeamAttendance, SmartTeamDashboard, SmartTeamLocationCapture, SmartTeamTarget, SmartTeamTargetUpdate, SmartTeamTargetWrite, SmartTeamVisit, SmartTeamVisitCreate, PlatformSmartTeamOverviewRow } from "@salesx-ai/api-contracts";
 import type {
   AccountStatusUpdateRequest,
   AccountStatusUpdateResponse,
@@ -466,6 +466,12 @@ export class SalesXApiClient {
   }
   updateSmartTeamTarget(organizationId:string,targetId:string,payload:import("@salesx-ai/api-contracts").SmartTeamTargetUpdate):Promise<import("@salesx-ai/api-contracts").SmartTeamTarget> {
     return this.request(`/api/v1/organizations/${encodeURIComponent(organizationId)}/smart-team/targets/${encodeURIComponent(targetId)}`,{method:"PATCH",body:JSON.stringify(payload)});
+  }
+
+
+  listPlatformSmartTeamOverview(limit=100,offset=0):Promise<import("@salesx-ai/api-contracts").PlatformSmartTeamOverviewRow[]> {
+    const query=new URLSearchParams({limit:String(limit),offset:String(offset)});
+    return this.request(`/api/v1/admin/smart-team/overview?${query.toString()}`);
   }
 
   signOut(scope: "local" | "global" | "others" = "local"): Promise<void> {
