@@ -18,6 +18,8 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.5
+      - name: Install canonical workspace dependencies
+        run: bun install
       - name: Resolve SDK-compatible Expo native packages
         working-directory: apps/mobile-sales
         run: bunx expo install expo-location expo-sqlite expo-image-picker expo-file-system
