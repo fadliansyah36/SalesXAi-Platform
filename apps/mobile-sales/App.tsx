@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from "react";
+import { AppState } from "react-native";
+import * as SecureStore from "expo-secure-store";
 import { ActivityIndicator, Pressable, ScrollView, StatusBar, TextInput } from "react-native";
 import { useFonts } from "expo-font";
 import { PlusJakartaSans_400Regular } from "@expo-google-fonts/plus-jakarta-sans/400Regular";
@@ -15,6 +17,7 @@ type AuthState=ReturnType<typeof useMobileSalesAuth>;
 type AuthMode="login"|"signup"|"recovery"|"otp";
 type Session={auth_session_id:string;device_name:string|null;platform:string;last_seen_at:string|null;expires_at:string|null;revoked_at:string|null;current:boolean};
 type Identity={id:string;provider:string;email:string|null;is_primary:boolean;created_at:string};
+type AssignmentContext={sales_profile:Record<string,unknown>|null;assignments:Array<Record<string,unknown>>};
 
 function Field({value,onChangeText,placeholder,secureTextEntry=false,keyboardType="default"}:{
  value:string;onChangeText:(value:string)=>void;placeholder:string;secureTextEntry?:boolean;keyboardType?:"default"|"email-address"|"phone-pad"
@@ -46,6 +49,9 @@ function SalesHome({auth}:{auth:AuthState}){
  const [busy,setBusy]=useState(false);
  const [sessions,setSessions]=useState<Session[]>([]);
  const [identities,setIdentities]=useState<Identity[]>([]);
+ const [assignmentContext,setAssignmentContext]=useState<AssignmentContext|null>(null);
+ const [assignmentContextOffline,setAssignmentContextOffline]=useState(false);
+ const canReadAssignmentContext=auth.canPerformApiAction("master.assignments.context.read");
  const canReadSessions=auth.canPerformApiAction("identity.session.list");
  const canRevokeSessions=auth.canPerformApiAction("identity.session.revoke");
  const canReadIdentities=auth.canPerformApiAction("identity.link.list");
@@ -66,6 +72,37 @@ function SalesHome({auth}:{auth:AuthState}){
   });
   return()=>{active=false;};
  },[auth.status,auth.apiClient,auth.contextEpoch,canReadSessions,canReadIdentities]);
+
+
+ useEffect(()=>{
+  const api=auth.apiClient;
+  const organizationId=auth.activeOrganizationId;
+  const cacheKey=organizationId?"salesx-assignment-context:"+organizationId:null;
+  if(auth.status!=="authenticated"||!api||!organizationId||!canReadAssignmentContext){
+   setAssignmentContext(null);setAssignmentContextOffline(false);return;
+  }
+  let active=true;
+  const refresh=async()=>{
+   try{
+    const result=await api.getMySalesAssignmentContext(organizationId);
+    if(!active)return;
+    setAssignmentContext(result as AssignmentContext);
+    setAssignmentContextOffline(false);
+    if(cacheKey)await SecureStore.setItemAsync(cacheKey,JSON.stringify(result));
+   }catch(error){
+    if(!active)return;
+    if(cacheKey){
+     const cached=await SecureStore.getItemAsync(cacheKey);
+     if(cached){try{setAssignmentContext(JSON.parse(cached) as AssignmentContext);setAssignmentContextOffline(true);}catch{}}
+    }
+    setNotice(error instanceof Error?error.message:"Konteks assignment tidak dapat diperbarui.");
+   }
+  };
+  void refresh();
+  const subscription=AppState.addEventListener("change",state=>{if(state==="active")void refresh();});
+  const heartbeat=setInterval(()=>{if(AppState.currentState==="active")void refresh();},60_000);
+  return()=>{active=false;subscription.remove();clearInterval(heartbeat);};
+ },[auth.status,auth.apiClient,auth.activeOrganizationId,auth.contextEpoch,canReadAssignmentContext]);
 
  async function revokeDeviceSession(sessionId:string){
   if(!canRevokeSessions)throw new Error("Permission pencabutan sesi tidak tersedia.");
@@ -125,6 +162,23 @@ function SalesHome({auth}:{auth:AuthState}){
        {activeMembership&&<NativeStack gap="2">
         <NativeText variant="title" weight="semibold">Hak akses aktif</NativeText>
         <NativeText color={colors.textSecondary}>{activeMembership.permissions.length} permission dimuat dari FastAPI.</NativeText>
+       </NativeStack>}
+
+       {canReadAssignmentContext&&assignmentContext&&<NativeStack gap="2">
+        <NativeText variant="title" weight="semibold">Konteks Penugasan Lapangan</NativeText>
+        {assignmentContextOffline&&<NativeText variant="caption" color={colors.textSecondary}>Mode offline · menampilkan cache terakhir dari SecureStore</NativeText>}
+        {assignmentContext.sales_profile&&<NativeSurface elevation="sm" radius="lg" style={{padding:14}}>
+         <NativeStack gap="1">
+          <NativeText weight="semibold">{String(assignmentContext.sales_profile.display_name??"Sales Profile")}</NativeText>
+          <NativeText variant="caption" color={colors.textSecondary}>Tim: {String(assignmentContext.sales_profile.team_name??"Belum ditetapkan")} · Supervisor: {String(assignmentContext.sales_profile.supervisor_name??"Belum ditetapkan")}</NativeText>
+          <NativeText variant="caption" color={colors.textSecondary}>Teritori: {String(assignmentContext.sales_profile.territory_name??"Belum ditetapkan")}</NativeText>
+         </NativeStack>
+        </NativeSurface>}
+        {assignmentContext.assignments.map(item=><NativeSurface key={String(item.id)} elevation="sm" radius="lg" style={{padding:12}}>
+         <NativeText weight="semibold">{String(item.outlet_name??item.outlet_code??"Outlet")}</NativeText>
+         <NativeText variant="caption" color={colors.textSecondary}>{String(item.address??"")} · {String(item.city??"")}</NativeText>
+        </NativeSurface>)}
+        {assignmentContext.assignments.length===0&&<NativeText variant="caption" color={colors.textSecondary}>Belum ada outlet aktif yang ditugaskan.</NativeText>}
        </NativeStack>}
        {canReadSessions&&<NativeStack gap="2">
         <NativeText variant="title" weight="semibold">Sesi perangkat</NativeText>

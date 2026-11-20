@@ -1,10 +1,12 @@
+import asyncio
 import csv
 import io
+import json
 from uuid import UUID
 
 import asyncpg
 from fastapi import APIRouter, Depends, Query, Request
-from fastapi.responses import Response
+from fastapi.responses import Response, StreamingResponse
 
 from app.db import get_connection
 from app.errors import APIError
@@ -121,6 +123,46 @@ async def my_assignment_context(organization_id: UUID, principal: Principal = De
 async def import_master_data(organization_id: UUID, resource: str, payload: MasterDataImportRequest, request: Request, principal: Principal = Depends(get_current_principal), tenant: TenantContext = Depends(require_api_action("master.data.import")), connection: asyncpg.Connection = Depends(get_connection)):
     return await master_data_service.import_rows(connection, request, principal, tenant, organization_id, resource, payload.idempotency_key, payload.rows)
 
+
+
+@router.get("/{organization_id}/master-data/events")
+async def stream_master_data_events(
+    organization_id: UUID,
+    tenant: TenantContext = Depends(require_api_action("master.data.events.read")),
+    connection: asyncpg.Connection = Depends(get_connection),
+):
+    if tenant.organization_id != organization_id:
+        raise APIError(403, "forbidden", "Cross-tenant event subscription is denied.")
+    queue: asyncio.Queue[dict] = asyncio.Queue(maxsize=64)
+
+    def receive(_connection, _pid, _channel, payload: str):
+        try:
+            event = json.loads(payload)
+            if event.get("organization_id") == str(organization_id):
+                if queue.full():
+                    queue.get_nowait()
+                queue.put_nowait(event)
+        except (ValueError, TypeError):
+            return
+
+    async def stream():
+        await connection.add_listener("salesx_master_data", receive)
+        try:
+            yield ": connected\n\n"
+            while True:
+                try:
+                    event = await asyncio.wait_for(queue.get(), timeout=20)
+                    yield "event: master_data.changed\ndata: " + json.dumps(event, default=str) + "\n\n"
+                except asyncio.TimeoutError:
+                    yield ": keep-alive\n\n"
+        finally:
+            await connection.remove_listener("salesx_master_data", receive)
+
+    return StreamingResponse(
+        stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no"},
+    )
 
 @router.get("/{organization_id}/master-data/{resource}/export")
 async def export_master_data(organization_id: UUID, resource: str, tenant: TenantContext = Depends(require_api_action("master.data.export")), connection: asyncpg.Connection = Depends(get_connection), limit: int = Query(5000, ge=1, le=5000)):

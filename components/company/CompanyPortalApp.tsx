@@ -487,6 +487,16 @@ export function CompanyPortalApp() {
     }, ...current]);
   };
 
+
+  useEffect(() => {
+    if (auth.status !== 'authenticated' || !auth.activeOrganizationId || !auth.canPerformApiAction('master.data.events.read')) return;
+    const organizationId = auth.activeOrganizationId;
+    const source = new EventSource('/api/backend/api/v1/organizations/' + encodeURIComponent(organizationId) + '/master-data/events', { withCredentials: true });
+    source.addEventListener('master_data.changed', () => setMasterDataRevision((value) => value + 1));
+    source.onerror = () => { /* EventSource reconnects automatically; API remains the source of truth. */ };
+    return () => source.close();
+  }, [auth.status, auth.activeOrganizationId, auth.canPerformApiAction]);
+
   const createSalesProfile = async () => {
     if (!auth.canPerformApiAction('master.sales_profiles.create')) throw new Error('Akses membuat sales profile tidak diizinkan.');
     if (!auth.apiClient || !auth.activeOrganizationId || !newSalesUserId) throw new Error('Pilih anggota aktif pada organisasi terlebih dahulu.');
