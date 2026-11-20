@@ -395,6 +395,12 @@ class SmartOrderRepository:
     if prior["decision"]!=p.decision:raise APIError(409,"approval_already_recorded","This actor has already recorded a different approval decision.")
     return await self.get_order(db,org,actor,oid,True)
    if o["status"]!="pending_approval":raise APIError(409,"invalid_order_transition","Only pending approval orders can be decided.")
+   pending_partners=await db.fetchval("""select count(*) from (select distinct oi.product_owner_organization_id from public.order_items oi
+    join public.commerce_partner_links l on l.organization_id=oi.product_owner_organization_id and l.partner_organization_id=$1
+     and l.relationship_type in ('principal','distributor') and l.status='active' and l.starts_at<=now() and (l.ends_at is null or l.ends_at>now())
+    where oi.organization_id=$1 and oi.order_id=$2 and oi.product_owner_organization_id<>$1
+     and coalesce((select d.decision from public.order_partner_decisions d where d.organization_id=$1 and d.order_id=$2 and d.partner_organization_id=oi.product_owner_organization_id order by d.decided_at desc,d.id desc limit 1),'')<>'accepted') pending""",org,oid)
+   if pending_partners:raise APIError(409,"partner_approval_pending","All Principal and Distributor partners must accept their order allocations before buyer approval.")
    policy=await db.fetchrow("""select * from public.order_approval_policies where organization_id=$1 and status='active'
     and minimum_total<=$2 and (maximum_total is null or maximum_total>=$2) order by minimum_total desc limit 1""",org,o["grand_total"])
    required_count=int(policy["required_approval_count"]) if policy else 1
@@ -582,8 +588,43 @@ class SmartOrderRepository:
     select 1 from public.stock_movements sm where sm.reference_type='order' and sm.reference_id=$2 and sm.organization_id=$3 and sm.product_owner_organization_id=oi.product_owner_organization_id and sm.variant_id=oi.variant_id
    )) order by oi.created_at""",o["buyer_organization_id"],order_id,partner_org)]
   d["fulfillments"]=[dict(x) for x in await db.fetch("select * from public.fulfillments where organization_id=$1 and order_id=$2 and fulfillment_organization_id=$3 order by created_at",o["buyer_organization_id"],order_id,partner_org)]
+  d["partner_decisions"]=[dict(x) for x in await db.fetch("select id,decision,reason,actor_user_id,decided_at from public.order_partner_decisions where organization_id=$1 and order_id=$2 and partner_organization_id=$3 order by decided_at,id",o["buyer_organization_id"],order_id,partner_org)]
   return d
 
+ async def decide_partner_order(self,db,partner_org,actor,oid,p):
+  buyer_org=await self.partner_order_buyer(db,partner_org,oid)
+  if not buyer_org:raise APIError(404,"partner_order_not_found","Order is not available to this partner organization.")
+  async with db.transaction():
+   order=await db.fetchrow("select * from public.orders where organization_id=$1 and id=$2 for update",buyer_org,oid)
+   if not order or order["status"]!="pending_approval":raise APIError(409,"partner_order_not_pending","Partner decisions are only accepted while the order is pending approval.")
+   relationship=await db.fetchval("""select exists(select 1 from public.commerce_partner_links where organization_id=$1 and partner_organization_id=$2
+    and relationship_type in ('principal','distributor') and status='active' and starts_at<=now() and (ends_at is null or ends_at>now()))""",partner_org,buyer_org)
+   owns_items=await db.fetchval("""select exists(select 1 from public.order_items oi where oi.organization_id=$1 and oi.order_id=$2
+    and (oi.product_owner_organization_id=$3 or exists(select 1 from public.stock_movements sm where sm.reference_type='order' and sm.reference_id=$2
+     and sm.organization_id=$3 and sm.product_owner_organization_id=oi.product_owner_organization_id and sm.variant_id=oi.variant_id)))""",buyer_org,oid,partner_org)
+   if not relationship or not owns_items:raise APIError(403,"partner_decision_scope_denied","Only an active Principal or Distributor owning order items or allocated stock may decide this order.")
+   prior=await db.fetchrow("select * from public.order_partner_decisions where organization_id=$1 and order_id=$2 and partner_organization_id=$3 and idempotency_key=$4",buyer_org,oid,partner_org,p.idempotency_key)
+   if prior:
+    if prior["decision"]!=p.decision:raise APIError(409,"partner_decision_idempotency_conflict","This idempotency key was already used for a different partner decision.")
+    return dict(prior)
+   latest=await db.fetchrow("select decision from public.order_partner_decisions where organization_id=$1 and order_id=$2 and partner_organization_id=$3 order by decided_at desc,id desc limit 1",buyer_org,oid,partner_org)
+   if latest and latest["decision"]!="revision_requested":raise APIError(409,"partner_decision_already_final","A final partner decision is already recorded for this order.")
+   decision=await db.fetchrow("""insert into public.order_partner_decisions(organization_id,order_id,partner_organization_id,decision,reason,actor_user_id,idempotency_key)
+    values($1,$2,$3,$4,$5,$6,$7) returning *""",buyer_org,oid,partner_org,p.decision,p.reason,actor,p.idempotency_key)
+   if p.decision in {"rejected","revision_requested"}:
+    moves=await db.fetch("select * from public.stock_movements where reference_type='order' and reference_id=$1 and movement_type='reserve' order by organization_id,warehouse_id,id for update",oid)
+    for m in moves:
+     await db.execute("update public.inventory_balances set reserved=reserved-$4,version=version+1,updated_at=now() where organization_id=$1 and warehouse_id=$2 and variant_id=$3 and reserved >= $4",m["organization_id"],m["warehouse_id"],m["variant_id"],m["quantity"])
+     await db.execute("""insert into public.stock_movements(organization_id,warehouse_id,product_id,variant_id,movement_type,quantity,reserved_delta,reference_type,reference_id,reason,actor_user_id,idempotency_key,product_owner_organization_id)
+      values($1,$2,$3,$4,'release',$5,-$5,'order',$6,$7,$8,$9,$10)""",m["organization_id"],m["warehouse_id"],m["product_id"],m["variant_id"],m["quantity"],oid,p.reason or "Partner rejected order allocation",actor,f"order:{oid}:partner-release:{m['id']}",m["product_owner_organization_id"])
+    target="revision_requested" if p.decision=="revision_requested" else "rejected"
+    if target=="revision_requested":
+     await db.execute("update public.carts set status='active',version=version+1,updated_at=now() where organization_id=$1 and id=$2",buyer_org,order["cart_id"])
+    await db.execute("update public.promotion_redemptions set status='reversed',reversed_at=now() where organization_id=$1 and order_id=$2 and status in ('reserved','redeemed')",buyer_org,oid)
+    await db.execute("update public.orders set status=$3,updated_at=now() where organization_id=$1 and id=$2",buyer_org,oid,target)
+    await db.execute("insert into public.order_status_history(organization_id,order_id,from_status,to_status,reason,actor_user_id) values($1,$2,'pending_approval',$3,$4,$5)",buyer_org,oid,target,p.reason,actor)
+   await self.audit(db,partner_org,actor,"order.partner."+p.decision,"order",oid,{"buyer_organization_id":str(buyer_org),"partner_organization_id":str(partner_org),"reason":p.reason,"idempotency_key":p.idempotency_key})
+  return dict(decision)
  async def list_orders(self,db,org,actor,page,size,status=None,tenant_scope=False):
   where=["organization_id=$1"] if tenant_scope else ["organization_id=$1","customer_user_id=$2"]
   args=[org] if tenant_scope else [org,actor]
@@ -599,7 +640,7 @@ class SmartOrderRepository:
   r=await db.fetchrow(q,*args)
   if not r:return None
   d=dict(r)
-  for key,sql in [("items","select * from public.order_items where organization_id=$1 and order_id=$2 order by created_at"),("history","select * from public.order_status_history where organization_id=$1 and order_id=$2 order by occurred_at"),("approvals","select * from public.order_approvals where organization_id=$1 and order_id=$2 order by decided_at"),("fulfillments","select * from public.fulfillments where organization_id=$1 and order_id=$2 order by created_at")]:
+  for key,sql in [("items","select * from public.order_items where organization_id=$1 and order_id=$2 order by created_at"),("history","select * from public.order_status_history where organization_id=$1 and order_id=$2 order by occurred_at"),("approvals","select * from public.order_approvals where organization_id=$1 and order_id=$2 order by decided_at"),("partner_decisions","select * from public.order_partner_decisions where organization_id=$1 and order_id=$2 order by decided_at"),("fulfillments","select * from public.fulfillments where organization_id=$1 and order_id=$2 order by created_at")]:
    d[key]=[dict(x) for x in await db.fetch(sql,org,oid)]
   return d
 
