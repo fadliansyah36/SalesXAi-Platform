@@ -1,4 +1,4 @@
-export type { MasterDataChangedEvent, MasterDataResource, PlatformAuditLog, PlatformRole, PlatformUserSummary, SmartTeamActivity, SmartTeamAttendance, SmartTeamDashboard, SmartTeamLocationCapture, SmartTeamTarget, SmartTeamTargetUpdate, SmartTeamTargetWrite, SmartTeamVisit, SmartTeamVisitCreate, PlatformSmartTeamOverviewRow, SmartTeamVisitEvidence } from "@salesx-ai/api-contracts";
+export type { MasterDataChangedEvent, MasterDataResource, PlatformAuditLog, PlatformRole, PlatformUserSummary, SmartTeamActivity, SmartTeamAttendance, SmartTeamDashboard, SmartTeamLocationCapture, SmartTeamTarget, SmartTeamTargetUpdate, SmartTeamTargetWrite, SmartTeamVisit, SmartTeamVisitCreate, PlatformSmartTeamOverviewRow, SmartTeamVisitEvidence, SmartTeamVisitAssign } from "@salesx-ai/api-contracts";
 import type {
   AccountStatusUpdateRequest,
   AccountStatusUpdateResponse,
@@ -414,6 +414,11 @@ export class SalesXApiClient {
   createSmartTeamVisit(organizationId:string,payload:import("@salesx-ai/api-contracts").SmartTeamVisitCreate):Promise<import("@salesx-ai/api-contracts").SmartTeamVisit> {
     return this.request(`/api/v1/organizations/${encodeURIComponent(organizationId)}/smart-team/visits`,{method:"POST",body:JSON.stringify(payload)});
   }
+
+  assignSmartTeamVisit(organizationId:string,visitId:string,payload:import("@salesx-ai/api-contracts").SmartTeamVisitAssign):Promise<import("@salesx-ai/api-contracts").SmartTeamVisit> {
+    return this.request(`/api/v1/organizations/${encodeURIComponent(organizationId)}/smart-team/visits/${encodeURIComponent(visitId)}/assign`,{method:"POST",body:JSON.stringify(payload)});
+  }
+
   checkInSmartTeamVisit(organizationId:string,visitId:string,payload:{location:import("@salesx-ai/api-contracts").SmartTeamLocationCapture;idempotency_key:string}):Promise<import("@salesx-ai/api-contracts").SmartTeamVisit> {
     return this.request(`/api/v1/organizations/${encodeURIComponent(organizationId)}/smart-team/visits/${encodeURIComponent(visitId)}/check-in`,{method:"POST",body:JSON.stringify(payload)});
   }
