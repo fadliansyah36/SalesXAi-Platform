@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
+import { SmartTeamConsole } from '@/components/smart-team/SmartTeamConsole';
 import Link from 'next/link';
 import {
   Home,
@@ -99,6 +100,7 @@ export type SupervisorTab =
   | 'shifts'
   | 'live_map'
   | 'visits'
+  | 'smartteam'
   | 'route_replay'
   | 'coverage'
   | 'performance'
@@ -244,6 +246,7 @@ export function SupervisorPortalApp() {
       items: [
         { id: 'live_map', label: 'Live Location Tim', icon: MapPin },
         { id: 'visits', label: 'Kunjungan Hari Ini', icon: Navigation },
+        { id: 'smartteam', label: 'SmartTeam Operations', icon: CalendarClock },
         { id: 'route_replay', label: 'Replay Rute', icon: Route },
         { id: 'coverage', label: 'Cakupan Outlet', icon: Compass },
       ],
@@ -1099,6 +1102,8 @@ export function SupervisorPortalApp() {
       )}
 
       {/* -------------------- SCREEN 7: KUNJUNGAN HARI INI & ROUTE HISTORY -------------------- */}
+      {activeTab === 'smartteam' && <SmartTeamConsole surface="supervisor" />}
+
       {activeTab === 'visits' && (
         <div className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
