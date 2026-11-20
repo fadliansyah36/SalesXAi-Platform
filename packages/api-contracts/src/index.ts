@@ -257,3 +257,9 @@ export interface SmartTeamTargetWrite {
  sales_profile_id?:UUID|null; team_id?:UUID|null; branch_id?:UUID|null; metric_key:SmartTeamTarget["metric_key"];
  period_start:string; period_end:string; target_value:number;
 }
+
+export interface SmartTeamDashboard {
+ visits_total:number;visits_scheduled:number;visits_in_progress:number;visits_completed:number;
+ attendance_records:number;active_shifts:number;activities_open:number;targets_visible:number;
+}
+export interface SmartTeamTargetUpdate {period_start?:string;period_end?:string;target_value?:number;}
