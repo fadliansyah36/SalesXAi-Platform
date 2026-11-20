@@ -1,3 +1,4 @@
+# ruff: noqa: E701, E702
 from decimal import Decimal
 from uuid import UUID
 import asyncpg

@@ -11,6 +11,7 @@ import {
   X,
   Puzzle,
   Sparkles,
+  ShoppingCart,
 } from 'lucide-react';
 import { BrandLogo } from '@/components/common/BrandLogo';
 import { PWAInstallButton } from '@/components/common/PWAInstallButton';
@@ -137,6 +138,7 @@ export function PortalShell<T extends string>({
               </div>
             </div>
           ))}
+          {auth.canPerformApiAction("smartorder.catalog.products.read") && <Link href={currentPortalPath + "/smart-order"} className="mt-3 flex items-center gap-2.5 rounded-xl border border-[var(--color-border)] px-3 py-2.5 text-xs font-semibold text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-muted)]"><ShoppingCart className="h-4 w-4"/>SmartOrder</Link>}
         </div>
 
         {/* Cross-portal switcher & Logout */}
@@ -365,6 +367,7 @@ export function PortalShell<T extends string>({
                 </div>
               </div>
             ))}
+            {auth.canPerformApiAction("smartorder.catalog.products.read") && <Link href={currentPortalPath + "/smart-order"} onClick={() => setDrawerOpen(false)} className="flex items-center gap-2.5 rounded-xl border border-[var(--color-border)] px-3 py-2.5 text-xs font-semibold text-[var(--color-text-secondary)]"><ShoppingCart className="h-4 w-4"/>SmartOrder</Link>}
 
             <div className="border-t border-[var(--color-border)] pt-3 space-y-2.5">
               <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-text-muted)]">

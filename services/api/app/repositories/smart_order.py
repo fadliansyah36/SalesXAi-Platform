@@ -1,3 +1,4 @@
+# ruff: noqa: E701, E702
 from __future__ import annotations
 import json
 from decimal import Decimal, ROUND_HALF_UP
@@ -192,7 +193,7 @@ class SmartOrderRepository:
    o=await db.fetchrow("""insert into public.orders(id,organization_id,order_number,cart_id,customer_organization_id,customer_user_id,channel,status,currency,subtotal,discount_total,tax_total,grand_total,price_snapshot,promotion_snapshot,customer_snapshot,shipping_snapshot,notes,idempotency_key)
     values($1,$2,$3,$4,$5,$6,$7,'draft','IDR',$8,$9,$10,$11,$12::jsonb,$13::jsonb,$14::jsonb,$15::jsonb,$16,$17) returning *""",
     oid,org,number,c["id"],c["customer_organization_id"],actor,c["channel"],money(subtotal),money(discount),money(tax),money(grand),json.dumps(snaps),json.dumps(promos),json.dumps(snapshot),json.dumps(p.shipping_snapshot),p.notes,p.idempotency_key)
-   for i,s in zip(items,snaps):
+   for i,s in zip(items,snaps,strict=True):
     await db.execute("""insert into public.order_items(organization_id,order_id,product_id,variant_id,product_snapshot,quantity,unit_price,tax_amount,line_total)
      values($1,$2,$3,$4,$5::jsonb,$6,$7,$8,$9)""",org,oid,i["product_id"],i["variant_id"],json.dumps(s),i["quantity"],s["unit_price"],s["tax_amount"],s["line_subtotal"])
    await db.execute("insert into public.order_status_history(organization_id,order_id,from_status,to_status,actor_user_id) values($1,$2,null,'draft',$3)",org,oid,actor)
