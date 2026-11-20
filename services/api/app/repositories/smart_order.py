@@ -854,7 +854,7 @@ class SmartOrderRepository:
  async def list_partner_organizations(self,db,org):
   rows=await db.fetch("""select o.id,o.slug,o.name,pl.relationship_type,pl.starts_at,pl.ends_at
    from public.commerce_partner_links pl join public.organizations o on o.id=pl.partner_organization_id
-   where pl.organization_id=$1 and pl.relationship_type='customer' and pl.status='active'
+   where pl.organization_id=$1 and pl.status='active'
    and pl.starts_at<=now() and (pl.ends_at is null or pl.ends_at>now()) and o.status='active' order by o.name""",org)
   return [dict(x) for x in rows]
 
