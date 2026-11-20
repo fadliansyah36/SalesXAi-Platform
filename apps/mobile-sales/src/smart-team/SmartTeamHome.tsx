@@ -49,6 +49,7 @@ export function SmartTeamHome({auth,salesProfileId}:{auth:AuthState;salesProfile
  const [visitEvidence,setVisitEvidence]=useState<Record<string,SmartTeamVisitEvidence[]>>({});
  const [outbox,setOutbox]=useState<OutboxRow[]>([]);
  const [activityTitle,setActivityTitle]=useState("");
+ const [activityType,setActivityType]=useState<"task"|"call"|"meeting"|"follow_up"|"prospecting"|"report"|"other">("task");
  const [busy,setBusy]=useState(false);
  const [syncing,setSyncing]=useState(false);
  const syncingRef=useRef(false);
@@ -226,7 +227,7 @@ export function SmartTeamHome({auth,salesProfileId}:{auth:AuthState;salesProfile
   if(!api||!organizationId||!salesProfileId||!activityTitle.trim())return;
   setBusy(true);setError("");setNotice("");
   try{
-   const activity={sales_profile_id:salesProfileId,activity_type:"follow_up" as const,title:activityTitle.trim(),idempotency_key:makeKey()};
+   const activity={sales_profile_id:salesProfileId,activity_type:activityType,title:activityTitle.trim(),idempotency_key:makeKey()};
    await enqueue("activity_create",{activity});
    setActivityTitle("");setNotice("Aktivitas ditambahkan ke antrean sinkronisasi.");
   }catch(cause){setError(cause instanceof Error?cause.message:"Aktivitas tidak dapat disimpan.");}
@@ -290,10 +291,15 @@ export function SmartTeamHome({auth,salesProfileId}:{auth:AuthState;salesProfile
   {canReadActivities&&<NativeSurface elevation="sm" radius="2xl" style={{padding:18}}>
    <NativeStack gap="3">
     <NativeText variant="title" weight="semibold">Aktivitas harian</NativeText>
-    {canManageActivities&&<NativeInline gap="2" style={{alignItems:"center"}}>
-     <TextInput value={activityTitle} onChangeText={setActivityTitle} placeholder="Catat aktivitas sales…" placeholderTextColor={colors.textMuted} style={{flex:1,borderWidth:1,borderColor:colors.border,borderRadius:10,padding:12,color:colors.textPrimary}}/>
-     <Pressable disabled={busy||!activityTitle.trim()} onPress={()=>void createActivity()} style={{padding:12,borderRadius:10,backgroundColor:colors.primary,opacity:busy||!activityTitle.trim()?0.45:1}}><NativeText color={colors.surface} weight="semibold">Simpan</NativeText></Pressable>
-    </NativeInline>}
+    {canManageActivities&&<NativeStack gap="2">
+     <NativeInline gap="1" style={{flexWrap:"wrap"}}>
+      {(["task","call","meeting","follow_up","prospecting","report","other"] as const).map(value=><Pressable key={value} onPress={()=>setActivityType(value)} style={{padding:7,borderRadius:8,borderWidth:1,borderColor:activityType===value?colors.primary:colors.border,backgroundColor:activityType===value?colors.primary:colors.surface}}><NativeText variant="caption" color={activityType===value?colors.surface:colors.textPrimary}>{value.replaceAll("_"," ")}</NativeText></Pressable>)}
+     </NativeInline>
+     <NativeInline gap="2" style={{alignItems:"center"}}>
+      <TextInput value={activityTitle} onChangeText={setActivityTitle} placeholder="Catat aktivitas sales…" placeholderTextColor={colors.textMuted} style={{flex:1,borderWidth:1,borderColor:colors.border,borderRadius:10,padding:12,color:colors.textPrimary}}/>
+      <Pressable disabled={busy||!activityTitle.trim()} onPress={()=>void createActivity()} style={{padding:12,borderRadius:10,backgroundColor:colors.primary,opacity:busy||!activityTitle.trim()?0.45:1}}><NativeText color={colors.surface} weight="semibold">Simpan</NativeText></Pressable>
+     </NativeInline>
+    </NativeStack>}
     {activities.slice(0,8).map(item=><View key={item.id} style={{paddingVertical:8,borderTopWidth:1,borderColor:colors.border}}><NativeText weight="semibold">{item.title}</NativeText><NativeText variant="caption" color={colors.textSecondary}>{item.activity_type} · {item.status}</NativeText></View>)}
    </NativeStack>
   </NativeSurface>}
