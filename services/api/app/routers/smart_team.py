@@ -1,13 +1,51 @@
 from uuid import UUID
+import asyncio
+import json
 import asyncpg
 from fastapi import APIRouter,Depends,Query,Request
+from fastapi.responses import StreamingResponse
 from app.db import get_connection
+from app.errors import APIError
 from app.schemas.smart_team import VisitCreate,VisitUpdate,VisitExecution,VisitCancel,ClockInRequest,ClockOutRequest,AttendanceCorrection,ActivityCreate,ActivityUpdate,TargetWrite,TargetUpdate
 from app.security.dependencies import Principal,TenantContext,get_current_principal,require_api_action
 from app.services.smart_team import smart_team_service
 
 router=APIRouter(prefix="/organizations",tags=["smart-team"])
 
+
+
+@router.get("/{organization_id}/smart-team/events")
+async def stream_smartteam_events(
+ organization_id:UUID,
+ principal:Principal=Depends(get_current_principal),
+ tenant:TenantContext=Depends(require_api_action("smartteam.events.read")),
+ connection:asyncpg.Connection=Depends(get_connection),
+):
+ if tenant.organization_id!=organization_id:
+  raise APIError(403,"forbidden","Cross-tenant SmartTeam event subscription is denied.")
+ queue:asyncio.Queue[dict]=asyncio.Queue(maxsize=64)
+ def receive(_connection,_pid,_channel,payload:str):
+  try:
+   event=json.loads(payload)
+   if event.get("organization_id")==str(organization_id):
+    if queue.full():queue.get_nowait()
+    queue.put_nowait(event)
+  except (ValueError,TypeError):
+   return
+ async def stream():
+  await connection.add_listener("salesx_smartteam",receive)
+  try:
+   yield ": connected\\n\\n"
+   while True:
+    try:
+     event=await asyncio.wait_for(queue.get(),timeout=20)
+     yield "event: smartteam.changed\\ndata: "+json.dumps(event,default=str)+"\\n\\n"
+    except TimeoutError:
+     yield ": keep-alive\\n\\n"
+  finally:
+   await connection.remove_listener("salesx_smartteam",receive)
+ return StreamingResponse(stream(),media_type="text/event-stream",
+  headers={"Cache-Control":"no-cache, no-transform","X-Accel-Buffering":"no"})
 
 @router.get("/{organization_id}/smart-team/dashboard")
 async def dashboard(organization_id:UUID,principal:Principal=Depends(get_current_principal),
