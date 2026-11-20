@@ -588,17 +588,17 @@ class SmartTeamService:
                 "evidence_mime_not_allowed",
                 "Only JPEG, PNG or PDF visit evidence is accepted.",
             )
-        if not evidence_content_matches_mime(mime_type, content):
-            raise APIError(
-                415,
-                "evidence_content_mismatch",
-                "The uploaded file signature does not match its declared MIME type.",
-            )
         if not content or len(content) > 10 * 1024 * 1024:
             raise APIError(
                 413 if len(content) > 10 * 1024 * 1024 else 422,
                 "evidence_size_invalid",
                 "Evidence must be between 1 byte and 10 MiB.",
+            )
+        if not evidence_content_matches_mime(mime_type, content):
+            raise APIError(
+                415,
+                "evidence_content_mismatch",
+                "The uploaded file signature does not match its declared MIME type.",
             )
         try:
             await self.repository.ensure_visit_evidence_scope(
