@@ -67,6 +67,12 @@ class AttendanceCorrection(BaseModel):
     clock_out_at: datetime | None = None
     reason: str = Field(min_length=5, max_length=500)
 
+    @model_validator(mode="after")
+    def validate_time_range(self):
+        if self.clock_in_at is not None and self.clock_out_at is not None and self.clock_out_at < self.clock_in_at:
+            raise ValueError("clock_out_at must not precede clock_in_at")
+        return self
+
 
 class ActivityCreate(BaseModel):
     sales_profile_id: UUID
