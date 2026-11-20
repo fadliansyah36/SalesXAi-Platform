@@ -255,3 +255,8 @@ class PlatformSmartTeamOverviewResponse(BaseModel):
     active_shifts: int
     activities_30d: int
     active_targets: int
+
+
+class VisitAssign(BaseModel):
+    sales_profile_id: UUID
+    idempotency_key: str = Field(min_length=8, max_length=128)
