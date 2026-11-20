@@ -1,4 +1,4 @@
-export type { MasterDataChangedEvent, MasterDataResource, PlatformAuditLog, PlatformRole, PlatformUserSummary } from "@salesx-ai/api-contracts";
+export type { MasterDataChangedEvent, MasterDataResource, PlatformAuditLog, PlatformRole, PlatformUserSummary, SmartTeamActivity, SmartTeamAttendance, SmartTeamDashboard, SmartTeamLocationCapture, SmartTeamTarget, SmartTeamTargetUpdate, SmartTeamTargetWrite, SmartTeamVisit, SmartTeamVisitCreate } from "@salesx-ai/api-contracts";
 import type {
   AccountStatusUpdateRequest,
   AccountStatusUpdateResponse,
