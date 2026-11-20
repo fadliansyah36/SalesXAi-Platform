@@ -32,9 +32,12 @@ class SmartOrderService:
   if row is None: raise APIError(404,"product_not_found","Product was not found.")
   return row
 
- async def quote(self,db,organization_id,tenant,product_id,variant_id,quantity,customer_organization_id=None):
+ async def quote(self,db,organization_id,tenant,product_id,variant_id,quantity,customer_organization_id=None,channel=None):
   self._tenant(organization_id,tenant)
-  return await repo.price_quote(db,organization_id,product_id,variant_id,quantity,customer_organization_id)
+  if customer_organization_id and customer_organization_id!=organization_id:
+   linked=await db.fetchval("""select exists(select 1 from public.commerce_partner_links where organization_id=$1 and partner_organization_id=$2 and relationship_type='customer' and status='active' and starts_at<=now() and (ends_at is null or ends_at>now()))""",organization_id,customer_organization_id)
+   if not linked:raise APIError(403,"customer_relationship_required","Customer pricing requires an active partner relationship.")
+  return await repo.price_quote(db,organization_id,product_id,variant_id,quantity,customer_organization_id,channel)
 
  async def inventory(self,db,organization_id,tenant,variant_id=None,warehouse_id=None):
   self._tenant(organization_id,tenant)

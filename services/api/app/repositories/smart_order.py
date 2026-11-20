@@ -187,6 +187,7 @@ class SmartOrderRepository:
 
  async def create_order(self,db,org,actor,p,snapshot):
   async with db.transaction():
+   await db.execute("select pg_advisory_xact_lock(hashtextextended($1,0))",f"{org}:{actor}:{p.idempotency_key}")
    old=await db.fetchrow("select * from public.orders where organization_id=$1 and customer_user_id=$2 and idempotency_key=$3",org,actor,p.idempotency_key)
    if old:return dict(old)
    c=await db.fetchrow("select * from public.carts where organization_id=$1 and id=$2 and owner_user_id=$3 and status='active' and expires_at>now() for update",org,p.cart_id,actor)
@@ -221,6 +222,7 @@ class SmartOrderRepository:
   async with db.transaction():
    o=await db.fetchrow("select * from public.orders where organization_id=$1 and id=$2 and customer_user_id=$3 for update",org,oid,actor)
    if not o:raise APIError(404,"order_not_found","Order was not found.")
+   if o["status"] in {"pending_approval","approved","processing","fulfilled","completed"}:return await self.get_order(db,org,actor,oid)
    if o["status"]!="draft":raise APIError(409,"invalid_order_transition","Only a draft order can be submitted.")
    items=await db.fetch("select * from public.order_items where organization_id=$1 and order_id=$2 order by id",org,oid);alloc=[]
    for i in items:
@@ -241,7 +243,9 @@ class SmartOrderRepository:
    o=await db.fetchrow("select * from public.orders where organization_id=$1 and id=$2 for update",org,oid)
    if not o:raise APIError(404,"order_not_found","Order was not found.")
    prior=await db.fetchrow("select decision from public.order_approvals where organization_id=$1 and order_id=$2 and actor_user_id=$3",org,oid,actor)
-   if prior:return dict(o)
+   if prior:
+    if prior["decision"]!=p.decision:raise APIError(409,"approval_already_recorded","This actor has already recorded a different approval decision.")
+    return await self.get_order(db,org,actor,oid,True)
    if o["status"]!="pending_approval":raise APIError(409,"invalid_order_transition","Only pending approval orders can be decided.")
    policy=await db.fetchrow("""select * from public.order_approval_policies where organization_id=$1 and status='active'
     and minimum_total<=$2 and (maximum_total is null or maximum_total>=$2) order by minimum_total desc limit 1""",org,o["grand_total"])
@@ -273,6 +277,10 @@ class SmartOrderRepository:
     target="revision_requested" if p.decision=="revision_requested" else "rejected"
     if target=="revision_requested":
      await db.execute("update public.carts set status='active',version=version+1,updated_at=now() where organization_id=$1 and id=$2",org,o["cart_id"])
+   if target=="approved":
+    await db.execute("update public.promotion_redemptions set status='redeemed',redeemed_at=now() where organization_id=$1 and order_id=$2 and status='reserved'",org,oid)
+   elif target in {"rejected","revision_requested"}:
+    await db.execute("update public.promotion_redemptions set status='reversed',reversed_at=now() where organization_id=$1 and order_id=$2 and status in ('reserved','redeemed')",org,oid)
    await db.execute("update public.orders set status=$3,approved_at=case when $3='approved' then now() else approved_at end,updated_at=now() where id=$1 and organization_id=$2",oid,org,target)
    await db.execute("insert into public.order_status_history(organization_id,order_id,from_status,to_status,reason,actor_user_id) values($1,$2,'pending_approval',$3,$4,$5)",org,oid,target,p.reason,actor)
    await self.audit(db,org,actor,"order.approval."+p.decision,"order",oid,{"reason":p.reason,"required_approvals":required_count})
@@ -441,6 +449,7 @@ class SmartOrderRepository:
      await db.execute("update public.inventory_balances set committed=committed-$4,version=version+1,updated_at=now() where organization_id=$1 and warehouse_id=$2 and variant_id=$3 and committed >= $4",org,m["warehouse_id"],m["variant_id"],m["quantity"])
      await db.execute("""insert into public.stock_movements(organization_id,warehouse_id,product_id,variant_id,movement_type,quantity,committed_delta,reference_type,reference_id,reason,actor_user_id,idempotency_key)
       values($1,$2,$3,$4,'release',$5,-$5,'order',$6,$7,$8,$9)""",org,m["warehouse_id"],m["product_id"],m["variant_id"],m["quantity"],oid,reason,actor,f"order:{oid}:cancel:{m['variant_id']}")
+   await db.execute("update public.promotion_redemptions set status='reversed',reversed_at=now() where organization_id=$1 and order_id=$2 and status in ('reserved','redeemed')",org,oid)
    await db.execute("update public.orders set status='cancelled',cancelled_at=now(),updated_at=now() where id=$1",oid)
    await db.execute("insert into public.order_status_history(organization_id,order_id,from_status,to_status,reason,actor_user_id) values($1,$2,$3,'cancelled',$4,$5)",org,oid,o["status"],reason,actor)
    await self.audit(db,org,actor,"order.cancelled","order",oid,{"reason":reason})
