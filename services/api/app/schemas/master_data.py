@@ -1,8 +1,9 @@
+import json
 from datetime import date, datetime
 from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class MasterDataWrite(BaseModel):
@@ -27,6 +28,13 @@ class MasterDataWrite(BaseModel):
     latitude: float | None = Field(default=None, ge=-90, le=90)
     longitude: float | None = Field(default=None, ge=-180, le=180)
     boundary_geojson: dict[str, Any] | None = None
+
+    @field_validator("boundary_geojson", mode="before")
+    @classmethod
+    def parse_boundary_geojson(cls, value: Any) -> Any:
+        if isinstance(value, str):
+            return json.loads(value)
+        return value
     user_id: UUID | None = None
     employee_code: str | None = Field(default=None, max_length=60)
     team_id: UUID | None = None

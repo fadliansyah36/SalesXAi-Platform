@@ -13,6 +13,7 @@ from app.errors import APIError
 from app.schemas.master_data import MasterDataImportRequest, MasterDataWrite, OutletAssignmentCreate
 from app.security.dependencies import Principal, TenantContext, get_current_principal, require_api_action
 from app.services.master_data import master_data_service
+from app.repositories.master_data import RESOURCE_TABLES
 
 router = APIRouter(prefix="/organizations", tags=["master-data"])
 
@@ -170,9 +171,9 @@ async def export_master_data(organization_id: UUID, resource: str, tenant: Tenan
     output = io.StringIO()
     if not rows:
         return Response(content="", media_type="text/csv", headers={"Content-Disposition": f'attachment; filename="{resource}.csv"'})
-    fields = sorted({key for row in rows for key in row.keys()})
+    fields = sorted(RESOURCE_TABLES[resource] - {'membership_id'})
     writer = csv.DictWriter(output, fieldnames=fields, extrasaction="ignore")
     writer.writeheader()
     for row in rows:
-        writer.writerow({key: str(value) if value is not None else "" for key, value in row.items()})
+        writer.writerow({key: str(row.get(key)) if row.get(key) is not None else "" for key in fields})
     return Response(content=output.getvalue(), media_type="text/csv; charset=utf-8", headers={"Content-Disposition": f'attachment; filename="{resource}.csv"'})
