@@ -736,3 +736,53 @@ The four handler inventories now cover **1,619 callback/event prop occurrences a
 - No staging, production deployment, real-world testing, Product Owner Acceptance or provider credential population was performed.
 
 **Next phase: Phase 04 — SmartTeam: Visit, Attendance & Sales Operations.** Phase 04 may begin from this completed Phase 03 baseline.
+
+
+## Phase 04 — SmartTeam full implementation continuation — 2026-11-20
+
+**Current status: IN_PROGRESS — application work committed; Railway production provisioning remains blocked by workspace identity and current Web deployment boundary.** This entry supersedes the earlier Phase 03 “Next phase: Phase 04” note; Phase 03 remains COMPLETED.
+
+### Implemented and connected
+
+- FastAPI SmartTeam router, Pydantic schemas, application service and repository cover tenant-scoped visit planning/assignment/update/cancel, check-in/check-out, shift clock-in/clock-out, attendance correction/history, daily activities, target CRUD, evidence upload/list, dashboard and authorized event stream.
+- Existing Web surfaces consume the shared FastAPI client: Sales Portal at `/portal` (SmartTeam tab), Company Portal at `/company`, Supervisor Portal at `/supervisor`, and Super Admin global SmartTeam overview.
+- Expo Sales app consumes the same API contract. Assigned outlet/team/supervisor/territory context is shown from the Phase 03 API; SmartTeam includes shift/attendance, visits, daily activity, targets, visit timeline and evidence history.
+- Native field actions use SQLite outbox with idempotency, retry/backoff and foreground/resume synchronization. Evidence files are copied into app document storage before queuing; successful upload is deduplicated server-side by tenant + visit + SHA-256.
+- Visit outcome is selectable in Web and Mobile. Activity type `task` is accepted by the API schema, shared contract, Web and Mobile clients.
+- Evidence MIME validation checks JPEG/PNG/PDF file signatures before private Storage upload. Evidence metadata records uploader, MIME, byte size, digest and timestamp.
+- FastAPI Railway container and service config are present at `services/api/Dockerfile` and `services/api/railway.toml`; the API workflow now builds this container. EAS preview/production profiles select named EAS environments.
+
+### Database and security evidence
+
+- Supabase project: `eyofuiyxalbehbqoaeny`.
+- Applied migrations: **35 total**, including **9 Phase 04 migrations**. The Phase 04 migration files are named to match their applied migration versions:
+  - `20261120033210_p04_smartteam_operations`
+  - `20261120035216_p04_smartteam_offline_evidence`
+  - `20261120040009_p04_smartteam_event_stream_bridge`
+  - `20261120040308_p04_smartteam_private_realtime_scope`
+  - `20261120040825_p04_smartteam_storage_scope`
+  - `20261120040910_p04_smartteam_fk_indexes`
+  - `20261120041314_p04_smartteam_evidence_broadcast`
+  - `20261120041531_p04_smartteam_task_activity`
+  - `20261120043558_p04_smartteam_evidence_content_dedup`
+- Public tables: **25**; RLS-enabled public tables: **25/25**. SmartTeam tables: **7/7** with RLS. Private evidence Storage policy: **1**. SmartTeam trigger functions: **5**.
+- SmartTeam uses private tenant-scoped Supabase Broadcast (`realtime.send(..., true)`) and a PostgreSQL NOTIFY bridge consumed by the FastAPI SSE endpoint. Event payloads carry identifiers/status only; recipients are re-authorized server-side before delivery.
+- Supabase Security Advisor: **0 lints**.
+- Evidence content deduplication index `smartteam_visit_evidence_content_uidx` is present on `(organization_id, visit_id, sha256)`; no existing duplicate content groups were found before applying it.
+
+### Engineering validation
+
+- Foundation Verification run **44675962379** — SUCCESS on commit `3716b6072fe65d9daf20fbcab470590915415796`; includes Web typecheck/lint, native TypeScript, Expo dependency/config/Metro checks, Android/iOS bundle exports and workspace build.
+- API Checks run **44675962378** — SUCCESS on commit `3716b6072fe65d9daf20fbcab470590915415796`.
+- Latest API checks run **44676185657** on code commit `0f0d244e40fd412e5f64254b5153bb7ab961921b` were still running when this record was written; do not treat that run as passed until GitHub reports SUCCESS. The run includes Python unit tests, compileall, Ruff, Web typecheck/lint and Docker image build.
+- The previous run **44676028737** failed because the migration test still referenced the old evidence-dedup filename; the test path was corrected and the two previously mismatched applied migration filenames were aligned to their Supabase versions. The latest run is the verification of those corrections.
+
+### Railway and production blockers
+
+- Railway identity currently connected is **Arrohmaniyah** (`smpitarrohmaniyah2019@gmail.com`) with workspace `Arrohmaniyah's Projects` and unrelated project `heroic-expression`. No SalesXAi Railway service was created or modified.
+- The current source tree has one root Next.js app serving Website/Customer/Company/Sales/Distributor/Principal/Supervisor/Super Admin routes. The eight independent `apps/*-portal` roots listed in the Engineering Execution Plan do not exist. The deployment registry records the root Web app as the existing boundary. Creating eight Railway services against the same root would duplicate a monolith, not provide independent portal deployments; this has not been done.
+- `salesx-api` has a Dockerfile and Railway config but no Railway service/deployment ID, generated domain, or runtime health evidence yet.
+- Custom domains, DNS ownership and TLS remain unverified. EAS production API origins remain to be filled after the correct API domain is provisioned. SMTP/OAuth/provider credentials remain intentionally unset.
+- No staging environment, staging deployment, field test or Product Owner Acceptance gate was introduced.
+
+**Phase 04 is NOT COMPLETED.** Code-level work is substantially integrated, but the required production deployment cannot be completed until the Railway connector is switched to the intended SalesXAi workspace and the Web deployment boundary decision is resolved. Do not begin Phase 05 until Phase 04 is closed with the deployment status and remaining evidence recorded.
