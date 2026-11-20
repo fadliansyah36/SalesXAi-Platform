@@ -6,7 +6,7 @@ FULFILLMENT_TRANSITIONS = {
     "queued": frozenset({"picking", "cancelled"}),
     "picking": frozenset({"packed", "failed", "cancelled"}),
     "packed": frozenset({"handed_over", "failed", "cancelled"}),
-    "handed_over": frozenset({"delivered", "failed"}),
+    "handed_over": frozenset({"failed"}),
     "failed": frozenset({"picking"}),
     "cancelled": frozenset(),
     "delivered": frozenset(),
