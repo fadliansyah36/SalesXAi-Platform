@@ -1,6 +1,7 @@
 from __future__ import annotations
 from typing import Any
 from uuid import UUID
+import json
 import asyncpg
 
 class SmartTeamRepository:
@@ -72,10 +73,17 @@ class SmartTeamRepository:
             if profile is None: raise ValueError("sales_profile_not_found")
             if not await self.can_access_profile(connection,organization_id,data["sales_profile_id"],actor_id):
                 raise ValueError("profile_scope_forbidden")
-            outlet=await connection.fetchval(
-                "select exists(select 1 from public.outlets where organization_id=$1 and id=$2 and status='active')",
+            outlet=await connection.fetchrow(
+                "select branch_id,territory_id from public.outlets where organization_id=$1 and id=$2 and status='active'",
                 organization_id,data["outlet_id"])
-            if not outlet: raise ValueError("outlet_not_found")
+            if outlet is None: raise ValueError("outlet_not_found")
+            if profile["team_id"] is not None:
+                team=await connection.fetchrow("select branch_id from public.teams where organization_id=$1 and id=$2 and status='active'",organization_id,profile["team_id"])
+                if team is None: raise ValueError("sales_team_not_found")
+                if team["branch_id"] is not None and outlet["branch_id"]!=team["branch_id"]:
+                    raise ValueError("outlet_branch_mismatch")
+            if profile["territory_id"] is not None and outlet["territory_id"]!=profile["territory_id"]:
+                raise ValueError("outlet_territory_mismatch")
             assigned=await self.outlet_is_assigned(connection,organization_id,data["sales_profile_id"],data["outlet_id"])
             if not assigned: raise ValueError("outlet_not_assigned")
             row=await connection.fetchrow(
@@ -87,16 +95,21 @@ class SmartTeamRepository:
                 organization_id,data["sales_profile_id"],data["outlet_id"],actor_id,data["scheduled_at"],
                 data.get("window_end_at"),data.get("notes"),data["idempotency_key"])
             await connection.execute(
-                """insert into public.smartteam_visit_events(organization_id,visit_id,actor_user_id,event_type,to_status)
-                   values($1,$2,$3,'created',$4)""",organization_id,row["id"],actor_id,row["status"])
+                """insert into public.smartteam_visit_events(organization_id,visit_id,actor_user_id,event_type,to_status,idempotency_key,metadata)
+                   values($1,$2,$3,'created',$4,$5,$6::jsonb)""",organization_id,row["id"],actor_id,row["status"],data["idempotency_key"],
+                json.dumps({"sales_profile_id":str(data["sales_profile_id"]),"outlet_id":str(data["outlet_id"])}))
             return row
 
     async def visit(self, connection: asyncpg.Connection, organization_id: UUID, visit_id: UUID):
         return await connection.fetchrow(
             "select * from public.smartteam_visits where organization_id=$1 and id=$2",organization_id,visit_id)
 
-    async def check_in(self, connection: asyncpg.Connection, organization_id: UUID, actor_id: UUID, visit_id: UUID, location: dict[str,Any]):
+    async def check_in(self, connection: asyncpg.Connection, organization_id: UUID, actor_id: UUID, visit_id: UUID, location: dict[str,Any], idempotency_key: str):
         async with connection.transaction():
+            prior=await connection.fetchrow("select visit_id,event_type from public.smartteam_visit_events where organization_id=$1 and idempotency_key=$2",organization_id,idempotency_key)
+            if prior:
+                if prior["visit_id"]!=visit_id or prior["event_type"]!="checked_in": raise ValueError("idempotency_conflict")
+                return await self.visit(connection,organization_id,visit_id)
             row=await self.visit(connection,organization_id,visit_id)
             if row is None: raise ValueError("visit_not_found")
             if row["status"] not in ("scheduled","assigned"): raise ValueError("visit_transition_invalid")
@@ -111,12 +124,18 @@ class SmartTeamRepository:
                 organization_id,visit_id,location["latitude"],location["longitude"],location["accuracy_m"],location["source"])
             if updated is None: raise ValueError("visit_already_checked_in")
             await connection.execute(
-                """insert into public.smartteam_visit_events(organization_id,visit_id,actor_user_id,event_type,from_status,to_status)
-                   values($1,$2,$3,'checked_in',$4,$5)""",organization_id,visit_id,actor_id,row["status"],updated["status"])
+                """insert into public.smartteam_visit_events(organization_id,visit_id,actor_user_id,event_type,from_status,to_status,idempotency_key,metadata)
+                   values($1,$2,$3,'checked_in',$4,$5,$6,$7::jsonb)""",organization_id,visit_id,actor_id,row["status"],updated["status"],idempotency_key,
+                json.dumps({"captured_at":location.get("captured_at").isoformat() if location.get("captured_at") else None,
+                            "latitude":location["latitude"],"longitude":location["longitude"],"accuracy_m":location["accuracy_m"],"source":location["source"]}))
             return updated
 
-    async def check_out(self, connection: asyncpg.Connection, organization_id: UUID, actor_id: UUID, visit_id: UUID, location: dict[str,Any], outcome: str | None, notes: str | None):
+    async def check_out(self, connection: asyncpg.Connection, organization_id: UUID, actor_id: UUID, visit_id: UUID, location: dict[str,Any], outcome: str | None, notes: str | None, idempotency_key: str):
         async with connection.transaction():
+            prior=await connection.fetchrow("select visit_id,event_type from public.smartteam_visit_events where organization_id=$1 and idempotency_key=$2",organization_id,idempotency_key)
+            if prior:
+                if prior["visit_id"]!=visit_id or prior["event_type"]!="checked_out": raise ValueError("idempotency_conflict")
+                return await self.visit(connection,organization_id,visit_id)
             row=await self.visit(connection,organization_id,visit_id)
             if row is None: raise ValueError("visit_not_found")
             if row["status"]!="in_progress" or row["check_in_at"] is None: raise ValueError("visit_transition_invalid")
