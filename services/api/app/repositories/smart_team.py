@@ -434,4 +434,18 @@ class SmartTeamRepository:
                updated_by=$6,updated_at=now() where organization_id=$1 and id=$2 returning *""",
             organization_id,target_id,start,end,data.get("target_value"),actor_id)
 
+
+    async def platform_overview(self, connection: asyncpg.Connection, limit: int, offset: int):
+        return await connection.fetch(
+            """select o.id organization_id,o.name organization_name,o.status organization_status,
+                (select count(*) from public.smartteam_visits v where v.organization_id=o.id) visits_total,
+                (select count(*) from public.smartteam_visits v where v.organization_id=o.id and v.status='in_progress') visits_in_progress,
+                (select count(*) from public.smartteam_visits v where v.organization_id=o.id and v.status='completed') visits_completed,
+                (select count(*) from public.smartteam_shifts sh where sh.organization_id=o.id and sh.shift_date>=current_date-30) attendance_30d,
+                (select count(*) from public.smartteam_shifts sh where sh.organization_id=o.id and sh.status='active') active_shifts,
+                (select count(*) from public.smartteam_activities a where a.organization_id=o.id and a.created_at>=now()-interval '30 days') activities_30d,
+                (select count(*) from public.smartteam_targets t where t.organization_id=o.id and current_date between t.period_start and t.period_end) active_targets
+               from public.organizations o
+               order by o.name asc limit $1 offset $2""",limit,offset)
+
 smart_team_repository=SmartTeamRepository()
