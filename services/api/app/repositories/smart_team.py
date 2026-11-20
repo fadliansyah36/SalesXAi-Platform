@@ -275,7 +275,7 @@ class SmartTeamRepository:
             if not team_allowed: raise ValueError("profile_scope_forbidden")
         if scope_field=="branch_id":
             branch_allowed=await connection.fetchval("""select exists(select 1 from public.organization_memberships m join public.user_role_assignments ura on ura.membership_id=m.id join public.roles r on r.id=ura.role_id
-              where m.organization_id=$1 and m.user_id=$3 and m.status='active' and r.key in ('company_admin','tenant_owner','platform_admin') and ura.revoked_at is null)""",organization_id,actor_id)
+              where m.organization_id=$1 and m.user_id=$2 and m.status='active' and r.key in ('company_admin','tenant_owner','platform_admin') and ura.revoked_at is null)""",organization_id,actor_id)
             if not branch_allowed: raise ValueError("profile_scope_forbidden")
         return await connection.fetchrow(
             """insert into public.smartteam_targets(organization_id,sales_profile_id,team_id,branch_id,metric_key,period_start,period_end,target_value,created_by,updated_by)
