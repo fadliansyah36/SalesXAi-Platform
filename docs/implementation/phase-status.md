@@ -4,7 +4,7 @@ Target repository: fadliansyah36/SalesXAi-Platform
 Branch: main
 Supabase project ref: eyofuiyxalbehbqoaeny
 
-## Current authoritative status — 2026-11-20
+## Current authoritative status — 2026-11-20 (cross-tenant schema foundation applied)
 
 | Phase | Current status |
 |---|---|
@@ -15,7 +15,7 @@ Supabase project ref: eyofuiyxalbehbqoaeny
 | Phase 04 — SmartTeam Operations | COMPLETED — closure addendum supersedes historical entries below |
 | Phase 05 — SmartOrder | IN_PROGRESS — NOT COMPLETED; cross-tenant cart/inventory/fulfillment model remains a blocker |
 
-**Migration ledger:** 47 remote applied versions and 47 local migration files, all version/name pairs matching exactly: Phase 00 = 2, Phase 02 = 14, Phase 03 = 10, Phase 04 = 10, Phase 05 = 11. No historical migration was edited or replayed.
+**Migration ledger:** 49 remote applied versions and 49 local migration files, all version/name pairs matching exactly: Phase 00 = 2, Phase 02 = 14, Phase 03 = 10, Phase 04 = 10, Phase 05 = 11. No historical migration was edited or replayed.
 
 **Live database:** 55/55 public tables have RLS enabled and 55 public policies are present, with 281 public indexes. The 30 SmartOrder tables have 30 explicit RLS policies; 27 SmartOrder broadcast triggers and 3 private `realtime.messages` policies are installed. Supabase Security Advisor reports zero lints and Performance Advisor now reports zero unindexed foreign keys; unused-index notices are informational on the newly created low-volume schema. The private SmartTeam evidence bucket remains private. Security Advisor is not re-queried in this Phase 05 continuation.
 
@@ -1235,3 +1235,12 @@ Four target Railway services and their actual Default Domains:
 ## Phase 05 — SmartOrder current execution status (2026-11-20)
 
 See `docs/implementation/phase-05-smartorder-status.md` for the current implementation inventory, migration ledger, validation evidence, and explicit blockers. This entry supersedes all older Phase 05 LOCKED / not-started snapshots in this file. Phase 05 is active but is **not completed**.
+
+
+### Phase 05 cross-tenant schema continuation — 2026-11-20
+
+- Added and applied `20261120170000_p05_cross_tenant_commerce_ownership` and `20261120170500_p05_cross_tenant_owner_scope_compat` to Supabase project `eyofuiyxalbehbqoaeny`.
+- Added explicit product-owner identity to cart items, order items, inventory balances and stock movements; added fulfillment-owner identity; replaced same-tenant product/warehouse foreign keys with owner-scoped composite references.
+- Added `order_item_fulfillment_allocations` with deny-client RLS and service-role-only grants.
+- Live database now reports 56 public tables, 56 RLS-enabled tables, 56 public policies and 291 public indexes. Remote migration ledger contains 49 applied versions.
+- **Important: schema foundation only.** Existing FastAPI repository queries, partner-order authorization, cross-tenant reservation/commit/release, split fulfillment allocation, shared API contracts and portal/Expo consumers have not yet been completed against the new owner columns. Phase 05 remains IN_PROGRESS; Phase 06 remains LOCKED.
