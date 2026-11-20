@@ -2,7 +2,7 @@
 import {useCallback,useEffect,useMemo,useState} from "react";
 import {CheckCircle2,Package,RefreshCw,Search,Warehouse} from "lucide-react";
 import {useSalesXAuth} from "@/components/providers/AppProviders";
-import type {SmartOrderProduct,SmartOrderOrder,SmartOrderInventoryBalance,SmartOrderCart,SmartOrderPromotion,SmartOrderWarehouse,SmartOrderPriceList} from "@salesx-ai/api-client";
+import type {SmartOrderProduct,SmartOrderOrder,SmartOrderInventoryBalance,SmartOrderCart,SmartOrderPromotion,SmartOrderWarehouse,SmartOrderPriceList,SmartOrderPartnerOrganization} from "@salesx-ai/api-client";
 
 const rupiah=(value:unknown)=>new Intl.NumberFormat("id-ID",{style:"currency",currency:"IDR",maximumFractionDigits:0}).format(Number(value??0));
 const errorText=(e:unknown)=>e instanceof Error?e.message:"Permintaan SmartOrder gagal.";
@@ -12,7 +12,7 @@ export function SmartOrderWorkspace(){
  const [tab,setTab]=useState<"catalog"|"cart"|"orders"|"inventory"|"promotions">("catalog");
  const [products,setProducts]=useState<SmartOrderProduct[]>([]);const [cart,setCart]=useState<SmartOrderCart|null>(null);
  const [orders,setOrders]=useState<SmartOrderOrder[]>([]);const [operations,setOperations]=useState<SmartOrderOrder[]>([]);
- const [inventory,setInventory]=useState<SmartOrderInventoryBalance[]>([]);const [promotions,setPromotions]=useState<SmartOrderPromotion[]>([]);const [warehouses,setWarehouses]=useState<SmartOrderWarehouse[]>([]);const [priceLists,setPriceLists]=useState<SmartOrderPriceList[]>([]);
+ const [inventory,setInventory]=useState<SmartOrderInventoryBalance[]>([]);const [promotions,setPromotions]=useState<SmartOrderPromotion[]>([]);const [warehouses,setWarehouses]=useState<SmartOrderWarehouse[]>([]);const [priceLists,setPriceLists]=useState<SmartOrderPriceList[]>([]);const [partners,setPartners]=useState<SmartOrderPartnerOrganization[]>([]);const [selectedCustomer,setSelectedCustomer]=useState("");
  const [search,setSearch]=useState("");const [busy,setBusy]=useState(false);const [error,setError]=useState("");const [notice,setNotice]=useState("");
  const [productCode,setProductCode]=useState("");const [productName,setProductName]=useState("");const [sku,setSku]=useState("");
  const [warehouseCode,setWarehouseCode]=useState("");const [warehouseName,setWarehouseName]=useState("");const [selectedWarehouse,setSelectedWarehouse]=useState("");const [stockQuantity,setStockQuantity]=useState("1");
@@ -28,10 +28,12 @@ export function SmartOrderWorkspace(){
  const canManageInventory=auth.canPerformApiAction("smartorder.inventory.movement.create");
  const canManagePricing=auth.canPerformApiAction("smartorder.pricing.list.create");
  const canManagePromotions=auth.canPerformApiAction("smartorder.promotions.create");
+ const canAssist=auth.canPerformApiAction("smartorder.cart.assisted_customer");
  const load=useCallback(async()=>{
   if(!api||!organizationId||auth.status!=="authenticated")return;
   setError("");const jobs:Promise<void>[]=[];
   if(canCatalog)jobs.push(api.listSmartOrderProducts(organizationId,{search:search||undefined,page:1,pageSize:40}).then(r=>setProducts(r.items)));
+  if(canAssist)jobs.push(api.listSmartOrderPartnerOrganizations(organizationId).then(setPartners));
   if(auth.canPerformApiAction("smartorder.cart.read"))jobs.push(api.getSmartOrderCart(organizationId).then(setCart));
   if(auth.canPerformApiAction("smartorder.orders.mine.read"))jobs.push(api.listMySmartOrderOrders(organizationId,1,30).then(r=>setOrders(r.items)));
   if(canOperations)jobs.push(api.listSmartOrderOperations(organizationId,1,50).then(r=>setOperations(r.items)));
@@ -40,7 +42,7 @@ export function SmartOrderWorkspace(){
   if(canPromotions)jobs.push(api.listSmartOrderPromotions(organizationId).then(setPromotions));
   const results=await Promise.allSettled(jobs);const failed=results.find(x=>x.status==="rejected");
   if(failed&&failed.status==="rejected")setError(errorText(failed.reason));
- },[api,organizationId,auth.status,auth.canPerformApiAction,canCatalog,canInventory,canPromotions,canOperations,canManagePricing,search]);
+ },[api,organizationId,auth.status,auth.canPerformApiAction,canCatalog,canInventory,canPromotions,canOperations,canManagePricing,canAssist,search]);
  useEffect(()=>{void load();},[load]);
  const cartItems=cart?.items??[];
  const cartTotal=useMemo(()=>cartItems.reduce((sum,item)=>sum+Number((item as Record<string,any>).line_subtotal??0),0),[cartItems]);
@@ -50,7 +52,7 @@ export function SmartOrderWorkspace(){
  };
  const addToCart=async(product:SmartOrderProduct,variantId:string)=>{
   if(!api||!organizationId)return;
-  await run(()=>api.addSmartOrderCartItem(organizationId,{product_id:product.id,variant_id:variantId,quantity:1}),"SKU ditambahkan. Harga dihitung oleh FastAPI.");
+  await run(async()=>{if(canAssist){if(!selectedCustomer)throw new Error("Pilih customer terlebih dahulu untuk sales-assisted order.");await api.setSmartOrderAssistedCustomer(organizationId,selectedCustomer);}await api.addSmartOrderCartItem(organizationId,{product_id:product.id,variant_id:variantId,quantity:1});},"SKU ditambahkan. Harga dihitung oleh FastAPI.");
  };
  const checkout=async()=>{
   if(!api||!organizationId||!cart?.cart?.id)return;
@@ -65,6 +67,7 @@ export function SmartOrderWorkspace(){
   {notice&&<p role="status" className="rounded-xl border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-800">{notice}</p>}
   {tab==="catalog"&&<section className="space-y-4">
    <div className="flex flex-wrap items-center justify-between gap-3"><label className="flex min-w-[220px] flex-1 items-center gap-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2"><Search className="h-4 w-4 text-[var(--color-text-muted)]"/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Cari nama, kode produk..." className="w-full bg-transparent text-sm outline-none"/></label><span className="text-xs text-[var(--color-text-muted)]">{products.length} produk · {priceLists.length} price list</span></div>
+   {canAssist&&<div className="flex flex-wrap items-center gap-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-3"><span className="text-xs font-semibold">Customer order:</span><select value={selectedCustomer} onChange={e=>setSelectedCustomer(e.target.value)} className="min-w-[220px] flex-1 rounded-lg border border-[var(--color-border)] bg-transparent px-3 py-2 text-sm"><option value="">Pilih customer aktif</option>{partners.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select><button type="button" disabled={busy||!selectedCustomer} onClick={()=>void run(()=>api.setSmartOrderAssistedCustomer(organizationId,selectedCustomer),"Customer ditautkan ke cart sales-assisted.")} className="rounded-lg bg-[#194F70] px-3 py-2 text-xs font-semibold text-white">Gunakan customer</button></div>}
    {canCreateProduct&&<form onSubmit={e=>{e.preventDefault();void run(()=>api.createSmartOrderProduct(organizationId,{product_code:productCode,name:productName,status:"published",variants:[{sku,name:"Default"}]}).then(()=>{setProductCode("");setProductName("");setSku("");}),"Product master berhasil dibuat.");}} className="grid gap-2 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 sm:grid-cols-[1fr_1fr_1fr_auto]"><input required value={productCode} onChange={e=>setProductCode(e.target.value)} placeholder="Kode produk" className="rounded-lg border border-[var(--color-border)] bg-transparent px-3 py-2 text-sm"/><input required value={productName} onChange={e=>setProductName(e.target.value)} placeholder="Nama produk" className="rounded-lg border border-[var(--color-border)] bg-transparent px-3 py-2 text-sm"/><input required value={sku} onChange={e=>setSku(e.target.value)} placeholder="SKU unik" className="rounded-lg border border-[var(--color-border)] bg-transparent px-3 py-2 text-sm"/><button disabled={busy||!sku} className="rounded-lg bg-[#194F70] px-4 py-2 text-sm font-semibold text-white">Tambah produk</button></form>}
    {canManagePricing&&products.some(p=>p.variants.length>0)&&<form onSubmit={e=>{e.preventDefault();const product=products.find(p=>p.variants.length>0);const variant=product?.variants[0];if(!product||!variant)return;void run(()=>api.createSmartOrderPriceList(organizationId,{code:priceCode,name:priceName,currency:"IDR",scope_type:"tenant",priority:10,effective_from:new Date().toISOString(),status:"active",prices:[{product_id:product.id,variant_id:variant.id,unit_price:Number(unitPrice),minimum_quantity:1}]}).then(()=>{setPriceCode("");setPriceName("");setUnitPrice("");}),"Price list dan harga SKU berhasil dibuat.");}} className="grid gap-2 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 sm:grid-cols-4"><input required value={priceCode} onChange={e=>setPriceCode(e.target.value)} placeholder="Kode price list" className="rounded-lg border border-[var(--color-border)] bg-transparent px-3 py-2 text-sm"/><input required value={priceName} onChange={e=>setPriceName(e.target.value)} placeholder="Nama price list" className="rounded-lg border border-[var(--color-border)] bg-transparent px-3 py-2 text-sm"/><input required type="number" min="0" value={unitPrice} onChange={e=>setUnitPrice(e.target.value)} placeholder="Harga SKU pertama" className="rounded-lg border border-[var(--color-border)] bg-transparent px-3 py-2 text-sm"/><button disabled={busy||!unitPrice} className="rounded-lg bg-[#194F70] px-4 py-2 text-sm font-semibold text-white">Buat price list</button></form>}
    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{products.map(product=><article key={product.id} className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4"><div className="flex items-start justify-between gap-2"><div className="flex items-center gap-2"><Package className="h-5 w-5 text-[#348CB2]"/><div><h3 className="font-semibold">{product.name}</h3><p className="text-xs text-[var(--color-text-muted)]">{product.product_code}</p></div></div><span className="rounded-full bg-[var(--color-surface-muted)] px-2 py-1 text-[10px]">{product.status}</span></div><div className="mt-3 space-y-2">{product.variants.map(variant=><div key={variant.id} className="flex items-center justify-between gap-2 border-t border-[var(--color-border)] pt-2"><div><p className="text-sm font-medium">{variant.name}</p><p className="text-xs text-[var(--color-text-muted)]">{variant.sku}</p></div><button type="button" disabled={busy||!auth.canPerformApiAction("smartorder.cart.item.upsert")} onClick={()=>void addToCart(product,variant.id)} className="rounded-lg bg-[#194F70] px-3 py-2 text-xs font-semibold text-white disabled:opacity-40">Tambah</button></div>)}</div></article>)}</div>

@@ -191,3 +191,13 @@ class ProductImageWrite(BaseModel):
     size_bytes: int = Field(gt=0, le=10485760)
     alt_text: str | None = Field(default=None, max_length=240)
     sort_order: int = 0
+
+class PartnerLinkWrite(BaseModel):
+    partner_organization_id: UUID
+    relationship_type: Literal["principal", "distributor", "customer"]
+    starts_at: str
+    ends_at: str | None = None
+
+
+class AssistedCartWrite(BaseModel):
+    customer_organization_id: UUID

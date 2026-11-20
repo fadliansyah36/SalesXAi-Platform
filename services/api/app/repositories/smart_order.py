@@ -410,6 +410,41 @@ class SmartOrderRepository:
    await self.audit(db,org,actor,"order.cancelled","order",oid,{"reason":reason})
   return await self.get_order(db,org,actor,oid,True)
 
+
+ async def list_partner_organizations(self,db,org):
+  rows=await db.fetch("""select o.id,o.slug,o.name,pl.relationship_type,pl.starts_at,pl.ends_at
+   from public.commerce_partner_links pl join public.organizations o on o.id=pl.partner_organization_id
+   where pl.organization_id=$1 and pl.relationship_type='customer' and pl.status='active'
+   and pl.starts_at<=now() and (pl.ends_at is null or pl.ends_at>now()) and o.status='active' order by o.name""",org)
+  return [dict(x) for x in rows]
+
+ async def create_partner_link(self,db,org,actor,p):
+  if p.partner_organization_id==org:raise APIError(422,"invalid_partner","Partner organization must differ from current tenant.")
+  async with db.transaction():
+   active=await db.fetchval("select exists(select 1 from public.organizations where id=$1 and status='active')",p.partner_organization_id)
+   if not active:raise APIError(404,"partner_organization_not_found","Partner organization is not active.")
+   r=await db.fetchrow("""insert into public.commerce_partner_links(organization_id,partner_organization_id,relationship_type,status,starts_at,ends_at,created_by)
+    values($1,$2,$3,'active',$4::timestamptz,$5::timestamptz,$6) returning *""",org,p.partner_organization_id,p.relationship_type,p.starts_at,p.ends_at,actor)
+   await self.audit(db,org,actor,"commerce.partner_link.created","commerce_partner_link",r["id"],{"partner_organization_id":str(p.partner_organization_id),"relationship_type":p.relationship_type})
+  return dict(r)
+
+ async def set_assisted_customer(self,db,org,actor,p):
+  if p.customer_organization_id==org:raise APIError(422,"invalid_customer_organization","Assisted customer must be a different organization.")
+  linked=await db.fetchval("""select exists(select 1 from public.commerce_partner_links where organization_id=$1 and partner_organization_id=$2 and relationship_type='customer' and status='active' and starts_at<=now() and (ends_at is null or ends_at>now()))""",org,p.customer_organization_id)
+  if not linked:raise APIError(403,"customer_relationship_required","Customer must be an active linked partner organization.")
+  async with db.transaction():
+   cart=await db.fetchrow("select * from public.carts where organization_id=$1 and owner_user_id=$2 and status='active' and expires_at>now() for update",org,actor)
+   if cart is None:
+    cart=await db.fetchrow("""insert into public.carts(organization_id,owner_user_id,customer_organization_id,channel)
+      values($1,$2,$3,'sales_assisted') returning *""",org,actor,p.customer_organization_id)
+   else:
+    if await db.fetchval("select exists(select 1 from public.cart_items where organization_id=$1 and cart_id=$2)",org,cart["id"]):
+     raise APIError(409,"cart_not_empty","Customer context cannot change after items are added to the cart.")
+    cart=await db.fetchrow("""update public.carts set customer_organization_id=$3,channel='sales_assisted',version=version+1,updated_at=now()
+      where organization_id=$1 and id=$2 returning *""",org,cart["id"],p.customer_organization_id)
+   await self.audit(db,org,actor,"cart.assisted_customer.set","cart",cart["id"],{"customer_organization_id":str(p.customer_organization_id)})
+  return dict(cart)
+
  async def audit(self,db,org,actor,action,kind,rid,metadata):
   await db.execute("insert into public.commerce_audit_events(organization_id,actor_user_id,action,resource_type,resource_id,metadata) values($1,$2,$3,$4,$5,$6::jsonb)",org,actor,action,kind,rid,json.dumps(metadata,default=str))
 

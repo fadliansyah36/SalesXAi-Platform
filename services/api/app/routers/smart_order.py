@@ -5,10 +5,23 @@ from app.errors import APIError
 import asyncpg
 from app.db import get_connection
 from app.security.dependencies import Principal, TenantContext, get_current_principal, require_api_action
-from app.schemas.smart_order import ProductWrite, ProductStatusWrite, CartItemWrite, CartItemUpdate, StockMovementWrite, PromotionWrite, PromotionEvaluation, OrderCreate, OrderDecision, FulfillmentCreate, FulfillmentUpdate, PriceListWrite, WarehouseWrite, CategoryWrite, BrandWrite, UnitWrite, CatalogAccessWrite, StockTransferWrite, OrderCancel, ProductImageWrite
+from app.schemas.smart_order import ProductWrite, ProductStatusWrite, CartItemWrite, CartItemUpdate, StockMovementWrite, PromotionWrite, PromotionEvaluation, OrderCreate, OrderDecision, FulfillmentCreate, FulfillmentUpdate, PriceListWrite, WarehouseWrite, CategoryWrite, BrandWrite, UnitWrite, CatalogAccessWrite, StockTransferWrite, OrderCancel, ProductImageWrite, PartnerLinkWrite, AssistedCartWrite
 from app.services.smart_order import smart_order_service
 
 router=APIRouter(prefix="/organizations",tags=["smart-order"])
+
+
+@router.get("/{organization_id}/smart-order/partner-organizations")
+async def list_partner_organizations(organization_id:UUID,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartorder.partners.read")),db:asyncpg.Connection=Depends(get_connection)):
+ return await smart_order_service.partner_organizations(db,organization_id,tenant)
+
+@router.post("/{organization_id}/smart-order/partner-links",status_code=201)
+async def create_partner_link(organization_id:UUID,payload:PartnerLinkWrite,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartorder.partners.create")),db:asyncpg.Connection=Depends(get_connection)):
+ return await smart_order_service.create_partner_link(db,organization_id,tenant,principal.user_id,payload)
+
+@router.post("/{organization_id}/smart-order/cart/assisted-customer")
+async def set_assisted_customer(organization_id:UUID,payload:AssistedCartWrite,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartorder.cart.assisted_customer")),db:asyncpg.Connection=Depends(get_connection)):
+ return await smart_order_service.set_assisted_customer(db,organization_id,tenant,principal.user_id,payload)
 
 @router.get("/{organization_id}/smart-order/catalog/products")
 async def list_products(organization_id:UUID,search:str|None=None,category_id:UUID|None=None,page:int=Query(1,ge=1),page_size:int=Query(24,ge=1,le=100),principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartorder.catalog.products.read")),db:asyncpg.Connection=Depends(get_connection)):

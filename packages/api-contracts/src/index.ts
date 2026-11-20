@@ -309,3 +309,7 @@ export interface SmartOrderCatalogAccessWrite {consumer_organization_id:UUID;pro
 export interface SmartOrderStockTransferWrite {from_warehouse_id:UUID;to_warehouse_id:UUID;product_id:UUID;variant_id:UUID;quantity:number;reason:string;idempotency_key:string;}
 export interface SmartOrderProductImageWrite {product_id:UUID;variant_id?:UUID|null;storage_path:string;mime_type:"image/jpeg"|"image/png"|"image/webp";size_bytes:number;alt_text?:string|null;sort_order?:number;}
 export interface SmartOrderOrderCancel {reason:string;}
+
+export interface SmartOrderPartnerOrganization {id:UUID;slug:string;name:string;relationship_type:"principal"|"distributor"|"customer";starts_at:string;ends_at?:string|null;}
+export interface SmartOrderPartnerLinkWrite {partner_organization_id:UUID;relationship_type:"principal"|"distributor"|"customer";starts_at:string;ends_at?:string|null;}
+export interface SmartOrderAssistedCartWrite {customer_organization_id:UUID;}

@@ -171,4 +171,18 @@ class SmartOrderService:
   self._tenant(organization_id,tenant)
   return await repo.cancel_order(db,organization_id,actor,order_id,reason)
 
+
+ async def partner_organizations(self,db,organization_id,tenant):
+  self._tenant(organization_id,tenant)
+  return await repo.list_partner_organizations(db,organization_id)
+
+ async def create_partner_link(self,db,organization_id,tenant,actor,payload):
+  self._tenant(organization_id,tenant)
+  try:return await repo.create_partner_link(db,organization_id,actor,payload)
+  except asyncpg.UniqueViolationError as exc:raise APIError(409,"partner_link_conflict","Partner relationship already exists.") from exc
+
+ async def set_assisted_customer(self,db,organization_id,tenant,actor,payload):
+  self._tenant(organization_id,tenant)
+  return await repo.set_assisted_customer(db,organization_id,actor,payload)
+
 smart_order_service=SmartOrderService()

@@ -996,6 +996,10 @@ API_ACTION_MATRIX: tuple[ApiActionContract, ...] = (
     ApiActionContract("smartorder.warehouses.create", "POST", "/api/v1/organizations/{organization_id}/smart-order/warehouses", "smartorder", "create_warehouse", "warehouse", "tenant_permission:commerce:inventory:manage", "commerce:inventory:manage", "tenant", "tenant_permission_and_resource_tenant_match"),
     ApiActionContract("smartorder.inventory.transfer", "POST", "/api/v1/organizations/{organization_id}/smart-order/inventory/transfers", "smartorder", "transfer_stock", "stock_transfer", "tenant_permission:commerce:inventory:manage", "commerce:inventory:manage", "tenant", "tenant_permission_and_resource_tenant_match"),
     ApiActionContract("smartorder.orders.cancel", "POST", "/api/v1/organizations/{organization_id}/smart-order/orders/{order_id}/cancel", "smartorder", "cancel_order", "order", "tenant_permission:commerce:order:cancel", "commerce:order:cancel", "tenant", "tenant_permission_and_resource_tenant_match"),
+
+    ApiActionContract("smartorder.partners.read","GET","/api/v1/organizations/{organization_id}/smart-order/partner-organizations","smartorder","read_partner_organizations","partner_organization","tenant_permission:commerce:catalog:read","commerce:catalog:read","tenant","tenant_permission_and_resource_tenant_match"),
+    ApiActionContract("smartorder.partners.create","POST","/api/v1/organizations/{organization_id}/smart-order/partner-links","smartorder","create_partner_link","commerce_partner_link","tenant_permission:commerce:catalog:manage","commerce:catalog:manage","tenant","tenant_permission_and_resource_tenant_match"),
+    ApiActionContract("smartorder.cart.assisted_customer","POST","/api/v1/organizations/{organization_id}/smart-order/cart/assisted-customer","smartorder","set_assisted_customer","cart","tenant_permission:commerce:cart:assisted","commerce:cart:assisted","tenant","tenant_permission_and_resource_tenant_match"),
 )
 
 
