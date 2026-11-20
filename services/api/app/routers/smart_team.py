@@ -19,6 +19,18 @@ async def update_visit(organization_id:UUID,visit_id:UUID,payload:VisitUpdate,re
  tenant:TenantContext=Depends(require_api_action("smartteam.visits.manage")),connection:asyncpg.Connection=Depends(get_connection)):
  return await smart_team_service.update_visit(connection,request,organization_id,tenant,principal,visit_id,payload.model_dump(exclude_unset=True))
 
+
+@router.post("/{organization_id}/smart-team/visits/{visit_id}/evidence",status_code=201)
+async def upload_visit_evidence(organization_id:UUID,visit_id:UUID,request:Request,principal:Principal=Depends(get_current_principal),
+ tenant:TenantContext=Depends(require_api_action("smartteam.visits.evidence.upload")),connection:asyncpg.Connection=Depends(get_connection)):
+ content=await request.body()
+ return await smart_team_service.upload_visit_evidence(connection,request,organization_id,tenant,principal,visit_id,request.headers.get("content-type","").split(";")[0].strip().lower(),content)
+
+@router.get("/{organization_id}/smart-team/visits/{visit_id}/evidence")
+async def list_visit_evidence(organization_id:UUID,visit_id:UUID,principal:Principal=Depends(get_current_principal),
+ tenant:TenantContext=Depends(require_api_action("smartteam.visits.evidence.read")),connection:asyncpg.Connection=Depends(get_connection)):
+ return await smart_team_service.list_visit_evidence(connection,organization_id,tenant,principal,visit_id)
+
 @router.get("/{organization_id}/smart-team/visits/{visit_id}/history")
 async def visit_history(organization_id:UUID,visit_id:UUID,principal:Principal=Depends(get_current_principal),
  tenant:TenantContext=Depends(require_api_action("smartteam.visits.history")),connection:asyncpg.Connection=Depends(get_connection)):
