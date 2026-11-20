@@ -129,6 +129,10 @@ class SmartOrderService:
   self._tenant(organization_id,tenant)
   return await repo.list_partner_orders(db,organization_id,page,page_size,status)
 
+ async def decide_partner_order(self,db,organization_id,tenant,actor,order_id,payload):
+  self._tenant(organization_id,tenant)
+  return await repo.decide_partner_order(db,organization_id,actor,order_id,payload)
+
  async def get_partner_order(self,db,organization_id,tenant,order_id):
   self._tenant(organization_id,tenant)
   row=await repo.get_partner_order(db,organization_id,order_id)
