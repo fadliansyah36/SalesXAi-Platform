@@ -45,7 +45,8 @@ async def create_unit(organization_id:UUID,payload:UnitWrite,principal:Principal
 
 @router.post("/{organization_id}/smart-order/products/{product_id}/images",status_code=201)
 async def register_product_image(organization_id:UUID,product_id:UUID,payload:ProductImageWrite,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartorder.catalog.image.create")),db:asyncpg.Connection=Depends(get_connection)):
- if payload.product_id!=product_id: raise APIError(422,"product_image_path_mismatch","Product image payload must match the route product.")
+ if payload.product_id!=product_id:
+  raise APIError(422,"product_image_path_mismatch","Product image payload must match the route product.")
  return await smart_order_service.create_product_image(db,organization_id,tenant,principal.user_id,payload)
 
 @router.post("/{organization_id}/smart-order/catalog/access",status_code=201)

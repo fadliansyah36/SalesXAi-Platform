@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 from decimal import Decimal, ROUND_HALF_UP
 from uuid import uuid4
-import asyncpg
 from app.errors import APIError
 
 CENT=Decimal("0.01")
