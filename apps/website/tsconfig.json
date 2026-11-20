@@ -27,7 +27,6 @@
     "node_modules",
     ".next",
     "../../apps/mobile-sales",
-    "../../apps/website",
     "../../apps/customer-portal",
     "../../apps/company-portal",
     "../../apps/sales-portal",

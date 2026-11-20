@@ -1,1 +1,1 @@
-export { default } from "@/app/supervisor/page";
+export { default } from "@/app/supervisor/smart-team/page";

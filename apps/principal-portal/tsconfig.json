@@ -32,7 +32,6 @@
     "../../apps/company-portal",
     "../../apps/sales-portal",
     "../../apps/distributor-portal",
-    "../../apps/principal-portal",
     "../../apps/supervisor-portal",
     "../../apps/super-admin"
   ]
