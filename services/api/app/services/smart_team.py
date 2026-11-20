@@ -7,6 +7,7 @@ from app.security.dependencies import TenantContext
 from app.services.audit import write_audit
 from app.services.storage import supabase_storage
 
+
 def evidence_content_matches_mime(mime_type: str, content: bytes) -> bool:
     if mime_type == "image/jpeg":
         return content.startswith(b"\xff\xd8\xff")
