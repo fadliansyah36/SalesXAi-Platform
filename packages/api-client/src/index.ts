@@ -405,6 +405,55 @@ export class SalesXApiClient {
     return this.request(`/api/v1/admin/organizations/${encodeURIComponent(organizationId)}`, { method: "PATCH", body: JSON.stringify(payload) });
   }
 
+
+  listSmartTeamVisits(organizationId:string,options:{status?:string;profileId?:string;limit?:number;offset?:number}={}):Promise<import("@salesx-ai/api-contracts").SmartTeamVisit[]> {
+    const query=new URLSearchParams({limit:String(options.limit??100),offset:String(options.offset??0)});
+    if(options.status)query.set("status",options.status);if(options.profileId)query.set("profile_id",options.profileId);
+    return this.request(`/api/v1/organizations/${encodeURIComponent(organizationId)}/smart-team/visits?${query.toString()}`);
+  }
+  createSmartTeamVisit(organizationId:string,payload:import("@salesx-ai/api-contracts").SmartTeamVisitCreate):Promise<import("@salesx-ai/api-contracts").SmartTeamVisit> {
+    return this.request(`/api/v1/organizations/${encodeURIComponent(organizationId)}/smart-team/visits`,{method:"POST",body:JSON.stringify(payload)});
+  }
+  checkInSmartTeamVisit(organizationId:string,visitId:string,payload:{location:import("@salesx-ai/api-contracts").SmartTeamLocationCapture}):Promise<import("@salesx-ai/api-contracts").SmartTeamVisit> {
+    return this.request(`/api/v1/organizations/${encodeURIComponent(organizationId)}/smart-team/visits/${encodeURIComponent(visitId)}/check-in`,{method:"POST",body:JSON.stringify(payload)});
+  }
+  checkOutSmartTeamVisit(organizationId:string,visitId:string,payload:{location:import("@salesx-ai/api-contracts").SmartTeamLocationCapture;outcome?:string|null;notes?:string|null}):Promise<import("@salesx-ai/api-contracts").SmartTeamVisit> {
+    return this.request(`/api/v1/organizations/${encodeURIComponent(organizationId)}/smart-team/visits/${encodeURIComponent(visitId)}/check-out`,{method:"POST",body:JSON.stringify(payload)});
+  }
+  cancelSmartTeamVisit(organizationId:string,visitId:string,reason:string):Promise<import("@salesx-ai/api-contracts").SmartTeamVisit> {
+    return this.request(`/api/v1/organizations/${encodeURIComponent(organizationId)}/smart-team/visits/${encodeURIComponent(visitId)}/cancel`,{method:"POST",body:JSON.stringify({reason})});
+  }
+  listSmartTeamAttendance(organizationId:string,limit=100,offset=0):Promise<import("@salesx-ai/api-contracts").SmartTeamAttendance[]> {
+    const query=new URLSearchParams({limit:String(limit),offset:String(offset)});
+    return this.request(`/api/v1/organizations/${encodeURIComponent(organizationId)}/smart-team/attendance?${query.toString()}`);
+  }
+  clockInSmartTeam(organizationId:string,location:import("@salesx-ai/api-contracts").SmartTeamLocationCapture,idempotencyKey:string):Promise<import("@salesx-ai/api-contracts").SmartTeamAttendance> {
+    return this.request(`/api/v1/organizations/${encodeURIComponent(organizationId)}/smart-team/attendance/clock-in`,{method:"POST",body:JSON.stringify({location,idempotency_key:idempotencyKey})});
+  }
+  clockOutSmartTeam(organizationId:string,location:import("@salesx-ai/api-contracts").SmartTeamLocationCapture):Promise<import("@salesx-ai/api-contracts").SmartTeamAttendance> {
+    return this.request(`/api/v1/organizations/${encodeURIComponent(organizationId)}/smart-team/attendance/clock-out`,{method:"POST",body:JSON.stringify({location})});
+  }
+  correctSmartTeamAttendance(organizationId:string,shiftId:string,payload:{clock_in_at?:string|null;clock_out_at?:string|null;reason:string}):Promise<import("@salesx-ai/api-contracts").SmartTeamAttendance> {
+    return this.request(`/api/v1/organizations/${encodeURIComponent(organizationId)}/smart-team/attendance/${encodeURIComponent(shiftId)}/correct`,{method:"POST",body:JSON.stringify(payload)});
+  }
+  listSmartTeamActivities(organizationId:string,limit=100,offset=0):Promise<import("@salesx-ai/api-contracts").SmartTeamActivity[]> {
+    const query=new URLSearchParams({limit:String(limit),offset:String(offset)});
+    return this.request(`/api/v1/organizations/${encodeURIComponent(organizationId)}/smart-team/activities?${query.toString()}`);
+  }
+  createSmartTeamActivity(organizationId:string,payload:import("@salesx-ai/api-contracts").SmartTeamActivityCreate):Promise<import("@salesx-ai/api-contracts").SmartTeamActivity> {
+    return this.request(`/api/v1/organizations/${encodeURIComponent(organizationId)}/smart-team/activities`,{method:"POST",body:JSON.stringify(payload)});
+  }
+  updateSmartTeamActivity(organizationId:string,activityId:string,payload:Record<string,unknown>):Promise<import("@salesx-ai/api-contracts").SmartTeamActivity> {
+    return this.request(`/api/v1/organizations/${encodeURIComponent(organizationId)}/smart-team/activities/${encodeURIComponent(activityId)}`,{method:"PATCH",body:JSON.stringify(payload)});
+  }
+  listSmartTeamTargets(organizationId:string,limit=100,offset=0):Promise<import("@salesx-ai/api-contracts").SmartTeamTarget[]> {
+    const query=new URLSearchParams({limit:String(limit),offset:String(offset)});
+    return this.request(`/api/v1/organizations/${encodeURIComponent(organizationId)}/smart-team/targets?${query.toString()}`);
+  }
+  createSmartTeamTarget(organizationId:string,payload:import("@salesx-ai/api-contracts").SmartTeamTargetWrite):Promise<import("@salesx-ai/api-contracts").SmartTeamTarget> {
+    return this.request(`/api/v1/organizations/${encodeURIComponent(organizationId)}/smart-team/targets`,{method:"POST",body:JSON.stringify(payload)});
+  }
+
   signOut(scope: "local" | "global" | "others" = "local"): Promise<void> {
     return this.request<void>("/api/v1/auth/sign-out", {
       method: "POST",
