@@ -907,6 +907,7 @@ export interface TerritoryItem {
   colorHex: string;
   lat: number;
   lng: number;
+  status?: 'Aktif' | 'Nonaktif';
 }
 
 export interface TeamMemberItem {

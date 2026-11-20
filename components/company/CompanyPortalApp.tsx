@@ -115,6 +115,27 @@ export type CompanyTabId =
   | 'integrations'
   | 'master_perf';
 
+function parseMasterDataCsv(source: string): Array<Record<string, string>> {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let cell = '';
+  let quoted = false;
+  for (let index = 0; index < source.length; index += 1) {
+    const char = source[index];
+    if (char === '"' && quoted && source[index + 1] === '"') { cell += '"'; index += 1; }
+    else if (char === '"') quoted = !quoted;
+    else if (char === ',' && !quoted) { row.push(cell); cell = ''; }
+    else if ((char === '\n' || char === '\r') && !quoted) {
+      if (char === '\r' && source[index + 1] === '\n') index += 1;
+      row.push(cell); if (row.some((value) => value.trim())) rows.push(row);
+      row = []; cell = '';
+    } else cell += char;
+  }
+  row.push(cell); if (row.some((value) => value.trim())) rows.push(row);
+  const headers = (rows.shift() ?? []).map((value) => value.trim());
+  return rows.map((values) => Object.fromEntries(headers.map((header, index) => [header, values[index]?.trim() ?? ''])));
+}
+
 const asText = (value: unknown): string => typeof value === 'string' ? value : '';
 const asNumber = (value: unknown): number => typeof value === 'number' && Number.isFinite(value) ? value : 0;
 const masterCode = (value: string): string => value.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'MASTER';
@@ -229,6 +250,13 @@ export function CompanyPortalApp() {
   );
   const [masterDataLoading, setMasterDataLoading] = useState(false);
   const [masterDataError, setMasterDataError] = useState<string | null>(null);
+  const [masterDataRevision, setMasterDataRevision] = useState(0);
+  const [assignmentHistory, setAssignmentHistory] = useState<Array<Record<string, unknown>>>([]);
+  const [newSalesUserId, setNewSalesUserId] = useState('');
+  const [newSalesEmployeeCode, setNewSalesEmployeeCode] = useState('');
+  const [selectedAssignmentProfileId, setSelectedAssignmentProfileId] = useState('');
+  const [selectedAssignmentOutletId, setSelectedAssignmentOutletId] = useState('');
+  const [masterDataTransferBusy, setMasterDataTransferBusy] = useState(false);
   const [attendanceRecords, setAttendanceRecords] = useState<
     CompanyAttendanceItem[]
   >(INITIAL_COMPANY_ATTENDANCE);
@@ -331,6 +359,7 @@ export function CompanyPortalApp() {
       setTeams([]);
       setTeamMembers([]);
       setOrganizationMembers([]);
+      setAssignmentHistory([]);
       setMasterDataLoading(false);
       return;
     }
@@ -344,7 +373,8 @@ export function CompanyPortalApp() {
       auth.canPerformApiAction('master.teams.read') ? api.listTeams(organizationId) : Promise.resolve([]),
       auth.canPerformApiAction('master.sales_profiles.read') ? api.listSalesProfiles(organizationId) : Promise.resolve([]),
       auth.canPerformApiAction('organization.members.read') ? api.listOrganizationMembers(organizationId) : Promise.resolve([]),
-    ]).then(([branchRows, territoryRows, outletRows, teamRows, profileRows, memberRows]) => {
+      auth.canPerformApiAction('master.assignments.read') ? api.listOutletAssignments(organizationId) : Promise.resolve([]),
+    ]).then(([branchRows, territoryRows, outletRows, teamRows, profileRows, memberRows, assignmentRows]) => {
       if (cancelled) return;
       const nextBranches: BranchItem[] = branchRows.map((row) => ({
         id: String(row.id), name: asText(row.name), city: asText(row.city),
@@ -359,7 +389,7 @@ export function CompanyPortalApp() {
         id: String(row.id), name: asText(row.name),
         branchName: branchNames.get(asText(row.branch_id)) ?? '',
         outletCount: 0, salesAssigned: 0, coveragePct: 0,
-        colorHex: '#348CB2', lat: 0, lng: 0,
+        colorHex: '#348CB2', lat: 0, lng: 0, status: row.status === 'active' ? 'Aktif' : 'Nonaktif',
       }));
       const nextOutlets: Outlet[] = outletRows.map((row) => ({
         id: String(row.id), name: asText(row.name), city: asText(row.city),
@@ -398,6 +428,9 @@ export function CompanyPortalApp() {
       setTeams(nextTeams);
       setOrganizationMembers(members);
       setTeamMembers(nextTeamMembers);
+      setAssignmentHistory(assignmentRows as Array<Record<string, unknown>>);
+      setSelectedAssignmentProfileId((current) => current || nextTeamMembers[0]?.id || '');
+      setSelectedAssignmentOutletId((current) => current || nextOutlets[0]?.id || '');
       setSelectedTeamId((current) => current || nextTeamMembers[0]?.id || '');
       setHistoryStaffId((current) => current || nextTeamMembers[0]?.id || '');
     }).catch((error: unknown) => {
@@ -406,7 +439,7 @@ export function CompanyPortalApp() {
       if (!cancelled) setMasterDataLoading(false);
     });
     return () => { cancelled = true; };
-  }, [auth.status, auth.activeOrganizationId, auth.apiClient, auth.canPerformApiAction]);
+  }, [auth.status, auth.activeOrganizationId, auth.apiClient, auth.canPerformApiAction, masterDataRevision]);
 
   const persistBranch = async (branch: BranchItem) => {
     if (!auth.canPerformApiAction('master.branches.create')) throw new Error('Akses membuat cabang tidak diizinkan.');
@@ -452,6 +485,107 @@ export function CompanyPortalApp() {
       category: asText(row.category), picName: asText(row.pic_name), phone: asText(row.phone),
       email: '', lat: 0, lng: 0, lastOrderTotal: 0, lastVisitDate: '',
     }, ...current]);
+  };
+
+  const createSalesProfile = async () => {
+    if (!auth.canPerformApiAction('master.sales_profiles.create')) throw new Error('Akses membuat sales profile tidak diizinkan.');
+    if (!auth.apiClient || !auth.activeOrganizationId || !newSalesUserId) throw new Error('Pilih anggota aktif pada organisasi terlebih dahulu.');
+    await auth.apiClient.createSalesProfile(auth.activeOrganizationId, {
+      user_id: newSalesUserId, employee_code: newSalesEmployeeCode.trim() || undefined, status: 'active',
+    });
+    setNewSalesUserId('');
+    setNewSalesEmployeeCode('');
+    setMasterDataRevision((value) => value + 1);
+  };
+
+  const assignOutletToSalesProfile = async () => {
+    if (!auth.canPerformApiAction('master.assignments.manage')) throw new Error('Akses assignment outlet tidak diizinkan.');
+    if (!auth.apiClient || !auth.activeOrganizationId || !selectedAssignmentOutletId || !selectedAssignmentProfileId) {
+      throw new Error('Pilih outlet dan sales profile aktif.');
+    }
+    await auth.apiClient.assignOutlet(auth.activeOrganizationId, selectedAssignmentOutletId, {
+      sales_profile_id: selectedAssignmentProfileId, note: 'Assignment melalui Company Portal',
+    });
+    const rows = await auth.apiClient.listOutletAssignments(auth.activeOrganizationId);
+    setAssignmentHistory(rows as Array<Record<string, unknown>>);
+  };
+
+  const toggleTeamStatus = async (teamId: string) => {
+    const team = teams.find((item) => asText(item.id) === teamId);
+    if (!team || !auth.apiClient || !auth.activeOrganizationId || !auth.canPerformApiAction('master.teams.update')) return;
+    const row = await auth.apiClient.updateTeam(auth.activeOrganizationId, teamId, {
+      status: asText(team.status) === 'active' ? 'inactive' : 'active',
+    });
+    setTeams((current) => current.map((item) => asText(item.id) === teamId ? { ...item, ...row } : item));
+    setMasterDataRevision((value) => value + 1);
+  };
+
+  const toggleTerritoryStatus = async (territoryId: string) => {
+    const territory = territories.find((item) => item.id === territoryId);
+    if (!territory || !auth.apiClient || !auth.activeOrganizationId || !auth.canPerformApiAction('master.territories.update')) return;
+    const row = await auth.apiClient.updateTerritory(auth.activeOrganizationId, territoryId, {
+      status: territory.status === 'Aktif' ? 'inactive' : 'active',
+    });
+    setTerritories((current) => current.map((item) => item.id === territoryId
+      ? { ...item, status: row.status === 'active' ? 'Aktif' : 'Nonaktif' } : item));
+    setMasterDataRevision((value) => value + 1);
+  };
+
+  const transferMasterData = async (resource: 'branches' | 'teams' | 'territories' | 'outlets' | 'sales_profiles', mode: 'import' | 'export', file?: File) => {
+    if (!auth.apiClient || !auth.activeOrganizationId) throw new Error('Pilih organisasi aktif terlebih dahulu.');
+    setMasterDataTransferBusy(true);
+    setMasterDataError(null);
+    try {
+      if (mode === 'export') {
+        const response = await auth.apiClient.exportMasterData(auth.activeOrganizationId, resource);
+        if (!response.ok) throw new Error('Export master data gagal diproses oleh FastAPI.');
+        const blob = new Blob([await response.text()], { type: 'text/csv;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url; anchor.download = resource + '.csv'; anchor.click();
+        URL.revokeObjectURL(url);
+      } else {
+        if (!file) return;
+        const rows = parseMasterDataCsv(await file.text());
+        if (!rows.length) throw new Error('File CSV tidak memiliki baris data.');
+        const result = await auth.apiClient.importMasterData(auth.activeOrganizationId, resource, {
+          idempotency_key: crypto.randomUUID(), rows,
+        });
+        setMasterDataError('Import ' + resource + ': ' + result.imported_rows + '/' + result.total_rows + ' berhasil, ' + result.failed_rows + ' gagal.' +
+          (result.errors.length ? ' Baris bermasalah: ' + result.errors.slice(0, 5).map((item) => '#' + item.row + ' ' + item.message).join('; ') : ''));
+        setMasterDataRevision((value) => value + 1);
+      }
+    } catch (error) {
+      setMasterDataError(error instanceof Error ? error.message : 'Transfer master data gagal.');
+      throw error;
+    } finally {
+      setMasterDataTransferBusy(false);
+    }
+  };
+
+  const renderMasterDataTransfer = (resource: 'branches' | 'teams' | 'territories' | 'outlets' | 'sales_profiles') => {
+    const canImport = auth.canPerformApiAction('master.data.import');
+    const canExport = auth.canPerformApiAction('master.data.export');
+    if (!canImport && !canExport) return null;
+    return (
+      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-3">
+        {canImport && <label className="cursor-pointer rounded-lg border border-[var(--color-border-strong)] px-3 py-2 text-xs font-semibold">
+          {masterDataTransferBusy ? 'Memproses…' : 'Import CSV'}
+          <input type="file" accept=".csv,text/csv" className="sr-only" disabled={masterDataTransferBusy}
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) void transferMasterData(resource, 'import', file).catch(() => undefined);
+              event.currentTarget.value = '';
+            }} />
+        </label>}
+        {canExport && <button type="button" disabled={masterDataTransferBusy}
+          onClick={() => void transferMasterData(resource, 'export').catch(() => undefined)}
+          className="rounded-lg border border-[var(--color-border-strong)] px-3 py-2 text-xs font-semibold disabled:opacity-50">
+          Export CSV
+        </button>}
+        <span className="text-[11px] text-[var(--color-text-muted)]">CSV · validasi per baris · audit & idempotency FastAPI</span>
+      </div>
+    );
   };
 
   const toggleBranchStatus = async (branchId: string) => {
