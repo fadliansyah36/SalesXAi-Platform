@@ -451,6 +451,69 @@ class SmartOrderRepository:
    await self.audit(db,f["organization_id"],None,"shipping.provider_event.processed","fulfillment",f["id"],{"provider":provider,"event_id":event_id,"status":status})
   return {"accepted":True,"duplicate":False,"fulfillment_id":str(f["id"]),"status":status}
 
+ async def partner_order_buyer(self,db,partner_org,order_id):
+  return await db.fetchval("""select o.organization_id from public.orders o
+   where o.id=$2 and exists(
+    select 1 from public.order_items oi
+    where oi.organization_id=o.organization_id and oi.order_id=o.id
+     and (oi.product_owner_organization_id=$1 or exists(
+      select 1 from public.stock_movements sm
+      where sm.reference_type='order' and sm.reference_id=o.id
+       and sm.organization_id=$1 and sm.product_owner_organization_id=oi.product_owner_organization_id
+       and sm.variant_id=oi.variant_id
+     ))
+   ) and exists(
+    select 1 from public.commerce_catalog_access ca
+    where ca.owner_organization_id=$1 and ca.consumer_organization_id=o.organization_id
+     and ca.access_type in ('ordering','inventory')
+     and ca.starts_at<=now() and (ca.ends_at is null or ca.ends_at>now())
+   )""",partner_org,order_id)
+
+ async def partner_fulfillment_buyer(self,db,partner_org,fulfillment_id):
+  return await db.fetchval("""select f.organization_id from public.fulfillments f
+   join public.orders o on o.organization_id=f.organization_id and o.id=f.order_id
+   where f.id=$2 and f.fulfillment_organization_id=$1 and exists(
+    select 1 from public.commerce_catalog_access ca
+    where ca.owner_organization_id=$1 and ca.consumer_organization_id=o.organization_id
+     and ca.access_type in ('ordering','inventory')
+     and ca.starts_at<=now() and (ca.ends_at is null or ca.ends_at>now())
+   )""",partner_org,fulfillment_id)
+
+ async def list_partner_orders(self,db,partner_org,page,size,status=None):
+  where=["exists(select 1 from public.order_items oi where oi.organization_id=o.organization_id and oi.order_id=o.id and (oi.product_owner_organization_id=$1 or exists(select 1 from public.stock_movements sm where sm.reference_type='order' and sm.reference_id=o.id and sm.organization_id=$1 and sm.product_owner_organization_id=oi.product_owner_organization_id and sm.variant_id=oi.variant_id)))",
+   "exists(select 1 from public.commerce_catalog_access ca where ca.owner_organization_id=$1 and ca.consumer_organization_id=o.organization_id and ca.access_type in ('ordering','inventory') and ca.starts_at<=now() and (ca.ends_at is null or ca.ends_at>now()))"]
+  args=[partner_org]
+  if status:
+   args.append(status)
+   where.append(f"o.status=${len(args)}")
+  clause=" and ".join(where)
+  total=await db.fetchval(f"select count(*) from public.orders o where {clause}",*args)
+  args.extend([size,(page-1)*size])
+  rows=await db.fetch(f"""select o.id,o.organization_id buyer_organization_id,o.order_number,o.status,o.currency,
+   count(distinct oi.id) partner_item_count,coalesce(sum(oi.line_total),0) partner_item_total,o.created_at,o.updated_at
+   from public.orders o join public.order_items oi on oi.organization_id=o.organization_id and oi.order_id=o.id
+   where {clause} and (oi.product_owner_organization_id=$1 or exists(
+    select 1 from public.stock_movements sm where sm.reference_type='order' and sm.reference_id=o.id
+     and sm.organization_id=$1 and sm.product_owner_organization_id=oi.product_owner_organization_id and sm.variant_id=oi.variant_id
+   ))
+   group by o.id order by o.created_at desc limit ${len(args)-1} offset ${len(args)}""",*args)
+  return {"items":[dict(r) for r in rows],"page":page,"page_size":size,"total":total}
+
+ async def get_partner_order(self,db,partner_org,order_id):
+  o=await db.fetchrow("""select o.id,o.organization_id buyer_organization_id,o.order_number,o.status,o.currency,o.created_at,o.updated_at
+   from public.orders o where o.id=$2 and exists(
+    select 1 from public.order_items oi where oi.organization_id=o.organization_id and oi.order_id=o.id
+     and (oi.product_owner_organization_id=$1 or exists(select 1 from public.stock_movements sm where sm.reference_type='order' and sm.reference_id=o.id and sm.organization_id=$1 and sm.product_owner_organization_id=oi.product_owner_organization_id and sm.variant_id=oi.variant_id))
+   ) and exists(select 1 from public.commerce_catalog_access ca where ca.owner_organization_id=$1 and ca.consumer_organization_id=o.organization_id and ca.access_type in ('ordering','inventory') and ca.starts_at<=now() and (ca.ends_at is null or ca.ends_at>now()))""",partner_org,order_id)
+  if not o:return None
+  d=dict(o)
+  d["items"]=[dict(x) for x in await db.fetch("""select oi.id,oi.product_id,oi.variant_id,oi.product_owner_organization_id,oi.product_snapshot,oi.quantity,oi.unit_price,oi.discount_amount,oi.tax_amount,oi.line_total
+   from public.order_items oi where oi.organization_id=$1 and oi.order_id=$2 and (oi.product_owner_organization_id=$3 or exists(
+    select 1 from public.stock_movements sm where sm.reference_type='order' and sm.reference_id=$2 and sm.organization_id=$3 and sm.product_owner_organization_id=oi.product_owner_organization_id and sm.variant_id=oi.variant_id
+   )) order by oi.created_at""",o["buyer_organization_id"],order_id,partner_org)]
+  d["fulfillments"]=[dict(x) for x in await db.fetch("select * from public.fulfillments where organization_id=$1 and order_id=$2 and fulfillment_organization_id=$3 order by created_at",o["buyer_organization_id"],order_id,partner_org)]
+  return d
+
  async def list_orders(self,db,org,actor,page,size,status=None,tenant_scope=False):
   where=["organization_id=$1"] if tenant_scope else ["organization_id=$1","customer_user_id=$2"]
   args=[org] if tenant_scope else [org,actor]

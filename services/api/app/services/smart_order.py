@@ -113,6 +113,28 @@ class SmartOrderService:
   region_id=await repo.resolve_region_id(db,organization_id,tenant.membership_id)
   return await repo.submit_order(db,organization_id,actor,order_id,region_id)
 
+ async def list_partner_orders(self,db,organization_id,tenant,page,page_size,status=None):
+  self._tenant(organization_id,tenant)
+  return await repo.list_partner_orders(db,organization_id,page,page_size,status)
+
+ async def get_partner_order(self,db,organization_id,tenant,order_id):
+  self._tenant(organization_id,tenant)
+  row=await repo.get_partner_order(db,organization_id,order_id)
+  if row is None:raise APIError(404,"partner_order_not_found","No order items or inventory allocations are available to this partner organization.")
+  return row
+
+ async def create_partner_fulfillment(self,db,organization_id,tenant,actor,order_id,payload):
+  self._tenant(organization_id,tenant)
+  buyer_org=await repo.partner_order_buyer(db,organization_id,order_id)
+  if buyer_org is None:raise APIError(404,"partner_order_not_found","Order is not available to this partner organization.")
+  return await repo.create_fulfillment(db,buyer_org,actor,order_id,payload)
+
+ async def update_partner_fulfillment(self,db,organization_id,tenant,actor,fulfillment_id,payload):
+  self._tenant(organization_id,tenant)
+  buyer_org=await repo.partner_fulfillment_buyer(db,organization_id,fulfillment_id)
+  if buyer_org is None:raise APIError(404,"partner_fulfillment_not_found","Fulfillment is not available to this partner organization.")
+  return await repo.update_fulfillment(db,buyer_org,actor,fulfillment_id,payload)
+
  async def list_orders(self,db,organization_id,tenant,actor,page,page_size,status,tenant_scope=False):
   self._tenant(organization_id,tenant)
   return await repo.list_orders(db,organization_id,actor,page,page_size,status,tenant_scope)

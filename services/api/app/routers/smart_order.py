@@ -230,6 +230,22 @@ async def list_approval_policies(organization_id:UUID,principal:Principal=Depend
 async def create_approval_policy(organization_id:UUID,payload:OrderApprovalPolicyWrite,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartorder.orders.approval_policies.create")),db:asyncpg.Connection=Depends(get_connection)):
  return await smart_order_service.create_approval_policy(db,organization_id,tenant,principal.user_id,payload)
 
+@router.get("/{organization_id}/smart-order/partner-orders")
+async def list_partner_order_operations(organization_id:UUID,page:int=Query(1,ge=1),page_size:int=Query(20,ge=1,le=100),status:str|None=None,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartorder.partner_orders.read")),db:asyncpg.Connection=Depends(get_connection)):
+ return await smart_order_service.list_partner_orders(db,organization_id,tenant,page,page_size,status)
+
+@router.get("/{organization_id}/smart-order/partner-orders/{order_id}")
+async def get_partner_order(organization_id:UUID,order_id:UUID,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartorder.partner_orders.read")),db:asyncpg.Connection=Depends(get_connection)):
+ return await smart_order_service.get_partner_order(db,organization_id,tenant,order_id)
+
+@router.post("/{organization_id}/smart-order/partner-orders/{order_id}/fulfillments",status_code=201)
+async def create_partner_fulfillment(organization_id:UUID,order_id:UUID,payload:FulfillmentCreate,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartorder.partner_fulfillment.create")),db:asyncpg.Connection=Depends(get_connection)):
+ return await smart_order_service.create_partner_fulfillment(db,organization_id,tenant,principal.user_id,order_id,payload)
+
+@router.patch("/{organization_id}/smart-order/partner-fulfillments/{fulfillment_id}")
+async def update_partner_fulfillment(organization_id:UUID,fulfillment_id:UUID,payload:FulfillmentUpdate,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartorder.partner_fulfillment.update")),db:asyncpg.Connection=Depends(get_connection)):
+ return await smart_order_service.update_partner_fulfillment(db,organization_id,tenant,principal.user_id,fulfillment_id,payload)
+
 @router.get("/{organization_id}/smart-order/orders/operations")
 async def list_order_operations(organization_id:UUID,page:int=Query(1,ge=1),page_size:int=Query(20,ge=1,le=100),status:str|None=None,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartorder.orders.operations.read")),db:asyncpg.Connection=Depends(get_connection)):
  return await smart_order_service.list_orders(db,organization_id,tenant,principal.user_id,page,page_size,status,True)
