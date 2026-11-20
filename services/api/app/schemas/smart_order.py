@@ -209,6 +209,9 @@ class PriceListWrite(BaseModel):
             raise ValueError("non-tenant price lists require scope_id")
         if self.effective_until and self.effective_until <= self.effective_from:
             raise ValueError("effective_until must be later than effective_from")
+        price_keys = [(line.product_id, line.variant_id, line.minimum_quantity) for line in self.prices]
+        if len(price_keys) != len(set(price_keys)):
+            raise ValueError("A price list cannot contain duplicate product/SKU/minimum-quantity rows")
         for line in self.prices:
             if line.maximum_quantity is not None and line.maximum_quantity < line.minimum_quantity:
                 raise ValueError("maximum_quantity must be greater than or equal to minimum_quantity")
