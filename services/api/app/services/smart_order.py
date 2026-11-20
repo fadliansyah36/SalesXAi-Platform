@@ -1,9 +1,13 @@
 # ruff: noqa: E701, E702
 from decimal import Decimal
-from uuid import UUID
+from uuid import UUID, uuid4
 import asyncpg
 from app.errors import APIError
 from app.repositories.smart_order import smart_order_repository as repo
+from app.schemas.smart_order import ProductImageWrite
+from app.services.storage import supabase_storage
+
+PRODUCT_MEDIA_BUCKET = 'smartorder-product-media'
 
 class SmartOrderService:
  def _tenant(self, organization_id: UUID, tenant):

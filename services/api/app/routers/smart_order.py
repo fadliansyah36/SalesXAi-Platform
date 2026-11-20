@@ -60,8 +60,10 @@ async def create_unit(organization_id:UUID,payload:UnitWrite,principal:Principal
 async def register_product_image(organization_id:UUID,product_id:UUID,request:Request,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartorder.catalog.image.create")),db:asyncpg.Connection=Depends(get_connection)):
  content=await request.body()
  content_type=request.headers.get("content-type","").split(";")[0].strip().lower()
- try:sort_order=int(request.headers.get("x-sort-order","0"))
- except ValueError:raise APIError(422,"invalid_image_sort_order","X-Sort-Order must be an integer.")
+ try:
+  sort_order=int(request.headers.get("x-sort-order","0"))
+ except ValueError as exc:
+  raise APIError(422,"invalid_image_sort_order","X-Sort-Order must be an integer.") from exc
  variant_id=request.headers.get("x-variant-id")
  return await smart_order_service.upload_product_image(db,organization_id,tenant,principal.user_id,product_id,content_type,content,request.headers.get("x-alt-text"),sort_order,UUID(variant_id) if variant_id else None)
 

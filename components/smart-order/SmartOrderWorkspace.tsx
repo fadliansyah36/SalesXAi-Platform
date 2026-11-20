@@ -40,7 +40,7 @@ export function SmartOrderWorkspace(){
   if(auth.canPerformApiAction("smartorder.orders.mine.read"))jobs.push(api.listMySmartOrderOrders(organizationId,1,30).then(r=>setOrders(r.items)));
   if(canOperations)jobs.push(api.listSmartOrderOperations(organizationId,1,50).then(r=>setOperations(r.items)));
   if(canManagePolicies)jobs.push(api.listSmartOrderApprovalPolicies(organizationId).then(setApprovalPolicies));
-  if(canInventory){jobs.push(api.getSmartOrderInventory(organizationId).then(setInventory));jobs.push(api.listSmartOrderWarehouses(organizationId).then(setWarehouses));jobs.push(api.listSmartOrderStockMovements(organizationId,1,30).then(r=>setStockMovements(r.items as Array<Record<string,unknown>>)));}
+  if(canInventory){jobs.push(api.getSmartOrderInventory(organizationId).then(setInventory));jobs.push(api.listSmartOrderWarehouses(organizationId).then(setWarehouses));jobs.push(api.listSmartOrderStockMovements(organizationId,1,30).then(r=>setStockMovements(r.items as unknown as Array<Record<string,unknown>>)));}
   if(canManagePricing||auth.canPerformApiAction("smartorder.pricing.lists.read"))jobs.push(api.listSmartOrderPriceLists(organizationId).then(setPriceLists));
   if(canPromotions)jobs.push(api.listSmartOrderPromotions(organizationId).then(setPromotions));
   const results=await Promise.allSettled(jobs);const failed=results.find(x=>x.status==="rejected");
