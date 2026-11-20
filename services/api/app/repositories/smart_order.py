@@ -372,8 +372,14 @@ class SmartOrderRepository:
       await db.execute("insert into public.order_status_history(organization_id,order_id,from_status,to_status,reason,actor_user_id) values($1,$2,'draft','revision_requested','Combined partner inventory availability changed or is not authorized',$3)",org,oid,actor)
       await self.audit(db,org,actor,"order.draft.revalidation_failed","order",oid,{"reason":"partner_stock_unavailable"})
      else:
-      auto_policy=await db.fetchrow("""select * from public.order_approval_policies where organization_id=$1 and status='active'
-       and auto_approve_below=true and $2<minimum_total order by minimum_total asc limit 1""",org,o["grand_total"])
+      partner_approval_required=await db.fetchval("""select exists(select 1 from public.order_items oi
+       join public.commerce_partner_links l on l.organization_id=oi.product_owner_organization_id and l.partner_organization_id=$1
+        and l.relationship_type in ('principal','distributor') and l.status='active' and l.starts_at<=now() and (l.ends_at is null or l.ends_at>now())
+       where oi.organization_id=$1 and oi.order_id=$2 and oi.product_owner_organization_id<>$1)""",org,oid)
+      auto_policy=None
+      if not partner_approval_required:
+       auto_policy=await db.fetchrow("""select * from public.order_approval_policies where organization_id=$1 and status='active'
+        and auto_approve_below=true and $2<minimum_total order by minimum_total asc limit 1""",org,o["grand_total"])
       for i,b,take in alloc:
        owner=b["inventory_owner_organization_id"]
        await db.execute("update public.inventory_balances set reserved=reserved+$4,version=version+1,updated_at=now() where organization_id=$1 and id=$2 and version=$3",owner,b["id"],b["version"],take)
@@ -586,7 +592,8 @@ class SmartOrderRepository:
   total=await db.fetchval(f"select count(*) from public.orders o where {clause}",*args)
   args.extend([size,(page-1)*size])
   rows=await db.fetch(f"""select o.id,o.organization_id buyer_organization_id,o.order_number,o.status,o.currency,
-   count(distinct oi.id) partner_item_count,coalesce(sum(oi.line_total),0) partner_item_total,(select f.id from public.fulfillments f where f.organization_id=o.organization_id and f.order_id=o.id and f.fulfillment_organization_id=$1 order by f.created_at desc limit 1) partner_fulfillment_id,(select f.status from public.fulfillments f where f.organization_id=o.organization_id and f.order_id=o.id and f.fulfillment_organization_id=$1 order by f.created_at desc limit 1) partner_fulfillment_status,o.created_at,o.updated_at
+   count(distinct oi.id) partner_item_count,coalesce(sum(oi.line_total),0) partner_item_total,(select f.id from public.fulfillments f where f.organization_id=o.organization_id and f.order_id=o.id and f.fulfillment_organization_id=$1 order by f.created_at desc limit 1) partner_fulfillment_id,(select f.status from public.fulfillments f where f.organization_id=o.organization_id and f.order_id=o.id and f.fulfillment_organization_id=$1 order by f.created_at desc limit 1) partner_fulfillment_status,
+   (select d.decision from public.order_partner_decisions d where d.organization_id=o.organization_id and d.order_id=o.id and d.partner_organization_id=$1 order by d.decided_at desc,d.id desc limit 1) partner_decision,o.created_at,o.updated_at
    from public.orders o join public.order_items oi on oi.organization_id=o.organization_id and oi.order_id=o.id
    where o.status not in ('draft','expired','cancelled') and {clause} and (oi.product_owner_organization_id=$1 or exists(
     select 1 from public.stock_movements sm where sm.reference_type='order' and sm.reference_id=o.id
