@@ -342,14 +342,20 @@ class SmartTeamRepository:
         if current["status"] not in ("scheduled","assigned"):raise ValueError("visit_transition_invalid")
         if not await self.can_access_profile(connection,organization_id,current["sales_profile_id"],actor_id):
             raise ValueError("profile_scope_forbidden")
-        fields=("scheduled_at","window_end_at","notes")
+        fields=("scheduled_at","window_end_at","notes","outcome")
         assignments=[];values=[organization_id,visit_id]
         for field in fields:
             if field in data:
                 values.append(data[field]);assignments.append(f"{field}=${len(values)}")
         if not assignments:return current
         assignments.append("updated_at=now()")
-        return await connection.fetchrow("update public.smartteam_visits set "+",".join(assignments)+" where organization_id=$1 and id=$2 returning *",*values)
+        updated=await connection.fetchrow("update public.smartteam_visits set "+",".join(assignments)+" where organization_id=$1 and id=$2 returning *",*values)
+        await connection.execute(
+            """insert into public.smartteam_visit_events(organization_id,visit_id,actor_user_id,event_type,from_status,to_status,metadata)
+               values($1,$2,$3,$4,$5,$6,$7::jsonb)""",
+            organization_id,visit_id,actor_id,"outcome_recorded" if "outcome" in data else "updated",
+            current["status"],updated["status"],json.dumps({"updated_fields":sorted(data)}))
+        return updated
 
     async def list_visit_events(self, connection: asyncpg.Connection, organization_id: UUID, actor_id: UUID, visit_id: UUID):
         visit=await self.visit(connection,organization_id,visit_id)
