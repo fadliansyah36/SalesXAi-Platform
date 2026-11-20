@@ -126,9 +126,17 @@ export function SmartTeamConsole({surface}:{surface:"company"|"supervisor"|"sale
  }
  async function uploadVisitEvidence(visitId:string,file:File){
   if(!api||!organizationId)return;
+  if(!["image/jpeg","image/png","application/pdf"].includes(file.type)){setError("Format bukti harus JPEG, PNG, atau PDF.");return;}
   if(file.size>10*1024*1024){setError("Ukuran bukti maksimum 10 MiB.");return;}
-  await perform(()=>api.uploadSmartTeamVisitEvidence(organizationId,visitId,file,file.name,file.type),"Bukti kunjungan diunggah ke private storage.");
-  await loadVisitEvidence(visitId);
+  const controller=new AbortController();
+  setUploadController(controller);setUploadProgress(0);
+  try{
+   await perform(()=>api.uploadSmartTeamVisitEvidence(organizationId,visitId,file,file.name,file.type,{
+    signal:controller.signal,
+    onProgress:(loaded,total)=>setUploadProgress(total?Math.round(loaded/total*100):0),
+   }),"Bukti kunjungan diunggah ke private storage.");
+   await loadVisitEvidence(visitId);
+  }finally{setUploadController(null);setUploadProgress(null);}
  }
  async function updateVisit(event:React.FormEvent){
   event.preventDefault();if(!api||!organizationId||!editVisitId)return;
