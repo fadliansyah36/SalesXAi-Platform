@@ -80,13 +80,14 @@ class SmartOrderRepository:
   return dict(r)
 
  async def list_inventory(self,db,org,variant=None,warehouse=None):
-  q="""select ib.id,ib.warehouse_id,w.code warehouse_code,w.name warehouse_name,ib.product_id,ib.variant_id,ib.on_hand,ib.reserved,ib.committed,ib.available,ib.version,ib.updated_at
-   from public.inventory_balances ib join public.warehouses w on w.organization_id=ib.organization_id and w.id=ib.warehouse_id where ib.organization_id=$1"""
+  q="""select ib.id,ib.organization_id inventory_owner_organization_id,ib.product_owner_organization_id,ib.warehouse_id,w.code warehouse_code,w.name warehouse_name,ib.product_id,p.name product_name,ib.variant_id,v.sku,ib.on_hand,ib.reserved,ib.committed,ib.available,ib.version,ib.updated_at
+   from public.inventory_balances ib join public.warehouses w on w.organization_id=ib.organization_id and w.id=ib.warehouse_id
+   join public.products p on p.organization_id=ib.product_owner_organization_id and p.id=ib.product_id
+   join public.product_variants v on v.organization_id=ib.product_owner_organization_id and v.id=ib.variant_id where ib.organization_id=$1"""
   args=[org]
   if variant: args.append(variant); q+=f" and ib.variant_id=${len(args)}"
   if warehouse: args.append(warehouse); q+=f" and ib.warehouse_id=${len(args)}"
-  return [dict(r) for r in await db.fetch(q+" order by w.name",*args)]
-
+  return [dict(r) for r in await db.fetch(q+" order by w.name,p.name,v.sku",*args)]
  async def list_stock_movements(self,db,org,page,size,variant=None,warehouse=None):
   where=["sm.organization_id=$1"];args=[org]
   if variant:args.append(variant);where.append(f"sm.variant_id=${len(args)}")
@@ -94,33 +95,38 @@ class SmartOrderRepository:
   clause=" and ".join(where)
   total=await db.fetchval(f"select count(*) from public.stock_movements sm where {clause}",*args)
   args.extend([size,(page-1)*size])
-  rows=await db.fetch(f"""select sm.id,sm.warehouse_id,w.code warehouse_code,w.name warehouse_name,sm.product_id,p.name product_name,
+  rows=await db.fetch(f"""select sm.id,sm.organization_id inventory_owner_organization_id,sm.product_owner_organization_id,sm.warehouse_id,w.code warehouse_code,w.name warehouse_name,sm.product_id,p.name product_name,
    sm.variant_id,v.sku,sm.movement_type,sm.quantity,sm.on_hand_delta,sm.reserved_delta,sm.committed_delta,sm.reference_type,
    sm.reference_id,sm.reason,sm.actor_user_id,sm.idempotency_key,sm.occurred_at
    from public.stock_movements sm join public.warehouses w on w.organization_id=sm.organization_id and w.id=sm.warehouse_id
-   join public.products p on p.organization_id=sm.organization_id and p.id=sm.product_id
-   join public.product_variants v on v.organization_id=sm.organization_id and v.id=sm.variant_id
+   join public.products p on p.organization_id=sm.product_owner_organization_id and p.id=sm.product_id
+   join public.product_variants v on v.organization_id=sm.product_owner_organization_id and v.id=sm.variant_id
    where {clause} order by sm.occurred_at desc limit ${len(args)-1} offset ${len(args)}""",*args)
   return {"items":[dict(x) for x in rows],"page":page,"page_size":size,"total":total}
-
  async def move_stock(self,db,org,actor,p):
   async with db.transaction():
    old=await db.fetchrow("select * from public.stock_movements where organization_id=$1 and idempotency_key=$2",org,p.idempotency_key)
    if old:return dict(old)
-   valid=await db.fetchval("""select exists(select 1 from public.warehouses w join public.product_variants v on v.organization_id=w.organization_id and v.id=$4 and v.product_id=$3
-     where w.organization_id=$1 and w.id=$2 and w.status='active' and v.status='active')""",org,p.warehouse_id,p.product_id,p.variant_id)
-   if not valid: raise APIError(404,"inventory_reference_not_found","Warehouse, product or SKU is not active in this tenant.")
-   await db.execute("insert into public.inventory_balances(organization_id,warehouse_id,product_id,variant_id) values($1,$2,$3,$4) on conflict do nothing",org,p.warehouse_id,p.product_id,p.variant_id)
+   owner=await db.fetchval("""select p.organization_id from public.products p
+    join public.product_variants v on v.organization_id=p.organization_id and v.product_id=p.id
+    join public.warehouses w on w.organization_id=$1 and w.id=$2 and w.status='active'
+    where p.id=$3 and v.id=$4 and p.status='published' and v.status='active'
+     and (p.organization_id=$1 or exists(select 1 from public.commerce_catalog_access ca
+      where ca.owner_organization_id=p.organization_id and ca.consumer_organization_id=$1
+       and ca.access_type='inventory' and (ca.product_id is null or ca.product_id=p.id)
+       and ca.starts_at<=now() and (ca.ends_at is null or ca.ends_at>now())))""",org,p.warehouse_id,p.product_id,p.variant_id)
+   if not owner:raise APIError(404,"inventory_reference_not_found","Warehouse, product or SKU is not available for inventory operations in this organization.")
+   await db.execute("insert into public.inventory_balances(organization_id,warehouse_id,product_id,variant_id,product_owner_organization_id) values($1,$2,$3,$4,$5) on conflict do nothing",org,p.warehouse_id,p.product_id,p.variant_id,owner)
    b=await db.fetchrow("select * from public.inventory_balances where organization_id=$1 and warehouse_id=$2 and variant_id=$3 for update",org,p.warehouse_id,p.variant_id)
+   if not b or b["product_owner_organization_id"]!=owner:raise APIError(409,"inventory_owner_mismatch","Inventory SKU ownership does not match the authorized catalog owner.")
    delta=p.quantity if p.movement_type=="stock_in" else (-p.quantity if p.movement_type=="stock_out" else p.adjustment_delta)
    new=Decimal(b["on_hand"])+delta
-   if new<0 or new<Decimal(b["reserved"])+Decimal(b["committed"]): raise APIError(409,"stock_below_allocations","Movement would reduce on-hand below reserved and committed stock.")
+   if new<0 or new<Decimal(b["reserved"])+Decimal(b["committed"]):raise APIError(409,"stock_below_allocations","Movement would reduce on-hand below reserved and committed stock.")
    await db.execute("update public.inventory_balances set on_hand=$4,version=version+1,updated_at=now() where organization_id=$1 and warehouse_id=$2 and variant_id=$3",org,p.warehouse_id,p.variant_id,new)
-   m=await db.fetchrow("""insert into public.stock_movements(organization_id,warehouse_id,product_id,variant_id,movement_type,quantity,on_hand_delta,reason,actor_user_id,idempotency_key)
-    values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) returning *""",org,p.warehouse_id,p.product_id,p.variant_id,p.movement_type,p.quantity,delta,p.reason,actor,p.idempotency_key)
-   await self.audit(db,org,actor,"inventory.movement.recorded","stock_movement",m["id"],{"type":p.movement_type,"quantity":str(p.quantity)})
+   m=await db.fetchrow("""insert into public.stock_movements(organization_id,warehouse_id,product_id,variant_id,movement_type,quantity,on_hand_delta,reason,actor_user_id,idempotency_key,product_owner_organization_id)
+    values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) returning *""",org,p.warehouse_id,p.product_id,p.variant_id,p.movement_type,p.quantity,delta,p.reason,actor,p.idempotency_key,owner)
+   await self.audit(db,org,actor,"inventory.movement.recorded","stock_movement",m["id"],{"type":p.movement_type,"quantity":str(p.quantity),"product_owner_organization_id":str(owner)})
   return dict(m)
-
  async def list_promotions(self,db,org):
   rows=await db.fetch("""select p.id,p.code,p.name,p.description,p.priority,p.stackable,p.stacking_group,p.starts_at,p.ends_at,p.status,
    coalesce(jsonb_agg(jsonb_build_object('rule_type',r.rule_type,'rule_config',r.rule_config)) filter(where r.id is not null),'[]'::jsonb) rules
@@ -624,21 +630,28 @@ class SmartOrderRepository:
    old=await db.fetchrow("select * from public.stock_transfers where organization_id=$1 and idempotency_key=$2",org,p.idempotency_key)
    if old:return dict(old)
    if p.from_warehouse_id==p.to_warehouse_id:raise APIError(422,"same_transfer_warehouse","Source and destination warehouses must differ.")
-   await db.execute("insert into public.inventory_balances(organization_id,warehouse_id,product_id,variant_id) values($1,$2,$4,$5),($1,$3,$4,$5) on conflict do nothing",org,p.from_warehouse_id,p.to_warehouse_id,p.product_id,p.variant_id)
-   balances=await db.fetch("""select * from public.inventory_balances where organization_id=$1 and variant_id=$2 and warehouse_id=any($3::uuid[]) order by warehouse_id for update""",org,p.variant_id,[p.from_warehouse_id,p.to_warehouse_id])
+   owner=await db.fetchval("""select p.organization_id from public.products p
+    join public.product_variants v on v.organization_id=p.organization_id and v.product_id=p.id
+    where p.id=$2 and v.id=$3 and p.status='published' and v.status='active'
+     and (p.organization_id=$1 or exists(select 1 from public.commerce_catalog_access ca
+      where ca.owner_organization_id=p.organization_id and ca.consumer_organization_id=$1
+       and ca.access_type='inventory' and (ca.product_id is null or ca.product_id=p.id)
+       and ca.starts_at<=now() and (ca.ends_at is null or ca.ends_at>now())))""",org,p.product_id,p.variant_id)
+   if not owner:raise APIError(404,"inventory_reference_not_found","Product or SKU is not available for inventory operations in this organization.")
+   await db.execute("insert into public.inventory_balances(organization_id,warehouse_id,product_id,variant_id,product_owner_organization_id) values($1,$2,$4,$5,$6),($1,$3,$4,$5,$6) on conflict do nothing",org,p.from_warehouse_id,p.to_warehouse_id,p.product_id,p.variant_id,owner)
+   balances=await db.fetch("select * from public.inventory_balances where organization_id=$1 and variant_id=$2 and warehouse_id=any($3::uuid[]) order by warehouse_id for update",org,p.variant_id,[p.from_warehouse_id,p.to_warehouse_id])
    source=next((b for b in balances if b["warehouse_id"]==p.from_warehouse_id),None)
    target=next((b for b in balances if b["warehouse_id"]==p.to_warehouse_id),None)
-   if source is None or target is None or Decimal(source["available"])<p.quantity:raise APIError(409,"insufficient_transfer_stock","Source warehouse has insufficient available stock.")
+   if source is None or target is None or source["product_owner_organization_id"]!=owner or target["product_owner_organization_id"]!=owner or Decimal(source["available"])<p.quantity:raise APIError(409,"insufficient_transfer_stock","Source warehouse has insufficient authorized available stock.")
    await db.execute("update public.inventory_balances set on_hand=on_hand-$4,version=version+1,updated_at=now() where organization_id=$1 and warehouse_id=$2 and variant_id=$3",org,p.from_warehouse_id,p.variant_id,p.quantity)
    await db.execute("update public.inventory_balances set on_hand=on_hand+$4,version=version+1,updated_at=now() where organization_id=$1 and warehouse_id=$2 and variant_id=$3",org,p.to_warehouse_id,p.variant_id,p.quantity)
-   transfer=await db.fetchrow("""insert into public.stock_transfers(organization_id,from_warehouse_id,to_warehouse_id,product_id,variant_id,quantity,reason,actor_user_id,idempotency_key)
-    values($1,$2,$3,$4,$5,$6,$7,$8,$9) returning *""",org,p.from_warehouse_id,p.to_warehouse_id,p.product_id,p.variant_id,p.quantity,p.reason,actor,p.idempotency_key)
-   await db.execute("""insert into public.stock_movements(organization_id,warehouse_id,product_id,variant_id,movement_type,quantity,on_hand_delta,reference_type,reference_id,reason,actor_user_id,idempotency_key)
-    values($1,$2,$4,$5,'transfer_out',$6,-$6,'stock_transfer',$7,$8,$9,$10),($1,$3,$4,$5,'transfer_in',$6,$6,'stock_transfer',$7,$8,$9,$11)""",
-    org,p.from_warehouse_id,p.to_warehouse_id,p.product_id,p.variant_id,p.quantity,transfer["id"],p.reason,actor,p.idempotency_key+":out",p.idempotency_key+":in")
-   await self.audit(db,org,actor,"inventory.stock.transferred","stock_transfer",transfer["id"],{"quantity":str(p.quantity)})
+   transfer=await db.fetchrow("""insert into public.stock_transfers(organization_id,from_warehouse_id,to_warehouse_id,product_id,variant_id,quantity,reason,actor_user_id,idempotency_key,product_owner_organization_id)
+    values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) returning *""",org,p.from_warehouse_id,p.to_warehouse_id,p.product_id,p.variant_id,p.quantity,p.reason,actor,p.idempotency_key,owner)
+   await db.execute("""insert into public.stock_movements(organization_id,warehouse_id,product_id,variant_id,movement_type,quantity,on_hand_delta,reference_type,reference_id,reason,actor_user_id,idempotency_key,product_owner_organization_id)
+    values($1,$2,$4,$5,'transfer_out',$6,-$6,'stock_transfer',$7,$8,$9,$10,$12),($1,$3,$4,$5,'transfer_in',$6,$6,'stock_transfer',$7,$8,$9,$11,$12)""",
+    org,p.from_warehouse_id,p.to_warehouse_id,p.product_id,p.variant_id,p.quantity,transfer["id"],p.reason,actor,p.idempotency_key+":out",p.idempotency_key+":in",owner)
+   await self.audit(db,org,actor,"inventory.stock.transferred","stock_transfer",transfer["id"],{"quantity":str(p.quantity),"product_owner_organization_id":str(owner)})
   return dict(transfer)
-
  async def cancel_order(self,db,org,actor,oid,reason):
   async with db.transaction():
    o=await db.fetchrow("select * from public.orders where organization_id=$1 and id=$2 for update",org,oid)
