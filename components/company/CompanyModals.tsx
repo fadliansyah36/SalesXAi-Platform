@@ -743,7 +743,7 @@ export function AddOutletCompanyModal({
           <div>
             <label className="block text-xs font-semibold mb-1">Teritori</label>
             <select value={territoryId} onChange={(event) => setTerritoryId(event.target.value)} className="w-full rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 py-2 text-xs">
-              <option value="">Pilih teritori</option>
+              <option value="">Tidak ditetapkan</option>
               {territories.filter((territory) => !branchId || branches.find((branch) => branch.id === branchId)?.name === territory.branchName).map((territory) => <option key={territory.id} value={territory.id}>{territory.name}</option>)}
             </select>
           </div>
@@ -1951,17 +1951,17 @@ export function EditUserAssignmentModal({
       <form
         onSubmit={async (event) => {
           event.preventDefault();
-          if (!selectedTeam || !selectedTerritory || saving) return;
+          if (saving) return;
           setSaving(true);
           setError(null);
           try {
             await onSave({
               ...member,
-              teamId: selectedTeam.id,
-              territoryId: selectedTerritory.id,
-              managerUserId: managerUserId || undefined,
-              branchId: selectedTeam.branchId,
-              area: selectedTeam.name,
+              teamId: selectedTeam?.id || '',
+              territoryId: selectedTerritory?.id || '',
+              managerUserId: selectedTeam ? (managerUserId || undefined) : undefined,
+              branchId: selectedTeam?.branchId || '',
+              area: selectedTeam?.name || 'Belum ditempatkan',
               status,
             });
             onClose();
@@ -1980,18 +1980,17 @@ export function EditUserAssignmentModal({
         <div>
           <label className="block font-semibold mb-1">Tim</label>
           <select
-            required
             value={teamId}
             onChange={(event) => setTeamId(event.target.value)}
             className="w-full rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 py-2"
           >
-            <option value="">Pilih tim</option>
+            <option value="">Tidak ditetapkan</option>
             {teams.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}
           </select>
         </div>
         <div>
           <label className="block font-semibold mb-1">Teritori</label>
-          <select required value={territoryId} onChange={(event) => setTerritoryId(event.target.value)} className="w-full rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 py-2">
+          <select value={territoryId} onChange={(event) => setTerritoryId(event.target.value)} className="w-full rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 py-2">
             <option value="">Pilih teritori</option>
             {territories.filter((territory) => !selectedTeam || territory.branchId === selectedTeam.branchId).map((territory) => <option key={territory.id} value={territory.id}>{territory.name}</option>)}
           </select>
@@ -2022,7 +2021,7 @@ export function EditUserAssignmentModal({
         {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700 dark:bg-red-950 dark:text-red-200">{error}</p>}
         <button
           type="submit"
-          disabled={saving || !selectedTeam}
+          disabled={saving}
           className="w-full rounded-xl bg-[#348CB2] hover:bg-[#236D91] py-2.5 text-sm font-bold text-white cursor-pointer disabled:opacity-50"
         >
           {saving ? 'Menyimpan…' : 'Simpan Penugasan'}

@@ -37,6 +37,7 @@ class MasterDataService:
         return await self.repository.my_assignment_context(connection, organization_id, principal.user_id)
 
     async def _validate_references(self, connection: asyncpg.Connection, organization_id: UUID, resource: str, values: dict[str, Any], resource_id: UUID | None = None) -> dict[str, Any]:
+        provided_fields = set(values)
         if resource_id is not None:
             current = await connection.fetchrow(
                 f"select * from public.{resource} where id=$1 and organization_id=$2",
@@ -151,25 +152,29 @@ class MasterDataService:
                 user_id = values.get("user_id")
                 if user_id is None:
                     raise APIError(422, "sales_profile_user_required", "Select a user with an active organization membership.")
-                membership = await connection.fetchrow(
-                    """select m.id,m.user_id from public.organization_memberships m
-                       where m.organization_id=$1 and m.user_id=$2 and m.status='active'
-                         and exists (
-                           select 1 from public.user_role_assignments ura
-                           join public.roles r on r.id=ura.role_id
-                           where ura.membership_id=m.id and ura.revoked_at is null
-                             and ura.starts_at<=now() and (ura.expires_at is null or ura.expires_at>now())
-                             and r.key in ('sales_rep','supervisor')
-                             and ((ura.scope_type='tenant' and ura.scope_id=$1)
-                               or (ura.scope_type='branch' and ura.scope_id=(select t.branch_id from public.teams t where t.id=$3 and t.organization_id=$1)))
-                         )
-                       order by m.created_at desc limit 1""",
-                    organization_id, user_id, values.get("team_id"),
+                validate_membership = resource_id is None or "user_id" in provided_fields or (
+                    "team_id" in provided_fields and values.get("team_id") is not None
                 )
-                if membership is None:
-                    raise APIError(422, "sales_profile_membership_role_required", "Sales profile requires an active membership with a tenant- or matching-branch-scoped sales_rep/supervisor role.")
-                values["membership_id"] = membership["id"]
-                values["user_id"] = membership["user_id"]
+                if validate_membership:
+                    membership = await connection.fetchrow(
+                        """select m.id,m.user_id from public.organization_memberships m
+                           where m.organization_id=$1 and m.user_id=$2 and m.status='active'
+                             and exists (
+                               select 1 from public.user_role_assignments ura
+                               join public.roles r on r.id=ura.role_id
+                               where ura.membership_id=m.id and ura.revoked_at is null
+                                 and ura.starts_at<=now() and (ura.expires_at is null or ura.expires_at>now())
+                                 and r.key in ('sales_rep','supervisor')
+                                 and ((ura.scope_type='tenant' and ura.scope_id=$1)
+                                   or (ura.scope_type='branch' and ura.scope_id=(select t.branch_id from public.teams t where t.id=$3 and t.organization_id=$1)))
+                             )
+                           order by m.created_at desc limit 1""",
+                        organization_id, user_id, values.get("team_id"),
+                    )
+                    if membership is None:
+                        raise APIError(422, "sales_profile_membership_role_required", "Sales profile requires an active membership with a tenant- or matching-branch-scoped sales_rep/supervisor role.")
+                    values["membership_id"] = membership["id"]
+                    values["user_id"] = membership["user_id"]
                 manager_user_id = values.get("manager_user_id")
                 if manager_user_id is not None:
                     valid_manager = await connection.fetchval(

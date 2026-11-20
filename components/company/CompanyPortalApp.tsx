@@ -3590,7 +3590,7 @@ export function CompanyPortalApp() {
             throw new Error('Akses perubahan penugasan sales profile tidak diizinkan.');
           }
           const row = await auth.apiClient.updateSalesProfile(auth.activeOrganizationId, updated.id, {
-            team_id: updated.teamId, territory_id: updated.territoryId, manager_user_id: updated.managerUserId ?? null,
+            team_id: updated.teamId || null, territory_id: updated.territoryId || null, manager_user_id: updated.managerUserId ?? null,
             status: updated.status === 'Online' ? 'active' : 'inactive',
           });
           setTeamMembers((previous) => previous.map((member) => member.id === updated.id ? {
