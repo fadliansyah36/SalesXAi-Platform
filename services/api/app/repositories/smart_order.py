@@ -153,7 +153,7 @@ class SmartOrderRepository:
   rows=await db.fetch("""select p.id,p.organization_id,p.code,p.name,p.description,p.priority,p.stackable,p.stacking_group,p.max_redemptions,p.max_per_customer,p.starts_at,p.ends_at,p.status,
    coalesce(jsonb_agg(jsonb_build_object('rule_type',r.rule_type,'rule_config',r.rule_config)) filter(where r.id is not null),'[]'::jsonb) rules
    from public.promotions p left join public.promotion_rules r on r.organization_id=p.organization_id and r.promotion_id=p.id
-   where p.organization_id=$1 or exists(select 1 from public.commerce_partner_links l where l.organization_id=p.organization_id and l.partner_organization_id=$1 and l.relationship_type in ('principal','distributor') and l.status='active' and l.starts_at<=now() and (l.ends_at is null or l.ends_at>now()))
+   where p.organization_id=$1 or exists(select 1 from public.commerce_partner_links l where l.organization_id=p.organization_id and l.partner_organization_id=$1 and l.relationship_type in ('principal','distributor','customer') and l.status='active' and l.starts_at<=now() and (l.ends_at is null or l.ends_at>now()))
    group by p.id order by p.priority,p.created_at desc""",org)
   return [dict(r) for r in rows]
 
