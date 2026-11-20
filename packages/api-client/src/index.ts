@@ -414,10 +414,10 @@ export class SalesXApiClient {
   createSmartTeamVisit(organizationId:string,payload:import("@salesx-ai/api-contracts").SmartTeamVisitCreate):Promise<import("@salesx-ai/api-contracts").SmartTeamVisit> {
     return this.request(`/api/v1/organizations/${encodeURIComponent(organizationId)}/smart-team/visits`,{method:"POST",body:JSON.stringify(payload)});
   }
-  checkInSmartTeamVisit(organizationId:string,visitId:string,payload:{location:import("@salesx-ai/api-contracts").SmartTeamLocationCapture}):Promise<import("@salesx-ai/api-contracts").SmartTeamVisit> {
+  checkInSmartTeamVisit(organizationId:string,visitId:string,payload:{location:import("@salesx-ai/api-contracts").SmartTeamLocationCapture;idempotency_key:string}):Promise<import("@salesx-ai/api-contracts").SmartTeamVisit> {
     return this.request(`/api/v1/organizations/${encodeURIComponent(organizationId)}/smart-team/visits/${encodeURIComponent(visitId)}/check-in`,{method:"POST",body:JSON.stringify(payload)});
   }
-  checkOutSmartTeamVisit(organizationId:string,visitId:string,payload:{location:import("@salesx-ai/api-contracts").SmartTeamLocationCapture;outcome?:string|null;notes?:string|null}):Promise<import("@salesx-ai/api-contracts").SmartTeamVisit> {
+  checkOutSmartTeamVisit(organizationId:string,visitId:string,payload:{location:import("@salesx-ai/api-contracts").SmartTeamLocationCapture;outcome?:string|null;notes?:string|null;idempotency_key:string}):Promise<import("@salesx-ai/api-contracts").SmartTeamVisit> {
     return this.request(`/api/v1/organizations/${encodeURIComponent(organizationId)}/smart-team/visits/${encodeURIComponent(visitId)}/check-out`,{method:"POST",body:JSON.stringify(payload)});
   }
   cancelSmartTeamVisit(organizationId:string,visitId:string,reason:string):Promise<import("@salesx-ai/api-contracts").SmartTeamVisit> {
@@ -430,8 +430,8 @@ export class SalesXApiClient {
   clockInSmartTeam(organizationId:string,location:import("@salesx-ai/api-contracts").SmartTeamLocationCapture,idempotencyKey:string):Promise<import("@salesx-ai/api-contracts").SmartTeamAttendance> {
     return this.request(`/api/v1/organizations/${encodeURIComponent(organizationId)}/smart-team/attendance/clock-in`,{method:"POST",body:JSON.stringify({location,idempotency_key:idempotencyKey})});
   }
-  clockOutSmartTeam(organizationId:string,location:import("@salesx-ai/api-contracts").SmartTeamLocationCapture):Promise<import("@salesx-ai/api-contracts").SmartTeamAttendance> {
-    return this.request(`/api/v1/organizations/${encodeURIComponent(organizationId)}/smart-team/attendance/clock-out`,{method:"POST",body:JSON.stringify({location})});
+  clockOutSmartTeam(organizationId:string,location:import("@salesx-ai/api-contracts").SmartTeamLocationCapture,idempotencyKey:string):Promise<import("@salesx-ai/api-contracts").SmartTeamAttendance> {
+    return this.request(`/api/v1/organizations/${encodeURIComponent(organizationId)}/smart-team/attendance/clock-out`,{method:"POST",body:JSON.stringify({location,idempotency_key:idempotencyKey})});
   }
   correctSmartTeamAttendance(organizationId:string,shiftId:string,payload:{clock_in_at?:string|null;clock_out_at?:string|null;reason:string}):Promise<import("@salesx-ai/api-contracts").SmartTeamAttendance> {
     return this.request(`/api/v1/organizations/${encodeURIComponent(organizationId)}/smart-team/attendance/${encodeURIComponent(shiftId)}/correct`,{method:"POST",body:JSON.stringify(payload)});
