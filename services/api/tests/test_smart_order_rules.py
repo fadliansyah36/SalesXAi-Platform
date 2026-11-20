@@ -120,7 +120,8 @@ class SmartOrderRulesTests(unittest.TestCase):
         self.assertTrue(can_cancel_order("pending_approval"))
         self.assertTrue(can_cancel_order("revision_requested"))
         self.assertTrue(can_cancel_order("approved"))
-        self.assertFalse(can_cancel_order("processing"))
+        self.assertTrue(can_cancel_order("processing"))
+        self.assertFalse(can_cancel_order("fulfilled"))
         self.assertFalse(can_cancel_order("completed"))
 
 
