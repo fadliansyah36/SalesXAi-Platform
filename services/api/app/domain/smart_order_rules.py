@@ -133,9 +133,14 @@ def evaluate_promotion_candidates(
             continue
         applied.append({
             "promotion_id": str(promotion["id"]),
+            "promotion_owner_organization_id": str(promotion["organization_id"]),
             "code": promotion["code"],
+            "name": promotion.get("name"),
             "discount_amount": str(discount),
             "priority": promotion.get("priority", 100),
+            "stackable": bool(promotion.get("stackable", False)),
+            "stacking_group": promotion.get("stacking_group"),
+            "rules_snapshot": rules,
         })
         discount_total += discount
         if group:
