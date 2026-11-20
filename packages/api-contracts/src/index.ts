@@ -319,7 +319,7 @@ export interface SmartOrderPartnerOrderSummary {id:UUID;buyer_organization_id:UU
 export interface SmartOrderPartnerOrderPage {items:SmartOrderPartnerOrderSummary[];page:number;page_size:number;total:number;}
 export interface SmartOrderPartnerOrder extends Omit<SmartOrderPartnerOrderSummary,"partner_item_count"|"partner_item_total"> {items:Array<Record<string,unknown>>;fulfillments:Array<Record<string,unknown>>;partner_decisions:SmartOrderPartnerDecision[];}
 export interface SmartOrderPartnerOrganization {id:UUID;slug:string;name:string;relationship_type:"principal"|"distributor"|"company"|"customer";starts_at:string;ends_at?:string|null;}
-export interface SmartOrderPartnerLinkWrite {partner_organization_id:UUID;relationship_type:"principal"|"distributor"|"customer";starts_at:string;ends_at?:string|null;}
+export interface SmartOrderPartnerLinkWrite {partner_organization_id:UUID;relationship_type:"principal"|"distributor"|"company"|"customer";starts_at:string;ends_at?:string|null;}
 export interface SmartOrderAssistedCartWrite {customer_organization_id:UUID;}
 
 export interface SmartOrderPriceHistoryPage {items:Array<{id:UUID;entity_type:string;entity_id:UUID;action:string;before_snapshot?:Record<string,unknown>|null;after_snapshot?:Record<string,unknown>|null;actor_user_id?:UUID|null;occurred_at:string}>;page:number;page_size:number;total:number;}
