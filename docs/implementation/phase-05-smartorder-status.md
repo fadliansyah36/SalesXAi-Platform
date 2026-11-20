@@ -60,6 +60,24 @@ Supabase project: `eyofuiyxalbehbqoaeny`
 - Added focused tests for promotion calculation, SmartOrder request-schema validation, and the 48-index migration.
 - Added `20261120155706_p05_smartorder_foreign_key_indexes.sql` with 48 covering indexes for all Phase 05 foreign keys flagged by Performance Advisor. It is applied remotely and committed; existing historical migrations remain unchanged.
 
+## Cross-tenant API continuation — 2026-11-20
+
+- Product-owner identity is now persisted from partner catalog selection through cart items and immutable order-item snapshots. Partner product pricing checks the product-scoped pricing grant; cart insertion requires active catalog and ordering grants.
+- Promotion evaluation and cart/order draft joins now resolve the product through `product_owner_organization_id` rather than assuming buyer and product owner are identical.
+- Order submission now searches authorized partner-owned inventory balances, locks the selected balance row, and records reservation/commit/release movements against the inventory-owning organization. Approval decisions use the inventory owner recorded on each movement.
+- Fulfillment creation now binds the fulfillment to the warehouse-owning organization and records item-level allocations. Dispatch/release applies to the allocated partner inventory and order state waits for the remaining fulfillment groups.
+- API source commits: `328972cbd4a45e2397ecf39abf719e385983e5b0`, `d48ea239072f8c3144becd76655324691b3a479a`, `63021217c72c6cb939c84a3aff0e953a687132de`, `cd1b457dc26191497b5223183742e7997a5afe1b`.
+- Railway `salesx-api` deployment for `cd1b457dc26191497b5223183742e7997a5afe1b` completed SUCCESS; build completed and `/readyz` returned HTTP 200. This is deployment/readiness evidence, not proof of live authenticated partner-order transactions.
+- Local and remote migration ledgers are reconciled at 49/49 exact version/name pairs after aligning the new migration filenames with the applied Supabase versions.
+
+### Still outstanding — Phase 05 remains IN_PROGRESS
+
+- Distributor/principal partner-order inbox and seller-side read/decision/fulfillment authorization must be connected so a partner organization can operate its own items without seeing unrelated buyer order data.
+- End-to-end tenant/role/ownership checks for cross-organization approval and fulfillment actors still need to be completed in the API action matrix and route contracts.
+- Product and SKU edit/archive APIs and workflows; price-list update/deactivate; promotion update/deactivate.
+- Existing Web portal actions and Expo screens must be reconciled with the new partner-owned product and split-fulfillment contracts; no claim of full cross-surface integration is made.
+- Relevant focused API tests, static checks and complete portal/Expo builds for this continuation have not yet been recorded. The Railway image build and readiness check alone are not substitutes.
+
 ## Definition-of-done blockers
 
 1. **Cross-tenant catalog-to-order/fulfillment path is not complete.** Catalog list visibility can include a product through `commerce_catalog_access`, but `cart_items` and `order_items` still use composite foreign keys tying product/SKU ownership to the cart/order organization. The cart insertion query also validates product ownership against the buyer tenant. `inventory_balances` and `fulfillments.warehouse_id` similarly bind product/warehouse to the order tenant. Consequently, a customer/distributor tenant cannot reliably order a principal-owned catalog SKU and fulfill it from a separate distributor warehouse. This requires an additive schema and service design for product-owner identity, inventory-owner/fulfillment organization, partner access checks, and order operations across the buyer/seller boundary.
