@@ -35,6 +35,8 @@ class SmartOrderRulesTests(unittest.TestCase):
     def test_fulfillment_transition_graph(self):
         self.assertTrue(can_transition_fulfillment("queued", "picking"))
         self.assertFalse(can_transition_fulfillment("handed_over", "delivered"))
+        self.assertFalse(can_transition_fulfillment("handed_over", "failed"))
+        self.assertFalse(can_transition_fulfillment("failed", "picking"))
         self.assertFalse(can_transition_fulfillment("queued", "delivered"))
         self.assertFalse(can_transition_fulfillment("delivered", "picking"))
 
