@@ -730,8 +730,9 @@ The four handler inventories now cover **1,619 callback/event prop occurrences a
 - `assignment:manage` is granted to company_admin, tenant_owner and platform_admin; assignment-context read is granted to the permitted company, sales and supervisor roles according to the existing role matrix.
 
 ### Engineering evidence
-- API Checks run `44665067734`, code/test HEAD `8feb20dfc4490afe44505ecedc5d3712b0c27eea`: **SUCCESS** — 48 Python tests, Python compileall, Ruff, Web TypeScript and Web lint.
-- Foundation Verification run `44664888374`, application HEAD `9f7feae7ba5eeaf965ddf0ae661ad0686bfbd594`: **SUCCESS** — 20/20 steps including design-token reproducibility, Web TypeScript/lint, Expo Native TypeScript, SDK compatibility, Expo config, Metro, Android/iOS bundle exports and Turborepo workspace build.
+- API Checks run `44665532137`, code/test HEAD `e83f297879ff56c8840b29b0f329ace3e561675e`: **SUCCESS** — 49 Python tests, Python compileall, Ruff, Web TypeScript and Web lint.
+- Foundation Verification run `44665532140`, application HEAD `e83f297879ff56c8840b29b0f329ace3e561675e`: **SUCCESS** — 20/20 steps including design-token reproducibility, Web TypeScript/lint, Expo Native TypeScript, SDK compatibility, Expo config, Metro, Android/iOS bundle exports and Turborepo workspace build.
+- Final implementation code commit validated by both CI workflows: `e83f297879ff56c8840b29b0f329ace3e561675e`. This documentation evidence refresh does not change application code.
 - No staging, production deployment, real-world testing, Product Owner Acceptance or provider credential population was performed.
 
 **Next phase: Phase 04 — SmartTeam: Visit, Attendance & Sales Operations.** Phase 04 may begin from this completed Phase 03 baseline.

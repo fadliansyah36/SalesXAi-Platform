@@ -118,3 +118,10 @@ The previously listed Phase 03 remaining tasks are closed by the implementation 
 - Final API and Foundation CI evidence is recorded in the phase status tracker; no Phase 03 code blocker remains.
 
 **Next execution phase: Phase 04 — SmartTeam: Visit, Attendance & Sales Operations.**
+
+
+### Final CI refresh
+- Application source commit: `e83f297879ff56c8840b29b0f329ace3e561675e`.
+- API Checks `44665532137`: SUCCESS (49 tests, compileall, Ruff, web typecheck/lint).
+- Foundation Verification `44665532140`: SUCCESS (Web and Expo checks, Android/iOS exports, Turborepo build).
+- Typed shared event contract `MasterDataChangedEvent` and assignment-history lifecycle contract are re-exported through the API client; Company Portal filters SSE invalidations to its active organization before debounced refetch.
