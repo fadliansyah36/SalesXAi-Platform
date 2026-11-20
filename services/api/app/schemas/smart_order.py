@@ -91,7 +91,7 @@ class PromotionWrite(BaseModel):
             raise ValueError("Promotion validity dates must be ISO-8601 timestamps") from exc
         if starts.tzinfo is None or ends.tzinfo is None or ends <= starts:
             raise ValueError("Promotion end must be later than start and both timestamps must include timezone")
-        allowed = {"minimum_value", "minimum_quantity", "product", "category", "customer", "discount_percent", "discount_amount", "voucher"}
+        allowed = {"minimum_value", "minimum_quantity", "product", "category", "customer", "discount_percent", "discount_amount", "voucher", "organization_type"}
         for rule in self.rules:
             kind = rule.get("rule_type")
             config = rule.get("rule_config")
@@ -117,6 +117,11 @@ class PromotionWrite(BaseModel):
                 raise ValueError("category rule requires a target id")
             if kind == "customer" and not config.get("organization_id"):
                 raise ValueError("customer rule requires organization_id")
+            if kind == "organization_type":
+                audience = config.get("organization_types") or ([config.get("organization_type")] if config.get("organization_type") else [])
+                allowed_audiences = {"principal", "distributor", "company", "customer"}
+                if not audience or any(value not in allowed_audiences for value in audience):
+                    raise ValueError("organization_type requires organization_types from principal, distributor, company, customer")
             if kind == "voucher" and not config.get("code"):
                 raise ValueError("voucher rule requires code")
         return self
@@ -288,7 +293,7 @@ class ProductImageWrite(BaseModel):
 
 class PartnerLinkWrite(BaseModel):
     partner_organization_id: UUID
-    relationship_type: Literal["principal", "distributor", "customer"]
+    relationship_type: Literal["principal", "distributor", "company", "customer"]
     starts_at: str
     ends_at: str | None = None
 
