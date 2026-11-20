@@ -203,6 +203,89 @@ class SmartTeamRepository:
             visit_id,
         )
 
+    async def assign_visit(
+        self,
+        connection: asyncpg.Connection,
+        organization_id: UUID,
+        actor_id: UUID,
+        visit_id: UUID,
+        sales_profile_id: UUID,
+        idempotency_key: str,
+    ):
+        async with connection.transaction():
+            prior = await connection.fetchrow(
+                "select visit_id,event_type from public.smartteam_visit_events where organization_id=$1 and idempotency_key=$2",
+                organization_id,
+                idempotency_key,
+            )
+            if prior:
+                if prior["visit_id"] != visit_id or prior["event_type"] not in ("assigned", "reassigned"):
+                    raise ValueError("idempotency_conflict")
+                return await self.visit(connection, organization_id, visit_id)
+            current = await self.visit(connection, organization_id, visit_id)
+            if current is None:
+                raise ValueError("visit_not_found")
+            if current["status"] not in ("scheduled", "assigned"):
+                raise ValueError("visit_transition_invalid")
+            profile = await self.profile_in_org(connection, organization_id, sales_profile_id)
+            if profile is None:
+                raise ValueError("sales_profile_not_found")
+            if not await self.can_access_profile(connection, organization_id, sales_profile_id, actor_id):
+                raise ValueError("profile_scope_forbidden")
+            if not await self.outlet_is_assigned(
+                connection, organization_id, sales_profile_id, current["outlet_id"]
+            ):
+                raise ValueError("outlet_not_assigned")
+            outlet = await connection.fetchrow(
+                "select branch_id,territory_id from public.outlets where organization_id=$1 and id=$2 and status='active'",
+                organization_id,
+                current["outlet_id"],
+            )
+            if outlet is None:
+                raise ValueError("outlet_not_found")
+            if profile["team_id"] is not None:
+                team = await connection.fetchrow(
+                    "select branch_id from public.teams where organization_id=$1 and id=$2 and status='active'",
+                    organization_id,
+                    profile["team_id"],
+                )
+                if team is None:
+                    raise ValueError("sales_team_not_found")
+                if team["branch_id"] is not None and outlet["branch_id"] != team["branch_id"]:
+                    raise ValueError("outlet_branch_mismatch")
+            if profile["territory_id"] is not None and outlet["territory_id"] != profile["territory_id"]:
+                raise ValueError("outlet_territory_mismatch")
+            updated = await connection.fetchrow(
+                """update public.smartteam_visits
+                   set sales_profile_id=$3,team_id=$4,branch_id=$5,assigned_by=$6,
+                       status='assigned',updated_at=now()
+                   where organization_id=$1 and id=$2 returning *""",
+                organization_id,
+                visit_id,
+                sales_profile_id,
+                profile["team_id"],
+                outlet["branch_id"],
+                actor_id,
+            )
+            await connection.execute(
+                """insert into public.smartteam_visit_events
+                   (organization_id,visit_id,actor_user_id,event_type,from_status,to_status,idempotency_key,metadata)
+                   values($1,$2,$3,$4,$5,$6,$7,$8::jsonb)""",
+                organization_id,
+                visit_id,
+                actor_id,
+                "reassigned" if current["sales_profile_id"] != sales_profile_id else "assigned",
+                current["status"],
+                updated["status"],
+                idempotency_key,
+                json.dumps({
+                    "previous_sales_profile_id": str(current["sales_profile_id"]),
+                    "sales_profile_id": str(sales_profile_id),
+                    "outlet_id": str(current["outlet_id"]),
+                }),
+            )
+            return updated
+
     async def check_in(
         self,
         connection: asyncpg.Connection,
