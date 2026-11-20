@@ -62,6 +62,11 @@ class Phase04ActionCoverageTests(unittest.TestCase):
         expected = {"Website", "Customer Portal", "Sales Portal", "Company Portal", "Distributor Portal", "Principal Portal", "Supervisor Portal", "Super Admin"}
         self.assertEqual({row["portal"] for row in rows if row["portal"] != "Mobile Sales"}, expected)
 
+    def test_web_visit_history_and_evidence_controls_are_read_permission_gated(self) -> None:
+        source = SMARTTEAM_UI.read_text(encoding="utf-8")
+        self.assertIn("{canReadVisits&&<button disabled={busy} onClick={()=>void loadVisitHistory", source)
+        self.assertIn("{canReadVisits&&<button disabled={busy} onClick={()=>void loadVisitEvidence", source)
+
     def test_mobile_mutations_are_gated_by_their_exact_action_ids(self) -> None:
         source = MOBILE_UI.read_text(encoding="utf-8")
         for action_id in ("smartteam.attendance.clock_in", "smartteam.attendance.clock_out", "smartteam.visits.execute", "smartteam.visits.checkout", "smartteam.activities.create", "smartteam.visits.evidence.upload"):
