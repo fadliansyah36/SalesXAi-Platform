@@ -643,7 +643,7 @@ class SmartOrderRepository:
      await db.execute("""insert into public.product_prices(organization_id,price_list_id,product_id,variant_id,unit_price,minimum_quantity,maximum_quantity,effective_from,effective_until)
       values($1,$2,$3,$4,$5,$6,$7,$8::timestamptz,$9::timestamptz)""",org,price_list_id,line.product_id,line.variant_id,line.unit_price,line.minimum_quantity,line.maximum_quantity,p.effective_from,p.effective_until)
    await self.audit(db,org,actor,"pricing.price_list.updated","price_list",price_list_id,{"status":p.status,"price_count":len(p.prices)})
-  return await db.fetchrow("select * from public.price_lists where organization_id=$1 and id=$2",org,price_list_id)
+  return dict(await db.fetchrow("select * from public.price_lists where organization_id=$1 and id=$2",org,price_list_id))
 
  async def create_price_list(self,db,org,actor,p):
   async with db.transaction():
