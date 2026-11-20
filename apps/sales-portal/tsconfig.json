@@ -1,0 +1,39 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": "../..",
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ]
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    "../../app/**/*.ts",
+    "../../app/**/*.tsx",
+    "../../components/**/*.ts",
+    "../../components/**/*.tsx",
+    "../../hooks/**/*.ts",
+    "../../hooks/**/*.tsx",
+    "../../lib/**/*.ts",
+    "../../lib/**/*.tsx",
+    "../../global.d.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    ".next",
+    "../../apps/mobile-sales",
+    "../../apps/website",
+    "../../apps/customer-portal",
+    "../../apps/company-portal",
+    "../../apps/sales-portal",
+    "../../apps/distributor-portal",
+    "../../apps/principal-portal",
+    "../../apps/supervisor-portal",
+    "../../apps/super-admin"
+  ]
+}

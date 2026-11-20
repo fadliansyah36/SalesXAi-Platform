@@ -1,0 +1,41 @@
+name: Phase 04 Independent Portal Builds
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/website/**"
+      - "apps/customer-portal/**"
+      - "apps/company-portal/**"
+      - "apps/sales-portal/**"
+      - "apps/distributor-portal/**"
+      - "apps/principal-portal/**"
+      - "apps/supervisor-portal/**"
+      - "apps/super-admin/**"
+      - "app/**"
+      - "components/**"
+      - "hooks/**"
+      - "lib/**"
+      - "packages/**"
+      - "bun.lock"
+      - "package.json"
+      - "tsconfig.json"
+      - "postcss.config.mjs"
+      - ".github/workflows/phase-04-independent-portals.yml"
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        workspace: [website, customer-portal, company-portal, sales-portal, distributor-portal, principal-portal, supervisor-portal, super-admin]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.16.0
+      - run: bun install --frozen-lockfile
+      - run: bun run --filter "@salesx-ai/${{ matrix.workspace }}" build

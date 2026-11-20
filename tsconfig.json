@@ -49,6 +49,14 @@
     "node_modules",
     "apps/mobile-sales",
     ".expo",
-    "dist"
+    "dist",
+    "apps/website",
+    "apps/customer-portal",
+    "apps/company-portal",
+    "apps/sales-portal",
+    "apps/distributor-portal",
+    "apps/principal-portal",
+    "apps/supervisor-portal",
+    "apps/super-admin"
   ]
 }
