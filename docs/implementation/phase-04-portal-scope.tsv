@@ -1,0 +1,10 @@
+portal	phase04_smartteam_scope	action_placements	scope_decision	reason	future_phase
+Website	N/A	0	N/A	Public website and lead/contact entry; no SmartTeam field-operations workflow in Phase 04	Phase 02 identity / separate website scope
+Customer Portal	N/A	0	N/A	Customer catalog, cart, order and loyalty surfaces are SmartOrder/SmartReward, not SmartTeam	Phase 05 SmartOrder; Phase 06 SmartReward
+Sales Portal	IN_SCOPE	22	CONNECTED	Sales Planner, visits, attendance, activities, targets, evidence, history and event stream use the shared SmartTeam API	Phase 04
+Company Portal	IN_SCOPE	22	CONNECTED	Company SmartTeam tabs reuse the same tenant-scoped SmartTeam console and FastAPI contracts	Phase 04
+Distributor Portal	N/A	0	N/A	Distributor inventory, order intake, fulfillment and outlet coverage belong to commerce operations	Phase 05 SmartOrder
+Principal Portal	N/A	0	N/A	Principal product, availability, pricing policy and campaign workflows are commerce scope	Phase 05 SmartOrder
+Supervisor Portal	IN_SCOPE	22	CONNECTED	Supervisor visit overview, shifts, targets and monitoring use the shared SmartTeam API	Phase 04
+Super Admin	IN_SCOPE	1	CONNECTED	Platform-scoped global SmartTeam overview uses the admin FastAPI action and platform permission	Phase 04
+Mobile Sales	IN_SCOPE	12	CONNECTED	Native Expo SmartTeam reads and mutations use the same typed FastAPI client, permission actions and offline outbox	Phase 04

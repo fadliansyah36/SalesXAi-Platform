@@ -62,10 +62,12 @@ export function SmartTeamHome({auth,salesProfileId}:{auth:AuthState;salesProfile
  const organizationId=auth.activeOrganizationId;
  const api=auth.apiClient;
  const canReadVisits=auth.canPerformApiAction("smartteam.visits.read");
- const canExecuteVisits=auth.canPerformApiAction("smartteam.visits.execute");
+ const canCheckInVisit=auth.canPerformApiAction("smartteam.visits.execute");
+ const canCheckOutVisit=auth.canPerformApiAction("smartteam.visits.checkout");
  const canUploadEvidence=auth.canPerformApiAction("smartteam.visits.evidence.upload");
  const canReadAttendance=auth.canPerformApiAction("smartteam.attendance.read");
- const canManageAttendance=auth.canPerformApiAction("smartteam.attendance.clock_in");
+ const canClockIn=auth.canPerformApiAction("smartteam.attendance.clock_in");
+ const canClockOut=auth.canPerformApiAction("smartteam.attendance.clock_out");
  const canReadActivities=auth.canPerformApiAction("smartteam.activities.read");
  const canManageActivities=auth.canPerformApiAction("smartteam.activities.create");
  const canReadTargets=auth.canPerformApiAction("smartteam.targets.read");
@@ -293,8 +295,8 @@ export function SmartTeamHome({auth,salesProfileId}:{auth:AuthState;salesProfile
     {error!==""&&<NativeText color={colors.textSecondary}>{error}</NativeText>}
     {notice!==""&&<NativeText color={colors.textSecondary}>{notice}</NativeText>}
     <NativeInline gap="2" style={{flexWrap:"wrap"}}>
-     {canManageAttendance&&<Pressable disabled={busy||Boolean(activeShift)} onPress={()=>void clockIn()} style={{padding:12,borderRadius:10,backgroundColor:colors.primary,opacity:busy||activeShift?0.45:1}}><NativeText color={colors.surface} weight="semibold">Clock-in + GPS</NativeText></Pressable>}
-     {canManageAttendance&&<Pressable disabled={busy||!activeShift} onPress={()=>void clockOut()} style={{padding:12,borderRadius:10,borderWidth:1,borderColor:colors.border,opacity:busy||!activeShift?0.45:1}}><NativeText weight="semibold">Clock-out + GPS</NativeText></Pressable>}
+     {canClockIn&&<Pressable disabled={busy||Boolean(activeShift)} onPress={()=>void clockIn()} style={{padding:12,borderRadius:10,backgroundColor:colors.primary,opacity:busy||activeShift?0.45:1}}><NativeText color={colors.surface} weight="semibold">Clock-in + GPS</NativeText></Pressable>}
+     {canClockOut&&<Pressable disabled={busy||!activeShift} onPress={()=>void clockOut()} style={{padding:12,borderRadius:10,borderWidth:1,borderColor:colors.border,opacity:busy||!activeShift?0.45:1}}><NativeText weight="semibold">Clock-out + GPS</NativeText></Pressable>}
      <Pressable disabled={syncing||outbox.length===0} onPress={()=>void syncOutbox(true)} style={{padding:12,borderRadius:10,borderWidth:1,borderColor:colors.border,opacity:syncing||outbox.length===0?0.45:1}}><NativeText weight="semibold">{syncing?"Syncing…":`Sync antrean (${outbox.length})`}</NativeText></Pressable>
     </NativeInline>
     <NativeText variant="caption" color={colors.textSecondary}>{activeShift?"Shift aktif":"Belum ada shift aktif"} · {outbox.length} aksi menunggu sinkronisasi</NativeText>
@@ -309,9 +311,9 @@ export function SmartTeamHome({auth,salesProfileId}:{auth:AuthState;salesProfile
      <NativeText variant="caption" color={colors.textSecondary}>{dateText(visit.scheduled_at)} · {visit.status}</NativeText>
      <NativeText variant="caption" color={colors.textSecondary}>Check-in {dateText(visit.check_in_at)} · Check-out {dateText(visit.check_out_at)}</NativeText>
      <NativeInline gap="2" style={{marginTop:8,flexWrap:"wrap"}}>
-      {canExecuteVisits&&visit.status==="scheduled"&&<Pressable disabled={busy} onPress={()=>void checkIn(visit)} style={{padding:10,borderRadius:8,backgroundColor:colors.primary}}><NativeText color={colors.surface} weight="semibold">Check-in GPS</NativeText></Pressable>}
-      {canExecuteVisits&&visit.status==="in_progress"&&<Pressable disabled={busy} onPress={()=>void checkOut(visit)} style={{padding:10,borderRadius:8,borderWidth:1,borderColor:colors.border}}><NativeText weight="semibold">Check-out GPS</NativeText></Pressable>}
-      {canExecuteVisits&&visit.status==="in_progress"&&<NativeInline gap="1" style={{flexWrap:"wrap",alignItems:"center"}}>
+      {canCheckInVisit&&visit.status==="scheduled"&&<Pressable disabled={busy} onPress={()=>void checkIn(visit)} style={{padding:10,borderRadius:8,backgroundColor:colors.primary}}><NativeText color={colors.surface} weight="semibold">Check-in GPS</NativeText></Pressable>}
+      {canCheckOutVisit&&visit.status==="in_progress"&&<Pressable disabled={busy} onPress={()=>void checkOut(visit)} style={{padding:10,borderRadius:8,borderWidth:1,borderColor:colors.border}}><NativeText weight="semibold">Check-out GPS</NativeText></Pressable>}
+      {canCheckOutVisit&&visit.status==="in_progress"&&<NativeInline gap="1" style={{flexWrap:"wrap",alignItems:"center"}}>
        {(["productive","not_productive","order_taken","follow_up","closed","no_contact"] as const).map(value=><Pressable key={value} onPress={()=>setOutcome(value)} style={{padding:6,borderRadius:7,borderWidth:1,borderColor:outcome===value?colors.primary:colors.border,backgroundColor:outcome===value?colors.primary:colors.surface}}><NativeText color={outcome===value?colors.surface:colors.textPrimary} variant="caption">{value.replaceAll("_"," ")}</NativeText></Pressable>)}
       </NativeInline>}
       {canUploadEvidence&&["in_progress","completed"].includes(visit.status)&&<Pressable disabled={busy} onPress={()=>void uploadEvidence(visit)} style={{padding:10,borderRadius:8,borderWidth:1,borderColor:colors.border}}><NativeText weight="semibold">Tambah bukti foto</NativeText></Pressable>}
