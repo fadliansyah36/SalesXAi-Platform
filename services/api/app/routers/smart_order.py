@@ -80,7 +80,7 @@ async def stream_smart_order_events(
                 while not await request.is_disconnected():
                     try:
                         event = await asyncio.wait_for(queue.get(), timeout=15)
-                    except asyncio.TimeoutError:
+                    except TimeoutError:
                         yield ": keep-alive\n\n"
                         continue
                     yield "event: smartorder.changed\ndata: " + json.dumps(event, separators=(",", ":")) + "\n\n"
