@@ -7,6 +7,7 @@ from pydantic import ValidationError
 
 from app.services.smart_team import evidence_content_matches_mime
 from app.schemas.smart_team import (
+    ActivityCreate,
     AttendanceCorrection,
     ClockOutRequest,
     LocationCapture,
@@ -26,6 +27,15 @@ class SmartTeamEvidenceTests(unittest.TestCase):
 
 
 class SmartTeamSchemaTests(unittest.TestCase):
+    def test_task_activity_type_matches_phase04_database_contract(self) -> None:
+        activity = ActivityCreate(
+            sales_profile_id=uuid4(),
+            activity_type="task",
+            title="Follow up priority outlet",
+            idempotency_key="task-create-123",
+        )
+        self.assertEqual(activity.activity_type, "task")
+
     def test_location_capture_rejects_invalid_coordinates_and_accuracy(self) -> None:
         with self.assertRaises(ValidationError):
             LocationCapture(latitude=91, longitude=0, accuracy_m=5)
