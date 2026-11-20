@@ -384,11 +384,13 @@ class SmartOrderRepository:
         and auto_approve_below=true and $2<minimum_total order by minimum_total asc limit 1""",org,o["grand_total"])
       for i,b,take in alloc:
        owner=b["inventory_owner_organization_id"]
-       await db.execute("update public.inventory_balances set reserved=reserved+$4,version=version+1,updated_at=now() where organization_id=$1 and id=$2 and version=$3",owner,b["id"],b["version"],take)
+       changed=await db.fetchrow("update public.inventory_balances set reserved=reserved+$4,version=version+1,updated_at=now() where organization_id=$1 and id=$2 and version=$3 returning id",owner,b["id"],b["version"],take)
+       if not changed:raise APIError(409,"inventory_reservation_conflict","Inventory changed during order reservation; retry the order submission.")
        await db.execute("""insert into public.stock_movements(organization_id,warehouse_id,product_id,variant_id,movement_type,quantity,reserved_delta,reference_type,reference_id,reason,actor_user_id,idempotency_key,product_owner_organization_id)
         values($1,$2,$3,$4,'reserve',$5,$5,'order',$6,'Order stock reservation',$7,$8,$9)""",owner,b["warehouse_id"],i["product_id"],i["variant_id"],take,oid,actor,f"order:{oid}:reserve:{i['id']}:{b['id']}",i["product_owner_organization_id"])
        if auto_policy:
-        await db.execute("update public.inventory_balances set reserved=reserved-$4,committed=committed+$4,version=version+1,updated_at=now() where organization_id=$1 and id=$2 and reserved >= $4",owner,b["id"],take)
+        changed=await db.fetchrow("update public.inventory_balances set reserved=reserved-$4,committed=committed+$4,version=version+1,updated_at=now() where organization_id=$1 and id=$2 and reserved >= $4 returning id",owner,b["id"],take)
+        if not changed:raise APIError(409,"inventory_commit_conflict","Reserved stock changed before automatic order commitment.")
         await db.execute("""insert into public.stock_movements(organization_id,warehouse_id,product_id,variant_id,movement_type,quantity,reserved_delta,committed_delta,reference_type,reference_id,reason,actor_user_id,idempotency_key,product_owner_organization_id)
          values($1,$2,$3,$4,'commit',$5,-$5,$5,'order',$6,'Auto-approved by order policy',$7,$8,$9)""",owner,b["warehouse_id"],i["product_id"],i["variant_id"],take,oid,actor,f"order:{oid}:commit:{i['id']}:{b['id']}",i["product_owner_organization_id"])
       target="approved" if auto_policy else "pending_approval"
