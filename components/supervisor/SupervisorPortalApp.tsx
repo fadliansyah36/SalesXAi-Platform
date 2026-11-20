@@ -110,6 +110,8 @@ export type SupervisorTab =
   | 'reports'
   | 'settings';
 
+const LEGACY_SMARTTEAM_UI_ENABLED = false;
+
 export function SupervisorPortalApp() {
   const auth = useSalesXAuth();
   const { theme, toggleTheme } = useTheme();
@@ -808,7 +810,7 @@ export function SupervisorPortalApp() {
       )}
 
       {/* -------------------- SCREEN 4: SHIFT & KEHADIRAN TIM -------------------- */}
-      {activeTab === 'shifts' && (
+      {LEGACY_SMARTTEAM_UI_ENABLED && activeTab === 'shifts' && (
         <div className="space-y-4">
           <div>
             <h2 className="text-lg sm:text-xl font-bold text-[#123A54] dark:text-white">
@@ -1102,9 +1104,9 @@ export function SupervisorPortalApp() {
       )}
 
       {/* -------------------- SCREEN 7: KUNJUNGAN HARI INI & ROUTE HISTORY -------------------- */}
-      {activeTab === 'smartteam' && <SmartTeamConsole surface="supervisor" />}
+      {['smartteam','visits','shifts','targets'].includes(activeTab) && <SmartTeamConsole key={activeTab} surface="supervisor" initialTab={activeTab === 'shifts' ? 'attendance' : activeTab === 'targets' ? 'targets' : 'visits'} compact={activeTab !== 'smartteam'} />}
 
-      {activeTab === 'visits' && (
+      {LEGACY_SMARTTEAM_UI_ENABLED && activeTab === 'visits' && (
         <div className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -1579,7 +1581,7 @@ export function SupervisorPortalApp() {
       )}
 
       {/* -------------------- SCREEN 11: TARGET & REALISASI -------------------- */}
-      {activeTab === 'targets' && (
+      {LEGACY_SMARTTEAM_UI_ENABLED && activeTab === 'targets' && (
         <div className="space-y-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>

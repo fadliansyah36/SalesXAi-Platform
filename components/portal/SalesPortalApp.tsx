@@ -117,6 +117,8 @@ type LainnyaSubTab =
   | 'sync'
   | 'settings';
 
+const LEGACY_SMARTTEAM_UI_ENABLED = false;
+
 export function SalesPortalApp() {
   const { theme, toggleTheme } = useTheme();
   const auth = useSalesXAuth();
@@ -1807,10 +1809,10 @@ export function SalesPortalApp() {
                 ))}
               </div>
 
-              {aktivitasTab === 'smartteam' && <SmartTeamConsole surface="sales" />}
+              {['planner','schedule','history','gps','attendance','smartteam'].includes(aktivitasTab) && <SmartTeamConsole key={aktivitasTab} surface="sales" initialTab={aktivitasTab === 'attendance' || aktivitasTab === 'gps' ? 'attendance' : 'visits'} compact={aktivitasTab !== 'smartteam'} />}
 
               {/* 4A. Visit Planner (Screen 5) */}
-              {aktivitasTab === 'planner' && (
+              {LEGACY_SMARTTEAM_UI_ENABLED && aktivitasTab === 'planner' && (
                 <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 space-y-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
@@ -1924,7 +1926,7 @@ export function SalesPortalApp() {
               )}
 
               {/* 4B. Jadwal Kunjungan (Screen 7) */}
-              {aktivitasTab === 'schedule' && (
+              {LEGACY_SMARTTEAM_UI_ENABLED && aktivitasTab === 'schedule' && (
                 <div className="space-y-4">
                   <div className="inline-flex rounded-xl bg-[var(--color-surface-muted)] p-1">
                     {[
@@ -1995,7 +1997,7 @@ export function SalesPortalApp() {
               )}
 
               {/* 4C. Riwayat Kunjungan (Mobile Screen 13) */}
-              {aktivitasTab === 'history' && (
+              {LEGACY_SMARTTEAM_UI_ENABLED && aktivitasTab === 'history' && (
                 <div className="space-y-3">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <h2 className="text-sm font-bold text-[#123A54] dark:text-white">
@@ -2046,7 +2048,7 @@ export function SalesPortalApp() {
               )}
 
               {/* 4D. Lokasi & Aktivitas GPS (Screen 12 & Mobile 5) */}
-              {aktivitasTab === 'gps' && (
+              {LEGACY_SMARTTEAM_UI_ENABLED && aktivitasTab === 'gps' && (
                 <div className="space-y-4">
                   <div className="rounded-2xl border border-emerald-200 bg-emerald-50 dark:border-emerald-900/50 dark:bg-emerald-950/30 p-4 flex flex-wrap items-center justify-between gap-3">
                     <div>
@@ -2140,7 +2142,7 @@ export function SalesPortalApp() {
               )}
 
               {/* 4E. Absensi Geofence (Screen 13 & Mobile 6) */}
-              {aktivitasTab === 'attendance' && (
+              {LEGACY_SMARTTEAM_UI_ENABLED && aktivitasTab === 'attendance' && (
                 <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 space-y-5">
                   <div className="inline-flex rounded-xl bg-[var(--color-surface-muted)] p-1">
                     {(['absen', 'rekap'] as const).map((t) => (

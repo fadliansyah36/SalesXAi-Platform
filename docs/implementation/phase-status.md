@@ -1059,3 +1059,15 @@ The latest application-code commit is `b03459f7ed95bf43bb90653afa60305d0501b24c`
 - Corrected the JavaScript regular-expression escaping in `public/sw.js` so scope-key normalization and static-file filtering are valid JavaScript.
 - Railway Website, Customer and Company build commands now run `node --check public/sw.js`; Website and Company also run `node --check infrastructure/scripts/portal-gateway.mjs` before building portal workspaces.
 - The correction is committed before final PWA deployment. Phase 04 remains IN_PROGRESS until the three resulting deployments pass the expanded health gate.
+
+
+## Phase 04 — SmartTeam UI action cutover — 2026-11-20
+
+- Reused the existing live `SmartTeamConsole` as the only Phase 04 operational source of truth for Sales, Supervisor and Company tabs.
+- Sales Planner, Schedule, History, GPS and Attendance navigation now mounts typed API-backed Visits/Attendance views; Supervisor Visits, Shifts and Targets mount the corresponding live views; Company Visits, Attendance and Targets mount the corresponding live views.
+- The full SmartTeam tab remains available in each of the three portals. The console supports compact embedding so existing portal navigation and shells are preserved.
+- Legacy local-state/demo panels for those Phase 04 tabs are disabled; no mock fallback is used when API data is unavailable.
+- The integration mapping and API operations are documented in `docs/implementation/phase-04-smartteam-portal-integration.md`.
+- This code change triggers another Website, Customer and Company deployment. Phase 04 remains IN_PROGRESS until these deployments and the final health/contract validation succeed.
+
+**Phase 04 remains IN_PROGRESS — NOT COMPLETED. Phase 05 — SmartOrder remains locked.**

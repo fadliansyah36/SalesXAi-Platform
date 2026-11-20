@@ -16,11 +16,11 @@ function locationCapture():Promise<SmartTeamLocationCapture>{
  });
 }
 const dateLabel=(value:string|null|undefined)=>value?new Date(value).toLocaleString("id-ID"):"—";
-export function SmartTeamConsole({surface}:{surface:"company"|"supervisor"|"sales"}){
+export function SmartTeamConsole({surface,initialTab="visits",compact=false}:{surface:"company"|"supervisor"|"sales";initialTab?:Tab;compact?:boolean}){
  const auth=useSalesXAuth();
  const organizationId=auth.activeOrganizationId;
  const api=auth.apiClient;
- const [tab,setTab]=useState<Tab>("visits");
+ const [tab,setTab]=useState<Tab>(initialTab);
  const [visits,setVisits]=useState<SmartTeamVisit[]>([]);
  const [attendance,setAttendance]=useState<SmartTeamAttendance[]>([]);
  const [activities,setActivities]=useState<SmartTeamActivity[]>([]);
@@ -87,6 +87,7 @@ export function SmartTeamConsole({surface}:{surface:"company"|"supervisor"|"sale
   }catch(cause){setError(cause instanceof Error?cause.message:"Data SmartTeam tidak dapat dimuat.");}
  },[api,organizationId,canReadVisits,canReadAttendance,canReadActivities,canReadTargets,canReadDashboard,can]);
  useEffect(()=>{void reload();},[reload]);
+  useEffect(()=>{setTab(initialTab);},[initialTab]);
  useEffect(()=>{
   if(!api||!organizationId||typeof EventSource==="undefined")return;
   const source=new EventSource(`/api/backend/api/v1/organizations/${encodeURIComponent(organizationId)}/smart-team/events`,{withCredentials:true});
@@ -163,20 +164,23 @@ export function SmartTeamConsole({surface}:{surface:"company"|"supervisor"|"sale
   setActivityTitle("");
  }
  const tabs:Tab[]=["visits","attendance","activities","targets"];
- return <section className="mx-auto w-full max-w-7xl space-y-6 px-4 py-6 sm:px-6">
+ return <section className={compact?"w-full space-y-4":"mx-auto w-full max-w-7xl space-y-6 px-4 py-6 sm:px-6"}>
+  {!compact && (
   <header className="flex flex-wrap items-end justify-between gap-4">
    <div><p className="text-xs font-semibold uppercase tracking-[.16em] text-[var(--color-primary)]">SmartTeam · {surface}</p><h1 className="mt-2 text-2xl font-semibold text-[var(--color-text)]">Sales Operations</h1><p className="mt-1 text-sm text-[var(--color-text-secondary)]">Kunjungan, kehadiran, aktivitas dan target operasional berdasarkan data FastAPI.</p></div>
    <div className="flex items-center gap-2"><button type="button" onClick={()=>void reload()} disabled={busy} className="rounded-lg border border-[var(--color-border)] px-4 py-2 text-sm font-medium disabled:opacity-50">Refresh data</button>{uploadProgress!==null&&<div className="flex items-center gap-2 text-xs"><span>Upload {uploadProgress}%</span><button type="button" onClick={()=>uploadController?.abort()} className="rounded-lg border border-[var(--color-border)] px-2 py-1">Batalkan</button></div>}</div>
   </header>
+  )}
+  {compact && <header className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4"><div><p className="text-xs font-semibold uppercase tracking-[.16em] text-[var(--color-primary)]">SmartTeam · Data langsung</p><h2 className="mt-1 text-lg font-semibold text-[var(--color-text)]">{tab==="visits"?"Kunjungan & Jadwal":tab==="attendance"?"Attendance & Shift":tab==="targets"?"Target & KPI":"Aktivitas Harian"}</h2></div><div className="flex items-center gap-2">{uploadProgress!==null&&<div className="flex items-center gap-2 text-xs"><span>Upload {uploadProgress}%</span><button type="button" onClick={()=>uploadController?.abort()} className="rounded-lg border border-[var(--color-border)] px-2 py-1">Batalkan</button></div>}<button type="button" onClick={()=>void reload()} disabled={busy} className="rounded-lg border border-[var(--color-border)] px-3 py-2 text-xs font-medium disabled:opacity-50">Refresh</button></div></header>}
   {!organizationId&&<p className="rounded-xl border border-[var(--color-border)] p-4 text-sm">Pilih organisasi aktif untuk membuka SmartTeam.</p>}
   {error&&<div role="alert" className="rounded-xl border border-red-300 bg-red-50 p-3 text-sm text-red-800">{error}</div>}
   {notice&&<div role="status" className="rounded-xl border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-800">{notice}</div>}
-  {canReadDashboard&&<div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+  {!compact&&canReadDashboard&&<div className="grid grid-cols-2 gap-3 md:grid-cols-4">
    {[["Kunjungan",dashboard?.visits_total],["Terjadwal",dashboard?.visits_scheduled],["Berlangsung",dashboard?.visits_in_progress],["Selesai",dashboard?.visits_completed],["Kehadiran",dashboard?.attendance_records],["Shift aktif",dashboard?.active_shifts],["Aktivitas terbuka",dashboard?.activities_open],["Target",dashboard?.targets_visible]].map(([label,value])=><div key={String(label)} className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4"><p className="text-xs text-[var(--color-text-secondary)]">{label}</p><p className="mt-1 text-2xl font-semibold">{value??"—"}</p></div>)}
   </div>}
-  <nav className="flex flex-wrap gap-2 border-b border-[var(--color-border)] pb-3">
+  {!compact && <nav className="flex flex-wrap gap-2 border-b border-[var(--color-border)] pb-3">
    {tabs.map(value=><button key={value} type="button" onClick={()=>setTab(value)} className={`rounded-lg px-3 py-2 text-sm font-medium ${tab===value?"bg-[var(--color-primary)] text-white":"border border-[var(--color-border)]"}`}>{value==="visits"?"Visits":value==="attendance"?"Attendance":value==="activities"?"Daily Activity":"Targets"}</button>)}
-  </nav>
+  </nav>}
   {tab==="visits"&&<div className="space-y-4">
    {canManageVisits&&<form onSubmit={createVisit} className="grid gap-3 rounded-xl border border-[var(--color-border)] p-4 md:grid-cols-4">
     <select required value={profileId} onChange={e=>setProfileId(e.target.value)} className="rounded-lg border border-[var(--color-border)] bg-transparent p-2 text-sm"><option value="">Pilih sales</option>{profiles.map(p=><option key={p.id} value={p.id}>{p.employee_code??p.name??p.id}</option>)}</select>

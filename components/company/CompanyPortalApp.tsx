@@ -201,6 +201,8 @@ const SIDEBAR_GROUPS: Array<{
   },
 ];
 
+const LEGACY_SMARTTEAM_UI_ENABLED = false;
+
 export function CompanyPortalApp() {
   const auth = useSalesXAuth();
   const visiblePortalSwitchLinks = [
@@ -2294,7 +2296,7 @@ export function CompanyPortalApp() {
           {/* ================================================================
            * SCREEN 10 (11): TARGET & KPI
            * ================================================================ */}
-          {activeTab === 'targets' && (
+          {LEGACY_SMARTTEAM_UI_ENABLED && activeTab === 'targets' && (
             <div className="space-y-5">
               <div className="flex items-center justify-between">
                 <div>
@@ -2691,9 +2693,9 @@ export function CompanyPortalApp() {
           {/* ================================================================
            * SCREEN 13 (15): VISIT MONITORING
            * ================================================================ */}
-          {activeTab === 'smartteam' && <SmartTeamConsole surface="company" />}
+          {['smartteam','visits','attendance','targets'].includes(activeTab) && <SmartTeamConsole key={activeTab} surface="company" initialTab={activeTab === 'attendance' ? 'attendance' : activeTab === 'targets' ? 'targets' : 'visits'} compact={activeTab !== 'smartteam'} />}
 
-          {activeTab === 'visits' && (
+          {LEGACY_SMARTTEAM_UI_ENABLED && activeTab === 'visits' && (
             <div className="space-y-5">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="grid grid-cols-3 gap-1.5 rounded-xl bg-[var(--color-surface-muted)] p-1 w-full max-w-md">
@@ -2807,7 +2809,7 @@ export function CompanyPortalApp() {
           {/* ================================================================
            * SCREEN 19: ABSENSI & GEOFENCE TIM
            * ================================================================ */}
-          {activeTab === 'attendance' && (
+          {LEGACY_SMARTTEAM_UI_ENABLED && activeTab === 'attendance' && (
             <div className="space-y-5">
               <div>
                 <h2 className="text-lg font-bold text-[#123A54] dark:text-white">
