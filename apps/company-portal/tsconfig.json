@@ -5,7 +5,18 @@
       {
         "name": "next"
       }
-    ]
+    ],
+    "paths": {
+      "@/*": [
+        "../../*"
+      ],
+      "@salesx-ai/design-system": [
+        "../../packages/design-system/src/index.ts"
+      ],
+      "@salesx-ai/design-tokens/native": [
+        "../../packages/design-tokens/generated/native.ts"
+      ]
+    }
   },
   "include": [
     "next-env.d.ts",
