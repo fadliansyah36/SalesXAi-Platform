@@ -77,9 +77,9 @@ export function SmartTeamConsole({surface}:{surface:"company"|"supervisor"|"sale
   finally{setBusy(false);}
  }
  async function clockIn(){if(!api||!organizationId)return;const location=await locationCapture();await perform(()=>api.clockInSmartTeam(organizationId,location,crypto.randomUUID()),"Clock-in tersimpan dengan timestamp server.");}
- async function clockOut(){if(!api||!organizationId)return;const location=await locationCapture();await perform(()=>api.clockOutSmartTeam(organizationId,location),"Clock-out tersimpan dengan timestamp server.");}
- async function checkIn(visit:SmartTeamVisit){if(!api||!organizationId)return;const location=await locationCapture();await perform(()=>api.checkInSmartTeamVisit(organizationId,visit.id,{location}),"Check-in kunjungan tersimpan.");}
- async function checkOut(visit:SmartTeamVisit){if(!api||!organizationId)return;const location=await locationCapture();await perform(()=>api.checkOutSmartTeamVisit(organizationId,visit.id,{location,outcome:"follow_up"}),"Kunjungan selesai dan outcome tersimpan.");}
+ async function clockOut(){if(!api||!organizationId)return;const location=await locationCapture();await perform(()=>api.clockOutSmartTeam(organizationId,location,crypto.randomUUID()),"Clock-out tersimpan dengan timestamp server.");}
+ async function checkIn(visit:SmartTeamVisit){if(!api||!organizationId)return;const location=await locationCapture();await perform(()=>api.checkInSmartTeamVisit(organizationId,visit.id,{location,idempotency_key:crypto.randomUUID()}),"Check-in kunjungan tersimpan.");}
+ async function checkOut(visit:SmartTeamVisit){if(!api||!organizationId)return;const location=await locationCapture();await perform(()=>api.checkOutSmartTeamVisit(organizationId,visit.id,{location,outcome:"follow_up",idempotency_key:crypto.randomUUID()}),"Kunjungan selesai dan outcome tersimpan.");}
  async function createVisit(event:React.FormEvent){
   event.preventDefault();if(!api||!organizationId)return;
   await perform(()=>api.createSmartTeamVisit(organizationId,{sales_profile_id:profileId,outlet_id:outletId,scheduled_at:new Date(scheduledAt).toISOString(),idempotency_key:crypto.randomUUID()}),"Kunjungan berhasil dijadwalkan.");
