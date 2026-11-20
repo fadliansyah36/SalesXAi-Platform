@@ -15,7 +15,10 @@
       "android": {
         "buildType": "app-bundle"
       },
-      "environment": "production"
+      "environment": "production",
+      "env": {
+        "EXPO_PUBLIC_SALESX_API_URL": "https://salesx-api-production.up.railway.app"
+      }
     }
   },
   "submit": {
