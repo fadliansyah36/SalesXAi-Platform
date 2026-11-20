@@ -93,6 +93,10 @@ def evaluate_promotion_candidates(
                 eligible = False
             elif kind == "customer" and config.get("organization_id") and str(customer_organization_id) != str(config["organization_id"]):
                 eligible = False
+            elif kind == "organization_type":
+                allowed_audiences = set(config.get("organization_types") or ([config.get("organization_type")] if config.get("organization_type") else []))
+                if promotion.get("consumer_relationship_type") not in allowed_audiences:
+                    eligible = False
             elif kind == "voucher" and config.get("code") and str(config["code"]).upper() != str(promotion.get("code", "")).upper():
                 eligible = False
             elif kind in {"product", "category"}:
