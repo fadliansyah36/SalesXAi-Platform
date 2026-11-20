@@ -52,9 +52,9 @@ class SmartOrderRepository:
   async with db.transaction():
    current=await db.fetchrow("select id from public.products where organization_id=$1 and id=$2 for update",org,pid)
    if not current:raise APIError(404,"product_not_found","Product was not found in this organization.")
-   r=await db.fetchrow("""update public.products set product_code=$3,name=$4,description=$5,category_id=$6,brand_id=$7,unit_id=$8,tax_rate=$9,
+   await db.execute("""update public.products set product_code=$3,name=$4,description=$5,category_id=$6,brand_id=$7,unit_id=$8,tax_rate=$9,
     specifications=$10::jsonb,status=$11,published_at=case when $11='published' then coalesce(published_at,now()) else published_at end,
-    updated_by=$12,updated_at=now() where organization_id=$1 and id=$2 returning id""",
+    updated_by=$12,updated_at=now() where organization_id=$1 and id=$2""",
     org,pid,p.product_code.strip(),p.name.strip(),p.description,p.category_id,p.brand_id,p.unit_id,p.tax_rate,json.dumps(p.specifications),p.status,actor)
    sku_keys=[v.sku.strip() for v in p.variants]
    if len(sku_keys)!=len(set(sku_keys)):raise APIError(422,"duplicate_product_sku","A product update cannot contain duplicate SKU codes.")
