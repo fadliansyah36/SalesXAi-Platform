@@ -773,9 +773,10 @@ The four handler inventories now cover **1,619 callback/event prop occurrences a
 ### Engineering validation
 
 - Foundation Verification run **44675962379** — SUCCESS on commit `3716b6072fe65d9daf20fbcab470590915415796`; includes Web typecheck/lint, native TypeScript, Expo dependency/config/Metro checks, Android/iOS bundle exports and workspace build.
-- API Checks run **44675962378** — SUCCESS on commit `3716b6072fe65d9daf20fbcab470590915415796`.
-- Latest API checks run **44676185657** on code commit `0f0d244e40fd412e5f64254b5153bb7ab961921b` were still running when this record was written; do not treat that run as passed until GitHub reports SUCCESS. The run includes Python unit tests, compileall, Ruff, Web typecheck/lint and Docker image build.
-- The previous run **44676028737** failed because the migration test still referenced the old evidence-dedup filename; the test path was corrected and the two previously mismatched applied migration filenames were aligned to their Supabase versions. The latest run is the verification of those corrections.
+- API Checks run **44676185657** — **SUCCESS** on code commit `0f0d244e40fd412e5f64254b5153bb7ab961921b`: **59 Python tests**, compileall, Ruff, Web TypeScript, Web lint and Railway FastAPI Docker image build all passed.
+- Foundation Verification run **44675962379** — **SUCCESS** on commit `3716b6072fe65d9daf20fbcab470590915415796`: Web typecheck/lint, native TypeScript, Expo dependency/config/Metro checks, Android/iOS bundle exports and workspace build passed.
+- API Checks run **44675962378** — **SUCCESS** on commit `3716b6072fe65d9daf20fbcab470590915415796`.
+- An earlier run **44676028737** failed because a test referenced the pre-alignment migration filename. The test and filenames were corrected; the latest API run above validates the corrected migration register and code. Current `main` head `de52c60f34c42aa2e5ba54dc346f6ad2a17e25b7` adds documentation after the validated code commit; no application code changed after the validated commit.
 
 ### Railway and production blockers
 
