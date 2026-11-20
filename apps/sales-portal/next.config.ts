@@ -3,6 +3,7 @@ import type { NextConfig } from "next";
 const monorepoRoot = path.resolve(process.cwd(), "../..");
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  basePath: "/sales",
   eslint: { ignoreDuringBuilds: true },
   typescript: { ignoreBuildErrors: false },
   output: "standalone",

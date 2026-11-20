@@ -991,3 +991,41 @@ The latest application-code commit is `b03459f7ed95bf43bb90653afa60305d0501b24c`
 - The latest application commit `0d2c5f103cfe276fa1f7c4d44c7b8dce18614eec` includes the SmartTeam dashboard and evidence upload progress/cancellation refinements. Its corresponding Railway redeployments were still QUEUED behind the previous deployment chain at this check; do not claim that these latest component changes are live until those deployment IDs finish successfully.
 - The eight-portal GitHub build matrix on `0d2c5f1` is **8/8 SUCCESS**, and API Checks are **SUCCESS**. Foundation Verification run `44689132195` remains in progress.
 - The five missing portal services remain blocked by Railway Free plan resource provisioning limit. CORS remains scoped to the three actual provisioned domains only. Phase 04 remains **IN_PROGRESS**.
+
+
+## Phase 04 — Four-service multi-portal deployment implementation — 2026-11-20
+
+### Deployment topology decision
+- This section supersedes earlier Phase 04 notes that targeted nine Railway services / one public domain per portal. The user-approved production topology is exactly four Railway services:
+  - `salesx-api`: FastAPI.
+  - `salesx-website`: Website landing page at `/` and the independently built Sales Portal at `/sales`.
+  - `salesx-customer`: Customer Portal at `/`.
+  - `salesx-company`: Company Portal at `/`, Distributor at `/distributor`, Principal at `/principal`, Supervisor at `/supervisor`, and Super Admin at `/admin`.
+- Each portal retains its own `apps/*` workspace, Next.js config, App Router, layout, route handlers, package scripts and standalone build. The grouped services run one Node gateway and one isolated Next.js standalone process per portal; no portal source is copied into another portal and no redirect-only routing is used.
+- This is an explicit deployment-topology exception to the original PRD/Engineering Plan's one-service-per-app deployment boundary. Product/application ownership, independent workspace builds and source boundaries remain intact. See `docs/adr/ADR-004-four-railway-services-multi-portal-routing.md`.
+
+### Implementation committed
+- Added `infrastructure/scripts/portal-gateway.mjs`: production HTTP reverse gateway with path-bound routing, original request/cookie/header forwarding, WebSocket upgrade forwarding, child-process supervision and an API-dependent health endpoint that checks every portal runtime.
+- Set Next.js `basePath` on Sales `/sales`, Distributor `/distributor`, Principal `/principal`, Supervisor `/supervisor`, and Super Admin `/admin`. Website, Customer and Company remain at root in their service group.
+- Updated the Website and Company group documentation and each grouped portal README.
+- Railway build contexts remain repository root. Group builds are sequential to reduce peak build memory and each portal's Next standalone output remains independently generated.
+
+### Railway current state before group deployment
+- The four required Railway services already exist in production:
+  - `salesx-api`: `https://salesx-api-production.up.railway.app`
+  - `salesx-website`: `https://salesx-website-production.up.railway.app`
+  - `salesx-customer`: `https://salesx-customer-production.up.railway.app`
+  - `salesx-company`: `https://salesx-company-production.up.railway.app`
+- Before the new group gateway is deployed, Website and Company still run only their original single Next.js workspace. The presence of four healthy service deployments alone does not prove grouped route delivery.
+- API readiness deployment `b0f7ea0b-8380-4cb2-bc81-6b1e7882d0d9`, Website `d1dc31e4-735a-47f1-aa49-26c8bd378f3a`, Customer `e8dad41a-a542-444e-9aa4-61a4635f7f9c`, and Company `015e5184-07bf-430b-85e6-666eab5133d2` were reported SUCCESS before this source revision.
+- The previous Railway Free-plan service-count blocker is no longer relevant to this four-service topology. The old `@salesx-ai/mobile-sales` Railway service is not part of the target and remains untouched; Expo mobile is built/released through EAS.
+
+### Remaining validation and blockers
+- The grouped Website and Company Railway build/start commands and watch paths must be applied and their deployments must pass the `/api/health` gate. This gate verifies every local portal process plus the default portal's FastAPI `/readyz` dependency.
+- Validate direct requests for all eight public routes, including a nested/deep route and `_next/static` asset delivery for each basePath. Do not infer route success from build success alone.
+- Verify Railway environment CORS origins remain the three actual service origins (Website, Customer, Company), not eight fictional portal origins. Each grouped web service must keep its own exact `APP_PUBLIC_URL`; the Website origin remains the Expo Auth BFF origin.
+- API FastAPI readiness and database TLS/migration evidence remain as previously recorded. Do not populate dummy SMTP, OAuth or provider credentials.
+- Repository phase tracker currently has a governance inconsistency: its Phase 02 section remains PARTIAL and a later entry says Phase 03 is LOCKED, while later Phase 04 entries record implementation already performed. Resolve this phase-sequence/status conflict against current source evidence before declaring Phase 04 complete.
+- SmartTeam feature action coverage and all existing dashboard local/demo interactions still require evidence of complete Fastapi typed-client integration; later-phase SmartOrder/Reward/AI/GPS/Analytics UI is not to be treated as Phase 04 completion evidence.
+
+**Phase 04 remains IN_PROGRESS — NOT COMPLETED. Phase 05 — SmartOrder remains locked.**
