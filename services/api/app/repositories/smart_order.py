@@ -61,7 +61,7 @@ class SmartOrderRepository:
    for v in p.variants:
     existing=await db.fetchrow("select id from public.product_variants where organization_id=$1 and product_id=$2 and sku=$3 for update",org,pid,v.sku.strip())
     if existing:
-     await db.execute("""update public.product_variants set name=$4,barcode=$5,attributes=$6::jsonb,specifications=$7::jsonb,weight_grams=$8,status='active',updated_at=now()
+     await db.execute("""update public.product_variants set name=$4,barcode=$5,attributes=$6::jsonb,specifications=$7::jsonb,weight_grams=$8,updated_at=now()
       where organization_id=$1 and product_id=$2 and id=$3""",org,pid,existing["id"],v.name.strip(),v.barcode,json.dumps(v.attributes),json.dumps(v.specifications),v.weight_grams)
     else:
      await db.execute("""insert into public.product_variants(organization_id,product_id,sku,name,barcode,attributes,specifications,weight_grams)
@@ -629,7 +629,7 @@ class SmartOrderRepository:
     key=(str(old["product_id"]),str(old["variant_id"]),str(old["minimum_quantity"]))
     if key not in wanted:
      end=max(datetime.now(UTC),old["effective_from"]+timedelta(microseconds=1))
-     await db.execute("update public.product_prices set effective_until=$3 where organization_id=$1 and id=$2",org,old["id"],end)
+     await db.execute("update public.product_prices set effective_until=$3 where organization_id=$1 and id=$2 and (effective_until is null or effective_until>now())",org,old["id"],end)
    for line in p.prices:
     valid=await db.fetchval("""select exists(select 1 from public.products p join public.product_variants v on v.organization_id=p.organization_id and v.product_id=p.id
       where p.organization_id=$1 and p.id=$2 and v.id=$3 and p.status<>'archived' and v.status<>'archived')""",org,line.product_id,line.variant_id)
