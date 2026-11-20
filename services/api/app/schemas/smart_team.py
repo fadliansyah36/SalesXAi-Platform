@@ -84,3 +84,8 @@ class TargetWrite(BaseModel):
 
 class SmartTeamList(BaseModel):
     model_config = ConfigDict(extra="allow")
+
+class TargetUpdate(BaseModel):
+    period_start: date | None = None
+    period_end: date | None = None
+    target_value: Decimal | None = Field(default=None, ge=0, max_digits=18, decimal_places=2)
