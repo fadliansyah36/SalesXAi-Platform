@@ -77,7 +77,7 @@ class AttendanceCorrection(BaseModel):
 class ActivityCreate(BaseModel):
     sales_profile_id: UUID
     visit_id: UUID | None = None
-    activity_type: Literal["call", "meeting", "follow_up", "prospecting", "report", "other"]
+    activity_type: Literal["task", "call", "meeting", "follow_up", "prospecting", "report", "other"]
     title: str = Field(min_length=2, max_length=180)
     description: str | None = Field(default=None, max_length=4000)
     due_at: datetime | None = None
