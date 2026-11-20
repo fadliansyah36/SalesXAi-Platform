@@ -22,7 +22,15 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
   const [gmpQuotaExceeded, setGmpQuotaExceeded] = useState(false);
   useEffect(() => {
     installGmpQuotaListeners();
-    if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => undefined);
+    if ('serviceWorker' in navigator) {
+      const portalPrefixes = ['/sales', '/distributor', '/principal', '/supervisor', '/admin'];
+      const portalPrefix = portalPrefixes.find((prefix) =>
+        window.location.pathname === prefix || window.location.pathname.startsWith(prefix + '/')
+      );
+      const serviceWorkerScope = portalPrefix ? portalPrefix + '/' : '/';
+      const serviceWorkerUrl = portalPrefix ? portalPrefix + '/sw.js' : '/sw.js';
+      navigator.serviceWorker.register(serviceWorkerUrl, { scope: serviceWorkerScope }).catch(() => undefined);
+    }
     const handler = () => setGmpQuotaExceeded(true);
     window.addEventListener('gmp-quota-exceeded', handler);
     return () => window.removeEventListener('gmp-quota-exceeded', handler);

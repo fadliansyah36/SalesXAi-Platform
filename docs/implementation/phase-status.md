@@ -1040,3 +1040,16 @@ The latest application-code commit is `b03459f7ed95bf43bb90653afa60305d0501b24c`
 - These source changes trigger a follow-up deployment of Website, Customer and Company. Update this record with their final deployment IDs/status and verify the health gate before treating route/asset readiness as complete.
 
 **Phase 04 remains IN_PROGRESS — NOT COMPLETED. Phase 05 — SmartOrder remains locked.**
+
+
+## Phase 04 — PWA scope and cache isolation — 2026-11-20
+
+- The grouped portal manifests previously inherited the root manifest and registered one root-scoped service worker. That caused child portal installs to start at the wrong route and allowed the shared worker to cache dynamic HTML across portal paths.
+- Updated Sales, Distributor, Principal, Supervisor and Super Admin manifests with independent IDs, `start_url`, `scope` and basePath-prefixed icons.
+- Updated shared `AppProviders` to register the correct service worker URL and scope from the current portal prefix.
+- Updated `public/sw.js` to namespace caches per portal scope and cache only public static assets/icons/manifests. API, auth and dynamic HTML responses are never cached.
+- Extended grouped gateway readiness to require each portal root, `/portal` deep route, generated Next static JS asset, manifest and scoped service worker, plus BFF CSRF and FastAPI health.
+- Added `/public/**` to Website, Customer and Company Railway watch paths so future PWA/static asset changes redeploy the correct service.
+- These changes trigger the next deployment of Website, Customer and Company. Phase 04 remains IN_PROGRESS until all three deployments pass the expanded health gate.
+
+**Phase 04 remains IN_PROGRESS — NOT COMPLETED. Phase 05 — SmartOrder remains locked.**

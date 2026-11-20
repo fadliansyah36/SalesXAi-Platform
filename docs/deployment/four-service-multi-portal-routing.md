@@ -57,3 +57,10 @@ The gateway runs the Next standalone servers on loopback-only ports and exposes 
 ## Auth callback path preservation
 
 The Website and Company group BFFs receive requests from their own portal paths on the same origin. Signup, password recovery and OAuth redirect URLs now preserve an allowlisted return prefix (`/sales`, `/distributor`, `/principal`, `/supervisor`, `/admin`, or root). The callback page validates that prefix before routing to the original portal's reset-password, invitation or landing route. Untrusted origins and arbitrary external return URLs are rejected.
+
+
+## Per-portal PWA isolation
+
+Each non-root portal has its own manifest identity, `start_url`, `scope`, and service-worker scope: Sales `/sales/`, Distributor `/distributor/`, Principal `/principal/`, Supervisor `/supervisor/`, and Super Admin `/admin/`. The shared service-worker script derives a cache namespace from its registration scope. It caches only public static assets and the manifest; it never caches API responses, auth routes or dynamic HTML. The root Website, Customer and Company PWAs retain root scope.
+
+The gateway readiness check verifies each portal's root and `/portal` route, a generated Next static asset, its manifest and scoped service-worker file before returning healthy.

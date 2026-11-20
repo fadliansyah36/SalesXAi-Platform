@@ -121,6 +121,10 @@ function requestStatus(app, route) {
   });
 }
 
+function routeResponds(status) {
+  return (status >= 200 && status < 400) || status === 401 || status === 403;
+}
+
 async function readiness() {
   const [apiStatus, bffStatus] = await Promise.all([
     requestStatus(defaultApp, "/api/health"),
@@ -129,21 +133,31 @@ async function readiness() {
   const portalResults = await Promise.all(apps.map(async (app) => {
     const prefix = app.basePath || "";
     const asset = firstStaticAsset(app);
-    const [rootStatus, deepLinkStatus, assetStatus] = await Promise.all([
+    const [rootStatus, deepLinkStatus, assetStatus, manifestStatus, serviceWorkerStatus] = await Promise.all([
       requestStatus(app, prefix + "/"),
       requestStatus(app, prefix + "/portal"),
       asset ? requestStatus(app, prefix + "/_next/static/" + asset) : Promise.resolve(0),
+      requestStatus(app, prefix + "/manifest.webmanifest"),
+      requestStatus(app, prefix + "/sw.js"),
     ]);
     return {
-      root: rootStatus > 0 && rootStatus < 500,
-      deepLink: deepLinkStatus > 0 && deepLinkStatus < 500,
+      root: routeResponds(rootStatus),
+      deepLink: routeResponds(deepLinkStatus),
       staticAssets: assetStatus === 200,
-      status: { root: rootStatus, deepLink: deepLinkStatus, staticAssets: assetStatus },
+      manifest: manifestStatus === 200,
+      serviceWorker: serviceWorkerStatus === 200,
+      status: {
+        root: rootStatus,
+        deepLink: deepLinkStatus,
+        staticAssets: assetStatus,
+        manifest: manifestStatus,
+        serviceWorker: serviceWorkerStatus,
+      },
     };
   }));
   const portalStatus = Object.fromEntries(apps.map((app, index) => [app.name, portalResults[index]]));
   const healthy = apiStatus === 200 && bffStatus === 200 && portalResults.every((result) =>
-    result.root && result.deepLink && result.staticAssets);
+    result.root && result.deepLink && result.staticAssets && result.manifest && result.serviceWorker);
   return {
     healthy,
     api: apiStatus === 200 ? "ready" : "not_ready",

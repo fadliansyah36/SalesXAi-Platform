@@ -51,3 +51,8 @@ Each portal remains a separate Bun workspace and Next.js application with its ow
 The gateway `/api/health` endpoint checks, for every child app, its basePath root, its `/portal` deep route and one generated JavaScript asset under its own `/_next/static` namespace. It also checks the root BFF CSRF endpoint and the root app's FastAPI-dependent health route. This catches missing child processes, basePath mismatches and static-asset path collisions before Railway marks the group healthy.
 
 Auth callback redirects preserve the same-origin portal prefix and accept only the allowlisted portal paths. A callback from Sales returns to `/sales`; Distributor, Principal, Supervisor and Super Admin return to their respective path prefixes. Recovery and invitation routes are scoped the same way.
+
+
+## PWA isolation and cache safety
+
+Grouped portal PWAs use distinct manifest IDs, start URLs, scopes and service-worker registrations. The service worker derives a per-scope cache namespace and caches only static assets, icons and the manifest. API, auth and dynamic HTML responses are excluded to avoid cross-portal cache collisions and caching authenticated tenant data. Gateway readiness verifies each app's manifest and scoped service-worker endpoint.
