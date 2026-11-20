@@ -127,6 +127,11 @@ class SmartOrderService:
   self._tenant(organization_id,tenant)
   buyer_org=await repo.partner_order_buyer(db,organization_id,order_id)
   if buyer_org is None:raise APIError(404,"partner_order_not_found","Order is not available to this partner organization.")
+  if payload.warehouse_id is None:
+   raise APIError(422,"fulfillment_warehouse_required","A warehouse owned by the active partner organization is required.")
+  warehouse_owner=await db.fetchval("select organization_id from public.warehouses where id=$1 and status='active'",payload.warehouse_id)
+  if warehouse_owner!=organization_id:
+   raise APIError(403,"partner_warehouse_scope_denied","A partner can only create fulfillment from its own active warehouse.")
   return await repo.create_fulfillment(db,buyer_org,actor,order_id,payload)
 
  async def update_partner_fulfillment(self,db,organization_id,tenant,actor,fulfillment_id,payload):
