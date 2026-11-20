@@ -595,6 +595,9 @@ class SmartOrderRepository:
     raise APIError(409,"shipping_status_transition_invalid","Provider failure event does not match the current fulfillment state.")
    await db.execute("""insert into public.shipping_provider_events(organization_id,provider,provider_event_id,tracking_number,event_type,payload,processed_at)
     values($1,$2,$3,$4,$5,$6::jsonb,now())""",f["organization_id"],provider,event_id,tracking,status,json.dumps({"event_id":event_id,"tracking_number":tracking,"status":status}))
+   if status=="failed" and f["status"]=="handed_over":
+    await self.audit(db,f["organization_id"],None,"shipping.provider_event.exception","fulfillment",f["id"],{"provider":provider,"event_id":event_id,"provider_status":"failed","fulfillment_status":"handed_over","stock_released":False})
+    return {"accepted":True,"duplicate":False,"fulfillment_id":str(f["id"]),"status":"handed_over","provider_status":"failed"}
    if status=="delivered":
     await db.execute("update public.fulfillments set status='delivered',external_status_at=now(),updated_at=now() where organization_id=$1 and id=$2",f["organization_id"],f["id"])
     await db.execute("update public.orders set status='completed',updated_at=now() where organization_id=$1 and id=$2 and status='fulfilled'",f["organization_id"],f["order_id"])
