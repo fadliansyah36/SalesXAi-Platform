@@ -466,6 +466,7 @@ class SmartOrderRepository:
     select 1 from public.commerce_catalog_access ca
     where ca.owner_organization_id=$1 and ca.consumer_organization_id=o.organization_id
      and ca.access_type in ('ordering','inventory')
+     and (ca.product_id is null or exists(select 1 from public.order_items oi where oi.organization_id=o.organization_id and oi.order_id=o.id and oi.product_id=ca.product_id))
      and ca.starts_at<=now() and (ca.ends_at is null or ca.ends_at>now())
    )""",partner_org,order_id)
 
@@ -476,12 +477,13 @@ class SmartOrderRepository:
     select 1 from public.commerce_catalog_access ca
     where ca.owner_organization_id=$1 and ca.consumer_organization_id=o.organization_id
      and ca.access_type in ('ordering','inventory')
+     and (ca.product_id is null or exists(select 1 from public.order_items oi where oi.organization_id=o.organization_id and oi.order_id=o.id and oi.product_id=ca.product_id))
      and ca.starts_at<=now() and (ca.ends_at is null or ca.ends_at>now())
    )""",partner_org,fulfillment_id)
 
  async def list_partner_orders(self,db,partner_org,page,size,status=None):
   where=["exists(select 1 from public.order_items oi where oi.organization_id=o.organization_id and oi.order_id=o.id and (oi.product_owner_organization_id=$1 or exists(select 1 from public.stock_movements sm where sm.reference_type='order' and sm.reference_id=o.id and sm.organization_id=$1 and sm.product_owner_organization_id=oi.product_owner_organization_id and sm.variant_id=oi.variant_id)))",
-   "exists(select 1 from public.commerce_catalog_access ca where ca.owner_organization_id=$1 and ca.consumer_organization_id=o.organization_id and ca.access_type in ('ordering','inventory') and ca.starts_at<=now() and (ca.ends_at is null or ca.ends_at>now()))"]
+   "exists(select 1 from public.commerce_catalog_access ca where ca.owner_organization_id=$1 and ca.consumer_organization_id=o.organization_id and ca.access_type in ('ordering','inventory') and (ca.product_id is null or exists(select 1 from public.order_items oi where oi.organization_id=o.organization_id and oi.order_id=o.id and oi.product_id=ca.product_id)) and ca.starts_at<=now() and (ca.ends_at is null or ca.ends_at>now()))"]
   args=[partner_org]
   if status:
    args.append(status)
@@ -504,7 +506,7 @@ class SmartOrderRepository:
    from public.orders o where o.id=$2 and exists(
     select 1 from public.order_items oi where oi.organization_id=o.organization_id and oi.order_id=o.id
      and (oi.product_owner_organization_id=$1 or exists(select 1 from public.stock_movements sm where sm.reference_type='order' and sm.reference_id=o.id and sm.organization_id=$1 and sm.product_owner_organization_id=oi.product_owner_organization_id and sm.variant_id=oi.variant_id))
-   ) and exists(select 1 from public.commerce_catalog_access ca where ca.owner_organization_id=$1 and ca.consumer_organization_id=o.organization_id and ca.access_type in ('ordering','inventory') and ca.starts_at<=now() and (ca.ends_at is null or ca.ends_at>now()))""",partner_org,order_id)
+   ) and exists(select 1 from public.commerce_catalog_access ca where ca.owner_organization_id=$1 and ca.consumer_organization_id=o.organization_id and ca.access_type in ('ordering','inventory') and (ca.product_id is null or exists(select 1 from public.order_items oi where oi.organization_id=o.organization_id and oi.order_id=o.id and oi.product_id=ca.product_id)) and ca.starts_at<=now() and (ca.ends_at is null or ca.ends_at>now()))""",partner_org,order_id)
   if not o:return None
   d=dict(o)
   d["items"]=[dict(x) for x in await db.fetch("""select oi.id,oi.product_id,oi.variant_id,oi.product_owner_organization_id,oi.product_snapshot,oi.quantity,oi.unit_price,oi.discount_amount,oi.tax_amount,oi.line_total
