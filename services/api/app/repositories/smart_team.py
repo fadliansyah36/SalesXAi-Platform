@@ -186,11 +186,12 @@ class SmartTeamRepository:
 
     async def clock_out(self, connection: asyncpg.Connection, organization_id: UUID, actor_id: UUID, location: dict[str,Any]):
         async with connection.transaction():
+            local_date=await connection.fetchval("select (now() at time zone coalesce(timezone,'UTC'))::date from public.profiles where id=$1",actor_id)
             row=await connection.fetchrow(
                 """update public.smartteam_shifts set status='completed',clock_out_at=now(),clock_out_latitude=$3,
                 clock_out_longitude=$4,clock_out_accuracy_m=$5,clock_out_source=$6,updated_at=now()
-                where organization_id=$1 and user_id=$2 and shift_date=current_date and status='active' returning *""",
-                organization_id,actor_id,location["latitude"],location["longitude"],location["accuracy_m"],location["source"])
+                where organization_id=$1 and user_id=$2 and shift_date=$3 and status='active' returning *""",
+                organization_id,actor_id,local_date,location["latitude"],location["longitude"],location["accuracy_m"],location["source"])
             if row is None: raise ValueError("active_shift_not_found")
             return row
 
