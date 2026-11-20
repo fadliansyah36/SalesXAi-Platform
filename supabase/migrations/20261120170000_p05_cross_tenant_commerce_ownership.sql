@@ -35,6 +35,8 @@ create index if not exists order_items_product_owner_idx on public.order_items(p
 create index if not exists inventory_balances_product_owner_idx on public.inventory_balances(product_owner_organization_id,product_id,variant_id);
 create index if not exists stock_movements_product_owner_idx on public.stock_movements(product_owner_organization_id,product_id,variant_id);
 create index if not exists fulfillments_warehouse_owner_idx on public.fulfillments(fulfillment_organization_id,warehouse_id);
+alter table public.fulfillments add constraint fulfillments_org_id_unique unique (organization_id, id);
+
 create table if not exists public.order_item_fulfillment_allocations(
  id uuid primary key default gen_random_uuid(),
  buyer_organization_id uuid not null references public.organizations(id) on delete restrict,
