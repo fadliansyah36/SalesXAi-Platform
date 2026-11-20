@@ -249,7 +249,7 @@ class SmartOrderRepository:
     await db.execute("select pg_advisory_xact_lock(hashtextextended($1,0))",f"promotion:{item['organization_id']}:{item['id']}")
   rows=await db.fetch("""select p.*,
     coalesce(jsonb_agg(jsonb_build_object('rule_type',r.rule_type,'rule_config',r.rule_config) order by r.created_at,r.id) filter(where r.id is not null),'[]'::jsonb) rules,
-    (select l.relationship_type from public.commerce_partner_links l where l.organization_id=p.organization_id and l.partner_organization_id=$3 and l.status='active' and l.starts_at<=now() and (l.ends_at is null or l.ends_at>now()) order by l.created_at desc limit 1) consumer_relationship_type,
+    (case when p.organization_id=$3 then 'company' else (select l.relationship_type from public.commerce_partner_links l where l.organization_id=p.organization_id and l.partner_organization_id=$3 and l.status='active' and l.starts_at<=now() and (l.ends_at is null or l.ends_at>now()) order by l.created_at desc limit 1) end) consumer_relationship_type,
     (select count(*) from public.promotion_redemptions pr where pr.promotion_owner_organization_id=p.organization_id and pr.promotion_id=p.id and pr.status in ('reserved','redeemed')) redemption_count,
     (select count(*) from public.promotion_redemptions pr where pr.promotion_owner_organization_id=p.organization_id and pr.promotion_id=p.id and pr.customer_organization_id=$3 and pr.status in ('reserved','redeemed')) customer_redemption_count
    from public.promotions p left join public.promotion_rules r on r.organization_id=p.organization_id and r.promotion_id=p.id
