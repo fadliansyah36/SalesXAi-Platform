@@ -34,8 +34,8 @@ export function SmartOrderHome({auth}:{auth:Auth}){
   const realtimeUrl=process.env.EXPO_PUBLIC_SUPABASE_URL??"";
   const publishableKey=process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY??"";
   const onEvent=()=>void refresh();
-  if(realtimeUrl&&publishableKey)return api.subscribeSmartOrderBroadcast(org,realtimeUrl,publishableKey,onEvent);
-  return api.subscribeSmartOrderEvents(org,onEvent);
+  if(realtimeUrl&&publishableKey)return api.subscribeSmartOrderBroadcast(org,realtimeUrl,publishableKey,onEvent,()=>void refresh());
+  return api.subscribeSmartOrderEvents(org,onEvent,()=>void refresh());
  },[api,org,auth.status,canEvents,refresh]);
  const run=async(fn:()=>Promise<unknown>,message:string)=>{
   setBusy(true);setError("");setNotice("");
