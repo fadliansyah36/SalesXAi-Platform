@@ -12,6 +12,7 @@ class SmartOrderMigrationIndexTests(unittest.TestCase):
             "20261120180725_p05_immutable_order_and_redemption_snapshots.sql": "orders_commercial_snapshot_immutable",
             "20261120180953_p05_promotion_redemption_audit_events.sql": "promotion.redemption",
             "20261120181305_p05_promotion_organization_audience_rule.sql": "organization_type",
+            "20261120181815_p05_harden_trigger_search_paths.sql": "search_path=pg_catalog,public",
         }
         for filename, marker in expected.items():
             sql = (root / filename).read_text(encoding="utf-8")
