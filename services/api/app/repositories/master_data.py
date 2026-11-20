@@ -93,32 +93,95 @@ class MasterDataRepository:
                    returning 1) select count(*) from changed""", organization_id, resource_id, actor_id,
             ) or 0
         elif resource == "teams":
+            counts["teams"] = await connection.fetchval(
+                """with recursive descendants(id) as (
+                     select id from public.teams where organization_id=$1 and parent_team_id=$2
+                     union all
+                     select t.id from public.teams t join descendants d on t.parent_team_id=d.id where t.organization_id=$1
+                   ), changed as (
+                     update public.teams set status='inactive',updated_at=now()
+                     where organization_id=$1 and id in (select id from descendants) and status='active'
+                     returning 1
+                   ) select count(*) from changed""",
+                organization_id, resource_id,
+            ) or 0
             counts["sales_profiles"] = await connection.fetchval(
-                "with changed as (update public.sales_profiles set status='inactive',updated_at=now() where organization_id=$1 and team_id=$2 and status='active' returning 1) select count(*) from changed",
+                """with recursive descendants(id) as (
+                     select $2::uuid
+                     union all
+                     select t.id from public.teams t join descendants d on t.parent_team_id=d.id where t.organization_id=$1
+                   ), changed as (
+                     update public.sales_profiles set status='inactive',updated_at=now()
+                     where organization_id=$1 and team_id in (select id from descendants) and status='active'
+                     returning 1
+                   ) select count(*) from changed""",
                 organization_id, resource_id,
             ) or 0
             counts["assignments_closed"] = await connection.fetchval(
-                """with changed as (update public.outlet_assignment_history set unassigned_at=now(),unassigned_by=$3,assignment_status='unassigned',
-                   change_reason='team_deactivated' where organization_id=$1 and unassigned_at is null
-                   and sales_profile_id in (select id from public.sales_profiles where organization_id=$1 and team_id=$2)
-                   returning 1) select count(*) from changed""", organization_id, resource_id, actor_id,
+                """with recursive descendants(id) as (
+                     select $2::uuid
+                     union all
+                     select t.id from public.teams t join descendants d on t.parent_team_id=d.id where t.organization_id=$1
+                   ), changed as (
+                     update public.outlet_assignment_history set unassigned_at=now(),unassigned_by=$3,
+                       assignment_status='unassigned',change_reason='team_deactivated'
+                     where organization_id=$1 and unassigned_at is null
+                       and sales_profile_id in (select id from public.sales_profiles where organization_id=$1 and team_id in (select id from descendants))
+                     returning 1
+                   ) select count(*) from changed""",
+                organization_id, resource_id, actor_id,
             ) or 0
         elif resource == "territories":
+            counts["territories"] = await connection.fetchval(
+                """with recursive descendants(id) as (
+                     select id from public.territories where organization_id=$1 and parent_territory_id=$2
+                     union all
+                     select t.id from public.territories t join descendants d on t.parent_territory_id=d.id where t.organization_id=$1
+                   ), changed as (
+                     update public.territories set status='inactive',updated_at=now()
+                     where organization_id=$1 and id in (select id from descendants) and status='active'
+                     returning 1
+                   ) select count(*) from changed""",
+                organization_id, resource_id,
+            ) or 0
             counts["outlets"] = await connection.fetchval(
-                "with changed as (update public.outlets set status='inactive',updated_at=now() where organization_id=$1 and territory_id=$2 and status='active' returning 1) select count(*) from changed",
+                """with recursive descendants(id) as (
+                     select $2::uuid
+                     union all
+                     select t.id from public.territories t join descendants d on t.parent_territory_id=d.id where t.organization_id=$1
+                   ), changed as (
+                     update public.outlets set status='inactive',updated_at=now()
+                     where organization_id=$1 and territory_id in (select id from descendants) and status='active'
+                     returning 1
+                   ) select count(*) from changed""",
                 organization_id, resource_id,
             ) or 0
             counts["sales_profiles"] = await connection.fetchval(
-                "with changed as (update public.sales_profiles set status='inactive',updated_at=now() where organization_id=$1 and territory_id=$2 and status='active' returning 1) select count(*) from changed",
+                """with recursive descendants(id) as (
+                     select $2::uuid
+                     union all
+                     select t.id from public.territories t join descendants d on t.parent_territory_id=d.id where t.organization_id=$1
+                   ), changed as (
+                     update public.sales_profiles set status='inactive',updated_at=now()
+                     where organization_id=$1 and territory_id in (select id from descendants) and status='active'
+                     returning 1
+                   ) select count(*) from changed""",
                 organization_id, resource_id,
             ) or 0
             counts["assignments_closed"] = await connection.fetchval(
-                """with changed as (update public.outlet_assignment_history a
-                   set unassigned_at=now(),unassigned_by=$3,assignment_status='unassigned',change_reason='territory_deactivated'
-                   where a.organization_id=$1 and a.unassigned_at is null
-                     and (a.outlet_id in (select id from public.outlets where organization_id=$1 and territory_id=$2)
-                       or a.sales_profile_id in (select id from public.sales_profiles where organization_id=$1 and territory_id=$2))
-                   returning 1) select count(*) from changed""", organization_id, resource_id, actor_id,
+                """with recursive descendants(id) as (
+                     select $2::uuid
+                     union all
+                     select t.id from public.territories t join descendants d on t.parent_territory_id=d.id where t.organization_id=$1
+                   ), changed as (
+                     update public.outlet_assignment_history a set unassigned_at=now(),unassigned_by=$3,
+                       assignment_status='unassigned',change_reason='territory_deactivated'
+                     where a.organization_id=$1 and a.unassigned_at is null
+                       and (a.outlet_id in (select id from public.outlets where organization_id=$1 and territory_id in (select id from descendants))
+                         or a.sales_profile_id in (select id from public.sales_profiles where organization_id=$1 and territory_id in (select id from descendants)))
+                     returning 1
+                   ) select count(*) from changed""",
+                organization_id, resource_id, actor_id,
             ) or 0
         elif resource == "outlets":
             counts["assignments_closed"] = await connection.fetchval(
