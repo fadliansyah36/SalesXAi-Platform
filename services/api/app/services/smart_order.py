@@ -45,6 +45,10 @@ class SmartOrderService:
   self._tenant(organization_id,tenant)
   return await repo.list_inventory(db,organization_id,variant_id,warehouse_id)
 
+ async def inventory_history(self,db,organization_id,tenant,page,page_size,variant_id=None,warehouse_id=None):
+  self._tenant(organization_id,tenant)
+  return await repo.list_stock_movements(db,organization_id,page,page_size,variant_id,warehouse_id)
+
  async def move_stock(self,db,organization_id,tenant,actor,payload):
   self._tenant(organization_id,tenant)
   try:return await repo.move_stock(db,organization_id,actor,payload)

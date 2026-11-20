@@ -106,6 +106,10 @@ async def price_quote(organization_id:UUID,product_id:UUID,variant_id:UUID,quant
 async def list_inventory(organization_id:UUID,variant_id:UUID|None=None,warehouse_id:UUID|None=None,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartorder.inventory.read")),db:asyncpg.Connection=Depends(get_connection)):
  return await smart_order_service.inventory(db,organization_id,tenant,variant_id,warehouse_id)
 
+@router.get("/{organization_id}/smart-order/inventory/movements")
+async def list_stock_movements(organization_id:UUID,page:int=Query(1,ge=1),page_size:int=Query(50,ge=1,le=200),variant_id:UUID|None=None,warehouse_id:UUID|None=None,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartorder.inventory.movements.read")),db:asyncpg.Connection=Depends(get_connection)):
+ return await smart_order_service.inventory_history(db,organization_id,tenant,page,page_size,variant_id,warehouse_id)
+
 @router.post("/{organization_id}/smart-order/inventory/movements",status_code=201)
 async def create_stock_movement(organization_id:UUID,payload:StockMovementWrite,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartorder.inventory.movement.create")),db:asyncpg.Connection=Depends(get_connection)):
  return await smart_order_service.move_stock(db,organization_id,tenant,principal.user_id,payload)

@@ -319,3 +319,5 @@ export interface SmartOrderPriceHistoryPage {items:Array<{id:UUID;entity_type:st
 
 export interface SmartOrderApprovalPolicy {id:UUID;name:string;minimum_total:number;maximum_total?:number|null;required_approval_count:number;required_roles:string[];auto_approve_below:boolean;status:"active"|"inactive";}
 export interface SmartOrderApprovalPolicyWrite {name:string;minimum_total?:number;maximum_total?:number|null;required_approval_count?:number;required_roles?:string[];auto_approve_below?:boolean;status?:"active"|"inactive";}
+export interface SmartOrderStockMovement {id:UUID;warehouse_id:UUID;warehouse_code:string;warehouse_name:string;product_id:UUID;product_name:string;variant_id:UUID;sku:string;movement_type:string;quantity:number|string;on_hand_delta:number|string;reserved_delta:number|string;committed_delta:number|string;reference_type?:string|null;reference_id?:UUID|null;reason:string;actor_user_id?:UUID|null;occurred_at:string;}
+export interface SmartOrderStockMovementPage {items:SmartOrderStockMovement[];page:number;page_size:number;total:number;}

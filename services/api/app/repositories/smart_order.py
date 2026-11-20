@@ -72,6 +72,22 @@ class SmartOrderRepository:
   if warehouse: args.append(warehouse); q+=f" and ib.warehouse_id=${len(args)}"
   return [dict(r) for r in await db.fetch(q+" order by w.name",*args)]
 
+ async def list_stock_movements(self,db,org,page,size,variant=None,warehouse=None):
+  where=["sm.organization_id=$1"];args=[org]
+  if variant:args.append(variant);where.append(f"sm.variant_id=${len(args)}")
+  if warehouse:args.append(warehouse);where.append(f"sm.warehouse_id=${len(args)}")
+  clause=" and ".join(where)
+  total=await db.fetchval(f"select count(*) from public.stock_movements sm where {clause}",*args)
+  args.extend([size,(page-1)*size])
+  rows=await db.fetch(f"""select sm.id,sm.warehouse_id,w.code warehouse_code,w.name warehouse_name,sm.product_id,p.name product_name,
+   sm.variant_id,v.sku,sm.movement_type,sm.quantity,sm.on_hand_delta,sm.reserved_delta,sm.committed_delta,sm.reference_type,
+   sm.reference_id,sm.reason,sm.actor_user_id,sm.idempotency_key,sm.occurred_at
+   from public.stock_movements sm join public.warehouses w on w.organization_id=sm.organization_id and w.id=sm.warehouse_id
+   join public.products p on p.organization_id=sm.organization_id and p.id=sm.product_id
+   join public.product_variants v on v.organization_id=sm.organization_id and v.id=sm.variant_id
+   where {clause} order by sm.occurred_at desc limit ${len(args)-1} offset ${len(args)}""",*args)
+  return {"items":[dict(x) for x in rows],"page":page,"page_size":size,"total":total}
+
  async def move_stock(self,db,org,actor,p):
   async with db.transaction():
    old=await db.fetchrow("select * from public.stock_movements where organization_id=$1 and idempotency_key=$2",org,p.idempotency_key)
