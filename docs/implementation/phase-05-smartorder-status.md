@@ -33,7 +33,7 @@ Supabase project: `eyofuiyxalbehbqoaeny`
 
 ## Supabase evidence
 
-- **10/10 Phase 05 migrations** exist in the repository and are applied remotely:
+- **11/11 Phase 05 migrations** exist in the repository and are applied remotely:
   - `20261120141558_p05_smartorder_core`
   - `20261120142956_p05_smartorder_history_transfers_returns`
   - `20261120143219_p05_smartorder_permissions_immutable_ledgers`
@@ -44,9 +44,10 @@ Supabase project: `eyofuiyxalbehbqoaeny`
   - `20261120150936_p05_smartorder_shipping_event_rls`
   - `20261120151134_p05_smartorder_order_draft_expiry`
   - `20261120151703_p05_smartorder_realtime_stream`
-- Repository and remote migration ledger: **46/46 exact version/name matches**, no local-only or remote-only migration.
-- Public database: **55 tables, 55 with RLS enabled, 55 policies, 233 indexes**.
-- SmartOrder domain: **30 tables with RLS and explicit policies**, **27 broadcast triggers**, **3 private Realtime message policies**.
+  - `20261120155706_p05_smartorder_foreign_key_indexes`
+- Repository and remote migration ledger: **47/47 exact version/name matches**, no local-only or remote-only migration.
+- Public database: **55 tables, 55 with RLS enabled, 55 policies, 281 indexes**.
+- SmartOrder domain: **30 tables with RLS and explicit policies**, **27 broadcast triggers**, **3 private Realtime message policies**. Supabase Security Advisor: **0 lints**. Performance Advisor: **0 unindexed foreign keys** after the new index migration; 152 unused-index notices remain informational while the commerce tables have no seeded production records.
 - No demo or seed commerce records were inserted. Empty live business tables are not represented as fake inventory/catalog/order data.
 
 ## Engineering continuation in this commit
@@ -57,7 +58,7 @@ Supabase project: `eyofuiyxalbehbqoaeny`
 - Backend validation rejects malformed promotion rules, invalid price-list scopes/date ranges, mismatched adjustment quantities, and handover without carrier/tracking. Fulfillment assignment is checked against active organization membership.
 - Product detail lookup honors an active catalog grant, matching catalog list visibility.
 - Added focused tests for promotion calculation and SmartOrder request-schema validation.
-- No new migration was needed for these application-layer changes; existing 10 Phase 05 migrations remain unchanged.
+- Added `20261120155706_p05_smartorder_foreign_key_indexes.sql` with 48 covering indexes for all Phase 05 foreign keys flagged by Performance Advisor. It is applied remotely and committed; existing historical migrations remain unchanged.
 
 ## Definition-of-done blockers
 

@@ -15,9 +15,9 @@ Supabase project ref: eyofuiyxalbehbqoaeny
 | Phase 04 — SmartTeam Operations | COMPLETED — closure addendum supersedes historical entries below |
 | Phase 05 — SmartOrder | IN_PROGRESS — NOT COMPLETED; cross-tenant cart/inventory/fulfillment model remains a blocker |
 
-**Migration ledger:** 46 remote applied versions and 46 local migration files, all version/name pairs matching exactly: Phase 00 = 2, Phase 02 = 14, Phase 03 = 10, Phase 04 = 10, Phase 05 = 10. No historical migration was edited or replayed.
+**Migration ledger:** 47 remote applied versions and 47 local migration files, all version/name pairs matching exactly: Phase 00 = 2, Phase 02 = 14, Phase 03 = 10, Phase 04 = 10, Phase 05 = 11. No historical migration was edited or replayed.
 
-**Live database:** 55/55 public tables have RLS enabled and 55 public policies are present. The 30 SmartOrder tables have 30 explicit RLS policies; 27 SmartOrder broadcast triggers and 3 private `realtime.messages` policies are installed. The private SmartTeam evidence bucket remains private. Security Advisor is not re-queried in this Phase 05 continuation.
+**Live database:** 55/55 public tables have RLS enabled and 55 public policies are present, with 281 public indexes. The 30 SmartOrder tables have 30 explicit RLS policies; 27 SmartOrder broadcast triggers and 3 private `realtime.messages` policies are installed. Supabase Security Advisor reports zero lints and Performance Advisor now reports zero unindexed foreign keys; unused-index notices are informational on the newly created low-volume schema. The private SmartTeam evidence bucket remains private. Security Advisor is not re-queried in this Phase 05 continuation.
 
 The dated Phase 02 PARTIAL / Phase 03 LOCKED and earlier Phase 04 IN_PROGRESS entries below are historical snapshots. The Phase 04 closure addendum and Phase 05 status record are authoritative for the current execution.
 
