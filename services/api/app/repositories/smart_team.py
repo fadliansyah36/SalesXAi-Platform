@@ -195,38 +195,67 @@ class SmartTeamRepository:
             if existing:
                 if existing["status"]=="active": return existing
                 raise ValueError("shift_already_closed_today")
-            return await connection.fetchrow(
+            row=await connection.fetchrow(
                 """insert into public.smartteam_shifts(organization_id,sales_profile_id,user_id,branch_id,team_id,shift_date,status,
                 clock_in_at,clock_in_latitude,clock_in_longitude,clock_in_accuracy_m,clock_in_source,idempotency_key,created_by)
-                values($1,$2,$3,(select branch_id from public.outlets where organization_id=$1 and id=(select outlet_id from public.outlet_assignment_history where organization_id=$1 and sales_profile_id=$2 and assignment_status='active' limit 1)),
+                values($1,$2,$3,(select branch_id from public.teams where organization_id=$1 and id=$4),
                 $4,$5,'active',now(),$6,$7,$8,$9,$10,$3) returning *""",
                 organization_id,profile["id"],actor_id,profile["team_id"],local_date,location["latitude"],location["longitude"],
                 location["accuracy_m"],location["source"],key)
+            await connection.execute(
+                """insert into public.smartteam_attendance_events(organization_id,shift_id,actor_user_id,event_type,idempotency_key,metadata)
+                   values($1,$2,$3,'clocked_in',$4,$5::jsonb)""",organization_id,row["id"],actor_id,key,
+                json.dumps({"captured_at":location.get("captured_at").isoformat() if location.get("captured_at") else None,
+                            "latitude":location["latitude"],"longitude":location["longitude"],"accuracy_m":location["accuracy_m"],"source":location["source"]}))
+            return row
 
-    async def clock_out(self, connection: asyncpg.Connection, organization_id: UUID, actor_id: UUID, location: dict[str,Any]):
+    async def clock_out(self, connection: asyncpg.Connection, organization_id: UUID, actor_id: UUID, location: dict[str,Any], key: str):
         async with connection.transaction():
             local_date=await connection.fetchval("select (now() at time zone coalesce(timezone,'UTC'))::date from public.profiles where id=$1",actor_id)
+            shift=await connection.fetchrow(
+                "select * from public.smartteam_shifts where organization_id=$1 and user_id=$2 and shift_date=$3 for update",
+                organization_id,actor_id,local_date)
+            if shift is None: raise ValueError("active_shift_not_found")
+            if shift["status"]=="completed" and shift["clock_out_idempotency_key"]==key:
+                return shift
+            if shift["status"]!="active": raise ValueError("active_shift_not_found")
             row=await connection.fetchrow(
-                """update public.smartteam_shifts set status='completed',clock_out_at=now(),clock_out_latitude=$3,
-                clock_out_longitude=$4,clock_out_accuracy_m=$5,clock_out_source=$6,updated_at=now()
+                """update public.smartteam_shifts set status='completed',clock_out_at=now(),clock_out_latitude=$4,
+                clock_out_longitude=$5,clock_out_accuracy_m=$6,clock_out_source=$7,clock_out_idempotency_key=$8,updated_at=now()
                 where organization_id=$1 and user_id=$2 and shift_date=$3 and status='active' returning *""",
-                organization_id,actor_id,local_date,location["latitude"],location["longitude"],location["accuracy_m"],location["source"])
+                organization_id,actor_id,local_date,location["latitude"],location["longitude"],location["accuracy_m"],location["source"],key)
             if row is None: raise ValueError("active_shift_not_found")
+            await connection.execute(
+                """insert into public.smartteam_attendance_events(organization_id,shift_id,actor_user_id,event_type,idempotency_key,metadata)
+                   values($1,$2,$3,'clocked_out',$4,$5::jsonb)""",organization_id,row["id"],actor_id,key,
+                json.dumps({"captured_at":location.get("captured_at").isoformat() if location.get("captured_at") else None,
+                            "latitude":location["latitude"],"longitude":location["longitude"],"accuracy_m":location["accuracy_m"],"source":location["source"]}))
             return row
 
     async def correct_attendance(self, connection: asyncpg.Connection, organization_id: UUID, actor_id: UUID, shift_id: UUID, clock_in_at, clock_out_at, reason: str):
         async with connection.transaction():
-            shift=await connection.fetchrow("select sales_profile_id from public.smartteam_shifts where organization_id=$1 and id=$2",organization_id,shift_id)
+            shift=await connection.fetchrow("select * from public.smartteam_shifts where organization_id=$1 and id=$2 for update",organization_id,shift_id)
             if shift is None: raise ValueError("shift_not_found")
             if not await self.can_access_profile(connection,organization_id,shift["sales_profile_id"],actor_id):
                 raise ValueError("profile_scope_forbidden")
+            next_clock_in=clock_in_at or shift["clock_in_at"]
+            next_clock_out=clock_out_at if clock_out_at is not None else shift["clock_out_at"]
+            if next_clock_out is not None and (next_clock_in is None or next_clock_out<next_clock_in):
+                raise ValueError("attendance_time_range_invalid")
             row=await connection.fetchrow(
-                """update public.smartteam_shifts set clock_in_at=coalesce($3,clock_in_at),clock_out_at=coalesce($4,clock_out_at),
-                status=case when coalesce($4,clock_out_at) is not null then 'completed' else status end,
+                """update public.smartteam_shifts set clock_in_at=$3,clock_out_at=$4,
+                status=case when $4 is not null then 'completed' when status='completed' then 'active' else status end,
                 correction_reason=$5,corrected_by=$6,corrected_at=now(),updated_at=now()
                 where organization_id=$1 and id=$2 returning *""",
-                organization_id,shift_id,clock_in_at,clock_out_at,reason,actor_id)
+                organization_id,shift_id,next_clock_in,next_clock_out,reason,actor_id)
             if row is None: raise ValueError("shift_not_found")
+            await connection.execute(
+                """insert into public.smartteam_attendance_events(organization_id,shift_id,actor_user_id,event_type,metadata)
+                   values($1,$2,$3,'corrected',$4::jsonb)""",organization_id,shift_id,actor_id,
+                json.dumps({"reason":reason,"before":{"clock_in_at":shift["clock_in_at"].isoformat() if shift["clock_in_at"] else None,
+                                                     "clock_out_at":shift["clock_out_at"].isoformat() if shift["clock_out_at"] else None},
+                            "after":{"clock_in_at":next_clock_in.isoformat() if next_clock_in else None,
+                                     "clock_out_at":next_clock_out.isoformat() if next_clock_out else None}}))
             return row
 
     async def list_activities(self, connection: asyncpg.Connection, organization_id: UUID, actor_id: UUID, limit: int, offset: int):
