@@ -105,7 +105,7 @@ class SmartOrderService:
 
  async def decide_order(self,db,organization_id,tenant,actor,order_id,payload):
   self._tenant(organization_id,tenant)
-  return await repo.decide_order(db,organization_id,actor,order_id,payload)
+  return await repo.decide_order(db,organization_id,actor,tenant.membership_id,order_id,payload)
 
  async def create_fulfillment(self,db,organization_id,tenant,actor,order_id,payload):
   self._tenant(organization_id,tenant)
@@ -189,5 +189,16 @@ class SmartOrderService:
  async def price_history(self,db,organization_id,tenant,price_list_id,page,page_size):
   self._tenant(organization_id,tenant)
   return await repo.list_price_history(db,organization_id,price_list_id,page,page_size)
+
+
+ async def approval_policies(self,db,organization_id,tenant):
+  self._tenant(organization_id,tenant)
+  return await repo.list_approval_policies(db,organization_id)
+
+ async def create_approval_policy(self,db,organization_id,tenant,actor,payload):
+  self._tenant(organization_id,tenant)
+  if payload.maximum_total is not None and payload.maximum_total<payload.minimum_total:
+   raise APIError(422,"invalid_approval_policy_range","Maximum order total must be greater than or equal to minimum order total.")
+  return await repo.create_approval_policy(db,organization_id,actor,payload)
 
 smart_order_service=SmartOrderService()

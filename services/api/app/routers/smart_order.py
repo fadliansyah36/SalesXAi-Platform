@@ -5,7 +5,7 @@ from app.errors import APIError
 import asyncpg
 from app.db import get_connection
 from app.security.dependencies import Principal, TenantContext, get_current_principal, require_api_action
-from app.schemas.smart_order import ProductWrite, ProductStatusWrite, CartItemWrite, CartItemUpdate, StockMovementWrite, PromotionWrite, PromotionEvaluation, OrderCreate, OrderDecision, FulfillmentCreate, FulfillmentUpdate, PriceListWrite, WarehouseWrite, CategoryWrite, BrandWrite, UnitWrite, CatalogAccessWrite, StockTransferWrite, OrderCancel, ProductImageWrite, PartnerLinkWrite, AssistedCartWrite
+from app.schemas.smart_order import ProductWrite, ProductStatusWrite, CartItemWrite, CartItemUpdate, StockMovementWrite, PromotionWrite, PromotionEvaluation, OrderCreate, OrderDecision, FulfillmentCreate, FulfillmentUpdate, PriceListWrite, WarehouseWrite, CategoryWrite, BrandWrite, UnitWrite, CatalogAccessWrite, StockTransferWrite, OrderCancel, ProductImageWrite, PartnerLinkWrite, AssistedCartWrite, OrderApprovalPolicyWrite
 from app.services.smart_order import smart_order_service
 
 router=APIRouter(prefix="/organizations",tags=["smart-order"])
@@ -142,6 +142,15 @@ async def create_order(organization_id:UUID,payload:OrderCreate,principal:Princi
 @router.get("/{organization_id}/smart-order/orders")
 async def list_my_orders(organization_id:UUID,page:int=Query(1,ge=1),page_size:int=Query(20,ge=1,le=100),status:str|None=None,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartorder.orders.mine.read")),db:asyncpg.Connection=Depends(get_connection)):
  return await smart_order_service.list_orders(db,organization_id,tenant,principal.user_id,page,page_size,status,False)
+
+
+@router.get("/{organization_id}/smart-order/approval-policies")
+async def list_approval_policies(organization_id:UUID,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartorder.orders.approval_policies.read")),db:asyncpg.Connection=Depends(get_connection)):
+ return await smart_order_service.approval_policies(db,organization_id,tenant)
+
+@router.post("/{organization_id}/smart-order/approval-policies",status_code=201)
+async def create_approval_policy(organization_id:UUID,payload:OrderApprovalPolicyWrite,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartorder.orders.approval_policies.create")),db:asyncpg.Connection=Depends(get_connection)):
+ return await smart_order_service.create_approval_policy(db,organization_id,tenant,principal.user_id,payload)
 
 @router.get("/{organization_id}/smart-order/orders/operations")
 async def list_order_operations(organization_id:UUID,page:int=Query(1,ge=1),page_size:int=Query(20,ge=1,le=100),status:str|None=None,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartorder.orders.operations.read")),db:asyncpg.Connection=Depends(get_connection)):

@@ -236,26 +236,46 @@ class SmartOrderRepository:
    await self.audit(db,org,actor,"order.submitted","order",oid,{"reserved_skus":len(alloc)})
   return await self.get_order(db,org,actor,oid)
 
- async def decide_order(self,db,org,actor,oid,p):
+ async def decide_order(self,db,org,actor,membership_id,oid,p):
   async with db.transaction():
    o=await db.fetchrow("select * from public.orders where organization_id=$1 and id=$2 for update",org,oid)
    if not o:raise APIError(404,"order_not_found","Order was not found.")
+   prior=await db.fetchrow("select decision from public.order_approvals where organization_id=$1 and order_id=$2 and actor_user_id=$3",org,oid,actor)
+   if prior:return dict(o)
    if o["status"]!="pending_approval":raise APIError(409,"invalid_order_transition","Only pending approval orders can be decided.")
-   moves=await db.fetch("select * from public.stock_movements where organization_id=$1 and reference_id=$2 and movement_type='reserve'",org,oid)
-   target="approved" if p.decision=="approved" else "rejected"
-   for m in moves:
-    if target=="approved":
+   policy=await db.fetchrow("""select * from public.order_approval_policies where organization_id=$1 and status='active'
+    and minimum_total<=$2 and (maximum_total is null or maximum_total>=$2) order by minimum_total desc limit 1""",org,o["grand_total"])
+   required_count=int(policy["required_approval_count"]) if policy else 1
+   if policy and policy["required_roles"]:
+    roles=await db.fetch("""select r.key from public.user_role_assignments ura join public.roles r on r.id=ura.role_id
+     where ura.user_id=$1 and ura.membership_id=$2 and ura.revoked_at is null and ura.starts_at<=now()
+     and (ura.expires_at is null or ura.expires_at>now())""",actor,membership_id)
+    if not {role["key"] for role in roles}.intersection(set(policy["required_roles"])):
+     raise APIError(403,"approval_role_not_allowed","Actor role does not satisfy this order approval policy.")
+   await db.execute("insert into public.order_approvals(organization_id,order_id,decision,reason,actor_user_id) values($1,$2,$3,$4,$5)",org,oid,p.decision,p.reason,actor)
+   if p.decision=="approved":
+    approved_count=await db.fetchval("select count(*) from public.order_approvals where organization_id=$1 and order_id=$2 and decision='approved'",org,oid)
+    if approved_count<required_count:
+     await self.audit(db,org,actor,"order.approval.vote_recorded","order",oid,{"approved_votes":approved_count,"required_votes":required_count})
+     return await self.get_order(db,org,actor,oid,True)
+    moves=await db.fetch("select * from public.stock_movements where organization_id=$1 and reference_id=$2 and movement_type='reserve'",org,oid)
+    for m in moves:
      await db.execute("update public.inventory_balances set reserved=reserved-$4,committed=committed+$4,version=version+1,updated_at=now() where organization_id=$1 and warehouse_id=$2 and variant_id=$3 and reserved >= $4",org,m["warehouse_id"],m["variant_id"],m["quantity"])
      await db.execute("""insert into public.stock_movements(organization_id,warehouse_id,product_id,variant_id,movement_type,quantity,reserved_delta,committed_delta,reference_type,reference_id,reason,actor_user_id,idempotency_key)
       values($1,$2,$3,$4,'commit',$5,-$5,$5,'order',$6,'Approved stock commitment',$7,$8)""",org,m["warehouse_id"],m["product_id"],m["variant_id"],m["quantity"],oid,actor,f"order:{oid}:commit:{m['variant_id']}")
-    else:
+    target="approved"
+   else:
+    moves=await db.fetch("select * from public.stock_movements where organization_id=$1 and reference_id=$2 and movement_type='reserve'",org,oid)
+    for m in moves:
      await db.execute("update public.inventory_balances set reserved=reserved-$4,version=version+1,updated_at=now() where organization_id=$1 and warehouse_id=$2 and variant_id=$3 and reserved >= $4",org,m["warehouse_id"],m["variant_id"],m["quantity"])
      await db.execute("""insert into public.stock_movements(organization_id,warehouse_id,product_id,variant_id,movement_type,quantity,reserved_delta,reference_type,reference_id,reason,actor_user_id,idempotency_key)
       values($1,$2,$3,$4,'release',$5,-$5,'order',$6,$7,$8,$9)""",org,m["warehouse_id"],m["product_id"],m["variant_id"],m["quantity"],oid,p.reason or "Order rejected; reservation released",actor,f"order:{oid}:release:{m['variant_id']}")
-   await db.execute("insert into public.order_approvals(organization_id,order_id,decision,reason,actor_user_id) values($1,$2,$3,$4,$5)",org,oid,p.decision,p.reason,actor)
+    target="revision_requested" if p.decision=="revision_requested" else "rejected"
+    if target=="revision_requested":
+     await db.execute("update public.carts set status='active',version=version+1,updated_at=now() where organization_id=$1 and id=$2",org,o["cart_id"])
    await db.execute("update public.orders set status=$3,approved_at=case when $3='approved' then now() else approved_at end,updated_at=now() where id=$1 and organization_id=$2",oid,org,target)
    await db.execute("insert into public.order_status_history(organization_id,order_id,from_status,to_status,reason,actor_user_id) values($1,$2,'pending_approval',$3,$4,$5)",org,oid,target,p.reason,actor)
-   await self.audit(db,org,actor,"order.approval."+p.decision,"order",oid,{"reason":p.reason})
+   await self.audit(db,org,actor,"order.approval."+p.decision,"order",oid,{"reason":p.reason,"required_approvals":required_count})
   return await self.get_order(db,org,actor,oid,True)
 
  async def create_fulfillment(self,db,org,actor,oid,p):
@@ -469,6 +489,18 @@ class SmartOrderRepository:
   rows=await db.fetch("""select id,entity_type,entity_id,action,before_snapshot,after_snapshot,actor_user_id,occurred_at
    from public.price_list_history where organization_id=$1 and price_list_id=$2 order by occurred_at desc limit $3 offset $4""",org,price_list_id,size,(page-1)*size)
   return {"items":[dict(x) for x in rows],"page":page,"page_size":size,"total":total}
+
+
+ async def list_approval_policies(self,db,org):
+  rows=await db.fetch("select * from public.order_approval_policies where organization_id=$1 order by minimum_total desc,created_at desc",org)
+  return [dict(x) for x in rows]
+
+ async def create_approval_policy(self,db,org,actor,p):
+  async with db.transaction():
+   r=await db.fetchrow("""insert into public.order_approval_policies(organization_id,name,minimum_total,maximum_total,required_approval_count,required_roles,auto_approve_below,status)
+    values($1,$2,$3,$4,$5,$6,$7,$8) returning *""",org,p.name,p.minimum_total,p.maximum_total,p.required_approval_count,p.required_roles,p.auto_approve_below,p.status)
+   await self.audit(db,org,actor,"order.approval_policy.created","order_approval_policy",r["id"],{"name":p.name,"required_approval_count":p.required_approval_count})
+  return dict(r)
 
  async def audit(self,db,org,actor,action,kind,rid,metadata):
   await db.execute("insert into public.commerce_audit_events(organization_id,actor_user_id,action,resource_type,resource_id,metadata) values($1,$2,$3,$4,$5,$6::jsonb)",org,actor,action,kind,rid,json.dumps(metadata,default=str))

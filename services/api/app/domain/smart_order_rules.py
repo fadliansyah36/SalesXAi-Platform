@@ -12,7 +12,7 @@ FULFILLMENT_TRANSITIONS = {
     "delivered": frozenset(),
 }
 
-CANCELLABLE_ORDER_STATUSES = frozenset({"draft", "pending_approval", "approved"})
+CANCELLABLE_ORDER_STATUSES = frozenset({"draft", "pending_approval", "revision_requested", "approved"})
 
 
 def money(value: Decimal | int | float | str) -> Decimal:

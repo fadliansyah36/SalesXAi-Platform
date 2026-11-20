@@ -33,13 +33,14 @@ class SmartOrderRulesTests(unittest.TestCase):
 
     def test_fulfillment_transition_graph(self):
         self.assertTrue(can_transition_fulfillment("queued", "picking"))
-        self.assertTrue(can_transition_fulfillment("handed_over", "delivered"))
+        self.assertFalse(can_transition_fulfillment("handed_over", "delivered"))
         self.assertFalse(can_transition_fulfillment("queued", "delivered"))
         self.assertFalse(can_transition_fulfillment("delivered", "picking"))
 
     def test_order_cancellation_window(self):
         self.assertTrue(can_cancel_order("draft"))
         self.assertTrue(can_cancel_order("pending_approval"))
+        self.assertTrue(can_cancel_order("revision_requested"))
         self.assertTrue(can_cancel_order("approved"))
         self.assertFalse(can_cancel_order("processing"))
         self.assertFalse(can_cancel_order("completed"))

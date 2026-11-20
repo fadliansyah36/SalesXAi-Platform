@@ -295,7 +295,7 @@ export interface SmartOrderOrderCreate {cart_id:UUID;idempotency_key:string;prom
 export interface SmartOrderOrder {id:UUID;order_number:string;status:string;currency:string;subtotal:string|number;discount_total:string|number;tax_total:string|number;grand_total:string|number;items?:Array<Record<string,unknown>>;history?:Array<Record<string,unknown>>;approvals?:Array<Record<string,unknown>>;fulfillments?:Array<Record<string,unknown>>;}
 export interface SmartOrderOrderPage {items:SmartOrderOrder[];page:number;page_size:number;total:number;}
 export interface SmartOrderFulfillmentWrite {warehouse_id?:UUID|null;assigned_to?:UUID|null;}
-export interface SmartOrderFulfillmentUpdate {status:"picking"|"packed"|"handed_over"|"delivered"|"failed"|"cancelled";carrier?:string|null;tracking_number?:string|null;}
+export interface SmartOrderFulfillmentUpdate {status:"picking"|"packed"|"handed_over"|"failed"|"cancelled";carrier?:string|null;tracking_number?:string|null;}
 
 export interface SmartOrderPriceListWrite {name:string;code:string;currency?:string;scope_type:"tenant"|"principal"|"distributor"|"customer"|"region"|"channel"|"contract";scope_id?:UUID|null;channel?:string|null;priority?:number;effective_from:string;effective_until?:string|null;status?:"draft"|"active"|"inactive"|"archived";prices:Array<{product_id:UUID;variant_id:UUID;unit_price:number;minimum_quantity?:number;maximum_quantity?:number|null}>;}
 export interface SmartOrderPriceList {id:UUID;name:string;code:string;currency:string;scope_type:string;status:string;prices:Array<Record<string,unknown>>;}
@@ -315,3 +315,6 @@ export interface SmartOrderPartnerLinkWrite {partner_organization_id:UUID;relati
 export interface SmartOrderAssistedCartWrite {customer_organization_id:UUID;}
 
 export interface SmartOrderPriceHistoryPage {items:Array<{id:UUID;entity_type:string;entity_id:UUID;action:string;before_snapshot?:Record<string,unknown>|null;after_snapshot?:Record<string,unknown>|null;actor_user_id?:UUID|null;occurred_at:string}>;page:number;page_size:number;total:number;}
+
+export interface SmartOrderApprovalPolicy {id:UUID;name:string;minimum_total:number;maximum_total?:number|null;required_approval_count:number;required_roles:string[];auto_approve_below:boolean;status:"active"|"inactive";}
+export interface SmartOrderApprovalPolicyWrite {name:string;minimum_total?:number;maximum_total?:number|null;required_approval_count?:number;required_roles?:string[];auto_approve_below?:boolean;status?:"active"|"inactive";}

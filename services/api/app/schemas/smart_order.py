@@ -98,7 +98,7 @@ class FulfillmentCreate(BaseModel):
 
 
 class FulfillmentUpdate(BaseModel):
-    status: Literal["picking", "packed", "handed_over", "delivered", "failed", "cancelled"]
+    status: Literal["picking", "packed", "handed_over", "failed", "cancelled"]
     carrier: str | None = Field(default=None, max_length=120)
     tracking_number: str | None = Field(default=None, max_length=180)
 
@@ -201,3 +201,14 @@ class PartnerLinkWrite(BaseModel):
 
 class AssistedCartWrite(BaseModel):
     customer_organization_id: UUID
+
+
+class OrderApprovalPolicyWrite(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str = Field(min_length=2, max_length=160)
+    minimum_total: Decimal = Field(default=Decimal("0"), ge=0, max_digits=18, decimal_places=2)
+    maximum_total: Decimal | None = Field(default=None, ge=0, max_digits=18, decimal_places=2)
+    required_approval_count: int = Field(default=1, ge=1, le=5)
+    required_roles: list[str] = Field(default_factory=list, max_length=12)
+    auto_approve_below: bool = False
+    status: Literal["active", "inactive"] = "active"
