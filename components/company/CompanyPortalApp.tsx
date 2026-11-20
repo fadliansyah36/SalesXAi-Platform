@@ -41,7 +41,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { BrandLogo } from '@/components/common/BrandLogo';
-import type { MasterDataChangedEvent } from '@salesx-ai/api-contracts';
+import type { MasterDataChangedEvent } from '@salesx-ai/api-client';
 import { Modal } from '@/components/common/Modal';
 import { PWAInstallButton } from '@/components/common/PWAInstallButton';
 import { SalesGoogleMap } from '@/components/maps/SalesGoogleMap';
