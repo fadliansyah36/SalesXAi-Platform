@@ -16,6 +16,22 @@ class SmartTeamRepository:
             """select id,user_id,team_id,territory_id,status from public.sales_profiles
                where organization_id=$1 and id=$2 and status='active'""",organization_id,profile_id)
 
+    async def can_access_profile(self, connection: asyncpg.Connection, organization_id: UUID, profile_id: UUID, actor_id: UUID) -> bool:
+        return bool(await connection.fetchval(
+            """select exists(select 1 from public.sales_profiles sp
+               where sp.organization_id=$1 and sp.id=$2 and (
+                 sp.user_id=$3 or sp.manager_user_id=$3 or exists(
+                   select 1 from public.teams t where t.organization_id=sp.organization_id
+                   and t.id=sp.team_id and t.supervisor_user_id=$3
+                 ) or exists(
+                   select 1 from public.organization_memberships m
+                   join public.user_role_assignments ura on ura.membership_id=m.id and ura.revoked_at is null
+                   join public.roles r on r.id=ura.role_id
+                   where m.organization_id=$1 and m.user_id=$3 and m.status='active'
+                   and r.key in ('company_admin','tenant_owner','platform_admin')
+                 )
+               ))""",organization_id,profile_id,actor_id))
+
     async def outlet_is_assigned(self, connection: asyncpg.Connection, organization_id: UUID, profile_id: UUID, outlet_id: UUID) -> bool:
         return bool(await connection.fetchval(
             """select exists(select 1 from public.outlet_assignment_history
@@ -54,6 +70,8 @@ class SmartTeamRepository:
             if existing: return existing
             profile=await self.profile_in_org(connection,organization_id,data["sales_profile_id"])
             if profile is None: raise ValueError("sales_profile_not_found")
+            if not await self.can_access_profile(connection,organization_id,data["sales_profile_id"],actor_id):
+                raise ValueError("profile_scope_forbidden")
             outlet=await connection.fetchval(
                 "select exists(select 1 from public.outlets where organization_id=$1 and id=$2 and status='active')",
                 organization_id,data["outlet_id"])
@@ -116,6 +134,8 @@ class SmartTeamRepository:
             row=await self.visit(connection,organization_id,visit_id)
             if row is None: raise ValueError("visit_not_found")
             if row["status"] not in ("scheduled","assigned"): raise ValueError("visit_transition_invalid")
+            if not await self.can_access_profile(connection,organization_id,row["sales_profile_id"],actor_id):
+                raise ValueError("profile_scope_forbidden")
             updated=await connection.fetchrow(
                 """update public.smartteam_visits set status='cancelled',cancel_reason=$3,updated_at=now()
                    where organization_id=$1 and id=$2 returning *""",organization_id,visit_id,reason)
@@ -166,6 +186,10 @@ class SmartTeamRepository:
 
     async def correct_attendance(self, connection: asyncpg.Connection, organization_id: UUID, actor_id: UUID, shift_id: UUID, clock_in_at, clock_out_at, reason: str):
         async with connection.transaction():
+            shift=await connection.fetchrow("select sales_profile_id from public.smartteam_shifts where organization_id=$1 and id=$2",organization_id,shift_id)
+            if shift is None: raise ValueError("shift_not_found")
+            if not await self.can_access_profile(connection,organization_id,shift["sales_profile_id"],actor_id):
+                raise ValueError("profile_scope_forbidden")
             row=await connection.fetchrow(
                 """update public.smartteam_shifts set clock_in_at=coalesce($3,clock_in_at),clock_out_at=coalesce($4,clock_out_at),
                 status=case when coalesce($4,clock_out_at) is not null then 'completed' else status end,
@@ -192,13 +216,19 @@ class SmartTeamRepository:
             if existing:return existing
             profile=await self.profile_in_org(connection,organization_id,data["sales_profile_id"])
             if profile is None:raise ValueError("sales_profile_not_found")
+            if not await self.can_access_profile(connection,organization_id,data["sales_profile_id"],actor_id):
+                raise ValueError("profile_scope_forbidden")
             if data.get("visit_id") and await self.visit(connection,organization_id,data["visit_id"]) is None:raise ValueError("visit_not_found")
             return await connection.fetchrow(
                 """insert into public.smartteam_activities(organization_id,sales_profile_id,visit_id,created_by,activity_type,title,description,due_at,idempotency_key)
                    values($1,$2,$3,$4,$5,$6,$7,$8,$9) returning *""",
                 organization_id,data["sales_profile_id"],data.get("visit_id"),actor_id,data["activity_type"],data["title"],data.get("description"),data.get("due_at"),data["idempotency_key"])
 
-    async def update_activity(self, connection: asyncpg.Connection, organization_id: UUID, activity_id: UUID, data: dict[str,Any]):
+    async def update_activity(self, connection: asyncpg.Connection, organization_id: UUID, actor_id: UUID, activity_id: UUID, data: dict[str,Any]):
+        existing=await connection.fetchrow("select sales_profile_id from public.smartteam_activities where organization_id=$1 and id=$2",organization_id,activity_id)
+        if existing is None: return None
+        if not await self.can_access_profile(connection,organization_id,existing["sales_profile_id"],actor_id):
+            raise ValueError("profile_scope_forbidden")
         assignments=[];values=[organization_id,activity_id]
         for field in ("title","description","due_at","status"):
             if field in data:
@@ -209,13 +239,18 @@ class SmartTeamRepository:
         assignments.append("updated_at=now()")
         return await connection.fetchrow("update public.smartteam_activities set "+",".join(assignments)+" where organization_id=$1 and id=$2 returning *",*values)
 
-    async def list_targets(self, connection: asyncpg.Connection, organization_id: UUID, limit: int, offset: int):
+    async def list_targets(self, connection: asyncpg.Connection, organization_id: UUID, actor_id: UUID, limit: int, offset: int):
         return await connection.fetch(
             """select t.*,sp.employee_code,tm.name team_name,b.name branch_name from public.smartteam_targets t
                left join public.sales_profiles sp on sp.organization_id=t.organization_id and sp.id=t.sales_profile_id
                left join public.teams tm on tm.organization_id=t.organization_id and tm.id=t.team_id
                left join public.branches b on b.organization_id=t.organization_id and b.id=t.branch_id
-               where t.organization_id=$1 order by t.period_start desc limit $2 offset $3""",organization_id,limit,offset)
+               where t.organization_id=$1 and (
+                 (t.sales_profile_id is not null and (sp.user_id=$2 or sp.manager_user_id=$2 or exists(select 1 from public.teams st where st.organization_id=sp.organization_id and st.id=sp.team_id and st.supervisor_user_id=$2)))
+                 or (t.team_id is not null and exists(select 1 from public.teams st where st.organization_id=t.organization_id and st.id=t.team_id and st.supervisor_user_id=$2))
+                 or (t.branch_id is not null and exists(select 1 from public.organization_memberships m join public.user_role_assignments ura on ura.membership_id=m.id join public.roles r on r.id=ura.role_id where m.organization_id=$1 and m.user_id=$2 and m.status='active' and r.key in ('company_admin','tenant_owner','platform_admin') and ura.revoked_at is null))
+                 or exists(select 1 from public.organization_memberships m join public.user_role_assignments ura on ura.membership_id=m.id join public.roles r on r.id=ura.role_id where m.organization_id=$1 and m.user_id=$2 and m.status='active' and r.key in ('company_admin','tenant_owner','platform_admin') and ura.revoked_at is null)
+               ) order by t.period_start desc limit $3 offset $4""",organization_id,actor_id,limit,offset)
 
     async def create_target(self, connection: asyncpg.Connection, organization_id: UUID, actor_id: UUID, data: dict[str,Any]):
         scope_field=next(field for field in ("sales_profile_id","team_id","branch_id") if data.get(field) is not None)
