@@ -920,3 +920,61 @@ The latest application-code commit is `b03459f7ed95bf43bb90653afa60305d0501b24c`
 - The direct external browser fetch of the Railway URL was not accessible through the web retrieval surface; readiness evidence is from Railway's deployment/runtime health-check logs. No authenticated business API request is claimed.
 - Phase 04 blockers remain: eight independent portal app roots and eight corresponding Railway services/domains have not been implemented/provisioned; CORS and Website/Auth BFF origins remain dependent on those app boundaries. Existing UI has not been redesigned, no empty portal wrappers or duplicate services were created, and the pre-existing Mobile Railway service remains untouched.
 - Phase 04 remains **IN_PROGRESS / NOT COMPLETED**. API TLS and database readiness are now restored, but all ten Phase 04 Definition of Done items are not yet evidenced. Phase 05 remains locked.
+
+
+## Phase 04 — Eight portal app roots, typed SmartTeam integration and production deployment continuation — 2026-11-20
+
+### Canonical governance re-read
+- Re-read `AGENTS.md`, Master PRD v1.0, Engineering Execution Master Plan v1.0 and Cross-Platform Implementation Flow against the bound repository and branch `main`.
+- Engineering constraints retained: one Bun monorepo and lockfile; existing UI/routes/components/design tokens remain authoritative; FastAPI owns business reads/mutations and authorization; no direct business-table mutation from Web/Expo; no mock/demo business fallback in production; no staging, field test or Product Owner Acceptance gate; Phase 05 remains locked until Phase 04 closure.
+
+### Eight independent Next.js workspaces
+- Implemented the independent workspaces under:
+  - `apps/website`
+  - `apps/customer-portal`
+  - `apps/company-portal`
+  - `apps/sales-portal`
+  - `apps/distributor-portal`
+  - `apps/principal-portal`
+  - `apps/supervisor-portal`
+  - `apps/super-admin`
+- Each workspace has its own package manifest and build/dev/start/typecheck scripts, Next config, TypeScript config, App Router root, page boundary, environment example and standalone output preparation. Existing route components are reused from the monorepo root through shared aliases; public assets are copied into each standalone output by `infrastructure/scripts/prepare-next-standalone.mjs`. This avoids copying or redesigning the existing portal UI.
+- Root `bun.lock` includes all eight workspace dependency graphs. The portal CI performs `bun install --frozen-lockfile` before building each workspace.
+- Each app includes its own Auth/Backend API route boundary, shared root route handlers, auth callback pages, manifest and health route. Website additionally exposes the Mobile Auth BFF route for Expo.
+- Railway build context is the repository root, preserving shared packages, lockfile, public assets and the existing dependency graph. Each service build command filters to its own workspace and the standalone start command points to that workspace's generated server.
+
+### Engineering validation
+- Phase 04 Independent Portal Builds workflow run **44689132198** on commit `0d2c5f103cfe276fa1f7c4d44c7b8dce18614eec`: **8/8 portal builds SUCCESS** (Website, Customer, Company, Sales, Distributor, Principal, Supervisor and Super Admin). The workflow also validates frozen Bun lockfile install and standalone server/static/public output paths.
+- Phase 02 API Checks run **44689132151** on the same commit: **SUCCESS**.
+- Foundation Verification run **44689132195** was still in progress at the time of this tracker update; do not treat it as passed until its final result is available.
+- Earlier portal matrix failures on commit `cbe66fa095a85ec4156cacdabae34331c29c5229` were caused by build-time `next/font/google` fetch/parser errors in two workspaces. Commit `a2704753a0443897c73f52298f0e3470e68ae83e` removed that network-dependent build step while preserving the Plus Jakarta Sans and JetBrains Mono font family declarations through CSS; the subsequent eight-app build matrix passed.
+
+### Shared API client, SmartTeam and Website BFF
+- All eight portal layouts reuse the existing shared `AppProviders` / `SalesXAuthProvider`, which constructs `SalesXApiClient` and uses the shared API contracts/client for auth/session and FastAPI transport. Per-portal `/api/auth` and `/api/backend` route boundaries re-export the canonical root BFF handlers; no portal has its own business-data backend or direct Supabase business mutation.
+- The Website app exposes the existing `/api/mobile-auth` BFF route. Shared Web session code uses HttpOnly cookies, Secure in production, SameSite policy, exact `APP_PUBLIC_URL` origin validation, CSRF cookie/header matching, server-side Supabase Auth calls, refresh authorization, BFF rate limiting and server-only `SUPABASE_PUBLISHABLE_KEY` / `SALESX_BFF_SHARED_SECRET`. Provider-specific Google OAuth and SMTP credentials remain deferred to deployment configuration.
+- Company, Sales and Supervisor surfaces expose the SmartTeam Console. It uses typed FastAPI client methods for visits, assignments, check-in/out, attendance, activity, targets, visit history/evidence, private Storage uploads and authorized SmartTeam events. This continuation additionally binds the dashboard summary to `getSmartTeamDashboard` and adds Web evidence MIME/size validation, upload progress and cancellation.
+- Existing non-SmartTeam modules for SmartOrder, SmartReward, GPS intelligence, analytics, AI and Telegram remain governed by their later phases. Their legacy UI data/demo content is not evidence of backend integration; those feature slices must be connected or explicitly disabled/marked unavailable before any production-completion claim. Phase 05+ scope is not started here.
+
+### Expo configuration
+- EAS production environment includes `EXPO_PUBLIC_SALESX_API_URL=https://salesx-api-production.up.railway.app` and `EXPO_PUBLIC_AUTH_BFF_URL=https://salesx-website-production.up.railway.app`.
+- Added separate development and production environment examples; development values are local/LAN-only placeholders. Auth tokens remain in Expo SecureStore and no privileged server credentials are placed in the native bundle.
+- Existing native document picker, offline evidence outbox, retry, upload progress and cancellation implementation is preserved. The pre-existing Mobile Railway service is not part of the nine-service target and remains untouched.
+
+### Railway production state and resource blocker
+- Bound Railway project `heroic-expression`, production environment `4be54e25-86f0-409a-87d2-36e475f67a1f`.
+- FastAPI service `salesx-api` (`14b0489c-8431-480d-828f-d001b5c82fdd`) is **Online**. Deployment `b0f7ea0b-8380-4cb2-bc81-6b1e7882d0d9` logged repeated `GET /readyz` → HTTP 200. The API CORS allowlist and `APP_PUBLIC_URL` are currently set for the three provisioned portal origins.
+- Provisioned portal services and generated Default Domains:
+  - `salesx-website` — service `7b4bc26e-545a-4ed8-8cdb-9057fdd26fb1` — `https://salesx-website-production.up.railway.app`
+  - `salesx-customer` — service `09c11984-87ea-4ff0-ae0f-8c1512d7feda` — `https://salesx-customer-production.up.railway.app`
+  - `salesx-company` — service `f91fc3c9-ddca-4e24-a381-e6736fe938cb` — `https://salesx-company-production.up.railway.app`
+- These three portal services use the monorepo root as build context, service-specific Bun workspace build filters, standalone runtime start commands, `/api/health` health checks and app-specific watch patterns. Their latest deployment chain was still BUILDING/QUEUED at the time of this update; do not mark them production healthy until the final deployment status and API-dependent health check are successful.
+- Attempted to create the remaining five services (`salesx-sales`, `salesx-distributor`, `salesx-principal`, `salesx-supervisor`, `salesx-admin`). Railway rejected service provisioning with **“Free plan resource provision limit exceeded.”** No placeholder services were created. The project already contains the pre-existing `@salesx-ai/mobile-sales` service; it remains untouched as instructed. The current resource limit prevents provisioning all eight portal services in this Railway project.
+- CORS allowlist currently includes only the three provisioned portal origins. It must be extended to the remaining five actual Railway Default Domains after Railway resource capacity is available. Do not invent or predeclare unprovisioned domains.
+
+### Current commits
+- Independent portal build foundation and font build fix: `a2704753a0443897c73f52298f0e3470e68ae83e`.
+- Expo production API and Website Auth BFF environment binding: `ce46b4976074319c5fb0b509abfa5d0dfac8e2f9`.
+- API-dependent health routes for all eight portal apps: `ae831d602738622beb461ec086e74ca8651fee57`.
+- SmartTeam dashboard contract binding and Web evidence upload progress/cancellation: `afb4e19b56683afea0627074f6c60ac67b476b9c`, `0d2c5f103cfe276fa1f7c4d44c7b8dce18614eec`.
+
+**Phase 04 remains IN_PROGRESS / NOT COMPLETED.** The eight app roots and their CI builds are complete, and API readiness is healthy. The remaining five Railway services cannot be provisioned under the current Railway Free plan resource limit; the three deployed portal services still need final health confirmation; CORS needs all eight real domains; and full role-scoped integration/no-demo cleanup of all relevant existing dashboard actions remains outstanding. Do not start Phase 05.
