@@ -1,9 +1,0 @@
-begin;
-create index if not exists cart_items_product_owner_variant_fk_idx on public.cart_items(product_owner_organization_id,variant_id);
-create index if not exists order_items_product_owner_variant_fk_idx on public.order_items(product_owner_organization_id,variant_id);
-create index if not exists inventory_balances_product_owner_variant_fk_idx on public.inventory_balances(product_owner_organization_id,variant_id);
-create index if not exists stock_movements_product_owner_variant_fk_idx on public.stock_movements(product_owner_organization_id,variant_id);
-create index if not exists stock_transfers_product_owner_variant_fk_idx on public.stock_transfers(product_owner_organization_id,variant_id);
-create index if not exists order_item_alloc_fulfillment_fk_idx on public.order_item_fulfillment_allocations(buyer_organization_id,fulfillment_id);
-create index if not exists order_item_alloc_item_fk_idx on public.order_item_fulfillment_allocations(buyer_organization_id,order_item_id);
-commit;
