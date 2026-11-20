@@ -264,3 +264,9 @@ export interface SmartTeamDashboard {
  attendance_records:number;active_shifts:number;activities_open:number;targets_visible:number;
 }
 export interface SmartTeamTargetUpdate {period_start?:string;period_end?:string;target_value?:number;}
+
+export interface PlatformSmartTeamOverviewRow {
+ organization_id:UUID;organization_name:string;organization_status:string;
+ visits_total:number;visits_in_progress:number;visits_completed:number;
+ attendance_30d:number;active_shifts:number;activities_30d:number;active_targets:number;
+}
