@@ -21,7 +21,7 @@ async def update_visit(organization_id:UUID,visit_id:UUID,payload:VisitUpdate,re
 
 @router.get("/{organization_id}/smart-team/visits/{visit_id}/history")
 async def visit_history(organization_id:UUID,visit_id:UUID,principal:Principal=Depends(get_current_principal),
- tenant:TenantContext=Depends(require_api_action("smartteam.visits.read")),connection:asyncpg.Connection=Depends(get_connection)):
+ tenant:TenantContext=Depends(require_api_action("smartteam.visits.history")),connection:asyncpg.Connection=Depends(get_connection)):
  return await smart_team_service.list_visit_history(connection,organization_id,tenant,principal,visit_id)
 
 @router.patch("/{organization_id}/smart-team/targets/{target_id}")
@@ -46,7 +46,7 @@ async def check_in(organization_id:UUID,visit_id:UUID,payload:VisitExecution,req
 
 @router.post("/{organization_id}/smart-team/visits/{visit_id}/check-out")
 async def check_out(organization_id:UUID,visit_id:UUID,payload:VisitExecution,request:Request,principal:Principal=Depends(get_current_principal),
- tenant:TenantContext=Depends(require_api_action("smartteam.visits.execute")),connection:asyncpg.Connection=Depends(get_connection)):
+ tenant:TenantContext=Depends(require_api_action("smartteam.visits.checkout")),connection:asyncpg.Connection=Depends(get_connection)):
  return await smart_team_service.check_out(connection,request,organization_id,tenant,principal,visit_id,payload.location.model_dump(),payload.outcome,payload.notes)
 
 @router.post("/{organization_id}/smart-team/visits/{visit_id}/cancel")
