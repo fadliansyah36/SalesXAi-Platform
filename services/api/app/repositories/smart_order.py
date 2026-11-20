@@ -496,7 +496,7 @@ class SmartOrderRepository:
 
  async def partner_order_buyer(self,db,partner_org,order_id):
   return await db.fetchval("""select o.organization_id from public.orders o
-   where o.id=$2 and exists(
+   where o.id=$2 and o.status not in ('draft','expired','cancelled') and exists(
     select 1 from public.order_items oi
     where oi.organization_id=o.organization_id and oi.order_id=o.id
      and (oi.product_owner_organization_id=$1 or exists(
@@ -537,7 +537,7 @@ class SmartOrderRepository:
   rows=await db.fetch(f"""select o.id,o.organization_id buyer_organization_id,o.order_number,o.status,o.currency,
    count(distinct oi.id) partner_item_count,coalesce(sum(oi.line_total),0) partner_item_total,o.created_at,o.updated_at
    from public.orders o join public.order_items oi on oi.organization_id=o.organization_id and oi.order_id=o.id
-   where {clause} and (oi.product_owner_organization_id=$1 or exists(
+   where o.status not in ('draft','expired','cancelled') and {clause} and (oi.product_owner_organization_id=$1 or exists(
     select 1 from public.stock_movements sm where sm.reference_type='order' and sm.reference_id=o.id
      and sm.organization_id=$1 and sm.product_owner_organization_id=oi.product_owner_organization_id and sm.variant_id=oi.variant_id
    ))
@@ -546,7 +546,7 @@ class SmartOrderRepository:
 
  async def get_partner_order(self,db,partner_org,order_id):
   o=await db.fetchrow("""select o.id,o.organization_id buyer_organization_id,o.order_number,o.status,o.currency,o.created_at,o.updated_at
-   from public.orders o where o.id=$2 and exists(
+   from public.orders o where o.id=$2 and o.status not in ('draft','expired','cancelled') and exists(
     select 1 from public.order_items oi where oi.organization_id=o.organization_id and oi.order_id=o.id
      and (oi.product_owner_organization_id=$1 or exists(select 1 from public.stock_movements sm where sm.reference_type='order' and sm.reference_id=o.id and sm.organization_id=$1 and sm.product_owner_organization_id=oi.product_owner_organization_id and sm.variant_id=oi.variant_id))
    ) and exists(select 1 from public.commerce_catalog_access ca where ca.owner_organization_id=$1 and ca.consumer_organization_id=o.organization_id and ca.access_type in ('ordering','inventory') and (ca.product_id is null or exists(select 1 from public.order_items oi where oi.organization_id=o.organization_id and oi.order_id=o.id and oi.product_id=ca.product_id)) and ca.starts_at<=now() and (ca.ends_at is null or ca.ends_at>now()))""",partner_org,order_id)
