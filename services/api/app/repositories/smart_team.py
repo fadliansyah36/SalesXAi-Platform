@@ -282,4 +282,58 @@ class SmartTeamRepository:
                values($1,$2,$3,$4,$5,$6,$7,$8,$9,$9) returning *""",
             organization_id,data.get("sales_profile_id"),data.get("team_id"),data.get("branch_id"),data["metric_key"],data["period_start"],data["period_end"],data["target_value"],actor_id)
 
+
+    async def update_visit(self, connection: asyncpg.Connection, organization_id: UUID, actor_id: UUID, visit_id: UUID, data: dict[str,Any]):
+        current=await self.visit(connection,organization_id,visit_id)
+        if current is None:return None
+        if current["status"] not in ("scheduled","assigned"):raise ValueError("visit_transition_invalid")
+        if not await self.can_access_profile(connection,organization_id,current["sales_profile_id"],actor_id):
+            raise ValueError("profile_scope_forbidden")
+        fields=("scheduled_at","window_end_at","notes")
+        assignments=[];values=[organization_id,visit_id]
+        for field in fields:
+            if field in data:
+                values.append(data[field]);assignments.append(f"{field}=${len(values)}")
+        if not assignments:return current
+        assignments.append("updated_at=now()")
+        return await connection.fetchrow("update public.smartteam_visits set "+",".join(assignments)+" where organization_id=$1 and id=$2 returning *",*values)
+
+    async def list_visit_events(self, connection: asyncpg.Connection, organization_id: UUID, actor_id: UUID, visit_id: UUID):
+        visit=await self.visit(connection,organization_id,visit_id)
+        if visit is None:raise ValueError("visit_not_found")
+        if not await self.can_access_profile(connection,organization_id,visit["sales_profile_id"],actor_id):
+            raise ValueError("profile_scope_forbidden")
+        return await connection.fetch(
+            """select e.*,p.display_name actor_name from public.smartteam_visit_events e
+               join public.profiles p on p.id=e.actor_user_id
+               where e.organization_id=$1 and e.visit_id=$2 order by e.occurred_at desc""",organization_id,visit_id)
+
+    async def update_target(self, connection: asyncpg.Connection, organization_id: UUID, actor_id: UUID, target_id: UUID, data: dict[str,Any]):
+        current=await connection.fetchrow("select * from public.smartteam_targets where organization_id=$1 and id=$2",organization_id,target_id)
+        if current is None:return None
+        if current["sales_profile_id"] is not None:
+            if not await self.can_access_profile(connection,organization_id,current["sales_profile_id"],actor_id):
+                raise ValueError("profile_scope_forbidden")
+        elif current["team_id"] is not None:
+            allowed=await connection.fetchval("""select exists(select 1 from public.teams where organization_id=$1 and id=$2 and supervisor_user_id=$3)
+              or exists(select 1 from public.organization_memberships m join public.user_role_assignments ura on ura.membership_id=m.id join public.roles r on r.id=ura.role_id
+              where m.organization_id=$1 and m.user_id=$3 and m.status='active' and r.key in ('company_admin','tenant_owner','platform_admin') and ura.revoked_at is null)""",
+              organization_id,current["team_id"],actor_id)
+            if not allowed:raise ValueError("profile_scope_forbidden")
+        else:
+            allowed=await connection.fetchval("""select exists(select 1 from public.organization_memberships m join public.user_role_assignments ura on ura.membership_id=m.id join public.roles r on r.id=ura.role_id
+              where m.organization_id=$1 and m.user_id=$2 and m.status='active' and r.key in ('company_admin','tenant_owner','platform_admin') and ura.revoked_at is null)""",
+              organization_id,actor_id)
+            if not allowed:raise ValueError("profile_scope_forbidden")
+        if "period_start" in data and data["period_start"] is not None and "period_end" not in data:
+            data["period_end"]=current["period_end"]
+        if "period_end" in data and data["period_end"] is not None and "period_start" not in data:
+            data["period_start"]=current["period_start"]
+        start=data.get("period_start",current["period_start"]);end=data.get("period_end",current["period_end"])
+        if end<start:raise ValueError("target_period_invalid")
+        return await connection.fetchrow(
+            """update public.smartteam_targets set period_start=$3,period_end=$4,target_value=coalesce($5,target_value),
+               updated_by=$6,updated_at=now() where organization_id=$1 and id=$2 returning *""",
+            organization_id,target_id,start,end,data.get("target_value"),actor_id)
+
 smart_team_repository=SmartTeamRepository()
