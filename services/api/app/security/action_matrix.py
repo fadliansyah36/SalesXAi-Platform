@@ -76,6 +76,7 @@ API_ACTION_MATRIX: tuple[ApiActionContract, ...] = (
     ApiActionContract("master.data.export", "GET", "/api/v1/organizations/{organization_id}/master-data/{resource}/export", "master_data", "export_rows", "master_data", "tenant_permission:master_data:export_and_tenant_match", "master_data:export", "tenant", "tenant_permission_and_resource_tenant_match"),
     ApiActionContract("master.data.events.read", "GET", "/api/v1/organizations/{organization_id}/master-data/events", "master_data", "stream_master_data_events", "master_data_event", "tenant_permission:master_data:export_and_tenant_match", "master_data:export", "tenant", "tenant_permission_and_resource_tenant_match"),
 
+    ApiActionContract("platform.smartteam.overview.read", "GET", "/api/v1/admin/smart-team/overview", "platform_smartteam", "read_global_overview", "smartteam_operational_summary", "platform_permission:organization:read", "organization:read", "platform", "platform_permission"),
     ApiActionContract("platform.organizations.list", "GET", "/api/v1/admin/organizations", "platform_tenant_management", "list_organizations", "organization", "platform_permission:organization:read", "organization:read", "platform", "platform_permission"),
     ApiActionContract("platform.organizations.update", "PATCH", "/api/v1/admin/organizations/{organization_id}", "platform_tenant_management", "update_organization_status", "organization", "platform_permission:organization:update", "organization:update", "platform", "platform_permission_and_resource_existence"),
 
