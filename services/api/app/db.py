@@ -9,7 +9,9 @@ from app.config import Settings
 from app.errors import APIError
 
 
-SUPABASE_DATABASE_CA = Path(__file__).resolve().parent.parent / "certs" / "supabase-prod-ca-2021.crt"
+SUPABASE_DATABASE_CA = Path("/etc/ssl/certs/supabase-prod-ca-2021.crt")
+if not SUPABASE_DATABASE_CA.is_file():
+    SUPABASE_DATABASE_CA = Path(__file__).resolve().parent.parent / "certs" / "supabase-prod-ca-2021.crt"
 
 
 def create_database_ssl_context() -> ssl.SSLContext:
