@@ -230,7 +230,7 @@ class SmartOrderRepository:
    await self.audit(db,org,actor,"order.draft.created","order",oid,{"order_number":number,"total":str(money(grand))})
   return dict(o)
 
- async def submit_order(self,db,org,actor,oid,region_id=None):
+ async def submit_order(self,org,actor,oid,region_id=None):
   revalidation_error=None
   result=None
   async with db.transaction():
@@ -248,16 +248,18 @@ class SmartOrderRepository:
     await self.audit(db,org,actor,"order.draft.expired","order",oid,{"expires_at":o["expires_at"].isoformat()})
     revalidation_error="Order draft has expired. Review the active cart and create a new draft."
    else:
-    items=await db.fetch("select * from public.order_items where organization_id=$1 and order_id=$2 order by id",org,oid)
+    items=await db.fetch("select * from public.order_items where organization_id=$1 and order_id=$2 order by id for update",org,oid)
     price_changed=False
     for item in items:
      snapshot=item["product_snapshot"]
      try:
       current=await self.price_quote(db,org,item["product_id"],item["variant_id"],item["quantity"],(o["customer_organization_id"] or org),o["channel"],region_id)
       if money(current["unit_price"])!=money(snapshot["unit_price"]) or current["currency"]!=snapshot["currency"]:
-       price_changed=True;break
+       price_changed=True
+       break
      except APIError:
-      price_changed=True;break
+      price_changed=True
+      break
     if price_changed:
      await db.execute("update public.orders set status='revision_requested',updated_at=now() where organization_id=$1 and id=$2",org,oid)
      await db.execute("update public.carts set status='active',version=version+1,updated_at=now() where organization_id=$1 and id=$2 and expires_at>now()",org,o["cart_id"])
@@ -268,38 +270,54 @@ class SmartOrderRepository:
     else:
      alloc=[]
      for i in items:
-      b=await db.fetchrow("select * from public.inventory_balances where organization_id=$1 and variant_id=$2 and available >= $3 order by available desc limit 1 for update skip locked",org,i["variant_id"],i["quantity"])
+      b=await db.fetchrow("""select ib.*,ib.organization_id inventory_owner_organization_id
+       from public.inventory_balances ib
+       where ib.product_owner_organization_id=$2 and ib.variant_id=$3 and ib.available >= $4
+       and (ib.organization_id=$1 or exists(
+         select 1 from public.commerce_catalog_access ca
+         where ca.owner_organization_id=ib.organization_id and ca.consumer_organization_id=$1
+          and ca.access_type='inventory' and (ca.product_id is null or ca.product_id=ib.product_id)
+          and ca.starts_at<=now() and (ca.ends_at is null or ca.ends_at>now())
+       ))
+       and (ib.organization_id=$1 or exists(
+         select 1 from public.commerce_catalog_access ca
+         where ca.owner_organization_id=ib.organization_id and ca.consumer_organization_id=$1
+          and ca.access_type='ordering' and (ca.product_id is null or ca.product_id=ib.product_id)
+          and ca.starts_at<=now() and (ca.ends_at is null or ca.ends_at>now())
+       ))
+       order by case when ib.organization_id=$1 then 0 else 1 end,ib.available desc
+       limit 1 for update skip locked""",org,i["product_owner_organization_id"],i["variant_id"],i["quantity"])
       if not b:
-       revalidation_error="Stock availability changed after draft creation. Cart was reopened; review quantities and retry."
+       revalidation_error="No authorized partner warehouse has sufficient available stock for one or more order items."
        break
       alloc.append((i,b))
      if revalidation_error:
       await db.execute("update public.orders set status='revision_requested',updated_at=now() where organization_id=$1 and id=$2",org,oid)
       await db.execute("update public.carts set status='active',version=version+1,updated_at=now() where organization_id=$1 and id=$2 and expires_at>now()",org,o["cart_id"])
       await db.execute("update public.promotion_redemptions set status='reversed',reversed_at=now() where organization_id=$1 and order_id=$2 and status='reserved'",org,oid)
-      await db.execute("insert into public.order_status_history(organization_id,order_id,from_status,to_status,reason,actor_user_id) values($1,$2,'draft','revision_requested','Stock availability changed after draft creation',$3)",org,oid,actor)
-      await self.audit(db,org,actor,"order.draft.revalidation_failed","order",oid,{"reason":"stock_unavailable"})
+      await db.execute("insert into public.order_status_history(organization_id,order_id,from_status,to_status,reason,actor_user_id) values($1,$2,'draft','revision_requested','Partner inventory availability changed or is not authorized',$3)",org,oid,actor)
+      await self.audit(db,org,actor,"order.draft.revalidation_failed","order",oid,{"reason":"partner_stock_unavailable"})
      else:
       auto_policy=await db.fetchrow("""select * from public.order_approval_policies where organization_id=$1 and status='active'
        and auto_approve_below=true and $2<minimum_total order by minimum_total asc limit 1""",org,o["grand_total"])
       for i,b in alloc:
-       await db.execute("update public.inventory_balances set reserved=reserved+$4,version=version+1,updated_at=now() where organization_id=$1 and id=$2 and version=$3",org,b["id"],b["version"],i["quantity"])
-       await db.execute("""insert into public.stock_movements(organization_id,warehouse_id,product_id,variant_id,movement_type,quantity,reserved_delta,reference_type,reference_id,reason,actor_user_id,idempotency_key)
-        values($1,$2,$3,$4,'reserve',$5,$5,'order',$6,'Order stock reservation',$7,$8)""",org,b["warehouse_id"],i["product_id"],i["variant_id"],i["quantity"],oid,actor,f"order:{oid}:reserve:{i['variant_id']}")
+       owner=b["inventory_owner_organization_id"]
+       await db.execute("update public.inventory_balances set reserved=reserved+$4,version=version+1,updated_at=now() where organization_id=$1 and id=$2 and version=$3",owner,b["id"],b["version"],i["quantity"])
+       await db.execute("""insert into public.stock_movements(organization_id,warehouse_id,product_id,variant_id,movement_type,quantity,reserved_delta,reference_type,reference_id,reason,actor_user_id,idempotency_key,product_owner_organization_id)
+        values($1,$2,$3,$4,'reserve',$5,$5,'order',$6,'Order stock reservation',$7,$8,$9)""",owner,b["warehouse_id"],i["product_id"],i["variant_id"],i["quantity"],oid,actor,f"order:{oid}:reserve:{i['id']}",i["product_owner_organization_id"])
        if auto_policy:
-        await db.execute("update public.inventory_balances set reserved=reserved-$4,committed=committed+$4,version=version+1,updated_at=now() where organization_id=$1 and id=$2 and reserved >= $4",org,b["id"],i["quantity"])
-        await db.execute("""insert into public.stock_movements(organization_id,warehouse_id,product_id,variant_id,movement_type,quantity,reserved_delta,committed_delta,reference_type,reference_id,reason,actor_user_id,idempotency_key)
-         values($1,$2,$3,$4,'commit',$5,-$5,$5,'order',$6,'Auto-approved by order policy',$7,$8)""",org,b["warehouse_id"],i["product_id"],i["variant_id"],i["quantity"],oid,actor,f"order:{oid}:commit:{i['variant_id']}")
+        await db.execute("update public.inventory_balances set reserved=reserved-$4,committed=committed+$4,version=version+1,updated_at=now() where organization_id=$1 and id=$2 and reserved >= $4",owner,b["id"],i["quantity"])
+        await db.execute("""insert into public.stock_movements(organization_id,warehouse_id,product_id,variant_id,movement_type,quantity,reserved_delta,committed_delta,reference_type,reference_id,reason,actor_user_id,idempotency_key,product_owner_organization_id)
+         values($1,$2,$3,$4,'commit',$5,-$5,$5,'order',$6,'Auto-approved by order policy',$7,$8,$9)""",owner,b["warehouse_id"],i["product_id"],i["variant_id"],i["quantity"],oid,actor,f"order:{oid}:commit:{i['id']}",i["product_owner_organization_id"])
       target="approved" if auto_policy else "pending_approval"
       await db.execute("update public.orders set status=$2,submitted_at=now(),approved_at=case when $2='approved' then now() else approved_at end,updated_at=now() where organization_id=$1 and id=$3",org,target,oid)
       await db.execute("insert into public.order_status_history(organization_id,order_id,from_status,to_status,actor_user_id) values($1,$2,'draft',$3,$4)",org,oid,target,actor)
       if auto_policy:
        await db.execute("update public.promotion_redemptions set status='redeemed',redeemed_at=now() where organization_id=$1 and order_id=$2 and status='reserved'",org,oid)
-      await self.audit(db,org,actor,"order.submitted","order",oid,{"reserved_skus":len(alloc),"auto_approved":bool(auto_policy)})
+      await self.audit(db,org,actor,"order.submitted","order",oid,{"reserved_skus":len(alloc),"inventory_owner_organizations":len({str(b['inventory_owner_organization_id']) for _,b in alloc}),"auto_approved":bool(auto_policy)})
       result=await self.get_order(db,org,actor,oid,True)
   if revalidation_error:raise APIError(409,"order_revalidation_required",revalidation_error)
   return result or await self.get_order(db,org,actor,oid,True)
-
  async def decide_order(self,db,org,actor,membership_id,oid,p):
   async with db.transaction():
    o=await db.fetchrow("select * from public.orders where organization_id=$1 and id=$2 for update",org,oid)
@@ -324,18 +342,18 @@ class SmartOrderRepository:
     if approved_count<required_count:
      await self.audit(db,org,actor,"order.approval.vote_recorded","order",oid,{"approved_votes":approved_count,"required_votes":required_count})
      return await self.get_order(db,org,actor,oid,True)
-    moves=await db.fetch("select * from public.stock_movements where organization_id=$1 and reference_id=$2 and movement_type='reserve'",org,oid)
+    moves=await db.fetch("select * from public.stock_movements where reference_type='order' and reference_id=$1 and movement_type='reserve'",oid)
     for m in moves:
-     await db.execute("update public.inventory_balances set reserved=reserved-$4,committed=committed+$4,version=version+1,updated_at=now() where organization_id=$1 and warehouse_id=$2 and variant_id=$3 and reserved >= $4",org,m["warehouse_id"],m["variant_id"],m["quantity"])
-     await db.execute("""insert into public.stock_movements(organization_id,warehouse_id,product_id,variant_id,movement_type,quantity,reserved_delta,committed_delta,reference_type,reference_id,reason,actor_user_id,idempotency_key)
-      values($1,$2,$3,$4,'commit',$5,-$5,$5,'order',$6,'Approved stock commitment',$7,$8)""",org,m["warehouse_id"],m["product_id"],m["variant_id"],m["quantity"],oid,actor,f"order:{oid}:commit:{m['variant_id']}")
+     await db.execute("update public.inventory_balances set reserved=reserved-$4,committed=committed+$4,version=version+1,updated_at=now() where organization_id=$1 and warehouse_id=$2 and variant_id=$3 and reserved >= $4",m["organization_id"],m["warehouse_id"],m["variant_id"],m["quantity"])
+     await db.execute("""insert into public.stock_movements(organization_id,warehouse_id,product_id,variant_id,movement_type,quantity,reserved_delta,committed_delta,reference_type,reference_id,reason,actor_user_id,idempotency_key,product_owner_organization_id)
+      values($1,$2,$3,$4,'commit',$5,-$5,$5,'order',$6,'Approved stock commitment',$7,$8,$9)""",m["organization_id"],m["warehouse_id"],m["product_id"],m["variant_id"],m["quantity"],oid,actor,f"order:{oid}:commit:{m['id']}",m["product_owner_organization_id"])
     target="approved"
    else:
-    moves=await db.fetch("select * from public.stock_movements where organization_id=$1 and reference_id=$2 and movement_type='reserve'",org,oid)
+    moves=await db.fetch("select * from public.stock_movements where reference_type='order' and reference_id=$1 and movement_type='reserve'",oid)
     for m in moves:
-     await db.execute("update public.inventory_balances set reserved=reserved-$4,version=version+1,updated_at=now() where organization_id=$1 and warehouse_id=$2 and variant_id=$3 and reserved >= $4",org,m["warehouse_id"],m["variant_id"],m["quantity"])
-     await db.execute("""insert into public.stock_movements(organization_id,warehouse_id,product_id,variant_id,movement_type,quantity,reserved_delta,reference_type,reference_id,reason,actor_user_id,idempotency_key)
-      values($1,$2,$3,$4,'release',$5,-$5,'order',$6,$7,$8,$9)""",org,m["warehouse_id"],m["product_id"],m["variant_id"],m["quantity"],oid,p.reason or "Order rejected; reservation released",actor,f"order:{oid}:release:{m['variant_id']}")
+     await db.execute("update public.inventory_balances set reserved=reserved-$4,version=version+1,updated_at=now() where organization_id=$1 and warehouse_id=$2 and variant_id=$3 and reserved >= $4",m["organization_id"],m["warehouse_id"],m["variant_id"],m["quantity"])
+     await db.execute("""insert into public.stock_movements(organization_id,warehouse_id,product_id,variant_id,movement_type,quantity,reserved_delta,reference_type,reference_id,reason,actor_user_id,idempotency_key,product_owner_organization_id)
+      values($1,$2,$3,$4,'release',$5,-$5,'order',$6,$7,$8,$9,$10)""",m["organization_id"],m["warehouse_id"],m["product_id"],m["variant_id"],m["quantity"],oid,p.reason or "Order rejected; reservation released",actor,f"order:{oid}:release:{m['id']}",m["product_owner_organization_id"])
     target="revision_requested" if p.decision=="revision_requested" else "rejected"
     if target=="revision_requested":
      await db.execute("update public.carts set status='active',version=version+1,updated_at=now() where organization_id=$1 and id=$2",org,o["cart_id"])
@@ -347,48 +365,67 @@ class SmartOrderRepository:
    await db.execute("insert into public.order_status_history(organization_id,order_id,from_status,to_status,reason,actor_user_id) values($1,$2,'pending_approval',$3,$4,$5)",org,oid,target,p.reason,actor)
    await self.audit(db,org,actor,"order.approval."+p.decision,"order",oid,{"reason":p.reason,"required_approvals":required_count})
   return await self.get_order(db,org,actor,oid,True)
-
  async def create_fulfillment(self,db,org,actor,oid,p):
   async with db.transaction():
    o=await db.fetchrow("select * from public.orders where organization_id=$1 and id=$2 for update",org,oid)
    if not o:raise APIError(404,"order_not_found","Order was not found.")
    if o["status"] not in {"approved","processing"}:raise APIError(409,"order_not_approved","Only approved orders can enter fulfillment.")
+   if p.warehouse_id is None:raise APIError(422,"fulfillment_warehouse_required","A partner warehouse must be selected for each fulfillment.")
+   warehouse=await db.fetchrow("""select w.organization_id,w.id from public.warehouses w
+    where w.id=$1 and w.status='active' and exists(
+     select 1 from public.stock_movements sm where sm.reference_type='order' and sm.reference_id=$2
+      and sm.movement_type='commit' and sm.organization_id=w.organization_id and sm.warehouse_id=w.id
+      and not exists(select 1 from public.order_item_fulfillment_allocations a where a.order_item_id in
+       (select oi.id from public.order_items oi where oi.organization_id=$3 and oi.order_id=$2 and oi.product_owner_organization_id=sm.product_owner_organization_id and oi.variant_id=sm.variant_id))
+    )""",p.warehouse_id,oid,org)
+   if not warehouse:raise APIError(409,"fulfillment_stock_allocation_missing","Selected warehouse has no unallocated committed stock for this order.")
+   owner=warehouse["organization_id"]
    if p.assigned_to:
-    assigned=await db.fetchval("select exists(select 1 from public.organization_memberships where organization_id=$1 and user_id=$2 and status='active')",org,p.assigned_to)
-    if not assigned:raise APIError(422,"fulfillment_assignee_not_member","Fulfillment assignee must be an active member of this organization.")
-   r=await db.fetchrow("insert into public.fulfillments(organization_id,order_id,warehouse_id,assigned_to,created_by) values($1,$2,$3,$4,$5) returning *",org,oid,p.warehouse_id,p.assigned_to,actor)
+    assigned=await db.fetchval("select exists(select 1 from public.organization_memberships where organization_id=$1 and user_id=$2 and status='active')",owner,p.assigned_to)
+    if not assigned:raise APIError(422,"fulfillment_assignee_not_member","Fulfillment assignee must be an active member of the warehouse-owning organization.")
+   r=await db.fetchrow("insert into public.fulfillments(organization_id,order_id,warehouse_id,fulfillment_organization_id,assigned_to,created_by) values($1,$2,$3,$4,$5,$6) returning *",org,oid,p.warehouse_id,owner,p.assigned_to,actor)
+   movements=await db.fetch("select * from public.stock_movements where reference_type='order' and reference_id=$1 and movement_type='commit' and organization_id=$2 and warehouse_id=$3",oid,owner,p.warehouse_id)
+   for m in movements:
+    item=await db.fetchrow("select id,quantity from public.order_items where organization_id=$1 and order_id=$2 and product_owner_organization_id=$3 and variant_id=$4 for update",org,oid,m["product_owner_organization_id"],m["variant_id"])
+    if not item:raise APIError(409,"fulfillment_order_item_missing","Committed inventory does not map to an order item.")
+    already=await db.fetchval("select coalesce(sum(quantity),0) from public.order_item_fulfillment_allocations where order_item_id=$1",item["id"])
+    if Decimal(already)+Decimal(m["quantity"])>Decimal(item["quantity"]):raise APIError(409,"fulfillment_overallocation","Fulfillment allocation exceeds the order item quantity.")
+    await db.execute("""insert into public.order_item_fulfillment_allocations(buyer_organization_id,order_id,order_item_id,fulfillment_id,inventory_owner_organization_id,warehouse_id,quantity)
+     values($1,$2,$3,$4,$5,$6,$7)""",org,oid,item["id"],r["id"],owner,p.warehouse_id,m["quantity"])
    if o["status"]=="approved":
-    await db.execute("update public.orders set status='processing',updated_at=now() where id=$1",oid)
+    await db.execute("update public.orders set status='processing',updated_at=now() where id=$1 and organization_id=$2",oid,org)
     await db.execute("insert into public.order_status_history(organization_id,order_id,from_status,to_status,actor_user_id) values($1,$2,'approved','processing',$3)",org,oid,actor)
-   await self.audit(db,org,actor,"fulfillment.created","fulfillment",r["id"],{"order_id":str(oid)})
+   await self.audit(db,org,actor,"fulfillment.created","fulfillment",r["id"],{"order_id":str(oid),"fulfillment_organization_id":str(owner),"warehouse_id":str(p.warehouse_id)})
   return dict(r)
-
  async def update_fulfillment(self,db,org,actor,fid,p):
   async with db.transaction():
    f=await db.fetchrow("select * from public.fulfillments where organization_id=$1 and id=$2 for update",org,fid)
    if not f:raise APIError(404,"fulfillment_not_found","Fulfillment was not found.")
    if not can_transition_fulfillment(f["status"],p.status):raise APIError(409,"invalid_fulfillment_transition","Fulfillment status transition is not allowed.")
+   allocations=await db.fetch("""select a.*,oi.product_id,oi.variant_id,oi.product_owner_organization_id
+    from public.order_item_fulfillment_allocations a join public.order_items oi on oi.organization_id=a.buyer_organization_id and oi.id=a.order_item_id
+    where a.buyer_organization_id=$1 and a.fulfillment_id=$2 for update of a""",org,fid)
    if p.status=="handed_over":
-    moves=await db.fetch("select * from public.stock_movements where organization_id=$1 and reference_id=$2 and movement_type='commit'",org,f["order_id"])
-    for m in moves:
-     await db.execute("update public.inventory_balances set on_hand=on_hand-$4,committed=committed-$4,version=version+1,updated_at=now() where organization_id=$1 and warehouse_id=$2 and variant_id=$3 and on_hand >= $4 and committed >= $4",org,m["warehouse_id"],m["variant_id"],m["quantity"])
-     await db.execute("""insert into public.stock_movements(organization_id,warehouse_id,product_id,variant_id,movement_type,quantity,on_hand_delta,committed_delta,reference_type,reference_id,reason,actor_user_id,idempotency_key)
-      values($1,$2,$3,$4,'stock_out',$5,-$5,-$5,'fulfillment',$6,'Stock handed over to carrier',$7,$8)""",org,m["warehouse_id"],m["product_id"],m["variant_id"],m["quantity"],f["order_id"],actor,f"fulfillment:{fid}:dispatch:{m['variant_id']}")
-    await db.execute("update public.orders set status='fulfilled',fulfilled_at=now(),updated_at=now() where organization_id=$1 and id=$2 and status='processing'",org,f["order_id"])
-    await db.execute("insert into public.order_status_history(organization_id,order_id,from_status,to_status,actor_user_id) values($1,$2,'processing','fulfilled',$3)",org,f["order_id"],actor)
+    if not allocations:raise APIError(409,"fulfillment_allocation_missing","Fulfillment has no committed order-item allocation.")
+    for a in allocations:
+     await db.execute("update public.inventory_balances set on_hand=on_hand-$4,committed=committed-$4,version=version+1,updated_at=now() where organization_id=$1 and warehouse_id=$2 and variant_id=$3 and on_hand >= $4 and committed >= $4",a["inventory_owner_organization_id"],a["warehouse_id"],a["variant_id"],a["quantity"])
+     await db.execute("""insert into public.stock_movements(organization_id,warehouse_id,product_id,variant_id,movement_type,quantity,on_hand_delta,committed_delta,reference_type,reference_id,reason,actor_user_id,idempotency_key,product_owner_organization_id)
+      values($1,$2,$3,$4,'stock_out',$5,-$5,-$5,'fulfillment',$6,'Stock handed over to carrier',$7,$8,$9)""",a["inventory_owner_organization_id"],a["warehouse_id"],a["product_id"],a["variant_id"],a["quantity"],fid,actor,f"fulfillment:{fid}:dispatch:{a['order_item_id']}",a["product_owner_organization_id"])
+    remaining=await db.fetchval("select count(*) from public.fulfillments where organization_id=$1 and order_id=$2 and status not in ('handed_over','delivered','cancelled') and id<>$3",org,f["order_id"],fid)
+    if remaining==0:
+     await db.execute("update public.orders set status='fulfilled',fulfilled_at=now(),updated_at=now() where organization_id=$1 and id=$2 and status='processing'",org,f["order_id"])
+     await db.execute("insert into public.order_status_history(organization_id,order_id,from_status,to_status,actor_user_id) values($1,$2,'processing','fulfilled',$3)",org,f["order_id"],actor)
    elif p.status in {"failed","cancelled"} and f["status"] in {"queued","picking","packed"}:
-    moves=await db.fetch("select * from public.stock_movements where organization_id=$1 and reference_id=$2 and movement_type='commit'",org,f["order_id"])
-    for m in moves:
-     await db.execute("update public.inventory_balances set committed=committed-$4,version=version+1,updated_at=now() where organization_id=$1 and warehouse_id=$2 and variant_id=$3 and committed >= $4",org,m["warehouse_id"],m["variant_id"],m["quantity"])
-     await db.execute("""insert into public.stock_movements(organization_id,warehouse_id,product_id,variant_id,movement_type,quantity,committed_delta,reference_type,reference_id,reason,actor_user_id,idempotency_key)
-      values($1,$2,$3,$4,'release',$5,-$5,'fulfillment',$6,$7,$8,$9)""",org,m["warehouse_id"],m["product_id"],m["variant_id"],m["quantity"],fid,p.status+" before carrier handover",actor,f"fulfillment:{fid}:release:{m['variant_id']}")
+    for a in allocations:
+     await db.execute("update public.inventory_balances set committed=committed-$4,version=version+1,updated_at=now() where organization_id=$1 and warehouse_id=$2 and variant_id=$3 and committed >= $4",a["inventory_owner_organization_id"],a["warehouse_id"],a["variant_id"],a["quantity"])
+     await db.execute("""insert into public.stock_movements(organization_id,warehouse_id,product_id,variant_id,movement_type,quantity,committed_delta,reference_type,reference_id,reason,actor_user_id,idempotency_key,product_owner_organization_id)
+      values($1,$2,$3,$4,'release',$5,-$5,'fulfillment',$6,$7,$8,$9,$10)""",a["inventory_owner_organization_id"],a["warehouse_id"],a["product_id"],a["variant_id"],a["quantity"],fid,p.status+" before carrier handover",actor,f"fulfillment:{fid}:release:{a['order_item_id']}",a["product_owner_organization_id"])
     await db.execute("update public.orders set status='approved',updated_at=now() where organization_id=$1 and id=$2 and status='processing'",org,f["order_id"])
     await db.execute("insert into public.order_status_history(organization_id,order_id,from_status,to_status,reason,actor_user_id) values($1,$2,'processing','approved',$3,$4)",org,f["order_id"],p.status+" before carrier handover",actor)
    await db.execute("update public.fulfillments set status=$3,carrier=coalesce($4,carrier),tracking_number=coalesce($5,tracking_number),updated_at=now() where id=$1 and organization_id=$2",fid,org,p.status,p.carrier,p.tracking_number)
-   await self.audit(db,org,actor,"fulfillment.status.changed","fulfillment",fid,{"status":p.status})
+   await self.audit(db,org,actor,"fulfillment.status.changed","fulfillment",fid,{"status":p.status,"fulfillment_organization_id":str(f["fulfillment_organization_id"])})
    row=await db.fetchrow("select * from public.fulfillments where id=$1 and organization_id=$2",fid,org)
   return dict(row)
-
  async def process_shipping_event(self,db,provider,event):
   event_id=str(event["event_id"]);tracking=str(event["tracking_number"]);status=str(event["status"])
   async with db.transaction():
