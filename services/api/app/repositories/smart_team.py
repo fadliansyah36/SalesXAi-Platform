@@ -435,6 +435,32 @@ class SmartTeamRepository:
             organization_id,target_id,start,end,data.get("target_value"),actor_id)
 
 
+
+    async def ensure_visit_evidence_scope(self, connection: asyncpg.Connection, organization_id: UUID, actor_id: UUID, visit_id: UUID):
+        visit=await self.visit(connection,organization_id,visit_id)
+        if visit is None:raise ValueError("visit_not_found")
+        if visit["status"] not in ("in_progress","completed"):raise ValueError("visit_evidence_state_invalid")
+        if not await self.can_access_profile(connection,organization_id,visit["sales_profile_id"],actor_id):
+            raise ValueError("profile_scope_forbidden")
+        return visit
+
+    async def create_visit_evidence(self, connection: asyncpg.Connection, organization_id: UUID, visit_id: UUID, actor_id: UUID,
+                                    storage_path: str, mime_type: str, size_bytes: int, sha256: str):
+        return await connection.fetchrow(
+            """insert into public.smartteam_visit_evidence
+               (organization_id,visit_id,uploaded_by,storage_path,mime_type,size_bytes,sha256)
+               values($1,$2,$3,$4,$5,$6,$7) returning *""",
+            organization_id,visit_id,actor_id,storage_path,mime_type,size_bytes,sha256)
+
+    async def list_visit_evidence(self, connection: asyncpg.Connection, organization_id: UUID, actor_id: UUID, visit_id: UUID):
+        await self.ensure_visit_evidence_scope(connection,organization_id,actor_id,visit_id)
+        return await connection.fetch(
+            """select e.*,p.display_name uploader_name from public.smartteam_visit_evidence e
+               join public.profiles p on p.id=e.uploaded_by
+               where e.organization_id=$1 and e.visit_id=$2 order by e.created_at desc""",
+            organization_id,visit_id)
+
+
     async def platform_overview(self, connection: asyncpg.Connection, limit: int, offset: int):
         return await connection.fetch(
             """select o.id organization_id,o.name organization_name,o.status organization_status,
