@@ -85,7 +85,7 @@ Supabase project: `eyofuiyxalbehbqoaeny`
 - Added partner order inbox/detail and partner fulfillment API routes; the shared SmartOrder workspace now exposes partner orders, warehouse selection and fulfillment progression. Partner warehouse creation is restricted to the active partner organization.
 - Added product edit, price-list update/deactivation, and promotion update/deactivation APIs and typed client methods. The shared workspace now exposes product edit, price-list edit/deactivation and promotion edit/deactivation controls.
 - Added indexes for the new owner-scoped composite foreign keys. Performance Advisor now reports zero unindexed foreign keys; unused-index notices remain informational.
-- The partner API deployment at commit `cd1b457dc26191497b5223183742e7997a5afe1b` reached Railway SUCCESS and `/readyz` HTTP 200. Subsequent CRUD, catalog projection, and UI updates are in the Railway deployment queue and are not yet claimed deployed.
+- Railway `salesx-api` deployment for commit `d1c14d4244d074f3622630344ced546804c32c44` reached SUCCESS; build and readiness completed. The later `timedelta` import, catalog projection, and product visibility changes are in the follow-on deployment queue and are not yet claimed deployed.
 
 ### Remaining Phase 05 completion blockers
 
