@@ -461,6 +461,34 @@ class SmartTeamRepository:
             organization_id,visit_id)
 
 
+    async def can_receive_event(self, connection: asyncpg.Connection, organization_id: UUID, actor_id: UUID, event: dict[str,Any]) -> bool:
+        if str(event.get("organization_id"))!=str(organization_id):return False
+        resource=event.get("resource");record_id=event.get("record_id")
+        if not record_id:return False
+        if resource=="smartteam_visits":
+            row=await connection.fetchrow("select sales_profile_id from public.smartteam_visits where organization_id=$1 and id=$2",organization_id,record_id)
+            return bool(row and await self.can_access_profile(connection,organization_id,row["sales_profile_id"],actor_id))
+        if resource=="smartteam_shifts":
+            row=await connection.fetchrow("select sales_profile_id from public.smartteam_shifts where organization_id=$1 and id=$2",organization_id,record_id)
+            return bool(row and await self.can_access_profile(connection,organization_id,row["sales_profile_id"],actor_id))
+        if resource=="smartteam_activities":
+            row=await connection.fetchrow("select sales_profile_id from public.smartteam_activities where organization_id=$1 and id=$2",organization_id,record_id)
+            return bool(row and await self.can_access_profile(connection,organization_id,row["sales_profile_id"],actor_id))
+        if resource=="smartteam_targets":
+            row=await connection.fetchrow("select sales_profile_id,team_id,branch_id from public.smartteam_targets where organization_id=$1 and id=$2",organization_id,record_id)
+            if row is None:return False
+            if row["sales_profile_id"] is not None:
+                return await self.can_access_profile(connection,organization_id,row["sales_profile_id"],actor_id)
+            if row["team_id"] is not None:
+                return bool(await connection.fetchval("""select exists(select 1 from public.teams where organization_id=$1 and id=$2 and supervisor_user_id=$3)
+                  or exists(select 1 from public.organization_memberships m join public.user_role_assignments ura on ura.membership_id=m.id and ura.revoked_at is null join public.roles r on r.id=ura.role_id
+                  where m.organization_id=$1 and m.user_id=$3 and m.status='active' and r.key in ('company_admin','tenant_owner','platform_admin'))""",
+                  organization_id,row["team_id"],actor_id))
+            return bool(await connection.fetchval("""select exists(select 1 from public.organization_memberships m join public.user_role_assignments ura on ura.membership_id=m.id and ura.revoked_at is null join public.roles r on r.id=ura.role_id
+              where m.organization_id=$1 and m.user_id=$2 and m.status='active' and r.key in ('company_admin','tenant_owner','platform_admin'))""",
+              organization_id,actor_id))
+        return False
+
     async def platform_overview(self, connection: asyncpg.Connection, limit: int, offset: int):
         return await connection.fetch(
             """select o.id organization_id,o.name organization_name,o.status organization_status,
