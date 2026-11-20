@@ -71,22 +71,44 @@ export function SmartTeamHome({auth,salesProfileId}:{auth:AuthState;salesProfile
 
  const refresh=useCallback(async()=>{
   if(!api||!organizationId||auth.status!=="authenticated")return;
-  setError("");
+  setError("");setNotice("");
+  const db=dbRef.current;
+  const persist=async(cacheKey:string,payload:unknown)=>{
+   if(db)await db.runAsync("insert or replace into smartteam_cache(organization_id,cache_key,payload_json,updated_at) values(?,?,?,?)",
+    [organizationId,cacheKey,JSON.stringify(payload),new Date().toISOString()]);
+  };
   try{
    const jobs:Promise<unknown>[]=[];
-   if(canReadVisits)jobs.push(api.listSmartTeamVisits(organizationId,{limit:200}).then(setVisits));
-   if(canReadAttendance)jobs.push(api.listSmartTeamAttendance(organizationId,200,0).then(setAttendance));
-   if(canReadActivities)jobs.push(api.listSmartTeamActivities(organizationId,200,0).then(setActivities));
-   if(canReadTargets)jobs.push(api.listSmartTeamTargets(organizationId,200,0).then(setTargets));
+   if(canReadVisits)jobs.push(api.listSmartTeamVisits(organizationId,{limit:200}).then(async rows=>{setVisits(rows);await persist("visits",rows);}));
+   if(canReadAttendance)jobs.push(api.listSmartTeamAttendance(organizationId,200,0).then(async rows=>{setAttendance(rows);await persist("attendance",rows);}));
+   if(canReadActivities)jobs.push(api.listSmartTeamActivities(organizationId,200,0).then(async rows=>{setActivities(rows);await persist("activities",rows);}));
+   if(canReadTargets)jobs.push(api.listSmartTeamTargets(organizationId,200,0).then(async rows=>{setTargets(rows);await persist("targets",rows);}));
    await Promise.all(jobs);
-  }catch(cause){setError(cause instanceof Error?cause.message:"Data SmartTeam tidak dapat dimuat dari FastAPI.");}
+  }catch(cause){
+   const loadCache=async<T,>(key:string,setter:(value:T)=>void)=>{
+    if(!db)return false;
+    const cached=await db.getFirstAsync<CacheRow>("select payload_json,updated_at from smartteam_cache where organization_id=? and cache_key=?",[organizationId,key]);
+    if(!cached)return false;
+    setter(JSON.parse(cached.payload_json) as T);
+    return true;
+   };
+   const cached=await Promise.all([
+    canReadVisits?loadCache<SmartTeamVisit[]>("visits",setVisits):Promise.resolve(false),
+    canReadAttendance?loadCache<SmartTeamAttendance[]>("attendance",setAttendance):Promise.resolve(false),
+    canReadActivities?loadCache<SmartTeamActivity[]>("activities",setActivities):Promise.resolve(false),
+    canReadTargets?loadCache<SmartTeamTarget[]>("targets",setTargets):Promise.resolve(false),
+   ]);
+   if(cached.some(Boolean))setNotice("Koneksi API terputus. Data terakhir ditampilkan dari cache perangkat; aksi baru masuk ke outbox sampai tersambung.");
+   setError(cause instanceof Error?cause.message:"Data SmartTeam tidak dapat dimuat dari FastAPI.");
+  }
  },[api,organizationId,auth.status,canReadVisits,canReadAttendance,canReadActivities,canReadTargets]);
 
- const syncOutbox=useCallback(async()=>{
+ const syncOutbox=useCallback(async(force=false)=>{
   const db=dbRef.current;if(!db||!api||!organizationId||syncingRef.current)return;
   syncingRef.current=true;setSyncing(true);setError("");
   try{
-   const rows=await db.getAllAsync<OutboxRow>("select * from smartteam_outbox where organization_id=? order by created_at asc",[organizationId]);
+   if(force)await db.runAsync("update smartteam_outbox set status='pending',next_attempt_at=? where organization_id=?",[new Date().toISOString(),organizationId]);
+   const rows=await db.getAllAsync<OutboxRow>("select * from smartteam_outbox where organization_id=? and status='pending' and (next_attempt_at='' or next_attempt_at<=?) order by created_at asc",[organizationId,new Date().toISOString()]);
    for(const row of rows){
     const payload=JSON.parse(row.payload_json) as Record<string,any>;
     try{
@@ -97,7 +119,12 @@ export function SmartTeamHome({auth,salesProfileId}:{auth:AuthState;salesProfile
      else if(row.kind==="activity_create")await api.createSmartTeamActivity(organizationId,payload.activity);
      await db.runAsync("delete from smartteam_outbox where id=?",[row.id]);
     }catch(cause){
-     await db.runAsync("update smartteam_outbox set attempts=attempts+1,last_error=? where id=?",[cause instanceof Error?cause.message:"Sinkronisasi gagal",row.id]);
+     const attempts=row.attempts+1;
+     const statusCode=Number((cause as {status?:number})?.status??0);
+     const blocked=statusCode>=400&&statusCode<500&&statusCode!==408&&statusCode!==429;
+     const nextAttempt=new Date(Date.now()+Math.min(300000,1000*2**Math.min(attempts,8))).toISOString();
+     await db.runAsync("update smartteam_outbox set attempts=?,last_error=?,status=?,next_attempt_at=? where id=?",
+      [attempts,cause instanceof Error?cause.message:"Sinkronisasi gagal",blocked?"blocked":"pending",nextAttempt,row.id]);
      setError(cause instanceof Error?cause.message:"Sinkronisasi tertunda; item tetap aman di antrean perangkat.");
      break;
     }
@@ -129,10 +156,10 @@ export function SmartTeamHome({auth,salesProfileId}:{auth:AuthState;salesProfile
 
  async function enqueue(kind:QueueKind,payload:Record<string,unknown>){
   const db=dbRef.current;if(!db||!organizationId)throw new Error("Penyimpanan offline belum siap.");
-  await db.runAsync("insert or ignore into smartteam_outbox(id,organization_id,kind,payload_json,created_at,attempts) values(?,?,?,?,?,0)",
-   [makeKey(),organizationId,kind,JSON.stringify(payload),new Date().toISOString()]);
+  await db.runAsync("insert or ignore into smartteam_outbox(id,organization_id,kind,payload_json,created_at,attempts,status,next_attempt_at) values(?,?,?,?,?,0,'pending',?)",
+   [makeKey(),organizationId,kind,JSON.stringify(payload),new Date().toISOString(),new Date().toISOString()]);
   await refreshQueue();
-  await syncOutbox();
+  await syncOutbox(true);
  }
 
  async function captureAndEnqueue(kind:QueueKind,build:(location:SmartTeamLocationCapture,key:string)=>Record<string,unknown>){
@@ -188,7 +215,7 @@ export function SmartTeamHome({auth,salesProfileId}:{auth:AuthState;salesProfile
     <NativeInline gap="2" style={{flexWrap:"wrap"}}>
      {canManageAttendance&&<Pressable disabled={busy||Boolean(activeShift)} onPress={()=>void clockIn()} style={{padding:12,borderRadius:10,backgroundColor:colors.primary,opacity:busy||activeShift?0.45:1}}><NativeText color={colors.surface} weight="semibold">Clock-in + GPS</NativeText></Pressable>}
      {canManageAttendance&&<Pressable disabled={busy||!activeShift} onPress={()=>void clockOut()} style={{padding:12,borderRadius:10,borderWidth:1,borderColor:colors.border,opacity:busy||!activeShift?0.45:1}}><NativeText weight="semibold">Clock-out + GPS</NativeText></Pressable>}
-     <Pressable disabled={syncing||outbox.length===0} onPress={()=>void syncOutbox()} style={{padding:12,borderRadius:10,borderWidth:1,borderColor:colors.border,opacity:syncing||outbox.length===0?0.45:1}}><NativeText weight="semibold">{syncing?"Syncing…":`Sync antrean (${outbox.length})`}</NativeText></Pressable>
+     <Pressable disabled={syncing||outbox.length===0} onPress={()=>void syncOutbox(true)} style={{padding:12,borderRadius:10,borderWidth:1,borderColor:colors.border,opacity:syncing||outbox.length===0?0.45:1}}><NativeText weight="semibold">{syncing?"Syncing…":`Sync antrean (${outbox.length})`}</NativeText></Pressable>
     </NativeInline>
     <NativeText variant="caption" color={colors.textSecondary}>{activeShift?"Shift aktif":"Belum ada shift aktif"} · {outbox.length} aksi menunggu sinkronisasi</NativeText>
    </NativeStack>
