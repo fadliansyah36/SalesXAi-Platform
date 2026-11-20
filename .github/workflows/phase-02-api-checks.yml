@@ -69,3 +69,17 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun run typecheck
       - run: bun run lint
+
+  mobile-sales-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.16.0
+      - run: bun install --frozen-lockfile
+      - run: bun run --filter=@salesx-ai/mobile-sales typecheck
+      - run: bun run --filter=@salesx-ai/mobile-sales build
