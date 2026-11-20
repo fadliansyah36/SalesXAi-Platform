@@ -106,7 +106,7 @@ class SmartTeamMigrationTests(unittest.TestCase):
     def test_visit_evidence_content_deduplication_is_migrated(self) -> None:
         repository_root = Path(__file__).resolve().parents[3]
         migration = repository_root / "supabase" / "migrations" / (
-            "20261120100000_p04_smartteam_evidence_content_dedup.sql"
+            "20261120043558_p04_smartteam_evidence_content_dedup.sql"
         )
         sql = migration.read_text()
         self.assertIn(
