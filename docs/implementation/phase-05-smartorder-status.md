@@ -119,8 +119,9 @@ Continue Phase 05 with the cross-tenant catalog/cart/inventory/fulfillment data 
 
 ## Latest source and validation record
 
-- Latest main commit: `d79a01c9b9cb6d7b6d57b200d931030f0702da48`.
-- Applied migration: `20261120155706_p05_smartorder_foreign_key_indexes`, bound project `eyofuiyxalbehbqoaeny`.
+- Latest implementation source commit: `70d964bb6310879d16357581b9e0f89868c32821` (branch `main`).
+- Latest applied migration: `20261120164113_p05_cross_tenant_fk_indexes`, bound project `eyofuiyxalbehbqoaeny`.
+- The API/Web/Company deployment set for the latest continuation commit is still queued; the earlier successful workflows below are historical Phase 05 baseline evidence and do not validate the latest cross-tenant/CRUD changes.
 - API workflow: `44768553662` — success, 89 tests.
 - Portal matrix: `44768148073` — success, 8/8 portal builds.
 - Foundation/Expo workflow: `44768148161` — success, 20/20 steps.
