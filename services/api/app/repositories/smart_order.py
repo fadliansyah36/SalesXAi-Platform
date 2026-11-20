@@ -74,7 +74,7 @@ class SmartOrderRepository:
    and pp.effective_from<=now() and (pp.effective_until is null or pp.effective_until>now()) and pp.minimum_quantity<=$4 and (pp.maximum_quantity is null or pp.maximum_quantity>=$4)
    and ((pl.scope_type='tenant' and pl.scope_id is null) or (pl.scope_type='customer' and pl.scope_id=$5) or (pl.scope_type='distributor' and pl.scope_id=$1) or (pl.scope_type='principal' and pl.scope_id=$1) or (pl.scope_type='region' and pl.scope_id=$7) or (pl.scope_type='channel' and pl.channel=$6) or (pl.scope_type='contract' and pl.scope_id=$5))
    and (pl.channel is null or pl.channel=$6)
-   and (pp.organization_id=$1 or exists(select 1 from public.commerce_catalog_access ca where ca.owner_organization_id=pp.organization_id and ca.consumer_organization_id=$1 and ca.access_type='pricing' and ca.starts_at<=now() and (ca.ends_at is null or ca.ends_at>now())))
+   and (pp.organization_id=$1 or exists(select 1 from public.commerce_catalog_access ca where ca.owner_organization_id=pp.organization_id and ca.consumer_organization_id=$1 and ca.access_type='pricing' and (ca.product_id is null or ca.product_id=pp.product_id) and ca.starts_at<=now() and (ca.ends_at is null or ca.ends_at>now())))
    order by case when pl.scope_type='customer' and pl.scope_id=$5 then 0 when pl.scope_type='contract' and pl.scope_id=$5 then 1 when pl.scope_type in ('principal','distributor') and pl.scope_id=$1 then 2 when pl.scope_type='region' and pl.scope_id=$7 then 3 when pl.scope_type='channel' and pl.channel=$6 then 4 else 5 end,pl.priority asc,pl.effective_from desc limit 1""",org,pid,vid,qty,customer,channel,region_id)
   if not r: raise APIError(409,"price_not_available","No effective server-side price exists for this SKU and quantity.")
   return dict(r)
@@ -145,8 +145,8 @@ class SmartOrderRepository:
    c=await db.fetchrow("select * from public.carts where organization_id=$1 and owner_user_id=$2 and status='active' and expires_at>now() for update",org,actor)
    if not c:c=await db.fetchrow("insert into public.carts(organization_id,owner_user_id,customer_organization_id) values($1,$2,$1) returning *",org,actor)
   items=await db.fetch("""select ci.id,ci.product_id,ci.variant_id,ci.quantity,ci.notes,p.name product_name,p.product_code,v.sku,v.name variant_name
-   from public.cart_items ci join public.products p on p.organization_id=ci.organization_id and p.id=ci.product_id
-   join public.product_variants v on v.organization_id=ci.organization_id and v.id=ci.variant_id where ci.organization_id=$1 and ci.cart_id=$2 order by ci.created_at""",org,c["id"])
+   from public.cart_items ci join public.products p on p.organization_id=ci.product_owner_organization_id and p.id=ci.product_id
+   join public.product_variants v on v.organization_id=ci.product_owner_organization_id and v.id=ci.variant_id where ci.organization_id=$1 and ci.cart_id=$2 order by ci.created_at""",org,c["id"])
   result=[]
   for i in items:
    q=await self.price_quote(db,org,i["product_id"],i["variant_id"],i["quantity"],(c["customer_organization_id"] or org),c["channel"],region_id)
@@ -158,12 +158,16 @@ class SmartOrderRepository:
    await db.execute("update public.carts set status='expired',version=version+1,updated_at=now() where organization_id=$1 and owner_user_id=$2 and status='active' and expires_at<=now()",org,actor)
    c=await db.fetchrow("select * from public.carts where organization_id=$1 and owner_user_id=$2 and status='active' and expires_at>now() for update",org,actor)
    if not c:c=await db.fetchrow("insert into public.carts(organization_id,owner_user_id) values($1,$2) returning *",org,actor)
-   ok=await db.fetchval("""select exists(select 1 from public.products p join public.product_variants v on v.organization_id=p.organization_id and v.product_id=p.id
-    where p.organization_id=$1 and p.id=$2 and v.id=$3 and p.status='published' and v.status='active')""",org,p.product_id,p.variant_id)
-   if not ok: raise APIError(404,"product_sku_not_found","Published product and active SKU were not found.")
+   owner=await db.fetchrow("""select p.organization_id from public.products p join public.product_variants v on v.organization_id=p.organization_id and v.product_id=p.id
+    where p.id=$2 and v.id=$3 and p.status='published' and v.status='active'
+    and (p.organization_id=$1 or (
+      exists(select 1 from public.commerce_catalog_access ca where ca.owner_organization_id=p.organization_id and ca.consumer_organization_id=$1 and ca.access_type='catalog' and (ca.product_id is null or ca.product_id=p.id) and ca.starts_at<=now() and (ca.ends_at is null or ca.ends_at>now()))
+      and exists(select 1 from public.commerce_catalog_access ca where ca.owner_organization_id=p.organization_id and ca.consumer_organization_id=$1 and ca.access_type='ordering' and (ca.product_id is null or ca.product_id=p.id) and ca.starts_at<=now() and (ca.ends_at is null or ca.ends_at>now()))
+    ))""",org,p.product_id,p.variant_id)
+   if not owner: raise APIError(404,"product_sku_not_found","Published product and active SKU are not available to this organization.")
    await self.price_quote(db,org,p.product_id,p.variant_id,p.quantity,c["customer_organization_id"],c["channel"],region_id)
-   r=await db.fetchrow("""insert into public.cart_items(organization_id,cart_id,product_id,variant_id,quantity,notes) values($1,$2,$3,$4,$5,$6)
-    on conflict(cart_id,variant_id) do update set quantity=excluded.quantity,notes=excluded.notes,updated_at=now() returning *""",org,c["id"],p.product_id,p.variant_id,p.quantity,p.notes)
+   r=await db.fetchrow("""insert into public.cart_items(organization_id,cart_id,product_id,variant_id,quantity,notes,product_owner_organization_id) values($1,$2,$3,$4,$5,$6,$7)
+    on conflict(cart_id,variant_id) do update set quantity=excluded.quantity,notes=excluded.notes,product_owner_organization_id=excluded.product_owner_organization_id,updated_at=now() returning *""",org,c["id"],p.product_id,p.variant_id,p.quantity,p.notes,owner["organization_id"])
    await db.execute("update public.carts set version=version+1,updated_at=now() where id=$1",c["id"])
   return dict(r)
 
@@ -201,15 +205,15 @@ class SmartOrderRepository:
    c=await db.fetchrow("select * from public.carts where organization_id=$1 and id=$2 and owner_user_id=$3 and status='active' and expires_at>now() for update",org,p.cart_id,actor)
    if not c:raise APIError(404,"active_cart_not_found","An active cart owned by this actor is required.")
    items=await db.fetch("""select ci.*,p.name product_name,p.product_code,p.tax_rate,p.category_id,p.specifications product_specs,v.sku,v.name variant_name,v.attributes variant_attributes
-    from public.cart_items ci join public.products p on p.organization_id=ci.organization_id and p.id=ci.product_id
-    join public.product_variants v on v.organization_id=ci.organization_id and v.id=ci.variant_id where ci.organization_id=$1 and ci.cart_id=$2 for update of ci""",org,p.cart_id)
+    from public.cart_items ci join public.products p on p.organization_id=ci.product_owner_organization_id and p.id=ci.product_id
+    join public.product_variants v on v.organization_id=ci.product_owner_organization_id and v.id=ci.variant_id where ci.organization_id=$1 and ci.cart_id=$2 for update of ci""",org,p.cart_id)
    if not items:raise APIError(409,"empty_cart","An order cannot be created from an empty cart.")
    snaps=[];subtotal=Decimal("0");tax=Decimal("0");qty_total=Decimal("0")
    for i in items:
     q=await self.price_quote(db,org,i["product_id"],i["variant_id"],i["quantity"],c["customer_organization_id"],c["channel"],region_id)
     qty=Decimal(i["quantity"]);totals=line_totals(q["unit_price"],qty,i["tax_rate"]);unit=totals["unit_price"];line=totals["subtotal"];t=totals["tax"]
     subtotal+=line;tax+=t;qty_total+=qty
-    snaps.append({"product_id":str(i["product_id"]),"variant_id":str(i["variant_id"]),"product_name":i["product_name"],"product_code":i["product_code"],"category_id":str(i["category_id"]) if i["category_id"] else None,"sku":i["sku"],"variant_name":i["variant_name"],"quantity":str(qty),"unit_price":str(unit),"line_subtotal":str(line),"tax_rate":str(i["tax_rate"]),"tax_amount":str(t),"price_list_id":str(q["price_list_id"]),"currency":q["currency"]})
+    snaps.append({"product_owner_organization_id":str(i["product_owner_organization_id"]),"product_id":str(i["product_id"]),"variant_id":str(i["variant_id"]),"product_name":i["product_name"],"product_code":i["product_code"],"category_id":str(i["category_id"]) if i["category_id"] else None,"sku":i["sku"],"variant_name":i["variant_name"],"quantity":str(qty),"unit_price":str(unit),"line_subtotal":str(line),"tax_rate":str(i["tax_rate"]),"tax_amount":str(t),"price_list_id":str(q["price_list_id"]),"currency":q["currency"]})
    promo_lines=[{"product_id":x["product_id"],"category_id":x["category_id"],"subtotal":x["line_subtotal"]} for x in snaps]
    promos,discount=await self.evaluate_promotions(db,org,p.promotion_codes,subtotal,qty_total,(c["customer_organization_id"] or org),promo_lines)
    oid=uuid4();number="SO-"+oid.hex[:12].upper();grand=max(Decimal(0),subtotal-discount+tax)
@@ -217,8 +221,8 @@ class SmartOrderRepository:
     values($1,$2,$3,$4,$5,$6,$7,'draft','IDR',$8,$9,$10,$11,$12::jsonb,$13::jsonb,$14::jsonb,$15::jsonb,$16,$17) returning *""",
     oid,org,number,c["id"],(c["customer_organization_id"] or org),actor,c["channel"],money(subtotal),money(discount),money(tax),money(grand),json.dumps(snaps),json.dumps(promos),json.dumps(snapshot),json.dumps(p.shipping_snapshot),p.notes,p.idempotency_key)
    for i,s in zip(items,snaps,strict=True):
-    await db.execute("""insert into public.order_items(organization_id,order_id,product_id,variant_id,product_snapshot,quantity,unit_price,tax_amount,line_total)
-     values($1,$2,$3,$4,$5::jsonb,$6,$7,$8,$9)""",org,oid,i["product_id"],i["variant_id"],json.dumps(s),i["quantity"],s["unit_price"],s["tax_amount"],s["line_subtotal"])
+    await db.execute("""insert into public.order_items(organization_id,order_id,product_id,variant_id,product_snapshot,quantity,unit_price,tax_amount,line_total,product_owner_organization_id)
+     values($1,$2,$3,$4,$5::jsonb,$6,$7,$8,$9,$10)""",org,oid,i["product_id"],i["variant_id"],json.dumps(s),i["quantity"],s["unit_price"],s["tax_amount"],s["line_subtotal"],i["product_owner_organization_id"])
    for promo in promos:
     await db.execute("insert into public.promotion_redemptions(organization_id,promotion_id,order_id,customer_user_id,discount_amount) values($1,$2,$3,$4,$5)",org,promo["promotion_id"],oid,actor,promo["discount_amount"])
    await db.execute("insert into public.order_status_history(organization_id,order_id,from_status,to_status,actor_user_id) values($1,$2,null,'draft',$3)",org,oid,actor)
