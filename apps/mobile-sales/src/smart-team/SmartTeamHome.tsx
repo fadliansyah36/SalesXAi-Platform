@@ -31,7 +31,7 @@ async function captureForegroundLocation():Promise<SmartTeamLocationCapture>{
  return {latitude:position.coords.latitude,longitude:position.coords.longitude,accuracy_m:position.coords.accuracy??0,source:"gps",captured_at:new Date().toISOString()};
 }
 
-export function SmartTeamHome({auth}:{auth:AuthState}){
+export function SmartTeamHome({auth,salesProfileId}:{auth:AuthState;salesProfileId:string|null}){
  const {colors}=useNativeTheme();
  const dbRef=useRef<Awaited<ReturnType<typeof getQueueDatabase>>|null>(null);
  const [visits,setVisits]=useState<SmartTeamVisit[]>([]);
@@ -136,13 +136,10 @@ export function SmartTeamHome({auth}:{auth:AuthState}){
  const checkOut=(visit:SmartTeamVisit)=>captureAndEnqueue("visit_check_out",(location,key)=>({visit_id:visit.id,location,outcome,notes:null,idempotency_key:key}));
 
  async function createActivity(){
-  if(!api||!organizationId||!auth.context?.user.id||!activityTitle.trim())return;
+  if(!api||!organizationId||!salesProfileId||!activityTitle.trim())return;
   setBusy(true);setError("");setNotice("");
   try{
-   const profile=await api.getMySalesAssignmentContext(organizationId);
-   const salesProfile=profile.sales_profile as Record<string,unknown>|null;
-   if(!salesProfile||typeof salesProfile.id!=="string")throw new Error("Sales profile aktif tidak ditemukan.");
-   const activity={sales_profile_id:salesProfile.id,activity_type:"follow_up" as const,title:activityTitle.trim(),idempotency_key:makeKey()};
+   const activity={sales_profile_id:salesProfileId,activity_type:"follow_up" as const,title:activityTitle.trim(),idempotency_key:makeKey()};
    await enqueue("activity_create",{activity});
    setActivityTitle("");setNotice("Aktivitas ditambahkan ke antrean sinkronisasi.");
   }catch(cause){setError(cause instanceof Error?cause.message:"Aktivitas tidak dapat disimpan.");}
