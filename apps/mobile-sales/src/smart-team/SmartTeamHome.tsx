@@ -197,7 +197,7 @@ export function SmartTeamHome({auth,salesProfileId}:{auth:AuthState;salesProfile
     <NativeText variant="title" weight="semibold">Target operasional</NativeText>
     {targets.map(target=><NativeInline key={target.id} style={{justifyContent:"space-between",alignItems:"center"}}>
      <View><NativeText weight="semibold">{target.metric_key.replaceAll("_"," ")}</NativeText><NativeText variant="caption" color={colors.textSecondary}>{target.period_start} – {target.period_end}</NativeText></View>
-     <NativeText weight="semibold">{target.target_value}</NativeText>
+     <View style={{alignItems:"flex-end"}}><NativeText weight="semibold">{target.actual_value===null?"—":target.actual_value} / {target.target_value}</NativeText><NativeText variant="caption" color={colors.textSecondary}>{target.progress_percentage===null?"Belum ada data aktual":`${target.progress_percentage}% tercapai`}</NativeText></View>
     </NativeInline>)}
     {targets.length===0&&<NativeText color={colors.textSecondary}>Target belum tersedia.</NativeText>}
    </NativeStack>
@@ -208,7 +208,7 @@ export function SmartTeamHome({auth,salesProfileId}:{auth:AuthState;salesProfile
     <NativeText variant="title" weight="semibold">Riwayat kehadiran</NativeText>
     {attendance.slice(0,8).map(row=><NativeInline key={row.id} style={{justifyContent:"space-between",alignItems:"center"}}>
      <View><NativeText weight="semibold">{row.shift_date}</NativeText><NativeText variant="caption" color={colors.textSecondary}>{dateText(row.clock_in_at)} – {dateText(row.clock_out_at)}</NativeText></View>
-     <NativeText variant="caption" weight="semibold">{row.attendance_status??row.status}</NativeText>
+     <View style={{alignItems:"flex-end"}}><NativeText variant="caption" weight="semibold">{row.attendance_status??row.status}</NativeText><NativeText variant="caption" color={colors.textSecondary}>{row.events?.length??0} riwayat</NativeText></View>
     </NativeInline>)}
    </NativeStack>
   </NativeSurface>}
