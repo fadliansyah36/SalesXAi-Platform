@@ -4,6 +4,7 @@ from typing import Any
 from uuid import UUID
 
 import asyncpg
+from pydantic import ValidationError
 from fastapi import Request
 
 from app.errors import APIError
@@ -52,12 +53,13 @@ class MasterDataService:
         if values.get("status") is not None and values["status"] not in allowed_status:
             raise APIError(422, "invalid_master_data_status", "The status is not supported for this resource.")
 
+        status_clause = "" if is_deactivating else " and status='active'"
         for field in ("branch_id", "team_id", "territory_id", "parent_team_id", "parent_territory_id"):
             ref_id = values.get(field)
             if ref_id is not None:
                 table = "branches" if field == "branch_id" else "teams" if field in {"team_id", "parent_team_id"} else "territories"
                 exists = await connection.fetchval(
-                    f"select exists(select 1 from public.{table} where organization_id=$1 and id=$2{'' if is_deactivating else \" and status='active'\"})",
+                    f"select exists(select 1 from public.{table} where organization_id=$1 and id=$2{status_clause})",
                     organization_id, ref_id,
                 )
                 if not exists:
@@ -65,7 +67,7 @@ class MasterDataService:
 
         for field in ("user_id", "supervisor_user_id", "manager_user_id"):
             user_id = values.get(field)
-            if user_id is not None:
+            if user_id is not None and not is_deactivating:
                 member = await connection.fetchval(
                     "select exists(select 1 from public.organization_memberships where organization_id=$1 and user_id=$2 and status='active')",
                     organization_id, user_id,
@@ -98,7 +100,7 @@ class MasterDataService:
                 creates_cycle = await connection.fetchval(
                     """with recursive ancestors(id,parent_team_id) as (
                          select id,parent_team_id from public.teams where id=$1 and organization_id=$2
-                         union all
+                         union
                          select t.id,t.parent_team_id from public.teams t join ancestors a on t.id=a.parent_team_id where t.organization_id=$2
                        ) select exists(select 1 from ancestors where id=$3)""",
                     values["parent_team_id"], organization_id, resource_id,
@@ -117,7 +119,7 @@ class MasterDataService:
                 creates_cycle = await connection.fetchval(
                     """with recursive ancestors(id,parent_territory_id) as (
                          select id,parent_territory_id from public.territories where id=$1 and organization_id=$2
-                         union all
+                         union
                          select t.id,t.parent_territory_id from public.territories t join ancestors a on t.id=a.parent_territory_id where t.organization_id=$2
                        ) select exists(select 1 from ancestors where id=$3)""",
                     values["parent_territory_id"], organization_id, resource_id,
@@ -306,6 +308,9 @@ class MasterDataService:
                     errors.append({"row": index, "code": "duplicate_record", "message": "A tenant-scoped code or identity already exists."})
                 except asyncpg.ForeignKeyViolationError:
                     errors.append({"row": index, "code": "invalid_reference", "message": "A referenced record does not belong to this tenant."})
+                except ValidationError as exc:
+                    message = "; ".join(item.get("msg", "Invalid value") for item in exc.errors(include_input=False))
+                    errors.append({"row": index, "code": "invalid_row", "message": message})
                 except ValueError as exc:
                     errors.append({"row": index, "code": "invalid_row", "message": str(exc)})
             result = {
