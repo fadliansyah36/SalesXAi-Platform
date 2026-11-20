@@ -133,22 +133,22 @@ async def stream_smart_order_events(
             next_permission_refresh = asyncio.get_running_loop().time() + 30
             await connection.add_listener("smartorder_events", on_notify)
             try:
-                yield "retry: 5000\\n\\n"
+                yield "retry: 5000\n\n"
                 while not await request.is_disconnected():
                     if asyncio.get_running_loop().time() >= next_permission_refresh:
                         allowed_permissions = await read_permissions(connection)
                         if "commerce:order:read" not in allowed_permissions:
-                            yield "event: auth_revoked\\ndata: {}\\n\\n"
+                            yield "event: auth_revoked\ndata: {}\n\n"
                             break
                         next_permission_refresh = asyncio.get_running_loop().time() + 30
                     try:
                         event = await asyncio.wait_for(queue.get(), timeout=15)
                     except TimeoutError:
-                        yield ": keep-alive\\n\\n"
+                        yield ": keep-alive\n\n"
                         continue
                     if not (required_permissions(event) & allowed_permissions):
                         continue
-                    yield "event: smartorder.changed\\ndata: " + json.dumps(event, separators=(",", ":")) + "\\n\\n"
+                    yield "event: smartorder.changed\ndata: " + json.dumps(event, separators=(",", ":")) + "\n\n"
             finally:
                 try:
                     await connection.remove_listener("smartorder_events", on_notify)
