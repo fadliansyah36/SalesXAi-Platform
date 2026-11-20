@@ -1,10 +1,26 @@
 from collections.abc import AsyncIterator
+import ssl
+from pathlib import Path
 
 import asyncpg
 from fastapi import Request
 
 from app.config import Settings
 from app.errors import APIError
+
+
+SUPABASE_DATABASE_CA = Path(__file__).resolve().parent.parent / "certs" / "supabase-prod-ca-2021.crt"
+
+
+def create_database_ssl_context() -> ssl.SSLContext:
+    """Build a verified TLS context with system roots plus Supabase's published root CA."""
+    if not SUPABASE_DATABASE_CA.is_file():
+        raise RuntimeError("Supabase PostgreSQL root CA certificate is missing from the API image")
+    context = ssl.create_default_context(purpose=ssl.Purpose.SERVER_AUTH)
+    context.load_verify_locations(cafile=str(SUPABASE_DATABASE_CA))
+    context.check_hostname = True
+    context.verify_mode = ssl.CERT_REQUIRED
+    return context
 
 
 async def create_database_pool(settings: Settings) -> asyncpg.Pool:
@@ -22,7 +38,7 @@ async def create_database_pool(settings: Settings) -> asyncpg.Pool:
         command_timeout=settings.db_command_timeout_seconds,
         max_inactive_connection_lifetime=settings.db_max_inactive_connection_lifetime,
         statement_cache_size=0,
-        ssl=True,
+        ssl=create_database_ssl_context(),
         server_settings={
             "application_name": "salesx-ai-api",
             "statement_timeout": str(settings.db_statement_timeout_ms),
