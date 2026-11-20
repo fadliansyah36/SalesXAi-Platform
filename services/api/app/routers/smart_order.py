@@ -1,10 +1,11 @@
 from uuid import UUID
 from decimal import Decimal
 from fastapi import APIRouter, Depends, Query
+from app.errors import APIError
 import asyncpg
 from app.db import get_connection
 from app.security.dependencies import Principal, TenantContext, get_current_principal, require_api_action
-from app.schemas.smart_order import ProductWrite, ProductStatusWrite, CartItemWrite, CartItemUpdate, StockMovementWrite, PromotionWrite, PromotionEvaluation, OrderCreate, OrderDecision, FulfillmentCreate, FulfillmentUpdate
+from app.schemas.smart_order import ProductWrite, ProductStatusWrite, CartItemWrite, CartItemUpdate, StockMovementWrite, PromotionWrite, PromotionEvaluation, OrderCreate, OrderDecision, FulfillmentCreate, FulfillmentUpdate, PriceListWrite, WarehouseWrite, CategoryWrite, BrandWrite, UnitWrite, CatalogAccessWrite, StockTransferWrite, OrderCancel, ProductImageWrite
 from app.services.smart_order import smart_order_service
 
 router=APIRouter(prefix="/organizations",tags=["smart-order"])
@@ -24,6 +25,56 @@ async def create_product(organization_id:UUID,payload:ProductWrite,principal:Pri
 @router.patch("/{organization_id}/smart-order/products/{product_id}/status")
 async def update_product_status(organization_id:UUID,product_id:UUID,payload:ProductStatusWrite,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartorder.catalog.product.status")),db:asyncpg.Connection=Depends(get_connection)):
  return await smart_order_service.update_product_status(db,organization_id,tenant,principal.user_id,product_id,payload.status)
+
+
+@router.get("/{organization_id}/smart-order/catalog/categories")
+async def list_categories(organization_id:UUID,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartorder.catalog.categories.read")),db:asyncpg.Connection=Depends(get_connection)):
+ return await smart_order_service.categories(db,organization_id,tenant)
+
+@router.post("/{organization_id}/smart-order/catalog/categories",status_code=201)
+async def create_category(organization_id:UUID,payload:CategoryWrite,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartorder.catalog.category.create")),db:asyncpg.Connection=Depends(get_connection)):
+ return await smart_order_service.create_category(db,organization_id,tenant,principal.user_id,payload)
+
+@router.post("/{organization_id}/smart-order/catalog/brands",status_code=201)
+async def create_brand(organization_id:UUID,payload:BrandWrite,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartorder.catalog.brand.create")),db:asyncpg.Connection=Depends(get_connection)):
+ return await smart_order_service.create_brand(db,organization_id,tenant,principal.user_id,payload)
+
+@router.post("/{organization_id}/smart-order/catalog/units",status_code=201)
+async def create_unit(organization_id:UUID,payload:UnitWrite,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartorder.catalog.unit.create")),db:asyncpg.Connection=Depends(get_connection)):
+ return await smart_order_service.create_unit(db,organization_id,tenant,principal.user_id,payload)
+
+@router.post("/{organization_id}/smart-order/products/{product_id}/images",status_code=201)
+async def register_product_image(organization_id:UUID,product_id:UUID,payload:ProductImageWrite,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartorder.catalog.image.create")),db:asyncpg.Connection=Depends(get_connection)):
+ if payload.product_id!=product_id: raise APIError(422,"product_image_path_mismatch","Product image payload must match the route product.")
+ return await smart_order_service.create_product_image(db,organization_id,tenant,principal.user_id,payload)
+
+@router.post("/{organization_id}/smart-order/catalog/access",status_code=201)
+async def grant_catalog_access(organization_id:UUID,payload:CatalogAccessWrite,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartorder.catalog.access.grant")),db:asyncpg.Connection=Depends(get_connection)):
+ return await smart_order_service.grant_catalog_access(db,organization_id,tenant,principal.user_id,payload)
+
+@router.get("/{organization_id}/smart-order/pricing/price-lists")
+async def list_price_lists(organization_id:UUID,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartorder.pricing.lists.read")),db:asyncpg.Connection=Depends(get_connection)):
+ return await smart_order_service.price_lists(db,organization_id,tenant)
+
+@router.post("/{organization_id}/smart-order/pricing/price-lists",status_code=201)
+async def create_price_list(organization_id:UUID,payload:PriceListWrite,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartorder.pricing.list.create")),db:asyncpg.Connection=Depends(get_connection)):
+ return await smart_order_service.create_price_list(db,organization_id,tenant,principal.user_id,payload)
+
+@router.get("/{organization_id}/smart-order/warehouses")
+async def list_warehouses(organization_id:UUID,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartorder.warehouses.read")),db:asyncpg.Connection=Depends(get_connection)):
+ return await smart_order_service.warehouses(db,organization_id,tenant)
+
+@router.post("/{organization_id}/smart-order/warehouses",status_code=201)
+async def create_warehouse(organization_id:UUID,payload:WarehouseWrite,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartorder.warehouses.create")),db:asyncpg.Connection=Depends(get_connection)):
+ return await smart_order_service.create_warehouse(db,organization_id,tenant,principal.user_id,payload)
+
+@router.post("/{organization_id}/smart-order/inventory/transfers",status_code=201)
+async def transfer_stock(organization_id:UUID,payload:StockTransferWrite,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartorder.inventory.transfer")),db:asyncpg.Connection=Depends(get_connection)):
+ return await smart_order_service.transfer_stock(db,organization_id,tenant,principal.user_id,payload)
+
+@router.post("/{organization_id}/smart-order/orders/{order_id}/cancel")
+async def cancel_order(organization_id:UUID,order_id:UUID,payload:OrderCancel,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartorder.orders.cancel")),db:asyncpg.Connection=Depends(get_connection)):
+ return await smart_order_service.cancel_order(db,organization_id,tenant,principal.user_id,order_id,payload.reason)
 
 @router.get("/{organization_id}/smart-order/pricing/quote")
 async def price_quote(organization_id:UUID,product_id:UUID,variant_id:UUID,quantity:Decimal=Query(Decimal("1"),gt=0),customer_organization_id:UUID|None=None,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartorder.pricing.quote")),db:asyncpg.Connection=Depends(get_connection)):

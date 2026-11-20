@@ -1,5 +1,4 @@
 # ruff: noqa: E701, E702
-from decimal import Decimal
 from uuid import UUID
 import asyncpg
 from app.errors import APIError
@@ -114,5 +113,61 @@ class SmartOrderService:
  async def update_fulfillment(self,db,organization_id,tenant,actor,fulfillment_id,payload):
   self._tenant(organization_id,tenant)
   return await repo.update_fulfillment(db,organization_id,actor,fulfillment_id,payload)
+
+
+ async def categories(self,db,organization_id,tenant):
+  self._tenant(organization_id,tenant)
+  return await repo.list_categories(db,organization_id)
+
+ async def create_category(self,db,organization_id,tenant,actor,payload):
+  self._tenant(organization_id,tenant)
+  try:return await repo.create_category(db,organization_id,actor,payload)
+  except asyncpg.UniqueViolationError as exc:raise APIError(409,"category_code_conflict","Category code already exists.") from exc
+
+ async def create_brand(self,db,organization_id,tenant,actor,payload):
+  self._tenant(organization_id,tenant)
+  try:return await repo.create_brand(db,organization_id,actor,payload)
+  except asyncpg.UniqueViolationError as exc:raise APIError(409,"brand_name_conflict","Brand already exists.") from exc
+
+ async def create_unit(self,db,organization_id,tenant,actor,payload):
+  self._tenant(organization_id,tenant)
+  try:return await repo.create_unit(db,organization_id,actor,payload)
+  except asyncpg.UniqueViolationError as exc:raise APIError(409,"unit_code_conflict","Unit code already exists.") from exc
+
+ async def price_lists(self,db,organization_id,tenant):
+  self._tenant(organization_id,tenant)
+  return await repo.list_price_lists(db,organization_id)
+
+ async def create_price_list(self,db,organization_id,tenant,actor,payload):
+  self._tenant(organization_id,tenant)
+  try:return await repo.create_price_list(db,organization_id,actor,payload)
+  except asyncpg.UniqueViolationError as exc:raise APIError(409,"price_list_conflict","Price list code or price line conflicts with an existing record.") from exc
+  except asyncpg.ForeignKeyViolationError as exc:raise APIError(422,"invalid_price_reference","Price list references an invalid product or SKU.") from exc
+
+ async def warehouses(self,db,organization_id,tenant):
+  self._tenant(organization_id,tenant)
+  return await repo.list_warehouses(db,organization_id)
+
+ async def create_warehouse(self,db,organization_id,tenant,actor,payload):
+  self._tenant(organization_id,tenant)
+  try:return await repo.create_warehouse(db,organization_id,actor,payload)
+  except asyncpg.UniqueViolationError as exc:raise APIError(409,"warehouse_code_conflict","Warehouse code already exists.") from exc
+  except asyncpg.ForeignKeyViolationError as exc:raise APIError(422,"invalid_branch_reference","Warehouse branch is not owned by this tenant.") from exc
+
+ async def grant_catalog_access(self,db,organization_id,tenant,actor,payload):
+  self._tenant(organization_id,tenant)
+  return await repo.create_catalog_access(db,organization_id,actor,payload)
+
+ async def create_product_image(self,db,organization_id,tenant,actor,payload):
+  self._tenant(organization_id,tenant)
+  return await repo.create_product_image(db,organization_id,actor,payload)
+
+ async def transfer_stock(self,db,organization_id,tenant,actor,payload):
+  self._tenant(organization_id,tenant)
+  return await repo.transfer_stock(db,organization_id,actor,payload)
+
+ async def cancel_order(self,db,organization_id,tenant,actor,order_id,reason):
+  self._tenant(organization_id,tenant)
+  return await repo.cancel_order(db,organization_id,actor,order_id,reason)
 
 smart_order_service=SmartOrderService()

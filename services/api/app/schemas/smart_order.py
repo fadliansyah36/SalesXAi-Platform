@@ -108,3 +108,86 @@ class PageResponse(BaseModel):
     page: int
     page_size: int
     total: int
+
+
+class PriceListLineWrite(BaseModel):
+    product_id: UUID
+    variant_id: UUID
+    unit_price: Decimal = Field(ge=0, max_digits=18, decimal_places=2)
+    minimum_quantity: Decimal = Field(default=Decimal("1"), gt=0, max_digits=18, decimal_places=3)
+    maximum_quantity: Decimal | None = Field(default=None, gt=0, max_digits=18, decimal_places=3)
+
+
+class PriceListWrite(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str = Field(min_length=2, max_length=180)
+    code: str = Field(min_length=2, max_length=80)
+    currency: str = Field(default="IDR", min_length=3, max_length=3)
+    scope_type: Literal["tenant", "principal", "distributor", "customer", "region", "channel", "contract"] = "tenant"
+    scope_id: UUID | None = None
+    channel: str | None = None
+    priority: int = 100
+    effective_from: str
+    effective_until: str | None = None
+    status: Literal["draft", "active", "inactive", "archived"] = "draft"
+    prices: list[PriceListLineWrite] = Field(min_length=1, max_length=1000)
+
+
+class WarehouseWrite(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    code: str = Field(min_length=1, max_length=60)
+    name: str = Field(min_length=2, max_length=180)
+    branch_id: UUID | None = None
+    address: str | None = None
+
+
+class CategoryWrite(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    code: str = Field(min_length=1, max_length=80)
+    name: str = Field(min_length=2, max_length=160)
+    parent_id: UUID | None = None
+    description: str | None = None
+    sort_order: int = 0
+
+
+class BrandWrite(BaseModel):
+    name: str = Field(min_length=2, max_length=160)
+
+
+class UnitWrite(BaseModel):
+    code: str = Field(min_length=1, max_length=20)
+    name: str = Field(min_length=2, max_length=80)
+    symbol: str | None = Field(default=None, max_length=20)
+    decimal_places: int = Field(default=0, ge=0, le=6)
+
+
+class CatalogAccessWrite(BaseModel):
+    consumer_organization_id: UUID
+    product_id: UUID | None = None
+    access_type: Literal["catalog", "pricing", "inventory", "ordering"] = "catalog"
+    starts_at: str
+    ends_at: str | None = None
+
+
+class StockTransferWrite(BaseModel):
+    from_warehouse_id: UUID
+    to_warehouse_id: UUID
+    product_id: UUID
+    variant_id: UUID
+    quantity: Decimal = Field(gt=0, max_digits=18, decimal_places=3)
+    reason: str = Field(min_length=3, max_length=500)
+    idempotency_key: str = Field(min_length=8, max_length=128)
+
+
+class OrderCancel(BaseModel):
+    reason: str = Field(min_length=3, max_length=1000)
+
+
+class ProductImageWrite(BaseModel):
+    product_id: UUID
+    variant_id: UUID | None = None
+    storage_path: str = Field(min_length=3, max_length=500)
+    mime_type: Literal["image/jpeg", "image/png", "image/webp"]
+    size_bytes: int = Field(gt=0, le=10485760)
+    alt_text: str | None = Field(default=None, max_length=240)
+    sort_order: int = 0

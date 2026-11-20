@@ -292,6 +292,125 @@ class SmartOrderRepository:
    d[key]=[dict(x) for x in await db.fetch(sql,org,oid)]
   return d
 
+
+ async def list_categories(self,db,org):
+  rows=await db.fetch("select id,parent_id,code,name,description,sort_order,status from public.product_categories where organization_id=$1 and status='active' order by sort_order,name",org)
+  return [dict(x) for x in rows]
+
+ async def create_category(self,db,org,actor,p):
+  async with db.transaction():
+   r=await db.fetchrow("insert into public.product_categories(organization_id,parent_id,code,name,description,sort_order) values($1,$2,$3,$4,$5,$6) returning *",org,p.parent_id,p.code,p.name,p.description,p.sort_order)
+   await self.audit(db,org,actor,"product.category.created","product_category",r["id"],{"code":p.code})
+  return dict(r)
+
+ async def create_brand(self,db,org,actor,p):
+  async with db.transaction():
+   r=await db.fetchrow("insert into public.product_brands(organization_id,name) values($1,$2) returning *",org,p.name)
+   await self.audit(db,org,actor,"product.brand.created","product_brand",r["id"],{"name":p.name})
+  return dict(r)
+
+ async def create_unit(self,db,org,actor,p):
+  async with db.transaction():
+   r=await db.fetchrow("insert into public.units_of_measure(organization_id,code,name,symbol,decimal_places) values($1,$2,$3,$4,$5) returning *",org,p.code,p.name,p.symbol,p.decimal_places)
+   await self.audit(db,org,actor,"product.unit.created","unit_of_measure",r["id"],{"code":p.code})
+  return dict(r)
+
+ async def list_price_lists(self,db,org):
+  rows=await db.fetch("""select pl.*,
+   coalesce((select jsonb_agg(jsonb_build_object('id',pp.id,'product_id',pp.product_id,'variant_id',pp.variant_id,'unit_price',pp.unit_price,'minimum_quantity',pp.minimum_quantity,'maximum_quantity',pp.maximum_quantity,'effective_from',pp.effective_from,'effective_until',pp.effective_until)) from public.product_prices pp where pp.organization_id=pl.organization_id and pp.price_list_id=pl.id),'[]'::jsonb) prices
+   from public.price_lists pl where pl.organization_id=$1 order by pl.priority,pl.created_at desc""",org)
+  return [dict(x) for x in rows]
+
+ async def create_price_list(self,db,org,actor,p):
+  async with db.transaction():
+   await db.execute("select set_config('app.actor_id',$1,true)",str(actor))
+   pl=await db.fetchrow("""insert into public.price_lists(organization_id,name,code,currency,scope_type,scope_id,channel,priority,effective_from,effective_until,status,created_by)
+    values($1,$2,$3,$4,$5,$6,$7,$8,$9::timestamptz,$10::timestamptz,$11,$12) returning *""",
+    org,p.name,p.code.upper(),p.currency.upper(),p.scope_type,p.scope_id,p.channel,p.priority,p.effective_from,p.effective_until,p.status,actor)
+   for line in p.prices:
+    valid=await db.fetchval("""select exists(select 1 from public.products p join public.product_variants v on v.organization_id=p.organization_id and v.product_id=p.id
+      where p.organization_id=$1 and p.id=$2 and v.id=$3 and p.status<>'archived' and v.status<>'archived')""",org,line.product_id,line.variant_id)
+    if not valid:raise APIError(422,"invalid_price_product","Every price line must reference a product and SKU owned by this tenant.")
+    await db.execute("""insert into public.product_prices(organization_id,price_list_id,product_id,variant_id,unit_price,minimum_quantity,maximum_quantity,effective_from,effective_until)
+      values($1,$2,$3,$4,$5,$6,$7,$8::timestamptz,$9::timestamptz)""",
+      org,pl["id"],line.product_id,line.variant_id,line.unit_price,line.minimum_quantity,line.maximum_quantity,p.effective_from,p.effective_until)
+   await self.audit(db,org,actor,"pricing.price_list.created","price_list",pl["id"],{"code":p.code,"price_count":len(p.prices)})
+  return dict(pl)
+
+ async def list_warehouses(self,db,org):
+  rows=await db.fetch("select id,branch_id,code,name,address,status,created_at from public.warehouses where organization_id=$1 and status='active' order by name",org)
+  return [dict(x) for x in rows]
+
+ async def create_warehouse(self,db,org,actor,p):
+  async with db.transaction():
+   r=await db.fetchrow("insert into public.warehouses(organization_id,branch_id,code,name,address) values($1,$2,$3,$4,$5) returning *",org,p.branch_id,p.code.upper(),p.name,p.address)
+   await self.audit(db,org,actor,"inventory.warehouse.created","warehouse",r["id"],{"code":p.code})
+  return dict(r)
+
+ async def create_catalog_access(self,db,org,actor,p):
+  if p.consumer_organization_id==org:raise APIError(422,"invalid_catalog_consumer","Catalog access consumer must be another organization.")
+  linked=await db.fetchval("""select exists(select 1 from public.commerce_partner_links where organization_id=$1 and partner_organization_id=$2 and status='active' and starts_at<=now() and (ends_at is null or ends_at>now()))""",org,p.consumer_organization_id)
+  if not linked:raise APIError(403,"partner_relationship_required","An active principal/distributor/customer relationship is required before catalog access can be granted.")
+  async with db.transaction():
+   r=await db.fetchrow("""insert into public.commerce_catalog_access(owner_organization_id,consumer_organization_id,product_id,access_type,starts_at,ends_at,created_by)
+    values($1,$2,$3,$4,$5::timestamptz,$6::timestamptz,$7) returning *""",org,p.consumer_organization_id,p.product_id,p.access_type,p.starts_at,p.ends_at,actor)
+   await self.audit(db,org,actor,"catalog.access.granted","commerce_catalog_access",r["id"],{"consumer_organization_id":str(p.consumer_organization_id),"access_type":p.access_type})
+  return dict(r)
+
+ async def create_product_image(self,db,org,actor,p):
+  if not p.storage_path.startswith(str(org)+"/"+str(p.product_id)+"/"):
+   raise APIError(422,"invalid_product_image_path","Product image must be stored under the tenant/product private bucket path.")
+  async with db.transaction():
+   exists=await db.fetchval("select exists(select 1 from public.products where organization_id=$1 and id=$2)",org,p.product_id)
+   if not exists:raise APIError(404,"product_not_found","Product was not found.")
+   r=await db.fetchrow("""insert into public.product_images(organization_id,product_id,variant_id,storage_path,mime_type,size_bytes,alt_text,sort_order)
+    values($1,$2,$3,$4,$5,$6,$7,$8) returning *""",org,p.product_id,p.variant_id,p.storage_path,p.mime_type,p.size_bytes,p.alt_text,p.sort_order)
+   await self.audit(db,org,actor,"product.image.registered","product_image",r["id"],{"storage_path":p.storage_path})
+  return dict(r)
+
+ async def transfer_stock(self,db,org,actor,p):
+  async with db.transaction():
+   old=await db.fetchrow("select * from public.stock_transfers where organization_id=$1 and idempotency_key=$2",org,p.idempotency_key)
+   if old:return dict(old)
+   if p.from_warehouse_id==p.to_warehouse_id:raise APIError(422,"same_transfer_warehouse","Source and destination warehouses must differ.")
+   await db.execute("insert into public.inventory_balances(organization_id,warehouse_id,product_id,variant_id) values($1,$2,$4,$5),($1,$3,$4,$5) on conflict do nothing",org,p.from_warehouse_id,p.to_warehouse_id,p.product_id,p.variant_id)
+   balances=await db.fetch("""select * from public.inventory_balances where organization_id=$1 and variant_id=$2 and warehouse_id=any($3::uuid[]) order by warehouse_id for update""",org,p.variant_id,[p.from_warehouse_id,p.to_warehouse_id])
+   source=next((b for b in balances if b["warehouse_id"]==p.from_warehouse_id),None)
+   target=next((b for b in balances if b["warehouse_id"]==p.to_warehouse_id),None)
+   if source is None or target is None or Decimal(source["available"])<p.quantity:raise APIError(409,"insufficient_transfer_stock","Source warehouse has insufficient available stock.")
+   await db.execute("update public.inventory_balances set on_hand=on_hand-$4,version=version+1,updated_at=now() where organization_id=$1 and warehouse_id=$2 and variant_id=$3",org,p.from_warehouse_id,p.variant_id,p.quantity)
+   await db.execute("update public.inventory_balances set on_hand=on_hand+$4,version=version+1,updated_at=now() where organization_id=$1 and warehouse_id=$2 and variant_id=$3",org,p.to_warehouse_id,p.variant_id,p.quantity)
+   transfer=await db.fetchrow("""insert into public.stock_transfers(organization_id,from_warehouse_id,to_warehouse_id,product_id,variant_id,quantity,reason,actor_user_id,idempotency_key)
+    values($1,$2,$3,$4,$5,$6,$7,$8,$9) returning *""",org,p.from_warehouse_id,p.to_warehouse_id,p.product_id,p.variant_id,p.quantity,p.reason,actor,p.idempotency_key)
+   await db.execute("""insert into public.stock_movements(organization_id,warehouse_id,product_id,variant_id,movement_type,quantity,on_hand_delta,reference_type,reference_id,reason,actor_user_id,idempotency_key)
+    values($1,$2,$4,$5,'transfer_out',$6,-$6,'stock_transfer',$7,$8,$9,$10),($1,$3,$4,$5,'transfer_in',$6,$6,'stock_transfer',$7,$8,$9,$11)""",
+    org,p.from_warehouse_id,p.to_warehouse_id,p.product_id,p.variant_id,p.quantity,transfer["id"],p.reason,actor,p.idempotency_key+":out",p.idempotency_key+":in")
+   await self.audit(db,org,actor,"inventory.stock.transferred","stock_transfer",transfer["id"],{"quantity":str(p.quantity)})
+  return dict(transfer)
+
+ async def cancel_order(self,db,org,actor,oid,reason):
+  async with db.transaction():
+   o=await db.fetchrow("select * from public.orders where organization_id=$1 and id=$2 for update",org,oid)
+   if not o:raise APIError(404,"order_not_found","Order was not found.")
+   if o["status"]=="cancelled":return dict(o)
+   if o["status"] not in {"draft","pending_approval","approved"}:raise APIError(409,"order_cannot_be_cancelled","Order cannot be cancelled after fulfillment processing has started.")
+   if o["status"]=="pending_approval":
+    movements=await db.fetch("select * from public.stock_movements where organization_id=$1 and reference_id=$2 and movement_type='reserve'",org,oid)
+    for m in movements:
+     await db.execute("update public.inventory_balances set reserved=reserved-$4,version=version+1,updated_at=now() where organization_id=$1 and warehouse_id=$2 and variant_id=$3 and reserved >= $4",org,m["warehouse_id"],m["variant_id"],m["quantity"])
+     await db.execute("""insert into public.stock_movements(organization_id,warehouse_id,product_id,variant_id,movement_type,quantity,reserved_delta,reference_type,reference_id,reason,actor_user_id,idempotency_key)
+      values($1,$2,$3,$4,'release',$5,-$5,'order',$6,$7,$8,$9)""",org,m["warehouse_id"],m["product_id"],m["variant_id"],m["quantity"],oid,reason,actor,f"order:{oid}:cancel:{m['variant_id']}")
+   elif o["status"]=="approved":
+    movements=await db.fetch("select * from public.stock_movements where organization_id=$1 and reference_id=$2 and movement_type='commit'",org,oid)
+    for m in movements:
+     await db.execute("update public.inventory_balances set committed=committed-$4,version=version+1,updated_at=now() where organization_id=$1 and warehouse_id=$2 and variant_id=$3 and committed >= $4",org,m["warehouse_id"],m["variant_id"],m["quantity"])
+     await db.execute("""insert into public.stock_movements(organization_id,warehouse_id,product_id,variant_id,movement_type,quantity,committed_delta,reference_type,reference_id,reason,actor_user_id,idempotency_key)
+      values($1,$2,$3,$4,'release',$5,-$5,'order',$6,$7,$8,$9)""",org,m["warehouse_id"],m["product_id"],m["variant_id"],m["quantity"],oid,reason,actor,f"order:{oid}:cancel:{m['variant_id']}")
+   await db.execute("update public.orders set status='cancelled',cancelled_at=now(),updated_at=now() where id=$1",oid)
+   await db.execute("insert into public.order_status_history(organization_id,order_id,from_status,to_status,reason,actor_user_id) values($1,$2,$3,'cancelled',$4,$5)",org,oid,o["status"],reason,actor)
+   await self.audit(db,org,actor,"order.cancelled","order",oid,{"reason":reason})
+  return await self.get_order(db,org,actor,oid,True)
+
  async def audit(self,db,org,actor,action,kind,rid,metadata):
   await db.execute("insert into public.commerce_audit_events(organization_id,actor_user_id,action,resource_type,resource_id,metadata) values($1,$2,$3,$4,$5,$6::jsonb)",org,actor,action,kind,rid,json.dumps(metadata,default=str))
 

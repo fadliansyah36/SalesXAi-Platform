@@ -296,3 +296,16 @@ export interface SmartOrderOrder {id:UUID;order_number:string;status:string;curr
 export interface SmartOrderOrderPage {items:SmartOrderOrder[];page:number;page_size:number;total:number;}
 export interface SmartOrderFulfillmentWrite {warehouse_id?:UUID|null;assigned_to?:UUID|null;}
 export interface SmartOrderFulfillmentUpdate {status:"picking"|"packed"|"handed_over"|"delivered"|"failed"|"cancelled";carrier?:string|null;tracking_number?:string|null;}
+
+export interface SmartOrderPriceListWrite {name:string;code:string;currency?:string;scope_type:"tenant"|"principal"|"distributor"|"customer"|"region"|"channel"|"contract";scope_id?:UUID|null;channel?:string|null;priority?:number;effective_from:string;effective_until?:string|null;status?:"draft"|"active"|"inactive"|"archived";prices:Array<{product_id:UUID;variant_id:UUID;unit_price:number;minimum_quantity?:number;maximum_quantity?:number|null}>;}
+export interface SmartOrderPriceList {id:UUID;name:string;code:string;currency:string;scope_type:string;status:string;prices:Array<Record<string,unknown>>;}
+export interface SmartOrderWarehouse {id:UUID;code:string;name:string;branch_id?:UUID|null;address?:string|null;status:string;}
+export interface SmartOrderWarehouseWrite {code:string;name:string;branch_id?:UUID|null;address?:string|null;}
+export interface SmartOrderCategory {id:UUID;parent_id?:UUID|null;code:string;name:string;description?:string|null;sort_order:number;status:string;}
+export interface SmartOrderCategoryWrite {code:string;name:string;parent_id?:UUID|null;description?:string|null;sort_order?:number;}
+export interface SmartOrderBrandWrite {name:string;}
+export interface SmartOrderUnitWrite {code:string;name:string;symbol?:string|null;decimal_places?:number;}
+export interface SmartOrderCatalogAccessWrite {consumer_organization_id:UUID;product_id?:UUID|null;access_type:"catalog"|"pricing"|"inventory"|"ordering";starts_at:string;ends_at?:string|null;}
+export interface SmartOrderStockTransferWrite {from_warehouse_id:UUID;to_warehouse_id:UUID;product_id:UUID;variant_id:UUID;quantity:number;reason:string;idempotency_key:string;}
+export interface SmartOrderProductImageWrite {product_id:UUID;variant_id?:UUID|null;storage_path:string;mime_type:"image/jpeg"|"image/png"|"image/webp";size_bytes:number;alt_text?:string|null;sort_order?:number;}
+export interface SmartOrderOrderCancel {reason:string;}
