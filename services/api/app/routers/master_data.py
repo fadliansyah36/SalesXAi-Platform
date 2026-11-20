@@ -166,14 +166,17 @@ async def stream_master_data_events(
     )
 
 @router.get("/{organization_id}/master-data/{resource}/export")
-async def export_master_data(organization_id: UUID, resource: str, tenant: TenantContext = Depends(require_api_action("master.data.export")), connection: asyncpg.Connection = Depends(get_connection), limit: int = Query(5000, ge=1, le=5000)):
+async def export_master_data(organization_id: UUID, resource: str, request: Request, principal: Principal = Depends(get_current_principal), tenant: TenantContext = Depends(require_api_action("master.data.export")), connection: asyncpg.Connection = Depends(get_connection), limit: int = Query(5000, ge=1, le=5000)):
     rows = await master_data_service.list(connection, resource, organization_id, tenant, limit, 0)
+    await master_data_service.audit_export(connection, request, principal, tenant, organization_id, resource, len(rows))
     output = io.StringIO()
-    if not rows:
-        return Response(content="", media_type="text/csv", headers={"Content-Disposition": f'attachment; filename="{resource}.csv"'})
     fields = sorted(RESOURCE_TABLES[resource] - {'membership_id'})
     writer = csv.DictWriter(output, fieldnames=fields, extrasaction="ignore")
     writer.writeheader()
     for row in rows:
-        writer.writerow({key: str(row.get(key)) if row.get(key) is not None else "" for key in fields})
+        writer.writerow({
+            key: json.dumps(row.get(key), separators=(",", ":")) if isinstance(row.get(key), (dict, list))
+            else str(row.get(key)) if row.get(key) is not None else ""
+            for key in fields
+        })
     return Response(content=output.getvalue(), media_type="text/csv; charset=utf-8", headers={"Content-Disposition": f'attachment; filename="{resource}.csv"'})

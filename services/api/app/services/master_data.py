@@ -266,6 +266,13 @@ class MasterDataService:
         except asyncpg.ForeignKeyViolationError as exc:
             raise APIError(404, "assignment_resource_not_found", "Outlet or sales profile does not exist in the active tenant.") from exc
 
+    async def audit_export(self, connection: asyncpg.Connection, request: Request, principal: Principal, tenant: TenantContext, organization_id: UUID, resource: str, row_count: int) -> None:
+        self._tenant(organization_id, tenant)
+        await write_audit(
+            connection, request, principal, f"{resource}.exported", "master_data_export",
+            str(organization_id), tenant, {"resource": resource, "row_count": row_count},
+        )
+
     async def import_rows(self, connection: asyncpg.Connection, request: Request, principal: Principal, tenant: TenantContext, organization_id: UUID, resource: str, idempotency_key: str, rows: list[dict[str, Any]]) -> dict[str, Any]:
         self._tenant(organization_id, tenant)
         if resource not in RESOURCE_TABLES:
