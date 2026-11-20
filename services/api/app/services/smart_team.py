@@ -126,4 +126,44 @@ class SmartTeamService:
         await write_audit(connection,request,principal,"smartteam.target.created","smartteam_target",str(row["id"]),tenant,{"metric_key":row["metric_key"],"target_value":str(row["target_value"])})
         return dict(row)
 
+
+    async def update_visit(self,connection,request,organization_id,tenant,principal,visit_id,payload):
+        self._tenant(organization_id,tenant)
+        try:row=await self.repository.update_visit(connection,organization_id,principal.user_id,visit_id,payload)
+        except ValueError as error:self._translate(error)
+        if row is None:raise APIError(404,"visit_not_found","Visit was not found.")
+        await write_audit(connection,request,principal,"smartteam.visit.updated","smartteam_visit",str(visit_id),tenant,{"updated_fields":sorted(payload)})
+        return dict(row)
+
+    async def list_visit_history(self,connection,organization_id,tenant,principal,visit_id):
+        self._tenant(organization_id,tenant)
+        try:rows=await self.repository.list_visit_events(connection,organization_id,principal.user_id,visit_id)
+        except ValueError as error:self._translate(error)
+        return [dict(row) for row in rows]
+
+    async def update_target(self,connection,request,organization_id,tenant,principal,target_id,payload):
+        self._tenant(organization_id,tenant)
+        try:row=await self.repository.update_target(connection,organization_id,principal.user_id,target_id,payload)
+        except ValueError as error:self._translate(error)
+        if row is None:raise APIError(404,"target_not_found","Target was not found.")
+        await write_audit(connection,request,principal,"smartteam.target.updated","smartteam_target",str(target_id),tenant,{"updated_fields":sorted(payload)})
+        return dict(row)
+
+    async def dashboard(self,connection,organization_id,tenant,principal):
+        self._tenant(organization_id,tenant)
+        visits=await self.repository.list_visits(connection,organization_id,principal.user_id,None,None,500,0)
+        shifts=await self.repository.list_shifts(connection,organization_id,principal.user_id,500,0)
+        activities=await self.repository.list_activities(connection,organization_id,principal.user_id,500,0)
+        targets=await self.repository.list_targets(connection,organization_id,principal.user_id,500,0)
+        return {
+          "visits_total":len(visits),
+          "visits_scheduled":sum(1 for row in visits if row["status"] in ("scheduled","assigned")),
+          "visits_in_progress":sum(1 for row in visits if row["status"]=="in_progress"),
+          "visits_completed":sum(1 for row in visits if row["status"]=="completed"),
+          "attendance_records":len(shifts),
+          "active_shifts":sum(1 for row in shifts if row["status"]=="active"),
+          "activities_open":sum(1 for row in activities if row["status"] in ("open","in_progress")),
+          "targets_visible":len(targets),
+        }
+
 smart_team_service=SmartTeamService()
