@@ -9,9 +9,9 @@ from app.services.storage import supabase_storage
 
 def evidence_content_matches_mime(mime_type: str, content: bytes) -> bool:
     if mime_type == "image/jpeg":
-        return content.startswith(b"\\xff\\xd8\\xff")
+        return content.startswith(b"\xff\xd8\xff")
     if mime_type == "image/png":
-        return content.startswith(b"\\x89PNG\\r\\n\\x1a\\n")
+        return content.startswith(b"\x89PNG\r\n\x1a\n")
     if mime_type == "application/pdf":
         return content[:1024].lstrip().startswith(b"%PDF-")
     return False
