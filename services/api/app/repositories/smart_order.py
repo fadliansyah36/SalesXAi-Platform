@@ -494,8 +494,11 @@ class SmartOrderRepository:
     warehouse_already=Decimal(await db.fetchval("""select coalesce(sum(a.quantity),0) from public.order_item_fulfillment_allocations a
      join public.fulfillments f on f.id=a.fulfillment_id and f.status not in ('failed','cancelled')
      where a.order_item_id=$1 and a.inventory_owner_organization_id=$2 and a.warehouse_id=$3""",item["id"],owner,p.warehouse_id))
+    warehouse_pending=Decimal(await db.fetchval("""select coalesce(sum(a.quantity),0) from public.order_item_fulfillment_allocations a
+     join public.fulfillments f on f.id=a.fulfillment_id and f.status not in ('handed_over','delivered','failed','cancelled')
+     where a.order_item_id=$1 and a.inventory_owner_organization_id=$2 and a.warehouse_id=$3""",item["id"],owner,p.warehouse_id))
     current_committed=Decimal(await db.fetchval("select committed from public.inventory_balances where organization_id=$1 and warehouse_id=$2 and variant_id=$3 for update",owner,p.warehouse_id,m["variant_id"]) or 0)
-    allocation_quantity=min(Decimal(m["quantity"])-warehouse_already,current_committed-warehouse_already,Decimal(item["quantity"])-already)
+    allocation_quantity=min(Decimal(m["quantity"])-warehouse_already,current_committed-warehouse_pending,Decimal(item["quantity"])-already)
     if allocation_quantity<=0:continue
     await db.execute("""insert into public.order_item_fulfillment_allocations(buyer_organization_id,order_id,order_item_id,fulfillment_id,inventory_owner_organization_id,warehouse_id,quantity)
      values($1,$2,$3,$4,$5,$6,$7)""",org,oid,item["id"],r["id"],owner,p.warehouse_id,allocation_quantity)
