@@ -1,5 +1,5 @@
 import React,{useCallback,useEffect,useMemo,useRef,useState} from "react";
-import {Pressable,TextInput,View} from "react-native";
+import {AppState,Pressable,TextInput,View} from "react-native";
 import * as Location from "expo-location";
 import * as ImagePicker from "expo-image-picker";
 import * as SQLite from "expo-sqlite";
@@ -116,6 +116,12 @@ export function SmartTeamHome({auth,salesProfileId}:{auth:AuthState;salesProfile
   if(!dbRef.current||!api||!organizationId)return;
   void syncOutbox();
  },[api,organizationId,syncOutbox]);
+ useEffect(()=>{
+  const interval=setInterval(()=>{if(AppState.currentState==="active"){void refresh();void syncOutbox();}},30000);
+  const subscription=AppState.addEventListener("change",state=>{if(state==="active"){void refresh();void syncOutbox();}});
+  return()=>{clearInterval(interval);subscription.remove();};
+ },[refresh,syncOutbox]);
+
 
  async function enqueue(kind:QueueKind,payload:Record<string,unknown>){
   const db=dbRef.current;if(!db||!organizationId)throw new Error("Penyimpanan offline belum siap.");
