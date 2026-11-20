@@ -454,6 +454,20 @@ export class SalesXApiClient {
     return this.request(`/api/v1/organizations/${encodeURIComponent(organizationId)}/smart-team/targets`,{method:"POST",body:JSON.stringify(payload)});
   }
 
+
+  getSmartTeamDashboard(organizationId:string):Promise<import("@salesx-ai/api-contracts").SmartTeamDashboard> {
+    return this.request(`/api/v1/organizations/${encodeURIComponent(organizationId)}/smart-team/dashboard`);
+  }
+  updateSmartTeamVisit(organizationId:string,visitId:string,payload:Record<string,unknown>):Promise<import("@salesx-ai/api-contracts").SmartTeamVisit> {
+    return this.request(`/api/v1/organizations/${encodeURIComponent(organizationId)}/smart-team/visits/${encodeURIComponent(visitId)}`,{method:"PATCH",body:JSON.stringify(payload)});
+  }
+  getSmartTeamVisitHistory(organizationId:string,visitId:string):Promise<Array<Record<string,unknown>>> {
+    return this.request(`/api/v1/organizations/${encodeURIComponent(organizationId)}/smart-team/visits/${encodeURIComponent(visitId)}/history`);
+  }
+  updateSmartTeamTarget(organizationId:string,targetId:string,payload:import("@salesx-ai/api-contracts").SmartTeamTargetUpdate):Promise<import("@salesx-ai/api-contracts").SmartTeamTarget> {
+    return this.request(`/api/v1/organizations/${encodeURIComponent(organizationId)}/smart-team/targets/${encodeURIComponent(targetId)}`,{method:"PATCH",body:JSON.stringify(payload)});
+  }
+
   signOut(scope: "local" | "global" | "others" = "local"): Promise<void> {
     return this.request<void>("/api/v1/auth/sign-out", {
       method: "POST",
