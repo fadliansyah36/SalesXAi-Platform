@@ -58,7 +58,7 @@ export function SmartOrderWorkspace(){
  useEffect(()=>{void load();},[load]);
  useEffect(()=>{
   if(!api||!organizationId||auth.status!=="authenticated"||!auth.canPerformApiAction("smartorder.events.read"))return;
-  return api.subscribeSmartOrderEvents(organizationId,event=>{if(event.organization_id===organizationId)void load();});
+  return api.subscribeSmartOrderEvents(organizationId,event=>{if(event.organization_id===organizationId)void load();},()=>void load());
  },[api,organizationId,auth.status,auth.canPerformApiAction,load]);
  const cartItems=cart?.items??[];
  const cartTotal=useMemo(()=>cartItems.reduce((sum,item)=>sum+Number((item as Record<string,any>).line_subtotal??0),0),[cartItems]);
