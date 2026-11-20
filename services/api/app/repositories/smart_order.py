@@ -455,8 +455,11 @@ class SmartOrderRepository:
     where w.id=$1 and w.status='active' and exists(
      select 1 from public.stock_movements sm where sm.reference_type='order' and sm.reference_id=$2
       and sm.movement_type='commit' and sm.organization_id=w.organization_id and sm.warehouse_id=w.id
-      and not exists(select 1 from public.order_item_fulfillment_allocations a where a.order_item_id in
-       (select oi.id from public.order_items oi where oi.organization_id=$3 and oi.order_id=$2 and oi.product_owner_organization_id=sm.product_owner_organization_id and oi.variant_id=sm.variant_id))
+      and sm.quantity>coalesce((select sum(a.quantity) from public.order_item_fulfillment_allocations a
+       join public.order_items oi on oi.organization_id=a.buyer_organization_id and oi.id=a.order_item_id
+       where a.buyer_organization_id=$3 and a.order_id=$2 and a.inventory_owner_organization_id=sm.organization_id
+        and a.warehouse_id=sm.warehouse_id and oi.product_owner_organization_id=sm.product_owner_organization_id
+        and oi.variant_id=sm.variant_id),0)
     )""",p.warehouse_id,oid,org)
    if not warehouse:raise APIError(409,"fulfillment_stock_allocation_missing","Selected warehouse has no unallocated committed stock for this order.")
    owner=warehouse["organization_id"]
@@ -464,14 +467,25 @@ class SmartOrderRepository:
     assigned=await db.fetchval("select exists(select 1 from public.organization_memberships where organization_id=$1 and user_id=$2 and status='active')",owner,p.assigned_to)
     if not assigned:raise APIError(422,"fulfillment_assignee_not_member","Fulfillment assignee must be an active member of the warehouse-owning organization.")
    r=await db.fetchrow("insert into public.fulfillments(organization_id,order_id,warehouse_id,fulfillment_organization_id,assigned_to,created_by) values($1,$2,$3,$4,$5,$6) returning *",org,oid,p.warehouse_id,owner,p.assigned_to,actor)
-   movements=await db.fetch("select * from public.stock_movements where reference_type='order' and reference_id=$1 and movement_type='commit' and organization_id=$2 and warehouse_id=$3",oid,owner,p.warehouse_id)
+   movements=await db.fetch("""select sm.* from public.stock_movements sm where sm.reference_type='order' and sm.reference_id=$1
+    and sm.movement_type='commit' and sm.organization_id=$2 and sm.warehouse_id=$3
+    and sm.quantity>coalesce((select sum(a.quantity) from public.order_item_fulfillment_allocations a
+     join public.order_items oi on oi.organization_id=a.buyer_organization_id and oi.id=a.order_item_id
+     where a.buyer_organization_id=$4 and a.order_id=$1 and a.inventory_owner_organization_id=sm.organization_id
+      and a.warehouse_id=sm.warehouse_id and oi.product_owner_organization_id=sm.product_owner_organization_id
+      and oi.variant_id=sm.variant_id),0) order by sm.id""",oid,owner,p.warehouse_id,org)
+   allocation_count=0
    for m in movements:
     item=await db.fetchrow("select id,quantity from public.order_items where organization_id=$1 and order_id=$2 and product_owner_organization_id=$3 and variant_id=$4 for update",org,oid,m["product_owner_organization_id"],m["variant_id"])
     if not item:raise APIError(409,"fulfillment_order_item_missing","Committed inventory does not map to an order item.")
-    already=await db.fetchval("select coalesce(sum(quantity),0) from public.order_item_fulfillment_allocations where order_item_id=$1",item["id"])
-    if Decimal(already)+Decimal(m["quantity"])>Decimal(item["quantity"]):raise APIError(409,"fulfillment_overallocation","Fulfillment allocation exceeds the order item quantity.")
+    already=Decimal(await db.fetchval("select coalesce(sum(quantity),0) from public.order_item_fulfillment_allocations where order_item_id=$1",item["id"]))
+    warehouse_already=Decimal(await db.fetchval("select coalesce(sum(quantity),0) from public.order_item_fulfillment_allocations where order_item_id=$1 and inventory_owner_organization_id=$2 and warehouse_id=$3",item["id"],owner,p.warehouse_id))
+    allocation_quantity=min(Decimal(m["quantity"])-warehouse_already,Decimal(item["quantity"])-already)
+    if allocation_quantity<=0:continue
     await db.execute("""insert into public.order_item_fulfillment_allocations(buyer_organization_id,order_id,order_item_id,fulfillment_id,inventory_owner_organization_id,warehouse_id,quantity)
-     values($1,$2,$3,$4,$5,$6,$7)""",org,oid,item["id"],r["id"],owner,p.warehouse_id,m["quantity"])
+     values($1,$2,$3,$4,$5,$6,$7)""",org,oid,item["id"],r["id"],owner,p.warehouse_id,allocation_quantity)
+    allocation_count+=1
+   if allocation_count==0:raise APIError(409,"fulfillment_allocation_missing","Selected warehouse has no remaining committed quantity to allocate.")
    if o["status"]=="approved":
     await db.execute("update public.orders set status='processing',updated_at=now() where id=$1 and organization_id=$2",oid,org)
     await db.execute("insert into public.order_status_history(organization_id,order_id,from_status,to_status,actor_user_id) values($1,$2,'approved','processing',$3)",org,oid,actor)
