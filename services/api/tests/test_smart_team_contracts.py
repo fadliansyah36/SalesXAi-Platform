@@ -78,9 +78,21 @@ class SmartTeamMigrationTests(unittest.TestCase):
             "20261120040308_p04_smartteam_private_realtime_scope.sql",
             "20261120040825_p04_smartteam_storage_scope.sql",
             "20261120040910_p04_smartteam_fk_indexes.sql",
+            "20261120100000_p04_smartteam_evidence_content_dedup.sql",
         )
         for name in expected:
             self.assertTrue((migrations / name).is_file(), name)
+
+    def test_visit_evidence_content_deduplication_is_migrated(self) -> None:
+        repository_root = Path(__file__).resolve().parents[3]
+        migration = repository_root / "supabase" / "migrations" / (
+            "20261120100000_p04_smartteam_evidence_content_dedup.sql"
+        )
+        sql = migration.read_text()
+        self.assertIn(
+            "on public.smartteam_visit_evidence (organization_id, visit_id, sha256)",
+            sql,
+        )
 
     def test_smartteam_database_migrations_keep_private_rls_and_realtime_scope(self) -> None:
         repository_root = Path(__file__).resolve().parents[3]
