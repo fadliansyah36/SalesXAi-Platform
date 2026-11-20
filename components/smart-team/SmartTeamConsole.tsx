@@ -36,7 +36,7 @@ export function SmartTeamConsole({surface}:{surface:"company"|"supervisor"|"sale
  const [notice,setNotice]=useState("");
  const [error,setError]=useState("");
  const [busy,setBusy]=useState(false);
- const can=(permission:string)=>auth.hasPermission(permission);
+ const can=useCallback((permission:string)=>auth.hasPermission(permission),[auth.hasPermission]);
  const canReadVisits=can("smartteam:visit:read");
  const canManageVisits=can("smartteam:visit:manage");
  const canExecuteVisits=can("smartteam:visit:execute");
