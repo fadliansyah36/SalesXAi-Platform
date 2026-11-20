@@ -98,6 +98,8 @@ class SmartTeamMigrationTests(unittest.TestCase):
             "20261120040308_p04_smartteam_private_realtime_scope.sql",
             "20261120040825_p04_smartteam_storage_scope.sql",
             "20261120040910_p04_smartteam_fk_indexes.sql",
+            "20261120041314_p04_smartteam_evidence_broadcast.sql",
+            "20261120041531_p04_smartteam_task_activity.sql",
             "20261120043558_p04_smartteam_evidence_content_dedup.sql",
         )
         for name in expected:
@@ -123,6 +125,8 @@ class SmartTeamMigrationTests(unittest.TestCase):
         realtime = (migrations / "20261120040308_p04_smartteam_private_realtime_scope.sql").read_text()
         storage_scope = (migrations / "20261120040825_p04_smartteam_storage_scope.sql").read_text()
         indexes = (migrations / "20261120040910_p04_smartteam_fk_indexes.sql").read_text()
+        broadcast = (migrations / "20261120041314_p04_smartteam_evidence_broadcast.sql").read_text()
+        task_activity = (migrations / "20261120041531_p04_smartteam_task_activity.sql").read_text()
         self.assertIn("alter table public.smartteam_visits enable row level security", base)
         self.assertIn("create table if not exists public.smartteam_visit_evidence", base)
         self.assertIn("smartteam_attendance_events", offline)
@@ -132,6 +136,8 @@ class SmartTeamMigrationTests(unittest.TestCase):
         self.assertIn("r.key in ('company_admin','tenant_owner','platform_admin')", realtime)
         self.assertIn("smartteam_visit_evidence_read_scoped", storage_scope)
         self.assertIn("smartteam_shifts_user_fk_idx", indexes)
+        self.assertIn("smartteam_visit_evidence_broadcast", broadcast)
+        self.assertIn("activity_type = any", task_activity)
 
 
 if __name__ == "__main__":
