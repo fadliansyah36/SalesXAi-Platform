@@ -57,7 +57,7 @@ Supabase project: `eyofuiyxalbehbqoaeny`
 - Portal workspace now selects explicit SKU/variant for price list and stock movement operations; supports stock-in/out/adjustment and inter-warehouse transfer, price-list scope/effective dates, promotion eligibility/validity rules, shipping snapshot, fulfillment assignment, and carrier/tracking details before handover.
 - Backend validation rejects malformed promotion rules, invalid price-list scopes/date ranges, mismatched adjustment quantities, and handover without carrier/tracking. Fulfillment assignment is checked against active organization membership.
 - Product detail lookup honors an active catalog grant, matching catalog list visibility.
-- Added focused tests for promotion calculation and SmartOrder request-schema validation.
+- Added focused tests for promotion calculation, SmartOrder request-schema validation, and the 48-index migration.
 - Added `20261120155706_p05_smartorder_foreign_key_indexes.sql` with 48 covering indexes for all Phase 05 foreign keys flagged by Performance Advisor. It is applied remotely and committed; existing historical migrations remain unchanged.
 
 ## Definition-of-done blockers
@@ -71,11 +71,21 @@ These are implementation gaps inside Phase 05, not work deferred to Phase 06. Th
 
 ## Validation evidence and limitations
 
-- Before this continuation, GitHub Actions API static job on commit `7dc325f9bcde7e1da7cc8e75d8f53ecb2da90e6e` passed **79 API tests**, Python compileall and Ruff. Portal build matrix and Expo foundation checks passed on the preceding SmartOrder source commit.
-- This continuation adds 4 promotion-rule tests and 5 request-schema tests. Fresh CI for the final commit is required before claiming those checks passed.
+- Final GitHub Actions API workflow on commit `d79a01c9b9cb6d7b6d57b200d931030f0702da48` passed **89 API tests**, Python compileall, Ruff, FastAPI container build, Web typecheck and lint. Portal build matrix passed **8/8** on source commit `fc35ebcfa51617d62b36dc99d753b1df489004fa`; Expo foundation verification passed **20/20** on the same application-source commit, including Expo config, Metro startup, Android/iOS bundle exports and Turborepo workspace build. The final commit after `fc35` only adds the applied SQL index migration, its static migration test and phase documentation.
+- This continuation adds 4 promotion-rule tests, 5 request-schema tests and 1 migration-index test; all are included in the 89-test passing API workflow.
+- Supabase Security Advisor reports **0 lints**. Performance Advisor reports **0 unindexed foreign keys** after the 48-index migration; 152 unused-index notices remain informational because the new commerce schema has no seeded production traffic.
 - No live customer login/order, provider shipment, inventory movement, or real-world workflow test is claimed. No staging environment was created. No SMTP, Google OAuth, or shipping provider secret was added.
 - Railway deployment was not triggered by this code continuation; do not infer that production services are running this new commit.
 
 ## Next execution
 
 Continue Phase 05 with the cross-tenant catalog/cart/inventory/fulfillment data model and authorization path first, then complete product/SKU, price-list and promotion update/deactivation workflows. Keep the existing four Railway services and Supabase project. Do not start Phase 06 until these gaps are closed and final CI passes.
+
+
+## Latest source and validation record
+
+- Latest main commit: `d79a01c9b9cb6d7b6d57b200d931030f0702da48`.
+- Applied migration: `20261120155706_p05_smartorder_foreign_key_indexes`, bound project `eyofuiyxalbehbqoaeny`.
+- API workflow: `44768553662` — success, 89 tests.
+- Portal matrix: `44768148073` — success, 8/8 portal builds.
+- Foundation/Expo workflow: `44768148161` — success, 20/20 steps.
