@@ -58,7 +58,7 @@ class Phase04ActionCoverageTests(unittest.TestCase):
 
     def test_phase04_scope_explicitly_covers_all_eight_web_portals(self) -> None:
         with PORTAL_SCOPE.open(encoding="utf-8", newline="") as stream:
-            rows = list(csv.DictReader(stream, delimiter="\\t"))
+            rows = list(csv.DictReader(stream, delimiter="\t"))
         expected = {"Website", "Customer Portal", "Sales Portal", "Company Portal", "Distributor Portal", "Principal Portal", "Supervisor Portal", "Super Admin"}
         self.assertEqual({row["portal"] for row in rows if row["portal"] != "Mobile Sales"}, expected)
 
