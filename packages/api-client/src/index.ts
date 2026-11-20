@@ -695,7 +695,7 @@ export class SalesXApiClient {
       try{
         const token=await this.auth.getAccessToken()??await this.auth.refreshAccessToken();
         if(!token)throw new Error("Realtime access token is unavailable.");
-        const base=supabaseUrl.replace(/\\/$/,"").replace(/^https:/,"wss:").replace(/^http:/,"ws:");
+        const base=(supabaseUrl.endsWith("/")?supabaseUrl.slice(0,-1):supabaseUrl).replace(/^https:/,"wss:").replace(/^http:/,"ws:");
         socket=new WebSocket(base+"/realtime/v1/websocket?apikey="+encodeURIComponent(publishableKey)+"&vsn=2.0.0");
         socket.onopen=()=>{
           attempt=0;const joinRef="1";
