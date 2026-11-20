@@ -44,7 +44,7 @@ settings=get_settings()
 if settings.allowed_origins:
     app.add_middleware(CORSMiddleware,allow_origins=settings.allowed_origins,allow_credentials=True,
       allow_methods=["GET","POST","PATCH","PUT","DELETE","OPTIONS"],
-      allow_headers=["Authorization","Content-Type","X-Organization-ID","X-Correlation-ID","X-Resource-Branch-ID","X-Client-Platform"],
+      allow_headers=["Authorization","Content-Type","X-Organization-ID","X-Correlation-ID","X-Resource-Branch-ID","X-Client-Platform","X-File-Name"],
       expose_headers=["X-Correlation-ID"])
 
 @app.middleware("http")
@@ -86,7 +86,7 @@ async def correlation_id_middleware(request: Request,call_next):
     response.headers["X-Content-Type-Options"]="nosniff"
     response.headers["X-Frame-Options"]="DENY"
     response.headers["Referrer-Policy"]="no-referrer"
-    response.headers["Permissions-Policy"]="camera=(), microphone=(), geolocation=()"
+    response.headers["Permissions-Policy"]="camera=(), microphone=(), geolocation=(self)"
     response.headers["Cross-Origin-Resource-Policy"]="same-site"
     if request.url.scheme=="https":
         response.headers["Strict-Transport-Security"]="max-age=31536000; includeSubDomains"
