@@ -254,6 +254,8 @@ export function CompanyPortalApp() {
   const [assignmentHistory, setAssignmentHistory] = useState<Array<Record<string, unknown>>>([]);
   const [newSalesUserId, setNewSalesUserId] = useState('');
   const [newSalesEmployeeCode, setNewSalesEmployeeCode] = useState('');
+  const [newSalesTeamId, setNewSalesTeamId] = useState('');
+  const [newSalesTerritoryId, setNewSalesTerritoryId] = useState('');
   const [selectedAssignmentProfileId, setSelectedAssignmentProfileId] = useState('');
   const [selectedAssignmentOutletId, setSelectedAssignmentOutletId] = useState('');
   const [masterDataTransferBusy, setMasterDataTransferBusy] = useState(false);
@@ -417,7 +419,7 @@ export function CompanyPortalApp() {
           id: asText(profile.id), userId, teamId: asText(profile.team_id), managerUserId: asText(profile.manager_user_id) || undefined,
           name: asText(profile.display_name) || asText(member?.display_name) || asText(member?.email) || 'User',
           role, area: asText(team?.name) || 'Belum ditempatkan ke tim', branchId,
-          phone: asText(profile.phone) || asText(member?.phone), status: profile.status === 'active' ? 'Online' : 'Offline',
+          phone: asText(profile.phone) || asText(member?.phone), territoryId: asText(profile.territory_id), status: profile.status === 'active' ? 'Online' : 'Offline',
           currentLocation: 'Belum tersedia', speedKmh: 0, accuracyM: 0, lastUpdate: 'Belum tersedia',
           lat: 0, lng: 0, monthlyOrderValue: 0, visitsToday: 0, targetVisits: 0,
         };
@@ -477,7 +479,7 @@ export function CompanyPortalApp() {
     if (!auth.apiClient || !auth.activeOrganizationId) throw new Error('Pilih organisasi aktif sebelum mengelola outlet.');
     const row = await auth.apiClient.createOutlet(auth.activeOrganizationId, {
       code: masterCode(outlet.name), name: outlet.name, city: outlet.city, address: outlet.address,
-      category: outlet.category, pic_name: outlet.picName, phone: outlet.phone, status: 'active',
+      category: outlet.category, pic_name: outlet.picName, phone: outlet.phone, branch_id: outlet.branchId, territory_id: outlet.territoryId, status: 'active',
     });
     setOutlets((current) => [{
       id: String(row.id), name: asText(row.name), city: asText(row.city), address: asText(row.address),
@@ -499,12 +501,14 @@ export function CompanyPortalApp() {
 
   const createSalesProfile = async () => {
     if (!auth.canPerformApiAction('master.sales_profiles.create')) throw new Error('Akses membuat sales profile tidak diizinkan.');
-    if (!auth.apiClient || !auth.activeOrganizationId || !newSalesUserId) throw new Error('Pilih anggota aktif pada organisasi terlebih dahulu.');
+    if (!auth.apiClient || !auth.activeOrganizationId || !newSalesUserId || !newSalesTeamId || !newSalesTerritoryId) throw new Error('Pilih anggota aktif, tim, dan teritori.');
     await auth.apiClient.createSalesProfile(auth.activeOrganizationId, {
-      user_id: newSalesUserId, employee_code: newSalesEmployeeCode.trim() || undefined, status: 'active',
+      user_id: newSalesUserId, employee_code: newSalesEmployeeCode.trim() || undefined, team_id: newSalesTeamId, territory_id: newSalesTerritoryId, status: 'active',
     });
     setNewSalesUserId('');
     setNewSalesEmployeeCode('');
+    setNewSalesTeamId('');
+    setNewSalesTerritoryId('');
     setMasterDataRevision((value) => value + 1);
   };
 
@@ -1819,9 +1823,19 @@ export function CompanyPortalApp() {
                       <option value="">Pilih anggota aktif</option>
                       {organizationMembers.filter((member) => member.status === 'active').map((member) => <option key={member.user_id} value={member.user_id}>{member.display_name || member.email || member.user_id}</option>)}
                     </select>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <select value={newSalesTeamId} onChange={(event) => setNewSalesTeamId(event.target.value)} className="w-full rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-background)] px-3 py-2 text-xs">
+                        <option value="">Pilih tim aktif</option>
+                        {teams.filter((team) => asText(team.status) === 'active').map((team) => <option key={asText(team.id)} value={asText(team.id)}>{asText(team.name)}</option>)}
+                      </select>
+                      <select value={newSalesTerritoryId} onChange={(event) => setNewSalesTerritoryId(event.target.value)} className="w-full rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-background)] px-3 py-2 text-xs">
+                        <option value="">Pilih teritori aktif</option>
+                        {territories.filter((territory) => territory.status === 'Aktif').map((territory) => <option key={territory.id} value={territory.id}>{territory.name}</option>)}
+                      </select>
+                    </div>
                     <div className="flex flex-wrap gap-2">
                       <input value={newSalesEmployeeCode} onChange={(event) => setNewSalesEmployeeCode(event.target.value)} placeholder="Kode karyawan (opsional)" className="min-w-[180px] flex-1 rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-background)] px-3 py-2 text-xs"/>
-                      <button type="button" disabled={!newSalesUserId || !auth.canPerformApiAction('master.sales_profiles.create')} onClick={() => void createSalesProfile().catch((error) => setMasterDataError(error instanceof Error ? error.message : 'Sales profile gagal dibuat.'))} className="rounded-xl bg-[#348CB2] px-4 py-2 text-xs font-bold text-white disabled:opacity-50">Buat Profile</button>
+                      <button type="button" disabled={!newSalesUserId || !newSalesTeamId || !newSalesTerritoryId || !auth.canPerformApiAction('master.sales_profiles.create')} onClick={() => void createSalesProfile().catch((error) => setMasterDataError(error instanceof Error ? error.message : 'Sales profile gagal dibuat.'))} className="rounded-xl bg-[#348CB2] px-4 py-2 text-xs font-bold text-white disabled:opacity-50">Buat Profile</button>
                     </div>
                   </div>
                   <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 space-y-3">
@@ -3438,6 +3452,8 @@ export function CompanyPortalApp() {
       />
       <AddOutletCompanyModal
         open={addOutletOpen}
+        branches={branches}
+        territories={territories}
         onClose={() => setAddOutletOpen(false)}
         onAdd={(o) => { void persistOutlet(o).catch((error: unknown) => setMasterDataError(error instanceof Error ? error.message : 'Outlet gagal disimpan.')); }}
       />
@@ -3511,6 +3527,7 @@ export function CompanyPortalApp() {
         key={editingUserAssignment?.id || 'none'}
         member={editingUserAssignment}
         teams={teams.map((team) => ({ id: asText(team.id), name: asText(team.name), branchId: asText(team.branch_id) }))}
+        territories={territories}
         supervisors={organizationMembers.filter((member) => member.status === 'active').map((member) => ({
           userId: member.user_id, name: asText(member.display_name) || asText(member.email) || member.user_id,
         }))}
@@ -3520,11 +3537,11 @@ export function CompanyPortalApp() {
             throw new Error('Akses perubahan penugasan sales profile tidak diizinkan.');
           }
           const row = await auth.apiClient.updateSalesProfile(auth.activeOrganizationId, updated.id, {
-            team_id: updated.teamId, manager_user_id: updated.managerUserId ?? null,
+            team_id: updated.teamId, territory_id: updated.territoryId, manager_user_id: updated.managerUserId ?? null,
             status: updated.status === 'Online' ? 'active' : 'inactive',
           });
           setTeamMembers((previous) => previous.map((member) => member.id === updated.id ? {
-            ...member, teamId: asText(row.team_id), managerUserId: asText(row.manager_user_id) || undefined,
+            ...member, teamId: asText(row.team_id), territoryId: asText(row.territory_id), managerUserId: asText(row.manager_user_id) || undefined,
             area: updated.area, branchId: updated.branchId, status: row.status === 'active' ? 'Online' : 'Offline',
           } : member));
           setEditingUserAssignment(null);

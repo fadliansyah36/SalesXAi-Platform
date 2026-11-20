@@ -232,10 +232,18 @@ class MasterDataService:
                          left join public.teams t on t.id=sp.team_id and t.organization_id=sp.organization_id
                          left join public.territories ter on ter.id=sp.territory_id and ter.organization_id=sp.organization_id
                          where o.id=$1 and o.organization_id=$2 and o.status='active'
-                           and (sp.team_id is null or t.status='active')
-                           and (sp.territory_id is null or ter.status='active')
-                           and (o.branch_id is null or t.branch_id is null or o.branch_id=t.branch_id)
-                           and (o.territory_id is null or sp.territory_id is null or o.territory_id=sp.territory_id)
+                           and sp.team_id is not null and t.status='active' and t.supervisor_user_id is not null
+                           and sp.territory_id is not null and ter.status='active'
+                           and (o.branch_id is null or o.branch_id=t.branch_id)
+                           and (o.territory_id is null or o.territory_id=sp.territory_id)
+                           and exists (
+                             select 1 from public.organization_memberships sm
+                             join public.user_role_assignments sura on sura.membership_id=sm.id
+                             join public.roles sr on sr.id=sura.role_id
+                             where sm.organization_id=sp.organization_id and sm.user_id=t.supervisor_user_id
+                               and sm.status='active' and sr.key='supervisor' and sura.revoked_at is null
+                               and sura.starts_at<=now() and (sura.expires_at is null or sura.expires_at>now())
+                           )
                        )""",
                     outlet_id, organization_id, sales_profile_id,
                 )

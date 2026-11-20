@@ -635,10 +635,14 @@ export function AddTerritoryModal({
 
 export function AddOutletCompanyModal({
   open,
+  branches,
+  territories,
   onClose,
   onAdd,
 }: {
   open: boolean;
+  branches: BranchItem[];
+  territories: TerritoryItem[];
   onClose: () => void;
   onAdd: (o: Outlet) => void;
 }) {
@@ -648,6 +652,8 @@ export function AddOutletCompanyModal({
   const [picName, setPicName] = useState('');
   const [phone, setPhone] = useState('');
   const [category, setCategory] = useState('General Trade');
+  const [branchId, setBranchId] = useState(branches[0]?.id || '');
+  const [territoryId, setTerritoryId] = useState('');
 
   return (
     <Modal
@@ -671,6 +677,8 @@ export function AddOutletCompanyModal({
             visitToday: false,
             status: 'Aktif',
             category,
+            branchId: branchId || undefined,
+            territoryId: territoryId || undefined,
             picName: picName.trim(),
             phone: phone.trim(),
             email: '',
@@ -718,6 +726,22 @@ export function AddOutletCompanyModal({
               <option value="General Trade">General Trade</option>
               <option value="Modern Trade">Modern Trade</option>
               <option value="Semi Grosir">Semi Grosir</option>
+            </select>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-semibold mb-1">Cabang</label>
+            <select value={branchId} onChange={(event) => { setBranchId(event.target.value); setTerritoryId(''); }} className="w-full rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 py-2 text-xs">
+              <option value="">Pilih cabang</option>
+              {branches.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold mb-1">Teritori</label>
+            <select value={territoryId} onChange={(event) => setTerritoryId(event.target.value)} className="w-full rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 py-2 text-xs">
+              <option value="">Pilih teritori</option>
+              {territories.filter((territory) => !branchId || branches.find((branch) => branch.id === branchId)?.name === territory.branchName).map((territory) => <option key={territory.id} value={territory.id}>{territory.name}</option>)}
             </select>
           </div>
         </div>
@@ -1890,17 +1914,20 @@ export function AttendanceDetailModal({
 export function EditUserAssignmentModal({
   member,
   teams,
+  territories,
   supervisors,
   onClose,
   onSave,
 }: {
   member: TeamMemberItem | null;
   teams: Array<{ id: string; name: string; branchId: string }>;
+  territories: TerritoryItem[];
   supervisors: Array<{ userId: string; name: string }>;
   onClose: () => void;
   onSave: (updated: TeamMemberItem) => Promise<void>;
 }) {
   const [teamId, setTeamId] = useState(member?.teamId || teams[0]?.id || '');
+  const [territoryId, setTerritoryId] = useState(member?.territoryId || territories[0]?.id || '');
   const [managerUserId, setManagerUserId] = useState(member?.managerUserId || '');
   const [status, setStatus] = useState<TeamMemberItem['status']>(member?.status || 'Offline');
   const [saving, setSaving] = useState(false);
@@ -1908,6 +1935,7 @@ export function EditUserAssignmentModal({
 
   if (!member) return null;
   const selectedTeam = teams.find((team) => team.id === teamId);
+  const selectedTerritory = territories.find((territory) => territory.id === territoryId);
 
   return (
     <Modal
@@ -1920,13 +1948,14 @@ export function EditUserAssignmentModal({
       <form
         onSubmit={async (event) => {
           event.preventDefault();
-          if (!selectedTeam || saving) return;
+          if (!selectedTeam || !selectedTerritory || saving) return;
           setSaving(true);
           setError(null);
           try {
             await onSave({
               ...member,
               teamId: selectedTeam.id,
+              territoryId: selectedTerritory.id,
               managerUserId: managerUserId || undefined,
               branchId: selectedTeam.branchId,
               area: selectedTeam.name,
@@ -1955,6 +1984,13 @@ export function EditUserAssignmentModal({
           >
             <option value="">Pilih tim</option>
             {teams.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="block font-semibold mb-1">Teritori</label>
+          <select required value={territoryId} onChange={(event) => setTerritoryId(event.target.value)} className="w-full rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 py-2">
+            <option value="">Pilih teritori</option>
+            {territories.filter((territory) => !selectedTeam || territory.branchName === teams.find((team) => team.id === selectedTeam.id)?.name).map((territory) => <option key={territory.id} value={territory.id}>{territory.name}</option>)}
           </select>
         </div>
         <div>

@@ -15,6 +15,8 @@ export interface Outlet {
   lng: number;
   lastOrderTotal: number;
   lastVisitDate: string;
+  branchId?: string;
+  territoryId?: string;
 }
 
 export interface Product {
@@ -914,6 +916,7 @@ export interface TeamMemberItem {
   id: string;
   userId?: string;
   teamId?: string;
+  territoryId?: string;
   managerUserId?: string;
   name: string;
   role: 'Direktur Operasional' | 'Area Manager' | 'Supervisor' | 'Sales Rep';
