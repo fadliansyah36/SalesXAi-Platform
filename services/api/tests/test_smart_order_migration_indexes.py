@@ -11,6 +11,7 @@ class SmartOrderMigrationIndexTests(unittest.TestCase):
             "20261120180652_p05_realtime_partner_event_identity.sql": "event_id",
             "20261120180725_p05_immutable_order_and_redemption_snapshots.sql": "orders_commercial_snapshot_immutable",
             "20261120180953_p05_promotion_redemption_audit_events.sql": "promotion.redemption",
+            "20261120181305_p05_promotion_organization_audience_rule.sql": "organization_type",
         }
         for filename, marker in expected.items():
             sql = (root / filename).read_text(encoding="utf-8")
