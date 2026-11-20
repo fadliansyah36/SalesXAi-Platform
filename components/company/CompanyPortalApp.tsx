@@ -1656,6 +1656,7 @@ export function CompanyPortalApp() {
                 </button>
               </div>
 
+              {renderMasterDataTransfer('branches')}
               <div className="space-y-2.5">
                 {branches
                   .filter(
@@ -1778,6 +1779,7 @@ export function CompanyPortalApp() {
                               {branch?.name || 'Cabang belum ditetapkan'} · Supervisor: {asText(supervisor?.display_name) || 'Belum ditetapkan'}
                             </p>
                             {parent && <p className="mt-1 text-[11px] text-[var(--color-text-muted)]">Parent: {asText(parent.name)}</p>}
+                            <button type="button" disabled={!auth.canPerformApiAction('master.teams.update')} onClick={() => void toggleTeamStatus(asText(team.id)).catch((error) => setMasterDataError(error instanceof Error ? error.message : 'Status tim gagal diperbarui.'))} className="mt-2 rounded-lg border border-[var(--color-border-strong)] px-3 py-1.5 text-[11px] font-semibold">{asText(team.status) === 'active' ? 'Nonaktifkan Tim' : 'Aktifkan Tim'}</button>
                           </div>
                         );
                       })}
@@ -1797,6 +1799,38 @@ export function CompanyPortalApp() {
                     >
                       Buka Absensi Tim →
                     </button>
+                  </div>
+{renderMasterDataTransfer('teams')}
+
+                  <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 space-y-3">
+                    <div><p className="text-sm font-bold">Buat Sales Profile</p><p className="text-xs text-[var(--color-text-muted)]">Hanya anggota organisasi aktif dengan role sales_rep atau supervisor yang dapat didaftarkan.</p></div>
+                    <select value={newSalesUserId} onChange={(event) => setNewSalesUserId(event.target.value)} className="w-full rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-background)] px-3 py-2 text-xs">
+                      <option value="">Pilih anggota aktif</option>
+                      {organizationMembers.filter((member) => member.status === 'active').map((member) => <option key={member.user_id} value={member.user_id}>{member.display_name || member.email || member.user_id}</option>)}
+                    </select>
+                    <div className="flex flex-wrap gap-2">
+                      <input value={newSalesEmployeeCode} onChange={(event) => setNewSalesEmployeeCode(event.target.value)} placeholder="Kode karyawan (opsional)" className="min-w-[180px] flex-1 rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-background)] px-3 py-2 text-xs"/>
+                      <button type="button" disabled={!newSalesUserId || !auth.canPerformApiAction('master.sales_profiles.create')} onClick={() => void createSalesProfile().catch((error) => setMasterDataError(error instanceof Error ? error.message : 'Sales profile gagal dibuat.'))} className="rounded-xl bg-[#348CB2] px-4 py-2 text-xs font-bold text-white disabled:opacity-50">Buat Profile</button>
+                    </div>
+                  </div>
+                  <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 space-y-3">
+                    <div><p className="text-sm font-bold">Assignment Outlet</p><p className="text-xs text-[var(--color-text-muted)]">Assignment menyimpan snapshot tim, supervisor, dan teritori serta histori pergantian sales.</p></div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <select value={selectedAssignmentOutletId} onChange={(event) => setSelectedAssignmentOutletId(event.target.value)} className="w-full rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-background)] px-3 py-2 text-xs">
+                        <option value="">Pilih outlet aktif</option>
+                        {outlets.filter((outlet) => outlet.status === 'Aktif').map((outlet) => <option key={outlet.id} value={outlet.id}>{outlet.name}</option>)}
+                      </select>
+                      <select value={selectedAssignmentProfileId} onChange={(event) => setSelectedAssignmentProfileId(event.target.value)} className="w-full rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-background)] px-3 py-2 text-xs">
+                        <option value="">Pilih sales profile aktif</option>
+                        {teamMembers.filter((member) => member.status === 'Online').map((member) => <option key={member.id} value={member.id}>{member.name}</option>)}
+                      </select>
+                    </div>
+                    <button type="button" disabled={!selectedAssignmentOutletId || !selectedAssignmentProfileId || !auth.canPerformApiAction('master.assignments.manage')} onClick={() => void assignOutletToSalesProfile().catch((error) => setMasterDataError(error instanceof Error ? error.message : 'Assignment outlet gagal.'))} className="rounded-xl bg-[#348CB2] px-4 py-2 text-xs font-bold text-white disabled:opacity-50">Simpan Assignment</button>
+                    <div className="space-y-2">
+                      <p className="text-xs font-bold">Riwayat Assignment</p>
+                      {assignmentHistory.slice(0, 8).map((entry) => <div key={asText(entry.id)} className="flex flex-wrap justify-between gap-2 rounded-lg bg-[var(--color-background)] p-2 text-[11px]"><span>{asText(entry.outlet_name)} · {asText(entry.team_name) || 'Tanpa tim'} · {asText(entry.territory_name) || 'Tanpa teritori'}</span><span className="text-[var(--color-text-muted)]">{entry.unassigned_at ? 'Selesai' : 'Aktif'} · {asText(entry.assigned_at)}</span></div>)}
+                      {assignmentHistory.length === 0 && <p className="text-[11px] text-[var(--color-text-muted)]">Belum ada histori assignment.</p>}
+                    </div>
                   </div>
                   {teamMembers.length === 0 && (
                     <div className="rounded-xl border border-dashed border-[var(--color-border-strong)] p-6 text-center text-xs text-[var(--color-text-muted)]">
@@ -1872,6 +1906,7 @@ export function CompanyPortalApp() {
                 </button>
               </div>
 
+              {renderMasterDataTransfer('territories')}
               <SalesGoogleMap
                 currentPos={{
                   lat: COMPANY_PROFILE ? -6.595204 : -6.595204,
@@ -1905,7 +1940,8 @@ export function CompanyPortalApp() {
                       </div>
                     </div>
                     <span className="font-bold text-[#123A54] dark:text-[#87CEEB] tabular-nums">
-                      {ter.outletCount} Outlet
+{ter.outletCount} Outlet
+                      <button type="button" disabled={!auth.canPerformApiAction('master.territories.update')} onClick={() => void toggleTerritoryStatus(ter.id).catch((error) => setMasterDataError(error instanceof Error ? error.message : 'Status teritori gagal diperbarui.'))} className="ml-2 rounded-lg border border-[var(--color-border-strong)] px-2 py-1 text-[10px] font-semibold">{ter.status === 'Aktif' ? 'Nonaktifkan' : 'Aktifkan'}</button>
                     </span>
                   </div>
                 ))}
@@ -2035,6 +2071,7 @@ export function CompanyPortalApp() {
                 </button>
               </div>
 
+              {renderMasterDataTransfer('outlets')}
               <div className="relative">
                 <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--color-text-muted)]" />
                 <input
