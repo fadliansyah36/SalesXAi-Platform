@@ -219,7 +219,7 @@ export interface PlatformOrganization {
 }
 export interface PlatformOrganizationStatusUpdate { status: OrganizationStatus; }
 
-export interface SmartTeamLocationCapture { latitude:number; longitude:number; accuracy_m:number; source:"gps"|"network"|"fused"|"manual"; }
+export interface SmartTeamLocationCapture { latitude:number; longitude:number; accuracy_m:number; source:"gps"|"network"|"fused"|"manual"; captured_at?:ISODateTime|null; }
 export interface SmartTeamVisit {
  id:UUID; organization_id:UUID; sales_profile_id:UUID; outlet_id:UUID; scheduled_at:ISODateTime;
  window_end_at:ISODateTime|null; status:"scheduled"|"assigned"|"in_progress"|"completed"|"cancelled"|"missed";
