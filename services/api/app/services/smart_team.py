@@ -1,12 +1,14 @@
 from __future__ import annotations
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
+import hashlib
 import asyncpg
 from fastapi import Request
 from app.errors import APIError
 from app.repositories.smart_team import SmartTeamRepository,smart_team_repository
 from app.security.dependencies import Principal,TenantContext
 from app.services.audit import write_audit
+from app.services.storage import supabase_storage
 
 class SmartTeamService:
     def __init__(self,repository:SmartTeamRepository|None=None):
@@ -37,6 +39,7 @@ class SmartTeamService:
           "outlet_territory_mismatch":(409,"outlet_territory_mismatch","The outlet is outside the sales profile territory."),
           "sales_team_not_found":(404,"sales_team_not_found","The active sales team was not found in this organization."),
           "attendance_time_range_invalid":(422,"attendance_time_range_invalid","Clock-out must not precede clock-in."),
+          "visit_evidence_state_invalid":(409,"visit_evidence_state_invalid","Evidence can only be uploaded for an in-progress or completed visit."),
           "visit_profile_mismatch":(422,"visit_profile_mismatch","The linked visit belongs to a different sales profile."),
         }
         status,code,message=mapping.get(str(error),(422,"smartteam_validation_error","The SmartTeam operation violates a domain rule."))
@@ -170,6 +173,39 @@ class SmartTeamService:
           "activities_open":sum(1 for row in activities if row["status"] in ("open","in_progress")),
           "targets_visible":len(targets),
         }
+
+    async def upload_visit_evidence(self,connection,request,organization_id,tenant,principal,visit_id,mime_type,content):
+        self._tenant(organization_id,tenant)
+        if mime_type not in {"image/jpeg","image/png","application/pdf"}:
+            raise APIError(415,"evidence_mime_not_allowed","Only JPEG, PNG or PDF visit evidence is accepted.")
+        if not content or len(content)>10*1024*1024:
+            raise APIError(413 if len(content)>10*1024*1024 else 422,"evidence_size_invalid","Evidence must be between 1 byte and 10 MiB.")
+        try:await self.repository.ensure_visit_evidence_scope(connection,organization_id,principal.user_id,visit_id)
+        except ValueError as error:self._translate(error)
+        extension={"image/jpeg":"jpg","image/png":"png","application/pdf":"pdf"}[mime_type]
+        storage_path=f"{organization_id}/{visit_id}/{uuid4().hex}.{extension}"
+        digest=hashlib.sha256(content).hexdigest()
+        await supabase_storage.upload(storage_path,content,mime_type)
+        try:
+            row=await self.repository.create_visit_evidence(connection,organization_id,visit_id,principal.user_id,
+                storage_path,mime_type,len(content),digest)
+        except Exception:
+            await supabase_storage.delete(storage_path)
+            raise
+        await write_audit(connection,request,principal,"smartteam.visit.evidence.uploaded","smartteam_visit_evidence",
+            str(row["id"]),tenant,{"visit_id":str(visit_id),"mime_type":mime_type,"size_bytes":len(content),"sha256":digest})
+        return dict(row)
+
+    async def list_visit_evidence(self,connection,organization_id,tenant,principal,visit_id):
+        self._tenant(organization_id,tenant)
+        try:rows=await self.repository.list_visit_evidence(connection,organization_id,principal.user_id,visit_id)
+        except ValueError as error:self._translate(error)
+        result=[]
+        for row in rows:
+            item=dict(row)
+            item["download_url"]=await supabase_storage.signed_download_url(row["storage_path"])
+            result.append(item)
+        return result
 
     async def platform_overview(self,connection,limit,offset):
         return [dict(row) for row in await self.repository.platform_overview(connection,limit,offset)]
