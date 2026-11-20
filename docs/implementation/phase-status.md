@@ -15,7 +15,7 @@ Supabase project ref: eyofuiyxalbehbqoaeny
 | Phase 04 — SmartTeam Operations | COMPLETED — closure addendum supersedes historical entries below |
 | Phase 05 — SmartOrder | IN_PROGRESS — NOT COMPLETED; cross-tenant cart/inventory/fulfillment model remains a blocker |
 
-**Migration ledger:** 49 remote applied versions and 49 local migration files, all version/name pairs matching exactly: Phase 00 = 2, Phase 02 = 14, Phase 03 = 10, Phase 04 = 10, Phase 05 = 11. No historical migration was edited or replayed.
+**Migration ledger:** 51 remote applied versions and 51 local migration files, all version/name pairs matching exactly: Phase 00 = 2, Phase 02 = 14, Phase 03 = 10, Phase 04 = 10, Phase 05 = 15. No historical migration was edited or replayed.
 
 **Live database:** 55/55 public tables have RLS enabled and 55 public policies are present, with 281 public indexes. The 30 SmartOrder tables have 30 explicit RLS policies; 27 SmartOrder broadcast triggers and 3 private `realtime.messages` policies are installed. Supabase Security Advisor reports zero lints and Performance Advisor now reports zero unindexed foreign keys; unused-index notices are informational on the newly created low-volume schema. The private SmartTeam evidence bucket remains private. Security Advisor is not re-queried in this Phase 05 continuation.
 
@@ -1244,3 +1244,11 @@ See `docs/implementation/phase-05-smartorder-status.md` for the current implemen
 - Added `order_item_fulfillment_allocations` with deny-client RLS and service-role-only grants.
 - Live database now reports 56 public tables, 56 RLS-enabled tables, 56 public policies and 291 public indexes. Remote migration ledger contains 49 applied versions.
 - **Important: schema foundation only.** Existing FastAPI repository queries, partner-order authorization, cross-tenant reservation/commit/release, split fulfillment allocation, shared API contracts and portal/Expo consumers have not yet been completed against the new owner columns. Phase 05 remains IN_PROGRESS; Phase 06 remains LOCKED.
+
+
+### Phase 05 cross-tenant implementation continuation — 2026-11-20
+
+- Four additive Phase 05 migrations are now versioned and applied: `20261120162128_p05_cross_tenant_commerce_ownership`, `20261120162151_p05_cross_tenant_owner_scope_compat`, `20261120163205_p05_smartorder_inventory_owner_scope`, and `20261120164113_p05_cross_tenant_fk_indexes`.
+- Migration ledger: 51 local files / 51 remote applied versions, exact version/name parity. Phase 05 migration count: 15.
+- Live public schema: 56 tables, 56 RLS-enabled, 56 policies, 299 indexes. Security Advisor: zero lints. Performance Advisor: zero unindexed foreign keys; 167 unused-index notices are informational on the low-volume/new commerce schema.
+- Phase 05 remains IN_PROGRESS. Cross-tenant API, seller-side portal actions, CRUD update workflows, complete mobile parity and focused validation are still being finalized. Phase 06 remains LOCKED.
