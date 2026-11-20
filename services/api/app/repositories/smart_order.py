@@ -268,6 +268,7 @@ class SmartOrderRepository:
 
  async def create_order(self,db,org,actor,p,snapshot,region_id=None):
   async with db.transaction():
+   await db.execute("select set_config('app.actor_id',$1,true)",str(actor))
    await db.execute("select pg_advisory_xact_lock(hashtextextended($1,0))",f"{org}:{actor}:{p.idempotency_key}")
    old=await db.fetchrow("select * from public.orders where organization_id=$1 and customer_user_id=$2 and idempotency_key=$3",org,actor,p.idempotency_key)
    if old:return dict(old)
@@ -401,6 +402,7 @@ class SmartOrderRepository:
   return result or await self.get_order(db,org,actor,oid,True)
  async def decide_order(self,db,org,actor,membership_id,oid,p):
   async with db.transaction():
+   await db.execute("select set_config('app.actor_id',$1,true)",str(actor))
    o=await db.fetchrow("select * from public.orders where organization_id=$1 and id=$2 for update",org,oid)
    if not o:raise APIError(404,"order_not_found","Order was not found.")
    prior=await db.fetchrow("select decision from public.order_approvals where organization_id=$1 and order_id=$2 and actor_user_id=$3",org,oid,actor)
@@ -643,6 +645,7 @@ class SmartOrderRepository:
   buyer_org=await self.partner_order_buyer(db,partner_org,oid)
   if not buyer_org:raise APIError(404,"partner_order_not_found","Order is not available to this partner organization.")
   async with db.transaction():
+   await db.execute("select set_config('app.actor_id',$1,true)",str(actor))
    order=await db.fetchrow("select * from public.orders where organization_id=$1 and id=$2 for update",buyer_org,oid)
    if not order or order["status"]!="pending_approval":raise APIError(409,"partner_order_not_pending","Partner decisions are only accepted while the order is pending approval.")
    relationship=await db.fetchval("""select exists(select 1 from public.commerce_partner_links where organization_id=$1 and partner_organization_id=$2
@@ -835,6 +838,7 @@ class SmartOrderRepository:
   return dict(transfer)
  async def cancel_order(self,db,org,actor,oid,reason):
   async with db.transaction():
+   await db.execute("select set_config('app.actor_id',$1,true)",str(actor))
    o=await db.fetchrow("select * from public.orders where organization_id=$1 and id=$2 for update",org,oid)
    if not o:raise APIError(404,"order_not_found","Order was not found.")
    if o["status"]=="cancelled":return dict(o)
