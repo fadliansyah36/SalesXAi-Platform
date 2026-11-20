@@ -1,10 +1,10 @@
 import React,{useCallback,useEffect,useMemo,useRef,useState} from "react";
-import {AppState,Pressable,TextInput,View} from "react-native";
+import {AppState,Linking,Pressable,TextInput,View} from "react-native";
 import * as Location from "expo-location";
 import * as ImagePicker from "expo-image-picker";
 import * as SQLite from "expo-sqlite";
 import {NativeInline,NativeStack,NativeSurface,NativeText,useNativeTheme} from "@salesx-ai/design-system/native";
-import type {SmartTeamActivity,SmartTeamAttendance,SmartTeamLocationCapture,SmartTeamTarget,SmartTeamVisit} from "@salesx-ai/api-client";
+import type {SmartTeamActivity,SmartTeamAttendance,SmartTeamLocationCapture,SmartTeamTarget,SmartTeamVisit,SmartTeamVisitEvidence} from "@salesx-ai/api-client";
 
 type AuthState={
  status:string;
@@ -43,6 +43,9 @@ export function SmartTeamHome({auth,salesProfileId}:{auth:AuthState;salesProfile
  const [attendance,setAttendance]=useState<SmartTeamAttendance[]>([]);
  const [activities,setActivities]=useState<SmartTeamActivity[]>([]);
  const [targets,setTargets]=useState<SmartTeamTarget[]>([]);
+ const [expandedVisitId,setExpandedVisitId]=useState<string|null>(null);
+ const [visitHistory,setVisitHistory]=useState<Record<string,Array<Record<string,unknown>>>>({});
+ const [visitEvidence,setVisitEvidence]=useState<Record<string,SmartTeamVisitEvidence[]>>({});
  const [outbox,setOutbox]=useState<OutboxRow[]>([]);
  const [activityTitle,setActivityTitle]=useState("");
  const [busy,setBusy]=useState(false);
@@ -174,6 +177,19 @@ export function SmartTeamHome({auth,salesProfileId}:{auth:AuthState;salesProfile
  const checkIn=(visit:SmartTeamVisit)=>captureAndEnqueue("visit_check_in",(location,key)=>({visit_id:visit.id,location,idempotency_key:key}));
  const checkOut=(visit:SmartTeamVisit)=>captureAndEnqueue("visit_check_out",(location,key)=>({visit_id:visit.id,location,outcome,notes:null,idempotency_key:key}));
 
+ async function loadVisitDetails(visitId:string){
+  if(!api||!organizationId)return;
+  setExpandedVisitId(current=>current===visitId?null:visitId);
+  try{
+   const [history,evidence]=await Promise.all([
+    api.getSmartTeamVisitHistory(organizationId,visitId),
+    api.listSmartTeamVisitEvidence(organizationId,visitId),
+   ]);
+   setVisitHistory(current=>({...current,[visitId]:history}));
+   setVisitEvidence(current=>({...current,[visitId]:evidence}));
+  }catch(cause){setError(cause instanceof Error?cause.message:"Detail kunjungan tidak dapat dimuat.");}
+ }
+
  async function uploadEvidence(visit:SmartTeamVisit){
   if(!api||!organizationId)return;
   setBusy(true);setError("");setNotice("");
@@ -232,7 +248,22 @@ export function SmartTeamHome({auth,salesProfileId}:{auth:AuthState;salesProfile
       {canExecuteVisits&&visit.status==="scheduled"&&<Pressable disabled={busy} onPress={()=>void checkIn(visit)} style={{padding:10,borderRadius:8,backgroundColor:colors.primary}}><NativeText color={colors.surface} weight="semibold">Check-in GPS</NativeText></Pressable>}
       {canExecuteVisits&&visit.status==="in_progress"&&<Pressable disabled={busy} onPress={()=>void checkOut(visit)} style={{padding:10,borderRadius:8,borderWidth:1,borderColor:colors.border}}><NativeText weight="semibold">Check-out GPS</NativeText></Pressable>}
       {canUploadEvidence&&["in_progress","completed"].includes(visit.status)&&<Pressable disabled={busy} onPress={()=>void uploadEvidence(visit)} style={{padding:10,borderRadius:8,borderWidth:1,borderColor:colors.border}}><NativeText weight="semibold">Tambah bukti foto</NativeText></Pressable>}
+      <Pressable disabled={busy} onPress={()=>void loadVisitDetails(visit.id)} style={{padding:10,borderRadius:8,borderWidth:1,borderColor:colors.border}}><NativeText weight="semibold">{expandedVisitId===visit.id?"Tutup detail":"Riwayat & bukti"}</NativeText></Pressable>
      </NativeInline>
+     {expandedVisitId===visit.id&&<View style={{marginTop:10,padding:12,borderRadius:10,backgroundColor:colors.surface,borderWidth:1,borderColor:colors.border}}>
+      <NativeText weight="semibold">Visit timeline</NativeText>
+      {(visitHistory[visit.id]??[]).map((event,index)=><View key={String(event.id??index)} style={{paddingVertical:6,borderTopWidth:1,borderColor:colors.border}}>
+       <NativeText>{String(event.event_type??"Perubahan kunjungan")}</NativeText>
+       <NativeText variant="caption" color={colors.textSecondary}>{dateText(String(event.occurred_at??""))} · {String(event.actor_name??"Aktor tercatat")}</NativeText>
+      </View>)}
+      {(visitHistory[visit.id]??[]).length===0&&<NativeText variant="caption" color={colors.textSecondary}>Belum ada riwayat yang dimuat.</NativeText>}
+      <NativeText weight="semibold" style={{marginTop:10}}>Evidence</NativeText>
+      {(visitEvidence[visit.id]??[]).map(item=><NativeInline key={item.id} style={{justifyContent:"space-between",alignItems:"center",paddingVertical:6,borderTopWidth:1,borderColor:colors.border}}>
+       <View style={{flex:1}}><NativeText>{item.mime_type} · {Math.ceil(item.size_bytes/1024)} KB</NativeText><NativeText variant="caption" color={colors.textSecondary}>{dateText(item.created_at)}</NativeText></View>
+       {item.download_url&&<Pressable onPress={()=>void Linking.openURL(item.download_url!)}><NativeText color={colors.primary} weight="semibold">Buka</NativeText></Pressable>}
+      </NativeInline>)}
+      {(visitEvidence[visit.id]??[]).length===0&&<NativeText variant="caption" color={colors.textSecondary}>Belum ada bukti yang tercatat.</NativeText>}
+     </View>}
     </View>)}
     {visits.length===0&&<NativeText color={colors.textSecondary}>Tidak ada kunjungan yang ditugaskan pada cakupan akun ini.</NativeText>}
    </NativeStack>
