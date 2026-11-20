@@ -313,7 +313,7 @@ export interface SmartOrderStockTransferWrite {from_warehouse_id:UUID;to_warehou
 export interface SmartOrderProductImageWrite {product_id:UUID;variant_id?:UUID|null;storage_path:string;mime_type:"image/jpeg"|"image/png"|"image/webp";size_bytes:number;alt_text?:string|null;sort_order?:number;}
 export interface SmartOrderOrderCancel {reason:string;}
 
-export interface SmartOrderPartnerOrderSummary {id:UUID;buyer_organization_id:UUID;order_number:string;status:string;currency:string;partner_item_count:number;partner_item_total:string|number;created_at:string;updated_at:string;}
+export interface SmartOrderPartnerOrderSummary {id:UUID;buyer_organization_id:UUID;order_number:string;status:string;currency:string;partner_item_count:number;partner_item_total:string|number;partner_fulfillment_id?:UUID|null;partner_fulfillment_status?:string|null;created_at:string;updated_at:string;}
 export interface SmartOrderPartnerOrderPage {items:SmartOrderPartnerOrderSummary[];page:number;page_size:number;total:number;}
 export interface SmartOrderPartnerOrder extends Omit<SmartOrderPartnerOrderSummary,"partner_item_count"|"partner_item_total"> {items:Array<Record<string,unknown>>;fulfillments:Array<Record<string,unknown>>;}
 export interface SmartOrderPartnerOrganization {id:UUID;slug:string;name:string;relationship_type:"principal"|"distributor"|"customer";starts_at:string;ends_at?:string|null;}

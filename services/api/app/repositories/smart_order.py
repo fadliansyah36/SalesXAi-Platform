@@ -535,7 +535,7 @@ class SmartOrderRepository:
   total=await db.fetchval(f"select count(*) from public.orders o where {clause}",*args)
   args.extend([size,(page-1)*size])
   rows=await db.fetch(f"""select o.id,o.organization_id buyer_organization_id,o.order_number,o.status,o.currency,
-   count(distinct oi.id) partner_item_count,coalesce(sum(oi.line_total),0) partner_item_total,o.created_at,o.updated_at
+   count(distinct oi.id) partner_item_count,coalesce(sum(oi.line_total),0) partner_item_total,(select f.id from public.fulfillments f where f.organization_id=o.organization_id and f.order_id=o.id and f.fulfillment_organization_id=$1 order by f.created_at desc limit 1) partner_fulfillment_id,(select f.status from public.fulfillments f where f.organization_id=o.organization_id and f.order_id=o.id and f.fulfillment_organization_id=$1 order by f.created_at desc limit 1) partner_fulfillment_status,o.created_at,o.updated_at
    from public.orders o join public.order_items oi on oi.organization_id=o.organization_id and oi.order_id=o.id
    where o.status not in ('draft','expired','cancelled') and {clause} and (oi.product_owner_organization_id=$1 or exists(
     select 1 from public.stock_movements sm where sm.reference_type='order' and sm.reference_id=o.id
