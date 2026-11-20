@@ -276,3 +276,5 @@ export interface SmartTeamVisitEvidence {
  storage_path:string;mime_type:"image/jpeg"|"image/png"|"application/pdf";size_bytes:number;sha256:string;
  created_at:ISODateTime;download_url?:string;
 }
+
+export interface SmartTeamVisitAssign { sales_profile_id:UUID; idempotency_key:string; }
