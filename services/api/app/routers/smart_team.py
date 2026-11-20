@@ -67,7 +67,7 @@ async def clock_in(organization_id:UUID,payload:ClockInRequest,request:Request,p
 @router.post("/{organization_id}/smart-team/attendance/clock-out")
 async def clock_out(organization_id:UUID,payload:ClockOutRequest,request:Request,principal:Principal=Depends(get_current_principal),
  tenant:TenantContext=Depends(require_api_action("smartteam.attendance.clock_out")),connection:asyncpg.Connection=Depends(get_connection)):
- return await smart_team_service.clock_out(connection,request,organization_id,tenant,principal,payload.location.model_dump())
+ return await smart_team_service.clock_out(connection,request,organization_id,tenant,principal,payload.location.model_dump(),payload.idempotency_key)
 
 @router.post("/{organization_id}/smart-team/attendance/{shift_id}/correct")
 async def correct_attendance(organization_id:UUID,shift_id:UUID,payload:AttendanceCorrection,request:Request,principal:Principal=Depends(get_current_principal),
