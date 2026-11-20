@@ -7,6 +7,17 @@ from app.security.dependencies import TenantContext
 from app.services.audit import write_audit
 from app.services.storage import supabase_storage
 
+def evidence_content_matches_mime(mime_type: str, content: bytes) -> bool:
+    if mime_type == "image/jpeg":
+        return content.startswith(b"\\xff\\xd8\\xff")
+    if mime_type == "image/png":
+        return content.startswith(b"\\x89PNG\\r\\n\\x1a\\n")
+    if mime_type == "application/pdf":
+        return content[:1024].lstrip().startswith(b"%PDF-")
+    return False
+
+
+
 
 class SmartTeamService:
     """Application service for tenant-scoped SmartTeam workflows."""
@@ -575,6 +586,12 @@ class SmartTeamService:
                 415,
                 "evidence_mime_not_allowed",
                 "Only JPEG, PNG or PDF visit evidence is accepted.",
+            )
+        if not evidence_content_matches_mime(mime_type, content):
+            raise APIError(
+                415,
+                "evidence_content_mismatch",
+                "The uploaded file signature does not match its declared MIME type.",
             )
         if not content or len(content) > 10 * 1024 * 1024:
             raise APIError(
