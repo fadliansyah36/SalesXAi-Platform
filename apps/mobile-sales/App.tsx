@@ -12,6 +12,7 @@ import { JetBrainsMono_500Medium } from "@expo-google-fonts/jetbrains-mono/500Me
 import { JetBrainsMono_600SemiBold } from "@expo-google-fonts/jetbrains-mono/600SemiBold";
 import { NativeInline, NativePageShell, NativeStack, NativeSurface, NativeText, NativeThemeProvider, NativeThemeToggle, useNativeTheme } from "@salesx-ai/design-system/native";
 import { useMobileSalesAuth } from "./src/auth/useMobileSalesAuth";
+import { SmartTeamHome } from "./src/smart-team/SmartTeamHome";
 
 type AuthState=ReturnType<typeof useMobileSalesAuth>;
 type AuthMode="login"|"signup"|"recovery"|"otp";
@@ -166,6 +167,8 @@ function SalesHome({auth}:{auth:AuthState}){
         <NativeText variant="title" weight="semibold">Hak akses aktif</NativeText>
         <NativeText color={colors.textSecondary}>{activeMembership.permissions.length} permission dimuat dari FastAPI.</NativeText>
        </NativeStack>}
+
+       {auth.activeOrganizationId&&<SmartTeamHome auth={auth} salesProfileId={typeof assignmentContext?.sales_profile?.id==="string"?String(assignmentContext.sales_profile.id):null}/>}
 
        {canReadAssignmentContext&&assignmentContext&&<NativeStack gap="2">
         <NativeText variant="title" weight="semibold">Konteks Penugasan Lapangan</NativeText>
