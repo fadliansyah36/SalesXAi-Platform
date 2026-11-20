@@ -1,5 +1,5 @@
 import React,{useCallback,useEffect,useMemo,useRef,useState} from "react";
-import {ActivityIndicator,Pressable,TextInput,View} from "react-native";
+import {Pressable,TextInput,View} from "react-native";
 import * as Location from "expo-location";
 import * as SQLite from "expo-sqlite";
 import {NativeInline,NativeStack,NativeSurface,NativeText,useNativeTheme} from "@salesx-ai/design-system/native";
@@ -42,6 +42,7 @@ export function SmartTeamHome({auth}:{auth:AuthState}){
  const [activityTitle,setActivityTitle]=useState("");
  const [busy,setBusy]=useState(false);
  const [syncing,setSyncing]=useState(false);
+ const syncingRef=useRef(false);
  const [notice,setNotice]=useState("");
  const [error,setError]=useState("");
  const [outcome,setOutcome]=useState<"productive"|"not_productive"|"order_taken"|"follow_up"|"closed"|"no_contact">("follow_up");
@@ -76,8 +77,8 @@ export function SmartTeamHome({auth}:{auth:AuthState}){
  },[api,organizationId,auth.status,canReadVisits,canReadAttendance,canReadActivities,canReadTargets]);
 
  const syncOutbox=useCallback(async()=>{
-  const db=dbRef.current;if(!db||!api||!organizationId||syncing)return;
-  setSyncing(true);setError("");
+  const db=dbRef.current;if(!db||!api||!organizationId||syncingRef.current)return;
+  syncingRef.current=true;setSyncing(true);setError("");
   try{
    const rows=await db.getAllAsync<OutboxRow>("select * from smartteam_outbox where organization_id=? order by created_at asc",[organizationId]);
    for(const row of rows){
@@ -97,8 +98,8 @@ export function SmartTeamHome({auth}:{auth:AuthState}){
    }
    await refreshQueue();
    await refresh();
-  }finally{setSyncing(false);}
- },[api,organizationId,syncing,refresh,refreshQueue]);
+  }finally{syncingRef.current=false;setSyncing(false);}
+ },[api,organizationId,refresh,refreshQueue]);
 
  useEffect(()=>{
   let active=true;
@@ -148,7 +149,6 @@ export function SmartTeamHome({auth}:{auth:AuthState}){
   finally{setBusy(false);}
  }
 
- const labelStyle={borderColor:colors.border,color:colors.textPrimary};
  return <NativeStack gap="4">
   <NativeSurface elevation="sm" radius="2xl" style={{padding:18}}>
    <NativeStack gap="3">
@@ -157,8 +157,8 @@ export function SmartTeamHome({auth}:{auth:AuthState}){
      <Pressable onPress={()=>void refresh()}><NativeText color={colors.primary} weight="semibold">Refresh</NativeText></Pressable>
     </NativeInline>
     <NativeText color={colors.textSecondary}>GPS hanya diminta saat Anda menekan Clock-in, Clock-out, Check-in atau Check-out. Lokasi dicatat untuk aktivitas kerja dan tidak berjalan diam-diam di latar belakang.</NativeText>
-    {error!==""&&<NativeText color={colors.danger}>{error}</NativeText>}
-    {notice!==""&&<NativeText color={colors.success}>{notice}</NativeText>}
+    {error!==""&&<NativeText color={colors.textSecondary}>{error}</NativeText>}
+    {notice!==""&&<NativeText color={colors.textSecondary}>{notice}</NativeText>}
     <NativeInline gap="2" style={{flexWrap:"wrap"}}>
      {canManageAttendance&&<Pressable disabled={busy||Boolean(activeShift)} onPress={()=>void clockIn()} style={{padding:12,borderRadius:10,backgroundColor:colors.primary,opacity:busy||activeShift?0.45:1}}><NativeText color={colors.surface} weight="semibold">Clock-in + GPS</NativeText></Pressable>}
      {canManageAttendance&&<Pressable disabled={busy||!activeShift} onPress={()=>void clockOut()} style={{padding:12,borderRadius:10,borderWidth:1,borderColor:colors.border,opacity:busy||!activeShift?0.45:1}}><NativeText weight="semibold">Clock-out + GPS</NativeText></Pressable>}
