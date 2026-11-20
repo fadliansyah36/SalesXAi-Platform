@@ -11,6 +11,8 @@ from app.services.audit import write_audit
 from app.services.storage import supabase_storage
 
 class SmartTeamService:
+    """Application service for tenant-scoped SmartTeam workflows."""
+
     def __init__(self,repository:SmartTeamRepository|None=None):
         self.repository=repository or smart_team_repository
 
