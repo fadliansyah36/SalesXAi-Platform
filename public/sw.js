@@ -1,6 +1,6 @@
 const registrationPath = new URL(self.registration.scope).pathname;
 const scopeRoot = registrationPath.endsWith('/') ? registrationPath : registrationPath + '/';
-const scopeKey = scopeRoot === '/' ? 'root' : scopeRoot.slice(1, -1).replace(/\\//g, '-');
+const scopeKey = scopeRoot === '/' ? 'root' : scopeRoot.slice(1, -1).replace(/\//g, '-');
 const cachePrefix = 'salesx-ai-pwa:' + scopeKey + ':';
 const CACHE_NAME = cachePrefix + 'v2';
 const APP_SHELL = [
@@ -40,7 +40,7 @@ self.addEventListener('fetch', (event) => {
 
   const isNextStatic = url.pathname.startsWith(scopeRoot + '_next/static/');
   const isPublicStatic = url.pathname.startsWith(scopeRoot) &&
-    /\\.(?:css|js|svg|png|jpe?g|webp|ico|woff2?)$/i.test(url.pathname);
+    /\.(?:css|js|svg|png|jpe?g|webp|ico|woff2?)$/i.test(url.pathname);
   const isManifest = url.pathname === scopeRoot + 'manifest.webmanifest';
   if (!isNextStatic && !isPublicStatic && !isManifest) return;
 

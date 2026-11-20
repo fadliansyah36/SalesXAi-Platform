@@ -1053,3 +1053,9 @@ The latest application-code commit is `b03459f7ed95bf43bb90653afa60305d0501b24c`
 - These changes trigger the next deployment of Website, Customer and Company. Phase 04 remains IN_PROGRESS until all three deployments pass the expanded health gate.
 
 **Phase 04 remains IN_PROGRESS — NOT COMPLETED. Phase 05 — SmartOrder remains locked.**
+
+
+### PWA service-worker syntax validation correction — 2026-11-20
+- Corrected the JavaScript regular-expression escaping in `public/sw.js` so scope-key normalization and static-file filtering are valid JavaScript.
+- Railway Website, Customer and Company build commands now run `node --check public/sw.js`; Website and Company also run `node --check infrastructure/scripts/portal-gateway.mjs` before building portal workspaces.
+- The correction is committed before final PWA deployment. Phase 04 remains IN_PROGRESS until the three resulting deployments pass the expanded health gate.
