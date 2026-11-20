@@ -12,7 +12,7 @@ def rowdict(r): return dict(r) if r is not None else None
 
 class SmartOrderRepository:
  async def list_products(self,db,org,search,category,brand,sort_by,sort_order,page,size):
-  where=["p.status='published'","(p.organization_id=$1 or exists(select 1 from public.commerce_catalog_access ca where ca.owner_organization_id=p.organization_id and ca.consumer_organization_id=$1 and ca.access_type='catalog' and ca.starts_at<=now() and (ca.ends_at is null or ca.ends_at>now()) and (ca.product_id is null or ca.product_id=p.id)))"]; args=[org]
+  where=["(p.organization_id=$1 or p.status='published')","(p.organization_id=$1 or exists(select 1 from public.commerce_catalog_access ca where ca.owner_organization_id=p.organization_id and ca.consumer_organization_id=$1 and ca.access_type='catalog' and ca.starts_at<=now() and (ca.ends_at is null or ca.ends_at>now()) and (ca.product_id is null or ca.product_id=p.id)))"]; args=[org]
   if search: args.append(search); where.append(f"to_tsvector('simple',coalesce(p.name,'')||' '||coalesce(p.product_code,'')||' '||coalesce(p.description,'')) @@ plainto_tsquery('simple',${len(args)})")
   if category: args.append(category); where.append(f"p.category_id=${len(args)}")
   if brand: args.append(brand); where.append(f"p.brand_id=${len(args)}")
@@ -153,7 +153,7 @@ class SmartOrderRepository:
   rows=await db.fetch("""select p.id,p.code,p.name,p.description,p.priority,p.stackable,p.stacking_group,p.starts_at,p.ends_at,p.status,
    coalesce(jsonb_agg(jsonb_build_object('rule_type',r.rule_type,'rule_config',r.rule_config)) filter(where r.id is not null),'[]'::jsonb) rules
    from public.promotions p left join public.promotion_rules r on r.organization_id=p.organization_id and r.promotion_id=p.id
-   where p.organization_id=$1 and p.status='active' and p.starts_at<=now() and p.ends_at>now() group by p.id order by p.priority""",org)
+   where p.organization_id=$1 group by p.id order by p.priority,p.created_at desc""",org)
   return [dict(r) for r in rows]
 
  async def update_promotion(self,db,org,actor,promotion_id,p):
