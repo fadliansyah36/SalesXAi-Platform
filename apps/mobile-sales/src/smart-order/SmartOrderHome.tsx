@@ -1,5 +1,5 @@
 import {useCallback,useEffect,useState} from "react";
-import {ActivityIndicator,Pressable,View} from "react-native";
+import {Pressable,View} from "react-native";
 import {NativeInline,NativeStack,NativeSurface,NativeText,useNativeTheme} from "@salesx-ai/design-system/native";
 import {useMobileSalesAuth} from "../auth/useMobileSalesAuth";
 import type {SmartOrderProduct,SmartOrderCart,SmartOrderOrder} from "@salesx-ai/api-client";

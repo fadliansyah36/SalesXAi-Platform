@@ -1,6 +1,6 @@
 "use client";
 import {useCallback,useEffect,useMemo,useState} from "react";
-import {CheckCircle2,Package,RefreshCw,Search,ShoppingCart,Warehouse} from "lucide-react";
+import {CheckCircle2,Package,RefreshCw,Search,Warehouse} from "lucide-react";
 import {useSalesXAuth} from "@/components/providers/AppProviders";
 import type {SmartOrderProduct,SmartOrderOrder,SmartOrderInventoryBalance,SmartOrderCart,SmartOrderPromotion} from "@salesx-ai/api-client";
 

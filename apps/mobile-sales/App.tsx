@@ -169,8 +169,10 @@ function SalesHome({auth}:{auth:AuthState}){
         <NativeText color={colors.textSecondary}>{activeMembership.permissions.length} permission dimuat dari FastAPI.</NativeText>
        </NativeStack>}
 
-       {auth.activeOrganizationId&&<SmartTeamHome auth={auth} salesProfileId={typeof assignmentContext?.sales_profile?.id==="string"?String(assignmentContext.sales_profile.id):null}/>
-       <SmartOrderHome auth={auth}/>}
+       {auth.activeOrganizationId&&<>
+         <SmartTeamHome auth={auth} salesProfileId={typeof assignmentContext?.sales_profile?.id==="string"?String(assignmentContext.sales_profile.id):null}/>
+       <SmartOrderHome auth={auth}/>
+        </>}
 
        {canReadAssignmentContext&&assignmentContext&&<NativeStack gap="2">
         <NativeText variant="title" weight="semibold">Konteks Penugasan Lapangan</NativeText>
