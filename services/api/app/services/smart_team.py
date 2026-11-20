@@ -171,4 +171,8 @@ class SmartTeamService:
           "targets_visible":len(targets),
         }
 
+    async def platform_overview(self,connection,limit,offset):
+        return [dict(row) for row in await self.repository.platform_overview(connection,limit,offset)]
+
+
 smart_team_service=SmartTeamService()
