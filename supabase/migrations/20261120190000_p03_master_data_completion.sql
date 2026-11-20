@@ -189,7 +189,7 @@ begin
   end loop;
 end $$;
 
-alter table realtime.messages enable row level security;
+-- RLS was already enabled on realtime.messages by Supabase.
 drop policy if exists salesx_master_data_private_read on realtime.messages;
 create policy salesx_master_data_private_read
 on realtime.messages for select to authenticated
