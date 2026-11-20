@@ -8,6 +8,7 @@ WORKDIR /app
 
 COPY pyproject.toml ./pyproject.toml
 COPY app ./app
+COPY certs ./certs
 
 RUN python -m pip install --no-cache-dir --upgrade pip \
     && python -m pip install --no-cache-dir .
