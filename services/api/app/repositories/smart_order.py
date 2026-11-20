@@ -2,7 +2,7 @@
 from __future__ import annotations
 import json
 from decimal import Decimal
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 from app.errors import APIError
 from app.domain.smart_order_rules import money as money_value, line_totals, evaluate_promotion_candidates, can_transition_fulfillment, can_cancel_order
