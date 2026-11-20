@@ -28,6 +28,7 @@ import {
   ChevronRight,
   Mail,
   Lock,
+  Clock,
   Eye,
   EyeOff,
   CheckCircle2,
