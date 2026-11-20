@@ -461,23 +461,51 @@ class SmartOrderRepository:
    if o["status"] not in {"approved","processing"}:raise APIError(409,"order_not_approved","Only approved orders can enter fulfillment.")
    if p.warehouse_id is None:raise APIError(422,"fulfillment_warehouse_required","A partner warehouse must be selected for each fulfillment.")
    warehouse=await db.fetchrow("""select w.organization_id,w.id from public.warehouses w
-    where w.id=$1 and w.status='active' and exists(
-     select 1 from public.stock_movements sm where sm.reference_type='order' and sm.reference_id=$2
-      and sm.movement_type='commit' and sm.organization_id=w.organization_id and sm.warehouse_id=w.id
-      and exists(select 1 from public.inventory_balances ib where ib.organization_id=sm.organization_id and ib.warehouse_id=sm.warehouse_id and ib.variant_id=sm.variant_id and ib.committed>0)
-      and sm.quantity>coalesce((select sum(a.quantity) from public.order_item_fulfillment_allocations a
-       join public.fulfillments af on af.id=a.fulfillment_id and af.status not in ('failed','cancelled')
-       join public.order_items oi on oi.organization_id=a.buyer_organization_id and oi.id=a.order_item_id
-       where a.buyer_organization_id=$3 and a.order_id=$2 and a.inventory_owner_organization_id=sm.organization_id
-        and a.warehouse_id=sm.warehouse_id and oi.product_owner_organization_id=sm.product_owner_organization_id
-        and oi.variant_id=sm.variant_id),0)
-    )""",p.warehouse_id,oid,org)
+    where w.id=$1 and w.status='active'
+     and exists(select 1 from public.order_items oi where oi.organization_id=$3 and oi.order_id=$2
+      and (oi.product_owner_organization_id=w.organization_id
+       or exists(select 1 from public.stock_movements sm where sm.reference_type='order' and sm.reference_id=$2 and sm.organization_id=w.organization_id and sm.warehouse_id=w.id and sm.variant_id=oi.variant_id)
+       or exists(select 1 from public.inventory_balances ib where ib.organization_id=w.organization_id and ib.warehouse_id=w.id and ib.variant_id=oi.variant_id)))
+     and (w.organization_id=$3 or (
+      exists(select 1 from public.commerce_partner_links pl where pl.organization_id=w.organization_id and pl.partner_organization_id=$3
+       and pl.relationship_type in ('principal','distributor','company','customer') and pl.status='active' and pl.starts_at<=now() and (pl.ends_at is null or pl.ends_at>now()))
+      and exists(select 1 from public.commerce_catalog_access ca where ca.owner_organization_id=w.organization_id and ca.consumer_organization_id=$3
+       and ca.access_type='inventory' and (ca.product_id is null or exists(select 1 from public.order_items oi where oi.organization_id=$3 and oi.order_id=$2 and oi.product_id=ca.product_id))
+       and ca.starts_at<=now() and (ca.ends_at is null or ca.ends_at>now()))
+     ))""",p.warehouse_id,oid,org)
    if not warehouse:raise APIError(409,"fulfillment_stock_allocation_missing","Selected warehouse has no unallocated committed stock for this order.")
    owner=warehouse["organization_id"]
    if p.assigned_to:
     assigned=await db.fetchval("select exists(select 1 from public.organization_memberships where organization_id=$1 and user_id=$2 and status='active')",owner,p.assigned_to)
     if not assigned:raise APIError(422,"fulfillment_assignee_not_member","Fulfillment assignee must be an active member of the warehouse-owning organization.")
    r=await db.fetchrow("insert into public.fulfillments(organization_id,order_id,warehouse_id,fulfillment_organization_id,assigned_to,created_by) values($1,$2,$3,$4,$5,$6) returning *",org,oid,p.warehouse_id,owner,p.assigned_to,actor)
+   recommitted_quantity=Decimal("0")
+   order_items=await db.fetch("select * from public.order_items where organization_id=$1 and order_id=$2 order by created_at for update",org,oid)
+   for item in order_items:
+    allocated_total=Decimal(await db.fetchval("""select coalesce(sum(a.quantity),0) from public.order_item_fulfillment_allocations a
+     join public.fulfillments f on f.id=a.fulfillment_id and f.status not in ('failed','cancelled') where a.order_item_id=$1""",item["id"]))
+    remaining=Decimal(item["quantity"])-allocated_total
+    if remaining<=0:continue
+    balance=await db.fetchrow("select on_hand,reserved,committed from public.inventory_balances where organization_id=$1 and warehouse_id=$2 and variant_id=$3 for update",owner,p.warehouse_id,item["variant_id"])
+    if not balance:continue
+    committed_for_order=Decimal(await db.fetchval("""select coalesce(sum(sm.quantity),0) from public.stock_movements sm
+     where sm.reference_type='order' and sm.reference_id=$1 and sm.movement_type='commit' and sm.organization_id=$2
+      and sm.warehouse_id=$3 and sm.product_owner_organization_id=$4 and sm.variant_id=$5""",oid,owner,p.warehouse_id,item["product_owner_organization_id"],item["variant_id"]))
+    warehouse_allocated=Decimal(await db.fetchval("""select coalesce(sum(a.quantity),0) from public.order_item_fulfillment_allocations a
+     join public.fulfillments f on f.id=a.fulfillment_id and f.status not in ('failed','cancelled')
+     where a.order_item_id=$1 and a.inventory_owner_organization_id=$2 and a.warehouse_id=$3""",item["id"],owner,p.warehouse_id))
+    warehouse_pending=Decimal(await db.fetchval("""select coalesce(sum(a.quantity),0) from public.order_item_fulfillment_allocations a
+     join public.fulfillments f on f.id=a.fulfillment_id and f.status not in ('handed_over','delivered','failed','cancelled')
+     where a.order_item_id=$1 and a.inventory_owner_organization_id=$2 and a.warehouse_id=$3""",item["id"],owner,p.warehouse_id))
+    usable=min(max(committed_for_order-warehouse_allocated,Decimal("0")),max(Decimal(balance["committed"])-warehouse_pending,Decimal("0")))
+    needed=max(remaining-usable,Decimal("0"))
+    available=max(Decimal(balance["on_hand"])-Decimal(balance["reserved"])-Decimal(balance["committed"]),Decimal("0"))
+    commit_quantity=min(needed,available)
+    if commit_quantity<=0:continue
+    await db.execute("update public.inventory_balances set committed=committed+$4,version=version+1,updated_at=now() where organization_id=$1 and warehouse_id=$2 and variant_id=$3",owner,p.warehouse_id,item["variant_id"],commit_quantity)
+    await db.execute("""insert into public.stock_movements(organization_id,warehouse_id,product_id,variant_id,movement_type,quantity,committed_delta,reference_type,reference_id,reason,actor_user_id,idempotency_key,product_owner_organization_id)
+     values($1,$2,$3,$4,'commit',$5,$5,'order',$6,'Replacement fulfillment commitment',$7,$8,$9)""",owner,p.warehouse_id,item["product_id"],item["variant_id"],commit_quantity,oid,actor,"fulfillment:"+str(r["id"])+":recommit:"+str(item["id"]),item["product_owner_organization_id"])
+    recommitted_quantity+=commit_quantity
    movements=await db.fetch("""select sm.* from public.stock_movements sm where sm.reference_type='order' and sm.reference_id=$1
     and sm.movement_type='commit' and sm.organization_id=$2 and sm.warehouse_id=$3
     and exists(select 1 from public.inventory_balances ib where ib.organization_id=sm.organization_id and ib.warehouse_id=sm.warehouse_id and ib.variant_id=sm.variant_id and ib.committed>0)
@@ -509,7 +537,7 @@ class SmartOrderRepository:
    if o["status"]=="approved":
     await db.execute("update public.orders set status='processing',updated_at=now() where id=$1 and organization_id=$2",oid,org)
     await db.execute("insert into public.order_status_history(organization_id,order_id,from_status,to_status,actor_user_id) values($1,$2,'approved','processing',$3)",org,oid,actor)
-   await self.audit(db,org,actor,"fulfillment.created","fulfillment",r["id"],{"order_id":str(oid),"fulfillment_organization_id":str(owner),"warehouse_id":str(p.warehouse_id)})
+   await self.audit(db,org,actor,"fulfillment.created","fulfillment",r["id"],{"order_id":str(oid),"fulfillment_organization_id":str(owner),"warehouse_id":str(p.warehouse_id),"recommitted_quantity":str(recommitted_quantity)})
   return dict(r)
  async def update_fulfillment(self,db,org,actor,fid,p):
   async with db.transaction():
