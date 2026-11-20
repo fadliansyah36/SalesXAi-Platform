@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, Query, Request
 
 from app.db import get_connection
 from app.schemas.identity import AccountStatusUpdate, PlatformAuditLogResponse
-from app.schemas.master_data import MasterDataWrite,PlatformOrganizationStatusUpdate
+from app.schemas.master_data import MasterDataWrite, PlatformOrganizationStatusUpdate
 from app.security.dependencies import Principal, require_api_action
 from app.services.account_administration import account_administration_service
 from app.services.organization_mutations import organization_mutation_service
@@ -16,25 +16,25 @@ from app.services.smart_team import smart_team_service
 router = APIRouter(prefix="/admin", tags=["platform-security"])
 
 
-
 @router.get("/smart-team/overview")
 async def list_platform_smartteam_overview(
-    limit: int = Query(default=100,ge=1,le=500),
-    offset: int = Query(default=0,ge=0,le=100000),
+    limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0, le=100000),
     principal: Principal = Depends(require_api_action("platform.smartteam.overview.read")),
     connection: asyncpg.Connection = Depends(get_connection),
 ) -> list[dict]:
-    return await smart_team_service.platform_overview(connection,limit,offset)
+    return await smart_team_service.platform_overview(connection, limit, offset)
+
 
 @router.get("/users")
 async def list_platform_users(
-    q: str | None = Query(default=None,max_length=160),
-    limit: int = Query(default=100,ge=1,le=500),
-    offset: int = Query(default=0,ge=0,le=100000),
+    q: str | None = Query(default=None, max_length=160),
+    limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0, le=100000),
     principal: Principal = Depends(require_api_action("platform.users.list")),
     connection: asyncpg.Connection = Depends(get_connection),
 ) -> list[dict]:
-    return await platform_read_service.list_users(connection,q,limit,offset)
+    return await platform_read_service.list_users(connection, q, limit, offset)
 
 
 @router.get("/roles")
@@ -57,14 +57,17 @@ async def update_account_status(
         connection, request, principal, user_id, payload.status
     )
 
+
 @router.get("/organizations")
 async def list_platform_organizations(
-    limit: int = Query(default=100,ge=1,le=500),
-    offset: int = Query(default=0,ge=0,le=100000),
+    limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0, le=100000),
     principal: Principal = Depends(require_api_action("platform.organizations.list")),
     connection: asyncpg.Connection = Depends(get_connection),
 ) -> list[dict]:
-    return await organization_mutation_service.list_platform_organizations(connection,limit,offset)
+    return await organization_mutation_service.list_platform_organizations(
+        connection, limit, offset
+    )
 
 
 @router.patch("/organizations/{organization_id}")
@@ -76,7 +79,7 @@ async def update_platform_organization(
     connection: asyncpg.Connection = Depends(get_connection),
 ) -> dict:
     return await organization_mutation_service.update_platform_organization_status(
-        connection,request,principal,organization_id,payload.status
+        connection, request, principal, organization_id, payload.status
     )
 
 
@@ -84,15 +87,17 @@ async def update_platform_organization(
 async def list_organization_branches(
     organization_id: UUID,
     request: Request,
-    limit: int = Query(default=100,ge=1,le=500),
-    offset: int = Query(default=0,ge=0,le=100000),
+    limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0, le=100000),
     principal: Principal = Depends(require_api_action("platform.organizations.branches.read")),
     connection: asyncpg.Connection = Depends(get_connection),
 ) -> list[dict]:
-    return await organization_mutation_service.list_platform_branches(connection,request,principal,organization_id,limit,offset)
+    return await organization_mutation_service.list_platform_branches(
+        connection, request, principal, organization_id, limit, offset
+    )
 
 
-@router.post("/organizations/{organization_id}/branches",status_code=201)
+@router.post("/organizations/{organization_id}/branches", status_code=201)
 async def create_organization_branch(
     organization_id: UUID,
     payload: MasterDataWrite,
@@ -101,7 +106,7 @@ async def create_organization_branch(
     connection: asyncpg.Connection = Depends(get_connection),
 ) -> dict:
     return await organization_mutation_service.create_platform_branch(
-        connection,request,principal,organization_id,payload.model_dump(exclude_unset=True)
+        connection, request, principal, organization_id, payload.model_dump(exclude_unset=True)
     )
 
 
@@ -115,7 +120,12 @@ async def update_organization_branch(
     connection: asyncpg.Connection = Depends(get_connection),
 ) -> dict:
     return await organization_mutation_service.update_platform_branch(
-        connection,request,principal,organization_id,branch_id,payload.model_dump(exclude_unset=True)
+        connection,
+        request,
+        principal,
+        organization_id,
+        branch_id,
+        payload.model_dump(exclude_unset=True),
     )
 
 
@@ -127,5 +137,7 @@ async def list_platform_audit_logs(
     principal: Principal = Depends(require_api_action("platform.audit.read")),
     connection: asyncpg.Connection = Depends(get_connection),
 ) -> list[PlatformAuditLogResponse]:
-    rows = await platform_read_service.list_audit_logs(connection,request,principal,before,limit)
+    rows = await platform_read_service.list_audit_logs(
+        connection, request, principal, before, limit
+    )
     return [PlatformAuditLogResponse(**row) for row in rows]

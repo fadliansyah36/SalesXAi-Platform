@@ -3,8 +3,11 @@ from urllib.parse import unquote, urlsplit
 from pydantic import AnyHttpUrl, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore", validate_default=True)
+    model_config = SettingsConfigDict(
+        env_file=".env", env_file_encoding="utf-8", extra="ignore", validate_default=True
+    )
     supabase_url: AnyHttpUrl = "https://eyofuiyxalbehbqoaeny.supabase.co"
     database_url: SecretStr | None = None
     supabase_jwks_url: AnyHttpUrl | None = None
@@ -40,7 +43,9 @@ class Settings(BaseSettings):
     @classmethod
     def validate_supabase_project(cls, value: AnyHttpUrl) -> AnyHttpUrl:
         if urlsplit(str(value)).hostname != "eyofuiyxalbehbqoaeny.supabase.co":
-            raise ValueError("SUPABASE_URL must reference the bound SalesX-Ai project eyofuiyxalbehbqoaeny")
+            raise ValueError(
+                "SUPABASE_URL must reference the bound SalesX-Ai project eyofuiyxalbehbqoaeny"
+            )
         return value
 
     @field_validator("app_public_url")
@@ -58,7 +63,9 @@ class Settings(BaseSettings):
             or parsed.query
             or parsed.fragment
         ):
-            raise ValueError("APP_PUBLIC_URL must be an exact HTTP(S) origin without credentials, path, query or fragment")
+            raise ValueError(
+                "APP_PUBLIC_URL must be an exact HTTP(S) origin without credentials, path, query or fragment"
+            )
         if parsed.scheme != "https" and parsed.hostname not in {"localhost", "127.0.0.1", "::1"}:
             raise ValueError("APP_PUBLIC_URL must use HTTPS outside local development")
         return f"{parsed.scheme}://{parsed.netloc}"
@@ -74,7 +81,9 @@ class Settings(BaseSettings):
                 or parsed.query
                 or parsed.fragment
             ):
-                raise ValueError("SUPABASE_JWKS_URL must use the bound SalesX-Ai project's canonical JWKS endpoint")
+                raise ValueError(
+                    "SUPABASE_JWKS_URL must use the bound SalesX-Ai project's canonical JWKS endpoint"
+                )
         return value
 
     @field_validator("supabase_jwt_issuer")
@@ -89,7 +98,9 @@ class Settings(BaseSettings):
     @classmethod
     def validate_jwt_audience(cls, value: str) -> str:
         if value != "authenticated":
-            raise ValueError("SUPABASE_JWT_AUDIENCE must be authenticated for SalesX-Ai user sessions")
+            raise ValueError(
+                "SUPABASE_JWT_AUDIENCE must be authenticated for SalesX-Ai user sessions"
+            )
         return value
 
     @field_validator("database_url")
@@ -103,14 +114,25 @@ class Settings(BaseSettings):
         host = parsed.hostname or ""
         username = unquote(parsed.username or "")
         direct_target = host == "db.eyofuiyxalbehbqoaeny.supabase.co"
-        pooler_target = host.endswith(".pooler.supabase.com") and username.endswith(".eyofuiyxalbehbqoaeny")
+        pooler_target = host.endswith(".pooler.supabase.com") and username.endswith(
+            ".eyofuiyxalbehbqoaeny"
+        )
         if not (direct_target or pooler_target):
-            raise ValueError("DATABASE_URL must connect to the bound Supabase project eyofuiyxalbehbqoaeny")
+            raise ValueError(
+                "DATABASE_URL must connect to the bound Supabase project eyofuiyxalbehbqoaeny"
+            )
         return value
 
-    @field_validator("supabase_jwt_secret","supabase_publishable_key","supabase_secret_key","salesx_bff_shared_secret","smtp_password",mode="before")
+    @field_validator(
+        "supabase_jwt_secret",
+        "supabase_publishable_key",
+        "supabase_secret_key",
+        "salesx_bff_shared_secret",
+        "smtp_password",
+        mode="before",
+    )
     @classmethod
-    def empty_secret_to_none(cls,value):
+    def empty_secret_to_none(cls, value):
         return None if value == "" else value
 
     @field_validator("salesx_bff_shared_secret")
@@ -122,7 +144,7 @@ class Settings(BaseSettings):
 
     @field_validator("auth_admin_timeout_seconds")
     @classmethod
-    def validate_auth_timeout(cls,value:float)->float:
+    def validate_auth_timeout(cls, value: float) -> float:
         if value <= 0 or value > 60:
             raise ValueError("Auth admin timeout must be between 0 and 60 seconds")
         return value
@@ -148,8 +170,11 @@ class Settings(BaseSettings):
             raise ValueError("SMTP timeout must be between 0 and 60 seconds")
         return value
 
-
-    @field_validator("db_command_timeout_seconds", "db_connect_timeout_seconds", "db_max_inactive_connection_lifetime")
+    @field_validator(
+        "db_command_timeout_seconds",
+        "db_connect_timeout_seconds",
+        "db_max_inactive_connection_lifetime",
+    )
     @classmethod
     def validate_db_timeouts(cls, value: float) -> float:
         if value <= 0 or value > 600:
@@ -164,7 +189,13 @@ class Settings(BaseSettings):
             raise ValueError("Wildcard CORS origins are forbidden when credentials are enabled")
         for origin in origins:
             parsed = urlsplit(origin)
-            if parsed.scheme not in {"http", "https"} or not parsed.netloc or parsed.path or parsed.query or parsed.fragment:
+            if (
+                parsed.scheme not in {"http", "https"}
+                or not parsed.netloc
+                or parsed.path
+                or parsed.query
+                or parsed.fragment
+            ):
                 raise ValueError("CORS_ORIGINS must contain exact HTTP(S) origins without paths")
         return ",".join(origins)
 
@@ -189,12 +220,15 @@ class Settings(BaseSettings):
             raise ValueError("Database pool size must be between 1 and 50")
         return value
 
-
     @model_validator(mode="after")
     def validate_pool_bounds(self):
         if self.db_pool_min_size > self.db_pool_max_size:
             raise ValueError("DB_POOL_MIN_SIZE cannot exceed DB_POOL_MAX_SIZE")
-        if self.app_public_url and self.allowed_origins and self.app_public_url not in self.allowed_origins:
+        if (
+            self.app_public_url
+            and self.allowed_origins
+            and self.app_public_url not in self.allowed_origins
+        ):
             raise ValueError("APP_PUBLIC_URL must also be present in CORS_ORIGINS")
         return self
 
@@ -208,11 +242,15 @@ class Settings(BaseSettings):
 
     @property
     def jwks_url(self) -> str:
-        return str(self.supabase_jwks_url or f"{str(self.supabase_url).rstrip('/')}/auth/v1/.well-known/jwks.json")
+        return str(
+            self.supabase_jwks_url
+            or f"{str(self.supabase_url).rstrip('/')}/auth/v1/.well-known/jwks.json"
+        )
 
     @property
     def allowed_origins(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
+
 
 @lru_cache
 def get_settings() -> Settings:
