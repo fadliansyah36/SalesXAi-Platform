@@ -11,9 +11,20 @@ from app.security.dependencies import Principal, require_api_action
 from app.services.account_administration import account_administration_service
 from app.services.organization_mutations import organization_mutation_service
 from app.services.platform_reads import platform_read_service
+from app.services.smart_team import smart_team_service
 
 router = APIRouter(prefix="/admin", tags=["platform-security"])
 
+
+
+@router.get("/smart-team/overview")
+async def list_platform_smartteam_overview(
+    limit: int = Query(default=100,ge=1,le=500),
+    offset: int = Query(default=0,ge=0,le=100000),
+    principal: Principal = Depends(require_api_action("platform.smartteam.overview.read")),
+    connection: asyncpg.Connection = Depends(get_connection),
+) -> list[dict]:
+    return await smart_team_service.platform_overview(connection,limit,offset)
 
 @router.get("/users")
 async def list_platform_users(
