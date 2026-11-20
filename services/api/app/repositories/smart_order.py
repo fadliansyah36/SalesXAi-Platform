@@ -230,7 +230,7 @@ class SmartOrderRepository:
    await self.audit(db,org,actor,"order.draft.created","order",oid,{"order_number":number,"total":str(money(grand))})
   return dict(o)
 
- async def submit_order(self,org,actor,oid,region_id=None):
+ async def submit_order(self,db,org,actor,oid,region_id=None):
   revalidation_error=None
   result=None
   async with db.transaction():
