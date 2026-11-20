@@ -153,7 +153,7 @@ class SmartOrderRepository:
   rows=await db.fetch("""select p.id,p.organization_id,p.code,p.name,p.description,p.priority,p.stackable,p.stacking_group,p.max_redemptions,p.max_per_customer,p.starts_at,p.ends_at,p.status,
    coalesce(jsonb_agg(jsonb_build_object('rule_type',r.rule_type,'rule_config',r.rule_config)) filter(where r.id is not null),'[]'::jsonb) rules
    from public.promotions p left join public.promotion_rules r on r.organization_id=p.organization_id and r.promotion_id=p.id
-   where p.organization_id=$1 or exists(select 1 from public.commerce_partner_links l where l.organization_id=p.organization_id and l.partner_organization_id=$1 and l.relationship_type in ('principal','distributor','customer') and l.status='active' and l.starts_at<=now() and (l.ends_at is null or l.ends_at>now()))
+   where p.organization_id=$1 or exists(select 1 from public.commerce_partner_links l where l.organization_id=p.organization_id and l.partner_organization_id=$1 and l.relationship_type in ('principal','distributor','company','customer') and l.status='active' and l.starts_at<=now() and (l.ends_at is null or l.ends_at>now()))
    group by p.id order by p.priority,p.created_at desc""",org)
   return [dict(r) for r in rows]
 
@@ -166,7 +166,7 @@ class SmartOrderRepository:
     where organization_id=$1 and id=$2 returning *""",org,promotion_id,p.code.upper(),p.name,p.description,p.priority,p.stackable,p.stacking_group,p.max_redemptions,p.max_per_customer,p.starts_at,p.ends_at,p.status)
    await db.execute("delete from public.promotion_rules where organization_id=$1 and promotion_id=$2",org,promotion_id)
    for rule in p.rules:
-    if rule.get("rule_type") not in {"minimum_value","minimum_quantity","product","category","customer","discount_percent","discount_amount","voucher"} or not isinstance(rule.get("rule_config",{}),dict):
+    if rule.get("rule_type") not in {"minimum_value","minimum_quantity","product","category","customer","discount_percent","discount_amount","voucher","organization_type"} or not isinstance(rule.get("rule_config",{}),dict):
      raise APIError(422,"invalid_promotion_rule","Promotion rule type or configuration is invalid.")
     await db.execute("insert into public.promotion_rules(organization_id,promotion_id,rule_type,rule_config) values($1,$2,$3,$4::jsonb)",org,promotion_id,rule["rule_type"],json.dumps(rule.get("rule_config",{})))
    await self.audit(db,org,actor,"promotion.updated","promotion",promotion_id,{"code":p.code,"status":p.status,"rules":len(p.rules)})
@@ -177,7 +177,7 @@ class SmartOrderRepository:
    r=await db.fetchrow("""insert into public.promotions(organization_id,code,name,description,priority,stackable,stacking_group,max_redemptions,max_per_customer,starts_at,ends_at,status,created_by)
     values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::timestamptz,$11::timestamptz,'active',$12) returning *""",org,p.code.upper(),p.name,p.description,p.priority,p.stackable,p.stacking_group,p.max_redemptions,p.max_per_customer,p.starts_at,p.ends_at,actor)
    for rule in p.rules:
-    if rule.get("rule_type") not in {"minimum_value","minimum_quantity","product","category","customer","discount_percent","discount_amount","voucher"} or not isinstance(rule.get("rule_config",{}),dict):
+    if rule.get("rule_type") not in {"minimum_value","minimum_quantity","product","category","customer","discount_percent","discount_amount","voucher","organization_type"} or not isinstance(rule.get("rule_config",{}),dict):
      raise APIError(422,"invalid_promotion_rule","Promotion rule type or configuration is invalid.")
     await db.execute("insert into public.promotion_rules(organization_id,promotion_id,rule_type,rule_config) values($1,$2,$3,$4::jsonb)",org,r["id"],rule["rule_type"],json.dumps(rule.get("rule_config",{})))
    await self.audit(db,org,actor,"promotion.created","promotion",r["id"],{"code":p.code})
@@ -242,20 +242,21 @@ class SmartOrderRepository:
     where upper(p.code)=any($2::text[]) and p.status='active' and p.starts_at<=now() and p.ends_at>now()
      and (p.organization_id=$1 or exists(select 1 from public.commerce_partner_links l
       where l.organization_id=p.organization_id and l.partner_organization_id=$3
-       and l.relationship_type in ('principal','distributor','customer') and l.status='active'
+       and l.relationship_type in ('principal','distributor','company','customer') and l.status='active'
        and l.starts_at<=now() and (l.ends_at is null or l.ends_at>now())))
     order by p.organization_id,p.id""",org,normalized,consumer)
    for item in ids:
     await db.execute("select pg_advisory_xact_lock(hashtextextended($1,0))",f"promotion:{item['organization_id']}:{item['id']}")
   rows=await db.fetch("""select p.*,
     coalesce(jsonb_agg(jsonb_build_object('rule_type',r.rule_type,'rule_config',r.rule_config) order by r.created_at,r.id) filter(where r.id is not null),'[]'::jsonb) rules,
+    (select l.relationship_type from public.commerce_partner_links l where l.organization_id=p.organization_id and l.partner_organization_id=$3 and l.status='active' and l.starts_at<=now() and (l.ends_at is null or l.ends_at>now()) order by l.created_at desc limit 1) consumer_relationship_type,
     (select count(*) from public.promotion_redemptions pr where pr.promotion_owner_organization_id=p.organization_id and pr.promotion_id=p.id and pr.status in ('reserved','redeemed')) redemption_count,
     (select count(*) from public.promotion_redemptions pr where pr.promotion_owner_organization_id=p.organization_id and pr.promotion_id=p.id and pr.customer_organization_id=$3 and pr.status in ('reserved','redeemed')) customer_redemption_count
    from public.promotions p left join public.promotion_rules r on r.organization_id=p.organization_id and r.promotion_id=p.id
    where upper(p.code)=any($2::text[]) and p.status='active' and p.starts_at<=now() and p.ends_at>now()
     and (p.organization_id=$1 or exists(select 1 from public.commerce_partner_links l
      where l.organization_id=p.organization_id and l.partner_organization_id=$3
-      and l.relationship_type in ('principal','distributor','customer') and l.status='active'
+      and l.relationship_type in ('principal','distributor','company','customer') and l.status='active'
       and l.starts_at<=now() and (l.ends_at is null or l.ends_at>now())))
    group by p.id order by p.priority asc,p.created_at asc,p.id asc""",org,normalized,consumer)
   eligible=[]
