@@ -48,7 +48,7 @@ import {
   Filter,
   Film,
 } from 'lucide-react';
-import type { PlatformRole, PlatformUserSummary } from '@salesx-ai/api-client';
+import type { PlatformRole, PlatformUserSummary, PlatformSmartTeamOverviewRow } from '@salesx-ai/api-client';
 import { BrandLogo } from '@/components/common/BrandLogo';
 import { useTheme } from '@/components/providers/AppProviders';
 import { SalesGoogleMap } from '@/components/maps/SalesGoogleMap';
@@ -138,6 +138,7 @@ export type SuperAdminTab =
   | 'users'
   | 'master_data'
   | 'analytics'
+  | 'smartteam'
   | 'services'
   | 'roles'
   | 'domains'
@@ -177,6 +178,9 @@ export function SuperAdminPortalApp() {
   const [tenants, setTenants] = useState<PlatformTenant[]>([]);
   const [orgNodes, setOrgNodes] = useState<OrganizationNode[]>([]);
   const [platformUsers,setPlatformUsers]=useState<PlatformUserRecord[]>([]);
+  const [smartTeamOverview,setSmartTeamOverview]=useState<PlatformSmartTeamOverviewRow[]>([]);
+  const [smartTeamOverviewLoading,setSmartTeamOverviewLoading]=useState(false);
+  const [smartTeamOverviewError,setSmartTeamOverviewError]=useState<string|null>(null);
   const [usersLoading,setUsersLoading]=useState(false);
   const [usersError,setUsersError]=useState<string|null>(null);
   const [userStatusBusyId,setUserStatusBusyId]=useState<string|null>(null);
@@ -564,6 +568,23 @@ export function SuperAdminPortalApp() {
     return()=>{active=false;};
   },[activeTab,analyticsSubTab,auth.apiClient,auth.canPerformApiAction]);
 
+  useEffect(()=>{
+    if(activeTab!=="smartteam")return;
+    if(!auth.canPerformApiAction("platform.smartteam.overview.read")||!auth.apiClient){
+      setSmartTeamOverview([]);
+      setSmartTeamOverviewError("Akses SmartTeam global tidak diizinkan.");
+      return;
+    }
+    let active=true;
+    setSmartTeamOverviewLoading(true);
+    setSmartTeamOverviewError(null);
+    void auth.apiClient.listPlatformSmartTeamOverview(200,0)
+      .then(rows=>{if(active)setSmartTeamOverview(rows);})
+      .catch(error=>{if(active)setSmartTeamOverviewError(error instanceof Error?error.message:"Ringkasan SmartTeam tidak dapat dimuat.");})
+      .finally(()=>{if(active)setSmartTeamOverviewLoading(false);});
+    return()=>{active=false;};
+  },[activeTab,auth.apiClient,auth.canPerformApiAction]);
+
   const navGroups: PortalNavGroup<SuperAdminTab>[] = [
     {
       group: 'Overview & Tenant',
@@ -573,6 +594,7 @@ export function SuperAdminPortalApp() {
         { id: 'organizations', label: 'Organisasi', icon: GitBranch },
         { id: 'users', label: 'User Administration', icon: Users },
         { id: 'analytics', label: 'Analitik & Performa', icon: BarChart3 },
+        { id: 'smartteam', label: 'SmartTeam Operations', icon: Activity },
       ],
     },
     {
@@ -614,6 +636,7 @@ export function SuperAdminPortalApp() {
   const hasAdminNavigationPermission=(id:SuperAdminTab):boolean=>{
     if(id==="tenants" || id==="organizations")return auth.canPerformApiAction("platform.organizations.list");
     if(id==="users")return auth.canPerformApiAction("platform.users.list");
+    if(id==="smartteam")return auth.canPerformApiAction("platform.smartteam.overview.read");
     if(id==="roles")return auth.canPerformApiAction("platform.roles.list");
     if(id==="audit_logs")return auth.canPerformApiAction("platform.audit.read");
     // Other Super Admin modules are owned by later phases and remain closed until
@@ -1461,6 +1484,34 @@ export function SuperAdminPortalApp() {
                 </div>
               </button>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* -------------------- SCREEN: SMARTTEAM GLOBAL OPERATIONS -------------------- */}
+      {activeTab === 'smartteam' && (
+        <div className="space-y-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-bold text-[#123A54] dark:text-white">SmartTeam Global Operations</h2>
+              <p className="text-xs text-[var(--color-text-secondary)]">Ringkasan operasional per organisasi. Data agregat, tanpa membuka detail personal sales lintas tenant.</p>
+            </div>
+            <button type="button" onClick={()=>{if(auth.apiClient){setSmartTeamOverviewLoading(true);void auth.apiClient.listPlatformSmartTeamOverview(200,0).then(setSmartTeamOverview).catch(e=>setSmartTeamOverviewError(e instanceof Error?e.message:"Refresh gagal.")).finally(()=>setSmartTeamOverviewLoading(false));}}} className="rounded-xl border border-[var(--color-border)] px-3 py-2 text-xs font-semibold">Refresh</button>
+          </div>
+          {smartTeamOverviewError&&<div role="alert" className="rounded-xl border border-red-300 bg-red-50 p-3 text-xs text-red-800">{smartTeamOverviewError}</div>}
+          {smartTeamOverviewLoading&&<p className="text-xs text-[var(--color-text-secondary)]">Memuat ringkasan tenant…</p>}
+          <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+            <KpiMetricCard label="Total Visit" value={smartTeamOverview.reduce((sum,row)=>sum+row.visits_total,0).toLocaleString('id-ID')} trend="Data API" trendTone="neutral" icon={<MapPin className="h-5 w-5"/>}/>
+            <KpiMetricCard label="Visit Berjalan" value={smartTeamOverview.reduce((sum,row)=>sum+row.visits_in_progress,0).toLocaleString('id-ID')} trend="Data API" trendTone="neutral" icon={<Activity className="h-5 w-5"/>}/>
+            <KpiMetricCard label="Attendance 30 Hari" value={smartTeamOverview.reduce((sum,row)=>sum+row.attendance_30d,0).toLocaleString('id-ID')} trend="Data API" trendTone="neutral" icon={<Clock className="h-5 w-5"/>}/>
+            <KpiMetricCard label="Aktivitas 30 Hari" value={smartTeamOverview.reduce((sum,row)=>sum+row.activities_30d,0).toLocaleString('id-ID')} trend="Data API" trendTone="neutral" icon={<TrendingUp className="h-5 w-5"/>}/>
+          </div>
+          <div className="overflow-x-auto rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]">
+            <table className="w-full min-w-[760px] text-left text-xs">
+              <thead className="bg-[var(--color-surface-muted)]"><tr><th className="p-3">Organisasi</th><th className="p-3">Status</th><th className="p-3">Total Visit</th><th className="p-3">Berjalan</th><th className="p-3">Selesai</th><th className="p-3">Attendance 30H</th><th className="p-3">Shift Aktif</th><th className="p-3">Aktivitas 30H</th><th className="p-3">Target Aktif</th></tr></thead>
+              <tbody>{smartTeamOverview.map(row=><tr key={row.organization_id} className="border-t border-[var(--color-border)]"><td className="p-3 font-semibold">{row.organization_name}</td><td className="p-3">{row.organization_status}</td><td className="p-3 tabular-nums">{row.visits_total}</td><td className="p-3 tabular-nums">{row.visits_in_progress}</td><td className="p-3 tabular-nums">{row.visits_completed}</td><td className="p-3 tabular-nums">{row.attendance_30d}</td><td className="p-3 tabular-nums">{row.active_shifts}</td><td className="p-3 tabular-nums">{row.activities_30d}</td><td className="p-3 tabular-nums">{row.active_targets}</td></tr>)}</tbody>
+            </table>
+            {smartTeamOverview.length===0&&!smartTeamOverviewLoading&&<p className="p-5 text-xs text-[var(--color-text-secondary)]">Belum ada data SmartTeam di organisasi yang terdaftar.</p>}
           </div>
         </div>
       )}
