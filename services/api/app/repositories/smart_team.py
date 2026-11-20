@@ -21,7 +21,8 @@ class SmartTeamRepository:
     async def can_access_profile(self, connection: asyncpg.Connection, organization_id: UUID, profile_id: UUID, actor_id: UUID) -> bool:
         return bool(await connection.fetchval(
             """select exists(select 1 from public.sales_profiles sp
-               where sp.organization_id=$1 and sp.id=$2 and (
+               where sp.organization_id=$1 and sp.id=$2 and sp.status='active'
+                 and sp.effective_from<=current_date and (sp.effective_until is null or sp.effective_until>=current_date) and (
                  sp.user_id=$3 or sp.manager_user_id=$3 or exists(
                    select 1 from public.teams t where t.organization_id=sp.organization_id
                    and t.id=sp.team_id and t.supervisor_user_id=$3
