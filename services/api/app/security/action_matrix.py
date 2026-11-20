@@ -722,6 +722,18 @@ API_ACTION_MATRIX: tuple[ApiActionContract, ...] = (
         "tenant_permission_and_resource_tenant_match",
     ),
     ApiActionContract(
+        "smartteam.visits.assign",
+        "POST",
+        "/api/v1/organizations/{organization_id}/smart-team/visits/{visit_id}/assign",
+        "smartteam",
+        "assign_visit",
+        "smartteam_visit",
+        "tenant_permission:smartteam:visit:manage_and_assignment_validation",
+        "smartteam:visit:manage",
+        "tenant",
+        "tenant_permission_and_resource_tenant_match",
+    ),
+    ApiActionContract(
         "smartteam.visits.execute",
         "POST",
         "/api/v1/organizations/{organization_id}/smart-team/visits/{visit_id}/check-in",
