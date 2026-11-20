@@ -98,6 +98,23 @@ class SmartOrderRulesTests(unittest.TestCase):
         self.assertEqual(rejected, [])
         self.assertEqual(rejected_total, Decimal("0"))
 
+    def test_promotion_audience_is_scoped_to_active_partner_type(self):
+        promo = {"id": "promo-company", "organization_id": "principal-1", "code": "B2B",
+                 "priority": 1, "stackable": False, "consumer_relationship_type": "distributor",
+                 "rules": [
+                     {"rule_type": "organization_type", "rule_config": {"organization_types": ["distributor", "company"]}},
+                     {"rule_type": "discount_percent", "rule_config": {"percent": 12}},
+                 ]}
+        applied, total = evaluate_promotion_candidates([promo], "1000", "1", "buyer-1", [])
+        self.assertEqual(total, Decimal("120.00"))
+        self.assertEqual(applied[0]["promotion_owner_organization_id"], "principal-1")
+        self.assertEqual(applied[0]["rules_snapshot"], promo["rules"])
+        rejected, rejected_total = evaluate_promotion_candidates(
+            [{**promo, "consumer_relationship_type": "customer"}], "1000", "1", "buyer-1", []
+        )
+        self.assertEqual(rejected, [])
+        self.assertEqual(rejected_total, Decimal("0"))
+
     def test_order_cancellation_window(self):
         self.assertTrue(can_cancel_order("draft"))
         self.assertTrue(can_cancel_order("pending_approval"))
