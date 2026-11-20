@@ -61,8 +61,58 @@ class Phase03MasterDataContractTests(unittest.TestCase):
         self.assertIn("foreign key (organization_id,branch_id)", sql)
         self.assertTrue((root / "supabase/migrations/20261119180611_p03_branch_contact_location_fields.sql").exists())
         self.assertTrue((root / "supabase/migrations/20261119181929_p03_branch_type.sql").exists())
-        for version in ("20261120022931_p03_master_data_completion.sql", "20261120023456_p03_master_data_event_stream.sql", "20261120023600_p03_assignment_status.sql"):
+        for version in ("20261120022931_p03_master_data_completion.sql", "20261120023456_p03_master_data_event_stream.sql", "20261120023600_p03_assignment_status.sql", "20261120023800_p03_realtime_tenant_admin_scope.sql", "20261120024014_p03_realtime_tenant_scope.sql", "20261120024249_p03_master_data_fk_indexes.sql", "20261120025728_p03_master_data_event_triggers.sql"):
             self.assertTrue((root / "supabase/migrations" / version).exists())
+
+
+
+class FakeAssignmentHistoryConnection:
+    def __init__(self, current=None, affected=1):
+        self.current = current
+        self.affected = affected
+        self.query = ""
+        self.args = ()
+        self.scope_query = ""
+        self.scope_args = ()
+
+    async def fetchrow(self, query, *args):
+        self.query = query
+        self.args = args
+        return self.current or {"id": args[1], "unassigned_by": args[2]}
+
+    async def fetchval(self, query, *args):
+        self.scope_query = query
+        self.scope_args = args
+        return self.affected
+
+
+class Phase03AssignmentHistoryTests(unittest.IsolatedAsyncioTestCase):
+    async def test_manual_unassignment_is_tenant_scoped_and_actor_stamped(self) -> None:
+        organization_id, assignment_id, actor_id = uuid4(), uuid4(), uuid4()
+        connection = FakeAssignmentHistoryConnection()
+        result = await MasterDataRepository().unassign_outlet(
+            connection, organization_id, assignment_id, actor_id, "sales reassigned",
+        )
+        self.assertEqual(result["id"], assignment_id)
+        self.assertEqual(connection.args, (organization_id, assignment_id, actor_id, "sales reassigned"))
+        self.assertIn("where organization_id=$1 and id=$2 and unassigned_at is null", connection.query)
+        self.assertIn("unassigned_by=$3", connection.query)
+        self.assertIn("nullif($4,'')", connection.query)
+
+    async def test_sales_scope_change_closes_active_outlet_assignment_history(self) -> None:
+        organization_id, profile_id, actor_id = uuid4(), uuid4(), uuid4()
+        connection = FakeAssignmentHistoryConnection(
+            current={"team_id": uuid4(), "territory_id": uuid4(), "manager_user_id": uuid4()},
+            affected=2,
+        )
+        closed = await MasterDataRepository().close_profile_assignments_if_scope_changed(
+            connection, organization_id, profile_id,
+            {"team_id": None, "territory_id": None, "manager_user_id": None}, actor_id,
+        )
+        self.assertEqual(closed, 2)
+        self.assertEqual(connection.scope_args, (organization_id, profile_id, actor_id))
+        self.assertIn("change_reason='sales_profile_scope_changed'", connection.scope_query)
+        self.assertIn("unassigned_at is null", connection.scope_query)
 
 
 if __name__ == "__main__":
