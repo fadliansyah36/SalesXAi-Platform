@@ -17,8 +17,14 @@
       },
       "environment": "production",
       "env": {
-        "EXPO_PUBLIC_SALESX_API_URL": "https://salesx-api-production.up.railway.app"
+        "EXPO_PUBLIC_SALESX_API_URL": "https://salesx-api-production.up.railway.app",
+        "EXPO_PUBLIC_AUTH_BFF_URL": "https://salesx-website-production.up.railway.app"
       }
+    },
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "environment": "development"
     }
   },
   "submit": {
