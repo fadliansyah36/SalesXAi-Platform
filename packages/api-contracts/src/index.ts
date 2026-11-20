@@ -270,3 +270,9 @@ export interface PlatformSmartTeamOverviewRow {
  visits_total:number;visits_in_progress:number;visits_completed:number;
  attendance_30d:number;active_shifts:number;activities_30d:number;active_targets:number;
 }
+
+export interface SmartTeamVisitEvidence {
+ id:UUID;organization_id:UUID;visit_id:UUID;uploaded_by:UUID;uploader_name?:string;
+ storage_path:string;mime_type:"image/jpeg"|"image/png"|"application/pdf";size_bytes:number;sha256:string;
+ created_at:ISODateTime;download_url?:string;
+}
