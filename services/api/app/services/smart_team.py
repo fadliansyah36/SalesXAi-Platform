@@ -588,12 +588,18 @@ class SmartTeamService:
             )
         except ValueError as error:
             self._translate(error)
+        digest = hashlib.sha256(content).hexdigest()
+        existing = await self.repository.find_visit_evidence_by_digest(
+            connection, organization_id, visit_id, digest
+        )
+        if existing is not None:
+            return dict(existing)
+
         extension = {"image/jpeg": "jpg", "image/png": "png", "application/pdf": "pdf"}[mime_type]
         storage_path = f"{organization_id}/{visit_id}/{uuid4().hex}.{extension}"
-        digest = hashlib.sha256(content).hexdigest()
         await supabase_storage.upload(storage_path, content, mime_type)
         try:
-            row = await self.repository.create_visit_evidence(
+            row, created = await self.repository.create_visit_evidence(
                 connection,
                 organization_id,
                 visit_id,
@@ -606,6 +612,10 @@ class SmartTeamService:
         except Exception:
             await supabase_storage.delete(storage_path)
             raise
+        if not created:
+            await supabase_storage.delete(storage_path)
+            return dict(row)
+
         await write_audit(
             connection,
             request,
