@@ -193,7 +193,7 @@ class PriceListWrite(BaseModel):
     name: str = Field(min_length=2, max_length=180)
     code: str = Field(min_length=2, max_length=80)
     currency: str = Field(default="IDR", min_length=3, max_length=3)
-    scope_type: Literal["tenant", "principal", "distributor", "customer", "region", "channel", "contract"] = "tenant"
+    scope_type: Literal["tenant", "principal", "distributor", "company", "customer", "region", "channel", "contract"] = "tenant"
     scope_id: UUID | None = None
     channel: str | None = None
     priority: int = 100
