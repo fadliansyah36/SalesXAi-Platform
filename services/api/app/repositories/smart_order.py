@@ -435,14 +435,16 @@ class SmartOrderRepository:
      return await self.get_order(db,org,actor,oid,True)
     moves=await db.fetch("select * from public.stock_movements where reference_type='order' and reference_id=$1 and movement_type='reserve'",oid)
     for m in moves:
-     await db.execute("update public.inventory_balances set reserved=reserved-$4,committed=committed+$4,version=version+1,updated_at=now() where organization_id=$1 and warehouse_id=$2 and variant_id=$3 and reserved >= $4",m["organization_id"],m["warehouse_id"],m["variant_id"],m["quantity"])
+     changed=await db.fetchrow("update public.inventory_balances set reserved=reserved-$4,committed=committed+$4,version=version+1,updated_at=now() where organization_id=$1 and warehouse_id=$2 and variant_id=$3 and reserved >= $4 returning id",m["organization_id"],m["warehouse_id"],m["variant_id"],m["quantity"])
+     if not changed:raise APIError(409,"inventory_commit_conflict","Reserved stock changed before order approval commitment.")
      await db.execute("""insert into public.stock_movements(organization_id,warehouse_id,product_id,variant_id,movement_type,quantity,reserved_delta,committed_delta,reference_type,reference_id,reason,actor_user_id,idempotency_key,product_owner_organization_id)
       values($1,$2,$3,$4,'commit',$5,-$5,$5,'order',$6,'Approved stock commitment',$7,$8,$9)""",m["organization_id"],m["warehouse_id"],m["product_id"],m["variant_id"],m["quantity"],oid,actor,f"order:{oid}:commit:{m['id']}",m["product_owner_organization_id"])
     target="approved"
    else:
     moves=await db.fetch("select * from public.stock_movements where reference_type='order' and reference_id=$1 and movement_type='reserve'",oid)
     for m in moves:
-     await db.execute("update public.inventory_balances set reserved=reserved-$4,version=version+1,updated_at=now() where organization_id=$1 and warehouse_id=$2 and variant_id=$3 and reserved >= $4",m["organization_id"],m["warehouse_id"],m["variant_id"],m["quantity"])
+     changed=await db.fetchrow("update public.inventory_balances set reserved=reserved-$4,version=version+1,updated_at=now() where organization_id=$1 and warehouse_id=$2 and variant_id=$3 and reserved >= $4 returning id",m["organization_id"],m["warehouse_id"],m["variant_id"],m["quantity"])
+     if not changed:raise APIError(409,"inventory_release_conflict","Reserved stock changed before order reservation release.")
      await db.execute("""insert into public.stock_movements(organization_id,warehouse_id,product_id,variant_id,movement_type,quantity,reserved_delta,reference_type,reference_id,reason,actor_user_id,idempotency_key,product_owner_organization_id)
       values($1,$2,$3,$4,'release',$5,-$5,'order',$6,$7,$8,$9,$10)""",m["organization_id"],m["warehouse_id"],m["product_id"],m["variant_id"],m["quantity"],oid,p.reason or "Order rejected; reservation released",actor,f"order:{oid}:release:{m['id']}",m["product_owner_organization_id"])
     target="revision_requested" if p.decision=="revision_requested" else "rejected"
@@ -695,7 +697,8 @@ class SmartOrderRepository:
    if p.decision in {"rejected","revision_requested"}:
     moves=await db.fetch("select * from public.stock_movements where reference_type='order' and reference_id=$1 and movement_type='reserve' order by organization_id,warehouse_id,id for update",oid)
     for m in moves:
-     await db.execute("update public.inventory_balances set reserved=reserved-$4,version=version+1,updated_at=now() where organization_id=$1 and warehouse_id=$2 and variant_id=$3 and reserved >= $4",m["organization_id"],m["warehouse_id"],m["variant_id"],m["quantity"])
+     changed=await db.fetchrow("update public.inventory_balances set reserved=reserved-$4,version=version+1,updated_at=now() where organization_id=$1 and warehouse_id=$2 and variant_id=$3 and reserved >= $4 returning id",m["organization_id"],m["warehouse_id"],m["variant_id"],m["quantity"])
+     if not changed:raise APIError(409,"inventory_release_conflict","Reserved stock changed before order reservation release.")
      await db.execute("""insert into public.stock_movements(organization_id,warehouse_id,product_id,variant_id,movement_type,quantity,reserved_delta,reference_type,reference_id,reason,actor_user_id,idempotency_key,product_owner_organization_id)
       values($1,$2,$3,$4,'release',$5,-$5,'order',$6,$7,$8,$9,$10)""",m["organization_id"],m["warehouse_id"],m["product_id"],m["variant_id"],m["quantity"],oid,p.reason or "Partner rejected order allocation",actor,f"order:{oid}:partner-release:{m['id']}",m["product_owner_organization_id"])
     target="revision_requested" if p.decision=="revision_requested" else "rejected"
@@ -879,11 +882,13 @@ class SmartOrderRepository:
     for m in movements:
      owner=m["organization_id"]
      if movement_type=="reserve":
-      await db.execute("update public.inventory_balances set reserved=reserved-$4,version=version+1,updated_at=now() where organization_id=$1 and warehouse_id=$2 and variant_id=$3 and reserved >= $4",owner,m["warehouse_id"],m["variant_id"],m["quantity"])
+      changed=await db.fetchrow("update public.inventory_balances set reserved=reserved-$4,version=version+1,updated_at=now() where organization_id=$1 and warehouse_id=$2 and variant_id=$3 and reserved >= $4 returning id",owner,m["warehouse_id"],m["variant_id"],m["quantity"])
+      if not changed:raise APIError(409,"inventory_release_conflict","Reserved stock changed before order reservation release.")
       await db.execute("""insert into public.stock_movements(organization_id,warehouse_id,product_id,variant_id,movement_type,quantity,reserved_delta,reference_type,reference_id,reason,actor_user_id,idempotency_key,product_owner_organization_id)
        values($1,$2,$3,$4,'release',$5,-$5,'order',$6,$7,$8,$9,$10)""",owner,m["warehouse_id"],m["product_id"],m["variant_id"],m["quantity"],oid,reason,actor,f"order:{oid}:cancel:{m['id']}",m["product_owner_organization_id"])
      else:
-      await db.execute("update public.inventory_balances set committed=committed-$4,version=version+1,updated_at=now() where organization_id=$1 and warehouse_id=$2 and variant_id=$3 and committed >= $4",owner,m["warehouse_id"],m["variant_id"],m["quantity"])
+      changed=await db.fetchrow("update public.inventory_balances set reserved=reserved-$4,version=version+1,updated_at=now() where organization_id=$1 and warehouse_id=$2 and variant_id=$3 and committed >= $4 returning id",owner,m["warehouse_id"],m["variant_id"],m["quantity"])
+      if not changed:raise APIError(409,"inventory_release_conflict","Committed stock changed before order cancellation release.")
       await db.execute("""insert into public.stock_movements(organization_id,warehouse_id,product_id,variant_id,movement_type,quantity,committed_delta,reference_type,reference_id,reason,actor_user_id,idempotency_key,product_owner_organization_id)
        values($1,$2,$3,$4,'release',$5,-$5,'order',$6,$7,$8,$9,$10)""",owner,m["warehouse_id"],m["product_id"],m["variant_id"],m["quantity"],oid,reason,actor,f"order:{oid}:cancel:{m['id']}",m["product_owner_organization_id"])
    await db.execute("update public.promotion_redemptions set status='reversed',reversed_at=now() where organization_id=$1 and order_id=$2 and status in ('reserved','redeemed')",org,oid)
