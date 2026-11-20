@@ -48,6 +48,14 @@ async def list_categories(organization_id:UUID,principal:Principal=Depends(get_c
 async def create_category(organization_id:UUID,payload:CategoryWrite,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartorder.catalog.category.create")),db:asyncpg.Connection=Depends(get_connection)):
  return await smart_order_service.create_category(db,organization_id,tenant,principal.user_id,payload)
 
+@router.get("/{organization_id}/smart-order/catalog/brands")
+async def list_brands(organization_id:UUID,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartorder.catalog.brands.read")),db:asyncpg.Connection=Depends(get_connection)):
+ return await smart_order_service.brands(db,organization_id,tenant)
+
+@router.get("/{organization_id}/smart-order/catalog/units")
+async def list_units(organization_id:UUID,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartorder.catalog.units.read")),db:asyncpg.Connection=Depends(get_connection)):
+ return await smart_order_service.units(db,organization_id,tenant)
+
 @router.post("/{organization_id}/smart-order/catalog/brands",status_code=201)
 async def create_brand(organization_id:UUID,payload:BrandWrite,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartorder.catalog.brand.create")),db:asyncpg.Connection=Depends(get_connection)):
  return await smart_order_service.create_brand(db,organization_id,tenant,principal.user_id,payload)

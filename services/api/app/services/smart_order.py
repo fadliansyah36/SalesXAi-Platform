@@ -4,6 +4,7 @@ from uuid import UUID, uuid4
 import asyncpg
 from app.errors import APIError
 from app.repositories.smart_order import smart_order_repository as repo
+from app.integrations.shipping import shipping_adapters, ShippingAdapterUnavailable
 from app.schemas.smart_order import ProductImageWrite
 from app.services.storage import supabase_storage
 
@@ -43,7 +44,8 @@ class SmartOrderService:
   if customer_organization_id and customer_organization_id!=organization_id:
    linked=await db.fetchval("""select exists(select 1 from public.commerce_partner_links where organization_id=$1 and partner_organization_id=$2 and relationship_type='customer' and status='active' and starts_at<=now() and (ends_at is null or ends_at>now()))""",organization_id,customer_organization_id)
    if not linked:raise APIError(403,"customer_relationship_required","Customer pricing requires an active partner relationship.")
-  return await repo.price_quote(db,organization_id,product_id,variant_id,quantity,customer_organization_id,channel)
+  region_id=await repo.resolve_region_id(db,organization_id,tenant.membership_id)
+  return await repo.price_quote(db,organization_id,product_id,variant_id,quantity,customer_organization_id,channel,region_id)
 
  async def inventory(self,db,organization_id,tenant,variant_id=None,warehouse_id=None):
   self._tenant(organization_id,tenant)
@@ -81,15 +83,18 @@ class SmartOrderService:
 
  async def cart(self,db,organization_id,tenant,actor):
   self._tenant(organization_id,tenant)
-  return await repo.get_cart(db,organization_id,actor)
+  region_id=await repo.resolve_region_id(db,organization_id,tenant.membership_id)
+  return await repo.get_cart(db,organization_id,actor,region_id)
 
  async def add_cart_item(self,db,organization_id,tenant,actor,payload):
   self._tenant(organization_id,tenant)
-  return await repo.upsert_cart_item(db,organization_id,actor,payload)
+  region_id=await repo.resolve_region_id(db,organization_id,tenant.membership_id)
+  return await repo.upsert_cart_item(db,organization_id,actor,payload,region_id)
 
  async def update_cart_item(self,db,organization_id,tenant,actor,item_id,payload):
   self._tenant(organization_id,tenant)
-  return await repo.update_cart_item(db,organization_id,actor,item_id,payload)
+  region_id=await repo.resolve_region_id(db,organization_id,tenant.membership_id)
+  return await repo.update_cart_item(db,organization_id,actor,item_id,payload,region_id)
 
  async def remove_cart_item(self,db,organization_id,tenant,actor,item_id):
   self._tenant(organization_id,tenant)
@@ -99,7 +104,8 @@ class SmartOrderService:
   self._tenant(organization_id,tenant)
   profile=await db.fetchrow("select display_name,email,phone from public.profiles where id=$1",actor)
   snapshot={"user_id":str(actor),"display_name":profile["display_name"] if profile else None,"email":profile["email"] if profile else None,"phone":profile["phone"] if profile else None}
-  try:return await repo.create_order(db,organization_id,actor,payload,snapshot)
+  region_id=await repo.resolve_region_id(db,organization_id,tenant.membership_id)
+  try:return await repo.create_order(db,organization_id,actor,payload,snapshot,region_id)
   except asyncpg.UniqueViolationError as exc: raise APIError(409,"order_idempotency_conflict","Order idempotency key or order number already exists.") from exc
 
  async def submit_order(self,db,organization_id,tenant,actor,order_id):
@@ -137,6 +143,14 @@ class SmartOrderService:
   self._tenant(organization_id,tenant)
   try:return await repo.create_category(db,organization_id,actor,payload)
   except asyncpg.UniqueViolationError as exc:raise APIError(409,"category_code_conflict","Category code already exists.") from exc
+
+ async def brands(self,db,organization_id,tenant):
+  self._tenant(organization_id,tenant)
+  return await repo.list_brands(db,organization_id)
+
+ async def units(self,db,organization_id,tenant):
+  self._tenant(organization_id,tenant)
+  return await repo.list_units(db,organization_id)
 
  async def create_brand(self,db,organization_id,tenant,actor,payload):
   self._tenant(organization_id,tenant)
@@ -220,6 +234,17 @@ class SmartOrderService:
   self._tenant(organization_id,tenant)
   return await repo.list_price_history(db,organization_id,price_list_id,page,page_size)
 
+
+ async def process_shipping_webhook(self,db,provider,headers,raw_body):
+  try:adapter=shipping_adapters.resolve(provider)
+  except ShippingAdapterUnavailable as exc:raise APIError(503,"shipping_provider_unavailable",str(exc)) from exc
+  try:event=await adapter.verify_webhook(headers,raw_body)
+  except Exception as exc:raise APIError(401,"shipping_webhook_signature_invalid","Shipping provider webhook signature verification failed.") from exc
+  if not isinstance(event,dict) or not all(isinstance(event.get(key),str) and event.get(key).strip() for key in ("event_id","tracking_number","status")):
+   raise APIError(422,"shipping_event_invalid","Verified shipping event must include event_id, tracking_number and status.")
+  status=event["status"].strip().lower()
+  if status not in {"delivered","failed"}:raise APIError(422,"shipping_event_status_unsupported","Only verified delivered or failed provider events are processed.")
+  return await repo.process_shipping_event(db,provider.strip().lower(),{**event,"status":status})
 
  async def approval_policies(self,db,organization_id,tenant):
   self._tenant(organization_id,tenant)
