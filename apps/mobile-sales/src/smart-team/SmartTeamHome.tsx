@@ -2,6 +2,7 @@ import React,{useCallback,useEffect,useMemo,useRef,useState} from "react";
 import {AppState,Linking,Pressable,TextInput,View} from "react-native";
 import * as Location from "expo-location";
 import * as ImagePicker from "expo-image-picker";
+import * as DocumentPicker from "expo-document-picker";
 import * as SQLite from "expo-sqlite";
 import * as FileSystem from "expo-file-system/legacy";
 import {NativeInline,NativeStack,NativeSurface,NativeText,useNativeTheme} from "@salesx-ai/design-system/native";
@@ -52,6 +53,8 @@ export function SmartTeamHome({auth,salesProfileId}:{auth:AuthState;salesProfile
  const [activityType,setActivityType]=useState<"task"|"call"|"meeting"|"follow_up"|"prospecting"|"report"|"other">("task");
  const [busy,setBusy]=useState(false);
  const [syncing,setSyncing]=useState(false);
+ const [evidenceProgress,setEvidenceProgress]=useState<Record<string,number>>({});
+ const uploadAbortRef=useRef<AbortController|null>(null);
  const syncingRef=useRef(false);
  const [notice,setNotice]=useState("");
  const [error,setError]=useState("");
@@ -124,11 +127,26 @@ export function SmartTeamHome({auth,salesProfileId}:{auth:AuthState;salesProfile
      else if(row.kind==="activity_create")await api.createSmartTeamActivity(organizationId,payload.activity);
      else if(row.kind==="evidence_upload"){
       const file=await fetch(payload.local_uri).then(response=>{if(!response.ok)throw new Error("File bukti offline tidak tersedia.");return response.blob();});
-      await api.uploadSmartTeamVisitEvidence(organizationId,payload.visit_id,file,payload.file_name,payload.mime_type);
-      await FileSystem.deleteAsync(payload.local_uri,{idempotent:true}).catch(()=>undefined);
+      const controller=new AbortController();
+      uploadAbortRef.current=controller;
+      try{
+       await api.uploadSmartTeamVisitEvidence(organizationId,payload.visit_id,file,payload.file_name,payload.mime_type,{
+        signal:controller.signal,
+        onProgress:(loaded,total)=>setEvidenceProgress(current=>({...current,[payload.visit_id]:total>0?Math.min(100,Math.round(loaded/total*100)):0})),
+       });
+       await FileSystem.deleteAsync(payload.local_uri,{idempotent:true}).catch(()=>undefined);
+      }finally{
+       if(uploadAbortRef.current===controller)uploadAbortRef.current=null;
+       setEvidenceProgress(current=>{const next={...current};delete next[payload.visit_id];return next;});
+      }
      }
      await db.runAsync("delete from smartteam_outbox where id=?",[row.id]);
     }catch(cause){
+     if(cause instanceof Error&&cause.name==="AbortError"){
+      await db.runAsync("update smartteam_outbox set status='pending',next_attempt_at='',last_error=? where id=?",[cause.message,row.id]);
+      setNotice("Upload dibatalkan. File tetap tersimpan di antrean dan dapat dicoba kembali.");
+      break;
+     }
      const attempts=row.attempts+1;
      const statusCode=Number((cause as {status?:number})?.status??0);
      const blocked=statusCode>=400&&statusCode<500&&statusCode!==408&&statusCode!==429;
@@ -223,6 +241,36 @@ export function SmartTeamHome({auth,salesProfileId}:{auth:AuthState;salesProfile
   finally{setBusy(false);}
  }
 
+ async function uploadDocumentEvidence(visit:SmartTeamVisit){
+  if(!api||!organizationId)return;
+  setBusy(true);setError("");setNotice("");
+  try{
+   const result=await DocumentPicker.getDocumentAsync({type:["image/jpeg","image/png","application/pdf"],copyToCacheDirectory:true,multiple:false});
+   if(result.canceled||!result.assets[0])return;
+   const asset=result.assets[0];
+   const mimeType=(asset.mimeType??"").toLowerCase();
+   if(!["image/jpeg","image/png","application/pdf"].includes(mimeType))throw new Error("Format bukti harus JPEG, PNG, atau PDF.");
+   const info=await FileSystem.getInfoAsync(asset.uri);
+   const sizeBytes=asset.size??(info.exists&&"size" in info?info.size:0);
+   if(!sizeBytes||sizeBytes<=0)throw new Error("Ukuran file tidak dapat diverifikasi.");
+   if(sizeBytes>10*1024*1024)throw new Error("Ukuran bukti maksimal 10 MB.");
+   const root=FileSystem.documentDirectory;
+   if(!root)throw new Error("Penyimpanan dokumen perangkat tidak tersedia.");
+   const directory=root+"smartteam-evidence/";
+   const directoryInfo=await FileSystem.getInfoAsync(directory);
+   if(!directoryInfo.exists)await FileSystem.makeDirectoryAsync(directory,{intermediates:true});
+   const safeName=asset.name.replace(/[^a-zA-Z0-9._-]/g,"_");
+   const localUri=directory+makeKey()+"-"+safeName;
+   await FileSystem.copyAsync({from:asset.uri,to:localUri});
+   await enqueue("evidence_upload",{visit_id:visit.id,local_uri:localUri,file_name:asset.name,mime_type:mimeType,size_bytes:sizeBytes});
+   setNotice("Dokumen disimpan di antrean dan akan diunggah melalui FastAPI saat koneksi tersedia.");
+   await refresh();
+  }catch(cause){setError(cause instanceof Error?cause.message:"Dokumen bukti tidak dapat diproses.");}
+  finally{setBusy(false);}
+ }
+
+ const cancelEvidenceUpload=()=>uploadAbortRef.current?.abort();
+
  async function createActivity(){
   if(!api||!organizationId||!salesProfileId||!activityTitle.trim())return;
   setBusy(true);setError("");setNotice("");
@@ -266,7 +314,12 @@ export function SmartTeamHome({auth,salesProfileId}:{auth:AuthState;salesProfile
       {canExecuteVisits&&visit.status==="in_progress"&&<NativeInline gap="1" style={{flexWrap:"wrap",alignItems:"center"}}>
        {(["productive","not_productive","order_taken","follow_up","closed","no_contact"] as const).map(value=><Pressable key={value} onPress={()=>setOutcome(value)} style={{padding:6,borderRadius:7,borderWidth:1,borderColor:outcome===value?colors.primary:colors.border,backgroundColor:outcome===value?colors.primary:colors.surface}}><NativeText color={outcome===value?colors.surface:colors.textPrimary} variant="caption">{value.replaceAll("_"," ")}</NativeText></Pressable>)}
       </NativeInline>}
-      {canUploadEvidence&&["in_progress","completed"].includes(visit.status)&&<Pressable disabled={busy} onPress={()=>void uploadEvidence(visit)} style={{padding:10,borderRadius:8,borderWidth:1,borderColor:colors.border}}><NativeText weight="semibold">Tambah bukti foto</NativeText></Pressable>}
+      {canUploadEvidence&&["in_progress","completed"].includes(visit.status)&&<Pressable disabled={busy} onPress={()=>void uploadEvidence(visit)} style={{padding:10,borderRadius:8,borderWidth:1,borderColor:colors.border}}><NativeText weight="semibold">Tambah bukti foto</NativeText></Pressable>
+      {canUploadEvidence&&["in_progress","completed"].includes(visit.status)&&<Pressable disabled={busy} onPress={()=>void uploadDocumentEvidence(visit)} style={{padding:10,borderRadius:8,borderWidth:1,borderColor:colors.border}}><NativeText weight="semibold">Pilih dokumen / PDF</NativeText></Pressable>}
+      {evidenceProgress[visit.id]!==undefined&&<NativeInline gap="2" style={{alignItems:"center"}}>
+       <NativeText variant="caption" color={colors.textSecondary}>Upload {evidenceProgress[visit.id]}%</NativeText>
+       <Pressable onPress={cancelEvidenceUpload}><NativeText color={colors.primary} weight="semibold">Batalkan</NativeText></Pressable>
+      </NativeInline>}}
       <Pressable disabled={busy} onPress={()=>void loadVisitDetails(visit.id)} style={{padding:10,borderRadius:8,borderWidth:1,borderColor:colors.border}}><NativeText weight="semibold">{expandedVisitId===visit.id?"Tutup detail":"Riwayat & bukti"}</NativeText></Pressable>
      </NativeInline>
      {expandedVisitId===visit.id&&<View style={{marginTop:10,padding:12,borderRadius:10,backgroundColor:colors.surface,borderWidth:1,borderColor:colors.border}}>
