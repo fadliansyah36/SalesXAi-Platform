@@ -140,6 +140,8 @@ def evaluate_promotion_candidates(
             "priority": promotion.get("priority", 100),
             "stackable": bool(promotion.get("stackable", False)),
             "stacking_group": promotion.get("stacking_group"),
+            "max_redemptions": promotion.get("max_redemptions"),
+            "max_per_customer": promotion.get("max_per_customer"),
             "rules_snapshot": rules,
         })
         discount_total += discount
