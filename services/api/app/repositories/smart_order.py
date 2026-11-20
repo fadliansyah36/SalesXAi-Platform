@@ -600,8 +600,10 @@ class SmartOrderRepository:
     return {"accepted":True,"duplicate":False,"fulfillment_id":str(f["id"]),"status":"handed_over","provider_status":"failed"}
    if status=="delivered":
     await db.execute("update public.fulfillments set status='delivered',external_status_at=now(),updated_at=now() where organization_id=$1 and id=$2",f["organization_id"],f["id"])
-    await db.execute("update public.orders set status='completed',updated_at=now() where organization_id=$1 and id=$2 and status='fulfilled'",f["organization_id"],f["order_id"])
-    await db.execute("insert into public.order_status_history(organization_id,order_id,from_status,to_status,reason) values($1,$2,'fulfilled','completed','Verified carrier delivery webhook')",f["organization_id"],f["order_id"])
+    outstanding=await db.fetchval("select count(*) from public.fulfillments where organization_id=$1 and order_id=$2 and status not in ('delivered','cancelled')",f["organization_id"],f["order_id"])
+    if not outstanding:
+     changed=await db.fetchrow("update public.orders set status='completed',updated_at=now() where organization_id=$1 and id=$2 and status='fulfilled' returning id",f["organization_id"],f["order_id"])
+     if changed:await db.execute("insert into public.order_status_history(organization_id,order_id,from_status,to_status,reason) values($1,$2,'fulfilled','completed','All authorized fulfillment shipments delivered')",f["organization_id"],f["order_id"])
    elif status=="failed":
     if f["status"] in {"queued","picking","packed"}:
      allocations=await db.fetch("""select a.*,oi.product_id,oi.variant_id,oi.product_owner_organization_id
