@@ -19,6 +19,6 @@ const config: ExpoConfig = {
     permissions: ['ACCESS_COARSE_LOCATION', 'ACCESS_FINE_LOCATION'],
   },
   assetBundlePatterns: ['**/*'],
-  plugins: ['expo-location', 'expo-sqlite', 'expo-image-picker'],
+  plugins: ['expo-location', 'expo-sqlite', 'expo-image-picker', 'expo-document-picker'],
 };
 export default config;
