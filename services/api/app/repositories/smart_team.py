@@ -15,7 +15,8 @@ class SmartTeamRepository:
     async def profile_in_org(self, connection: asyncpg.Connection, organization_id: UUID, profile_id: UUID):
         return await connection.fetchrow(
             """select id,user_id,team_id,territory_id,status from public.sales_profiles
-               where organization_id=$1 and id=$2 and status='active'""",organization_id,profile_id)
+               where organization_id=$1 and id=$2 and status='active' and effective_from<=current_date
+               and (effective_until is null or effective_until>=current_date)""",organization_id,profile_id)
 
     async def can_access_profile(self, connection: asyncpg.Connection, organization_id: UUID, profile_id: UUID, actor_id: UUID) -> bool:
         return bool(await connection.fetchval(
@@ -58,7 +59,7 @@ class SmartTeamRepository:
                    select 1 from public.user_role_assignments ura
                    join public.roles r on r.id=ura.role_id
                    where ura.membership_id=(select id from public.organization_memberships where organization_id=$1 and user_id=$4 and status='active' limit 1)
-                     and ura.revoked_at is null and r.key in ('company_admin','tenant_owner')
+                     and ura.revoked_at is null and r.key in ('company_admin','tenant_owner','platform_admin')
                  ))
                order by v.scheduled_at desc limit $5 offset $6""",
             organization_id,profile_id,status,actor_id,limit,offset)
@@ -338,7 +339,7 @@ class SmartTeamRepository:
                      select count(*)::numeric from public.smartteam_activities a
                      join public.sales_profiles asp on asp.organization_id=a.organization_id and asp.id=a.sales_profile_id
                      where a.organization_id=t.organization_id and a.status='completed'
-                       and a.created_at::date between t.period_start and t.period_end
+                       and a.completed_at::date between t.period_start and t.period_end
                        and ((t.sales_profile_id is not null and a.sales_profile_id=t.sales_profile_id)
                          or (t.team_id is not null and asp.team_id=t.team_id)
                          or (t.branch_id is not null and exists(select 1 from public.teams at where at.organization_id=asp.organization_id and at.id=asp.team_id and at.branch_id=t.branch_id)))
@@ -387,6 +388,9 @@ class SmartTeamRepository:
             if field in data:
                 values.append(data[field]);assignments.append(f"{field}=${len(values)}")
         if not assignments:return current
+        next_start=data.get("scheduled_at",current["scheduled_at"])
+        next_end=data.get("window_end_at",current["window_end_at"])
+        if next_end is not None and next_end<next_start:raise ValueError("visit_window_invalid")
         assignments.append("updated_at=now()")
         updated=await connection.fetchrow("update public.smartteam_visits set "+",".join(assignments)+" where organization_id=$1 and id=$2 returning *",*values)
         await connection.execute(
