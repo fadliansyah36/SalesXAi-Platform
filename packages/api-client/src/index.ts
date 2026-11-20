@@ -480,18 +480,65 @@ export class SalesXApiClient {
   }
 
 
-  async uploadSmartTeamVisitEvidence(organizationId:string,visitId:string,file:Blob,fileName:string,mimeType:string):Promise<import("@salesx-ai/api-contracts").SmartTeamVisitEvidence> {
-    const response=await this.fetch(`/api/v1/organizations/${encodeURIComponent(organizationId)}/smart-team/visits/${encodeURIComponent(visitId)}/evidence`,{
-      method:"POST",
-      headers:{"Content-Type":mimeType,"X-File-Name":encodeURIComponent(fileName)},
-      body:file,
+  async uploadSmartTeamVisitEvidence(
+    organizationId:string,visitId:string,file:Blob,fileName:string,mimeType:string,
+    options:{onProgress?:(loaded:number,total:number)=>void;signal?:AbortSignal}={}
+  ):Promise<import("@salesx-ai/api-contracts").SmartTeamVisitEvidence> {
+    const path=`/api/v1/organizations/${encodeURIComponent(organizationId)}/smart-team/visits/${encodeURIComponent(visitId)}/evidence`;
+    const send=(token:string|null)=>new Promise<{status:number;payload:any}>((resolve,reject)=>{
+      const xhr=new XMLHttpRequest();
+      let settled=false;
+      const cleanup=()=>options.signal?.removeEventListener("abort",abort);
+      const finish=(fn:()=>void)=>{if(settled)return;settled=true;cleanup();fn();};
+      const abortError=()=>{const error=new Error("Evidence upload cancelled.");error.name="AbortError";return error;};
+      const abort=()=>{xhr.abort();finish(()=>reject(abortError()));};
+      if(options.signal?.aborted){reject(abortError());return;}
+      options.signal?.addEventListener("abort",abort,{once:true});
+      xhr.open("POST",this.baseUrl+path,true);
+      xhr.withCredentials=this.authMode==="cookie";
+      xhr.setRequestHeader("Content-Type",mimeType);
+      xhr.setRequestHeader("X-File-Name",encodeURIComponent(fileName));
+      xhr.setRequestHeader("X-Client-Platform",this.platform);
+      xhr.setRequestHeader("X-Organization-ID",organizationId);
+      if(this.authMode==="bearer"&&token)xhr.setRequestHeader("Authorization","Bearer "+token);
+      xhr.upload.onprogress=event=>{if(event.lengthComputable)options.onProgress?.(event.loaded,event.total);};
+      xhr.onload=()=>{
+        let payload:any={};
+        try{payload=JSON.parse(xhr.responseText||"{}");}catch{/* use the stable API error below */}
+        finish(()=>resolve({status:xhr.status,payload}));
+      };
+      xhr.onerror=()=>finish(()=>reject(new SalesXApiError("Network error while uploading visit evidence.",0,"network_error")));
+      xhr.onabort=()=>finish(()=>reject(abortError()));
+      const transmit=async()=>{
+        if(this.authMode==="cookie"){
+          const csrf=await this.auth.getCsrfToken?.();
+          if(!csrf){finish(()=>reject(new SalesXApiError("A valid CSRF token is required for this Web action.",403,"csrf_token_missing")));return;}
+          xhr.setRequestHeader("X-CSRF-Token",csrf);
+        }
+        if(!settled)xhr.send(file);
+      };
+      void transmit().catch(cause=>finish(()=>reject(cause)));
     });
-    const payload=await response.json().catch(()=>({}));
-    if(!response.ok){
-      const error=payload as {error?:{message?:string;code?:string;correlation_id?:string}};
-      throw new SalesXApiError(error.error?.message??"Visit evidence upload failed.",response.status,error.error?.code,error.error?.correlation_id);
+    let token=this.authMode==="cookie"?null:await this.auth.getAccessToken();
+    if(this.authMode==="bearer"&&!token)throw new SalesXApiError("An authenticated session is required.",401,"unauthenticated");
+    let response=await send(token);
+    if(response.status===401){
+      const code=response.payload?.error?.code??"unauthorized";
+      if(["session_revoked","account_inactive","identity_unverified"].includes(code)){
+        await this.auth.onSessionInvalidated?.(code);
+      }else if(this.authMode==="cookie"){
+        if(await (this.auth.refreshCookieSession?.()??Promise.resolve(false)))response=await send(null);
+      }else{
+        token=await this.auth.refreshAccessToken();
+        if(token)response=await send(token);
+        else await this.auth.onSessionInvalidated?.("refresh_token_missing");
+      }
     }
-    return payload as import("@salesx-ai/api-contracts").SmartTeamVisitEvidence;
+    if(response.status<200||response.status>=300){
+      const error=response.payload?.error??{};
+      throw new SalesXApiError(error.message??"Visit evidence upload failed.",response.status,error.code,error.correlation_id);
+    }
+    return response.payload as import("@salesx-ai/api-contracts").SmartTeamVisitEvidence;
   }
   listSmartTeamVisitEvidence(organizationId:string,visitId:string):Promise<import("@salesx-ai/api-contracts").SmartTeamVisitEvidence[]> {
     return this.request(`/api/v1/organizations/${encodeURIComponent(organizationId)}/smart-team/visits/${encodeURIComponent(visitId)}/evidence`);
