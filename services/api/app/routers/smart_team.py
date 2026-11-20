@@ -26,7 +26,7 @@ async def visit_history(organization_id:UUID,visit_id:UUID,principal:Principal=D
 
 @router.patch("/{organization_id}/smart-team/targets/{target_id}")
 async def update_target(organization_id:UUID,target_id:UUID,payload:TargetUpdate,request:Request,principal:Principal=Depends(get_current_principal),
- tenant:TenantContext=Depends(require_api_action("smartteam.targets.create")),connection:asyncpg.Connection=Depends(get_connection)):
+ tenant:TenantContext=Depends(require_api_action("smartteam.targets.update")),connection:asyncpg.Connection=Depends(get_connection)):
  return await smart_team_service.update_target(connection,request,organization_id,tenant,principal,target_id,payload.model_dump(exclude_unset=True))
 
 @router.get("/{organization_id}/smart-team/visits")
@@ -51,7 +51,7 @@ async def check_out(organization_id:UUID,visit_id:UUID,payload:VisitExecution,re
 
 @router.post("/{organization_id}/smart-team/visits/{visit_id}/cancel")
 async def cancel_visit(organization_id:UUID,visit_id:UUID,payload:VisitCancel,request:Request,principal:Principal=Depends(get_current_principal),
- tenant:TenantContext=Depends(require_api_action("smartteam.visits.manage")),connection:asyncpg.Connection=Depends(get_connection)):
+ tenant:TenantContext=Depends(require_api_action("smartteam.visits.cancel")),connection:asyncpg.Connection=Depends(get_connection)):
  return await smart_team_service.cancel_visit(connection,request,organization_id,tenant,principal,visit_id,payload.reason)
 
 @router.get("/{organization_id}/smart-team/attendance")
@@ -81,12 +81,12 @@ async def list_activities(organization_id:UUID,limit:int=Query(100,ge=1,le=500),
 
 @router.post("/{organization_id}/smart-team/activities",status_code=201)
 async def create_activity(organization_id:UUID,payload:ActivityCreate,request:Request,principal:Principal=Depends(get_current_principal),
- tenant:TenantContext=Depends(require_api_action("smartteam.activities.manage")),connection:asyncpg.Connection=Depends(get_connection)):
+ tenant:TenantContext=Depends(require_api_action("smartteam.activities.create")),connection:asyncpg.Connection=Depends(get_connection)):
  return await smart_team_service.create_activity(connection,request,organization_id,tenant,principal,payload.model_dump())
 
 @router.patch("/{organization_id}/smart-team/activities/{activity_id}")
 async def update_activity(organization_id:UUID,activity_id:UUID,payload:ActivityUpdate,request:Request,principal:Principal=Depends(get_current_principal),
- tenant:TenantContext=Depends(require_api_action("smartteam.activities.manage")),connection:asyncpg.Connection=Depends(get_connection)):
+ tenant:TenantContext=Depends(require_api_action("smartteam.activities.update")),connection:asyncpg.Connection=Depends(get_connection)):
  return await smart_team_service.update_activity(connection,request,organization_id,tenant,principal,activity_id,payload.model_dump(exclude_unset=True))
 
 @router.get("/{organization_id}/smart-team/targets")
@@ -96,6 +96,6 @@ async def list_targets(organization_id:UUID,limit:int=Query(100,ge=1,le=500),off
 
 @router.post("/{organization_id}/smart-team/targets",status_code=201)
 async def create_target(organization_id:UUID,payload:TargetWrite,request:Request,principal:Principal=Depends(get_current_principal),
- tenant:TenantContext=Depends(require_api_action("smartteam.targets.manage")),connection:asyncpg.Connection=Depends(get_connection)):
+ tenant:TenantContext=Depends(require_api_action("smartteam.targets.create")),connection:asyncpg.Connection=Depends(get_connection)):
  return await smart_team_service.create_target(connection,request,organization_id,tenant,principal,payload.model_dump())
 
