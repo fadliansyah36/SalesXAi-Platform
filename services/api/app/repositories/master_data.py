@@ -96,7 +96,7 @@ class MasterDataRepository:
             counts["teams"] = await connection.fetchval(
                 """with recursive descendants(id) as (
                      select id from public.teams where organization_id=$1 and parent_team_id=$2
-                     union all
+                     union
                      select t.id from public.teams t join descendants d on t.parent_team_id=d.id where t.organization_id=$1
                    ), changed as (
                      update public.teams set status='inactive',updated_at=now()
@@ -108,7 +108,7 @@ class MasterDataRepository:
             counts["sales_profiles"] = await connection.fetchval(
                 """with recursive descendants(id) as (
                      select $2::uuid
-                     union all
+                     union
                      select t.id from public.teams t join descendants d on t.parent_team_id=d.id where t.organization_id=$1
                    ), changed as (
                      update public.sales_profiles set status='inactive',updated_at=now()
@@ -120,7 +120,7 @@ class MasterDataRepository:
             counts["assignments_closed"] = await connection.fetchval(
                 """with recursive descendants(id) as (
                      select $2::uuid
-                     union all
+                     union
                      select t.id from public.teams t join descendants d on t.parent_team_id=d.id where t.organization_id=$1
                    ), changed as (
                      update public.outlet_assignment_history set unassigned_at=now(),unassigned_by=$3,
@@ -135,7 +135,7 @@ class MasterDataRepository:
             counts["territories"] = await connection.fetchval(
                 """with recursive descendants(id) as (
                      select id from public.territories where organization_id=$1 and parent_territory_id=$2
-                     union all
+                     union
                      select t.id from public.territories t join descendants d on t.parent_territory_id=d.id where t.organization_id=$1
                    ), changed as (
                      update public.territories set status='inactive',updated_at=now()
@@ -147,7 +147,7 @@ class MasterDataRepository:
             counts["outlets"] = await connection.fetchval(
                 """with recursive descendants(id) as (
                      select $2::uuid
-                     union all
+                     union
                      select t.id from public.territories t join descendants d on t.parent_territory_id=d.id where t.organization_id=$1
                    ), changed as (
                      update public.outlets set status='inactive',updated_at=now()
@@ -159,7 +159,7 @@ class MasterDataRepository:
             counts["sales_profiles"] = await connection.fetchval(
                 """with recursive descendants(id) as (
                      select $2::uuid
-                     union all
+                     union
                      select t.id from public.territories t join descendants d on t.parent_territory_id=d.id where t.organization_id=$1
                    ), changed as (
                      update public.sales_profiles set status='inactive',updated_at=now()
@@ -171,7 +171,7 @@ class MasterDataRepository:
             counts["assignments_closed"] = await connection.fetchval(
                 """with recursive descendants(id) as (
                      select $2::uuid
-                     union all
+                     union
                      select t.id from public.territories t join descendants d on t.parent_territory_id=d.id where t.organization_id=$1
                    ), changed as (
                      update public.outlet_assignment_history a set unassigned_at=now(),unassigned_by=$3,

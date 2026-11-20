@@ -47,6 +47,7 @@ class MasterDataService:
             merged.update(values)
             values = merged
 
+        is_deactivating = resource_id is not None and values.get("status") in {"inactive", "suspended", "archived"}
         allowed_status = {"active", "inactive", "suspended"} if resource == "sales_profiles" else {"active", "inactive", "archived"}
         if values.get("status") is not None and values["status"] not in allowed_status:
             raise APIError(422, "invalid_master_data_status", "The status is not supported for this resource.")
@@ -56,7 +57,7 @@ class MasterDataService:
             if ref_id is not None:
                 table = "branches" if field == "branch_id" else "teams" if field in {"team_id", "parent_team_id"} else "territories"
                 exists = await connection.fetchval(
-                    f"select exists(select 1 from public.{table} where organization_id=$1 and id=$2 and status='active')",
+                    f"select exists(select 1 from public.{table} where organization_id=$1 and id=$2{'' if is_deactivating else \" and status='active'\"})",
                     organization_id, ref_id,
                 )
                 if not exists:
@@ -72,7 +73,7 @@ class MasterDataService:
                 if not member:
                     raise APIError(422, "tenant_member_required", "Assigned users must have an active membership in this organization.")
 
-        if resource == "teams" and values.get("supervisor_user_id") is not None:
+        if not is_deactivating and resource == "teams" and values.get("supervisor_user_id") is not None:
             valid_supervisor = await connection.fetchval(
                 """select exists(select 1 from public.organization_memberships m
                    join public.user_role_assignments ura on ura.membership_id=m.id
@@ -86,7 +87,7 @@ class MasterDataService:
             if not valid_supervisor:
                 raise APIError(422, "supervisor_role_required", "Team supervisor must have an active supervisor role in this organization.")
 
-        if resource == "teams" and values.get("parent_team_id") is not None:
+        if not is_deactivating and resource == "teams" and values.get("parent_team_id") is not None:
             same_branch = await connection.fetchval(
                 "select exists(select 1 from public.teams p where p.id=$1 and p.organization_id=$2 and p.status='active' and p.branch_id is not distinct from $3)",
                 values["parent_team_id"], organization_id, values.get("branch_id"),
@@ -105,7 +106,7 @@ class MasterDataService:
                 if creates_cycle:
                     raise APIError(422, "team_hierarchy_cycle", "A team cannot be assigned beneath itself or one of its descendants.")
 
-        if resource == "territories" and values.get("parent_territory_id") is not None:
+        if not is_deactivating and resource == "territories" and values.get("parent_territory_id") is not None:
             same_branch = await connection.fetchval(
                 "select exists(select 1 from public.territories p where p.id=$1 and p.organization_id=$2 and p.status='active' and p.branch_id is not distinct from $3)",
                 values["parent_territory_id"], organization_id, values.get("branch_id"),
@@ -133,30 +134,6 @@ class MasterDataService:
                 raise APIError(422, "outlet_territory_branch_mismatch", "Outlet territory must belong to the selected branch.")
 
         if resource == "sales_profiles":
-            if resource_id is None and (values.get("team_id") is None or values.get("territory_id") is None):
-                raise APIError(422, "sales_profile_scope_required", "A new sales profile must be assigned to an active team and territory.")
-            user_id = values.get("user_id")
-            if user_id is None:
-                raise APIError(422, "sales_profile_user_required", "Select a user with an active organization membership.")
-            membership = await connection.fetchrow(
-                """select m.id,m.user_id from public.organization_memberships m
-                   where m.organization_id=$1 and m.user_id=$2 and m.status='active'
-                     and exists (
-                       select 1 from public.user_role_assignments ura
-                       join public.roles r on r.id=ura.role_id
-                       where ura.membership_id=m.id and ura.revoked_at is null
-                         and ura.starts_at<=now() and (ura.expires_at is null or ura.expires_at>now())
-                         and r.key in ('sales_rep','supervisor')
-                         and ((ura.scope_type='tenant' and ura.scope_id=$1)
-                           or (ura.scope_type='branch' and ura.scope_id=(select t.branch_id from public.teams t where t.id=$3 and t.organization_id=$1)))
-                     )
-                   order by m.created_at desc limit 1""",
-                organization_id, user_id, values.get("team_id"),
-            )
-            if membership is None:
-                raise APIError(422, "sales_profile_membership_role_required", "Sales profile requires an active membership with sales_rep or supervisor role.")
-            values["membership_id"] = membership["id"]
-            values["user_id"] = membership["user_id"]
             if values.get("team_id") is not None and values.get("territory_id") is not None:
                 same_branch = await connection.fetchval(
                     """select exists(select 1 from public.teams t join public.territories ter
@@ -166,21 +143,46 @@ class MasterDataService:
                 )
                 if not same_branch:
                     raise APIError(422, "sales_profile_scope_mismatch", "Sales team and territory must belong to the same branch.")
-            manager_user_id = values.get("manager_user_id")
-            if manager_user_id is not None:
-                valid_manager = await connection.fetchval(
-                    """select exists(select 1 from public.organization_memberships m
-                       join public.user_role_assignments ura on ura.membership_id=m.id
-                       join public.roles r on r.id=ura.role_id
+            if not is_deactivating:
+                if resource_id is None and (values.get("team_id") is None or values.get("territory_id") is None):
+                    raise APIError(422, "sales_profile_scope_required", "A new sales profile must be assigned to an active team and territory.")
+                user_id = values.get("user_id")
+                if user_id is None:
+                    raise APIError(422, "sales_profile_user_required", "Select a user with an active organization membership.")
+                membership = await connection.fetchrow(
+                    """select m.id,m.user_id from public.organization_memberships m
                        where m.organization_id=$1 and m.user_id=$2 and m.status='active'
-                         and r.key='supervisor' and ura.revoked_at is null
-                         and ura.starts_at<=now() and (ura.expires_at is null or ura.expires_at>now())
-                         and ((ura.scope_type='tenant' and ura.scope_id=$1)
-                           or (ura.scope_type='branch' and ura.scope_id=(select t.branch_id from public.teams t where t.id=$3 and t.organization_id=$1))))""",
-                    organization_id, manager_user_id, values.get("team_id"),
+                         and exists (
+                           select 1 from public.user_role_assignments ura
+                           join public.roles r on r.id=ura.role_id
+                           where ura.membership_id=m.id and ura.revoked_at is null
+                             and ura.starts_at<=now() and (ura.expires_at is null or ura.expires_at>now())
+                             and r.key in ('sales_rep','supervisor')
+                             and ((ura.scope_type='tenant' and ura.scope_id=$1)
+                               or (ura.scope_type='branch' and ura.scope_id=(select t.branch_id from public.teams t where t.id=$3 and t.organization_id=$1)))
+                         )
+                       order by m.created_at desc limit 1""",
+                    organization_id, user_id, values.get("team_id"),
                 )
-                if not valid_manager:
-                    raise APIError(422, "manager_role_required", "Sales manager must have an active supervisor role in this organization.")
+                if membership is None:
+                    raise APIError(422, "sales_profile_membership_role_required", "Sales profile requires an active membership with a tenant- or matching-branch-scoped sales_rep/supervisor role.")
+                values["membership_id"] = membership["id"]
+                values["user_id"] = membership["user_id"]
+                manager_user_id = values.get("manager_user_id")
+                if manager_user_id is not None:
+                    valid_manager = await connection.fetchval(
+                        """select exists(select 1 from public.organization_memberships m
+                           join public.user_role_assignments ura on ura.membership_id=m.id
+                           join public.roles r on r.id=ura.role_id
+                           where m.organization_id=$1 and m.user_id=$2 and m.status='active'
+                             and r.key='supervisor' and ura.revoked_at is null
+                             and ura.starts_at<=now() and (ura.expires_at is null or ura.expires_at>now())
+                             and ((ura.scope_type='tenant' and ura.scope_id=$1)
+                               or (ura.scope_type='branch' and ura.scope_id=(select t.branch_id from public.teams t where t.id=$3 and t.organization_id=$1)))""",
+                        organization_id, manager_user_id, values.get("team_id"),
+                    )
+                    if not valid_manager:
+                        raise APIError(422, "manager_role_required", "Sales manager must have an active supervisor role scoped to the tenant or the sales team branch.")
         return values
 
     async def create(self, connection: asyncpg.Connection, request: Request, principal: Principal, tenant: TenantContext, resource: str, organization_id: UUID, values: dict[str, Any]) -> dict[str, Any]:
@@ -249,6 +251,8 @@ class MasterDataService:
                              where sm.organization_id=sp.organization_id and sm.user_id=t.supervisor_user_id
                                and sm.status='active' and sr.key='supervisor' and sura.revoked_at is null
                                and sura.starts_at<=now() and (sura.expires_at is null or sura.expires_at>now())
+                               and ((sura.scope_type='tenant' and sura.scope_id=sp.organization_id)
+                                 or (sura.scope_type='branch' and sura.scope_id=t.branch_id))
                            )
                        )""",
                     outlet_id, organization_id, sales_profile_id,
