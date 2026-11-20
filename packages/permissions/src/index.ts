@@ -38,6 +38,17 @@ export const PERMISSIONS=[
   "profile:update:self",
   "role:assign",
   "role:read",
+  "smartteam:attendance:read",
+  "smartteam:attendance:manage",
+  "smartteam:attendance:correct",
+  "smartteam:visit:read",
+  "smartteam:visit:manage",
+  "smartteam:visit:execute",
+  "smartteam:activity:read",
+  "smartteam:activity:manage",
+  "smartteam:target:read",
+  "smartteam:target:manage",
+  "smartteam:dashboard:read",
 ] as const;
 export type Permission=(typeof PERMISSIONS)[number];
 /** UX helper only; FastAPI remains the authorization authority. */
