@@ -240,7 +240,7 @@ class SmartOrderRepository:
   if lock:
    ids=await db.fetch("""select p.organization_id,p.id from public.promotions p
     where upper(p.code)=any($2::text[]) and p.status='active' and p.starts_at<=now() and p.ends_at>now()
-     and (p.organization_id=$1 or exists(select 1 from public.commerce_partner_links l
+     and (p.organization_id=$3 or exists(select 1 from public.commerce_partner_links l
       where l.organization_id=p.organization_id and l.partner_organization_id=$3
        and l.relationship_type in ('principal','distributor','company','customer') and l.status='active'
        and l.starts_at<=now() and (l.ends_at is null or l.ends_at>now())))
@@ -254,7 +254,7 @@ class SmartOrderRepository:
     (select count(*) from public.promotion_redemptions pr where pr.promotion_owner_organization_id=p.organization_id and pr.promotion_id=p.id and pr.customer_organization_id=$3 and pr.status in ('reserved','redeemed')) customer_redemption_count
    from public.promotions p left join public.promotion_rules r on r.organization_id=p.organization_id and r.promotion_id=p.id
    where upper(p.code)=any($2::text[]) and p.status='active' and p.starts_at<=now() and p.ends_at>now()
-    and (p.organization_id=$1 or exists(select 1 from public.commerce_partner_links l
+    and (p.organization_id=$3 or exists(select 1 from public.commerce_partner_links l
      where l.organization_id=p.organization_id and l.partner_organization_id=$3
       and l.relationship_type in ('principal','distributor','company','customer') and l.status='active'
       and l.starts_at<=now() and (l.ends_at is null or l.ends_at>now())))
