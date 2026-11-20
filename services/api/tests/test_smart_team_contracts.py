@@ -5,6 +5,7 @@ from uuid import uuid4
 
 from pydantic import ValidationError
 
+from app.services.smart_team import evidence_content_matches_mime
 from app.schemas.smart_team import (
     AttendanceCorrection,
     ClockOutRequest,
@@ -13,6 +14,15 @@ from app.schemas.smart_team import (
     VisitCreate,
     VisitExecution,
 )
+
+
+class SmartTeamEvidenceTests(unittest.TestCase):
+    def test_evidence_mime_must_match_file_signature(self) -> None:
+        self.assertTrue(evidence_content_matches_mime("image/jpeg", b"\\xff\\xd8\\xffpayload"))
+        self.assertTrue(evidence_content_matches_mime("image/png", b"\\x89PNG\\r\\n\\x1a\\npayload"))
+        self.assertTrue(evidence_content_matches_mime("application/pdf", b"%PDF-1.7 payload"))
+        self.assertFalse(evidence_content_matches_mime("image/jpeg", b"%PDF-1.7 payload"))
+        self.assertFalse(evidence_content_matches_mime("application/pdf", b"not a PDF"))
 
 
 class SmartTeamSchemaTests(unittest.TestCase):
