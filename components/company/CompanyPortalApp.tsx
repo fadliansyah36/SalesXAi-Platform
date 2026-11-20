@@ -428,7 +428,7 @@ export function CompanyPortalApp() {
       setTeams(nextTeams);
       setOrganizationMembers(members);
       setTeamMembers(nextTeamMembers);
-      setAssignmentHistory(assignmentRows as Array<Record<string, unknown>>);
+      setAssignmentHistory(assignmentRows as unknown as Array<Record<string, unknown>>);
       setSelectedAssignmentProfileId((current) => current || nextTeamMembers[0]?.id || '');
       setSelectedAssignmentOutletId((current) => current || nextOutlets[0]?.id || '');
       setSelectedTeamId((current) => current || nextTeamMembers[0]?.id || '');
@@ -517,7 +517,7 @@ export function CompanyPortalApp() {
       sales_profile_id: selectedAssignmentProfileId, note: 'Assignment melalui Company Portal',
     });
     const rows = await auth.apiClient.listOutletAssignments(auth.activeOrganizationId);
-    setAssignmentHistory(rows as Array<Record<string, unknown>>);
+    setAssignmentHistory(rows as unknown as Array<Record<string, unknown>>);
   };
 
   const toggleTeamStatus = async (teamId: string) => {
