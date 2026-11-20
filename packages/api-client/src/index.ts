@@ -1,4 +1,4 @@
-export type { MasterDataChangedEvent, MasterDataResource, PlatformAuditLog, PlatformRole, PlatformUserSummary, SmartTeamActivity, SmartTeamAttendance, SmartTeamDashboard, SmartTeamLocationCapture, SmartTeamTarget, SmartTeamTargetUpdate, SmartTeamTargetWrite, SmartTeamVisit, SmartTeamVisitCreate, PlatformSmartTeamOverviewRow } from "@salesx-ai/api-contracts";
+export type { MasterDataChangedEvent, MasterDataResource, PlatformAuditLog, PlatformRole, PlatformUserSummary, SmartTeamActivity, SmartTeamAttendance, SmartTeamDashboard, SmartTeamLocationCapture, SmartTeamTarget, SmartTeamTargetUpdate, SmartTeamTargetWrite, SmartTeamVisit, SmartTeamVisitCreate, PlatformSmartTeamOverviewRow, SmartTeamVisitEvidence } from "@salesx-ai/api-contracts";
 import type {
   AccountStatusUpdateRequest,
   AccountStatusUpdateResponse,
@@ -472,6 +472,24 @@ export class SalesXApiClient {
   listPlatformSmartTeamOverview(limit=100,offset=0):Promise<import("@salesx-ai/api-contracts").PlatformSmartTeamOverviewRow[]> {
     const query=new URLSearchParams({limit:String(limit),offset:String(offset)});
     return this.request(`/api/v1/admin/smart-team/overview?${query.toString()}`);
+  }
+
+
+  async uploadSmartTeamVisitEvidence(organizationId:string,visitId:string,file:Blob,fileName:string,mimeType:string):Promise<import("@salesx-ai/api-contracts").SmartTeamVisitEvidence> {
+    const response=await this.fetch(`/api/v1/organizations/${encodeURIComponent(organizationId)}/smart-team/visits/${encodeURIComponent(visitId)}/evidence`,{
+      method:"POST",
+      headers:{"Content-Type":mimeType,"X-File-Name":encodeURIComponent(fileName)},
+      body:file,
+    });
+    const payload=await response.json().catch(()=>({}));
+    if(!response.ok){
+      const error=payload as {error?:{message?:string;code?:string;correlation_id?:string}};
+      throw new SalesXApiError(error.error?.message??"Visit evidence upload failed.",response.status,error.error?.code,error.error?.correlation_id);
+    }
+    return payload as import("@salesx-ai/api-contracts").SmartTeamVisitEvidence;
+  }
+  listSmartTeamVisitEvidence(organizationId:string,visitId:string):Promise<import("@salesx-ai/api-contracts").SmartTeamVisitEvidence[]> {
+    return this.request(`/api/v1/organizations/${encodeURIComponent(organizationId)}/smart-team/visits/${encodeURIComponent(visitId)}/evidence`);
   }
 
   signOut(scope: "local" | "global" | "others" = "local"): Promise<void> {
