@@ -17,7 +17,8 @@ class SmartOrderRepository:
   clause=" and ".join(where); total=await db.fetchval(f"select count(*) from public.products p where {clause}",*args)
   args.extend([size,(page-1)*size])
   rows=await db.fetch(f"""select p.id,p.organization_id,p.product_code,p.name,p.description,p.specifications,p.tax_rate,p.category_id,c.name category_name,b.name brand_name,
-   coalesce((select jsonb_agg(jsonb_build_object('id',v.id,'sku',v.sku,'name',v.name,'attributes',v.attributes,'weight_grams',v.weight_grams)) from public.product_variants v where v.organization_id=p.organization_id and v.product_id=p.id and v.status='active'),'[]'::jsonb) variants
+   coalesce((select jsonb_agg(jsonb_build_object('id',v.id,'sku',v.sku,'name',v.name,'attributes',v.attributes,'weight_grams',v.weight_grams)) from public.product_variants v where v.organization_id=p.organization_id and v.product_id=p.id and v.status='active'),'[]'::jsonb) variants,
+   coalesce((select jsonb_agg(jsonb_build_object('id',i.id,'storage_path',i.storage_path,'mime_type',i.mime_type,'alt_text',i.alt_text,'sort_order',i.sort_order) order by i.sort_order) from public.product_images i where i.organization_id=p.organization_id and i.product_id=p.id),'[]'::jsonb) images
    from public.products p left join public.product_categories c on c.organization_id=p.organization_id and c.id=p.category_id
    left join public.product_brands b on b.organization_id=p.organization_id and b.id=p.brand_id where {clause}
    order by p.updated_at desc,p.name limit ${len(args)-1} offset ${len(args)}""",*args)

@@ -28,9 +28,9 @@ class SupabaseStorageAdapter:
             )
         return str(self.settings.supabase_url).rstrip("/"), key.get_secret_value()
 
-    async def upload(self, path: str, content: bytes, mime_type: str) -> None:
+    async def upload(self, path: str, content: bytes, mime_type: str, bucket: str = BUCKET) -> None:
         base, key = self._credentials()
-        url = f"{base}/storage/v1/object/{BUCKET}/{quote(path, safe='/')}"
+        url = f"{base}/storage/v1/object/{quote(bucket, safe='')}/{quote(path, safe='/')}"
         headers = {
             "apikey": key,
             "Authorization": f"Bearer {key}",
@@ -58,9 +58,9 @@ class SupabaseStorageAdapter:
                 502, "storage_unavailable", "Supabase Storage could not be reached."
             ) from error
 
-    async def delete(self, path: str) -> None:
+    async def delete(self, path: str, bucket: str = BUCKET) -> None:
         base, key = self._credentials()
-        url = f"{base}/storage/v1/object/{BUCKET}"
+        url = f"{base}/storage/v1/object/{quote(bucket, safe='')}"
         body = json.dumps({"prefixes": [path]}).encode()
         headers = {
             "apikey": key,
@@ -78,9 +78,9 @@ class SupabaseStorageAdapter:
         except Exception:
             return
 
-    async def signed_download_url(self, path: str, expires_in: int = 900) -> str:
+    async def signed_download_url(self, path: str, expires_in: int = 900, bucket: str = BUCKET) -> str:
         base, key = self._credentials()
-        url = f"{base}/storage/v1/object/sign/{BUCKET}/{quote(path, safe='/')}"
+        url = f"{base}/storage/v1/object/sign/{quote(bucket, safe='')}/{quote(path, safe='/')}"
         body = json.dumps({"expiresIn": expires_in}).encode()
         headers = {
             "apikey": key,

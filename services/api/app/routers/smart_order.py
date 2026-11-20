@@ -1,11 +1,11 @@
 from uuid import UUID
 from decimal import Decimal
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from app.errors import APIError
 import asyncpg
 from app.db import get_connection
 from app.security.dependencies import Principal, TenantContext, get_current_principal, require_api_action
-from app.schemas.smart_order import ProductWrite, ProductStatusWrite, CartItemWrite, CartItemUpdate, StockMovementWrite, PromotionWrite, PromotionEvaluation, OrderCreate, OrderDecision, FulfillmentCreate, FulfillmentUpdate, PriceListWrite, WarehouseWrite, CategoryWrite, BrandWrite, UnitWrite, CatalogAccessWrite, StockTransferWrite, OrderCancel, ProductImageWrite, PartnerLinkWrite, AssistedCartWrite, OrderApprovalPolicyWrite
+from app.schemas.smart_order import ProductWrite, ProductStatusWrite, CartItemWrite, CartItemUpdate, StockMovementWrite, PromotionWrite, PromotionEvaluation, OrderCreate, OrderDecision, FulfillmentCreate, FulfillmentUpdate, PriceListWrite, WarehouseWrite, CategoryWrite, BrandWrite, UnitWrite, CatalogAccessWrite, StockTransferWrite, OrderCancel, PartnerLinkWrite, AssistedCartWrite, OrderApprovalPolicyWrite
 from app.services.smart_order import smart_order_service
 
 router=APIRouter(prefix="/organizations",tags=["smart-order"])
@@ -57,10 +57,13 @@ async def create_unit(organization_id:UUID,payload:UnitWrite,principal:Principal
  return await smart_order_service.create_unit(db,organization_id,tenant,principal.user_id,payload)
 
 @router.post("/{organization_id}/smart-order/products/{product_id}/images",status_code=201)
-async def register_product_image(organization_id:UUID,product_id:UUID,payload:ProductImageWrite,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartorder.catalog.image.create")),db:asyncpg.Connection=Depends(get_connection)):
- if payload.product_id!=product_id:
-  raise APIError(422,"product_image_path_mismatch","Product image payload must match the route product.")
- return await smart_order_service.create_product_image(db,organization_id,tenant,principal.user_id,payload)
+async def register_product_image(organization_id:UUID,product_id:UUID,request:Request,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartorder.catalog.image.create")),db:asyncpg.Connection=Depends(get_connection)):
+ content=await request.body()
+ content_type=request.headers.get("content-type","").split(";")[0].strip().lower()
+ try:sort_order=int(request.headers.get("x-sort-order","0"))
+ except ValueError:raise APIError(422,"invalid_image_sort_order","X-Sort-Order must be an integer.")
+ variant_id=request.headers.get("x-variant-id")
+ return await smart_order_service.upload_product_image(db,organization_id,tenant,principal.user_id,product_id,content_type,content,request.headers.get("x-alt-text"),sort_order,UUID(variant_id) if variant_id else None)
 
 @router.post("/{organization_id}/smart-order/catalog/access",status_code=201)
 async def grant_catalog_access(organization_id:UUID,payload:CatalogAccessWrite,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartorder.catalog.access.grant")),db:asyncpg.Connection=Depends(get_connection)):

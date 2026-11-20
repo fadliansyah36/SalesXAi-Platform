@@ -18,6 +18,8 @@ class SmartOrderService:
   self._tenant(organization_id,tenant)
   row=await repo.get_product(db,organization_id,product_id)
   if row is None: raise APIError(404,"product_not_found","Product was not found in this tenant.")
+  for image in row.get("images",[]):
+   image["signed_url"]=await supabase_storage.signed_download_url(image["storage_path"],900,PRODUCT_MEDIA_BUCKET)
   return row
 
  async def create_product(self,db,organization_id,tenant,actor,payload):
@@ -161,6 +163,23 @@ class SmartOrderService:
  async def grant_catalog_access(self,db,organization_id,tenant,actor,payload):
   self._tenant(organization_id,tenant)
   return await repo.create_catalog_access(db,organization_id,actor,payload)
+
+ async def upload_product_image(self,db,organization_id,tenant,actor,product_id,content_type,content,alt_text=None,sort_order=0,variant_id=None):
+  self._tenant(organization_id,tenant)
+  allowed={"image/jpeg":"jpg","image/png":"png","image/webp":"webp"}
+  if content_type not in allowed:raise APIError(415,"product_image_type_unsupported","Only JPEG, PNG and WebP product images are accepted.")
+  if not content or len(content)>10*1024*1024:raise APIError(413,"product_image_size_invalid","Product image must be between 1 byte and 10 MB.")
+  if not await db.fetchval("select exists(select 1 from public.products where organization_id=$1 and id=$2)",organization_id,product_id):
+   raise APIError(404,"product_not_found","Product was not found in this tenant.")
+  path=f"{organization_id}/{product_id}/{uuid4().hex}.{allowed[content_type]}"
+  await supabase_storage.upload(path,content,content_type,PRODUCT_MEDIA_BUCKET)
+  payload=ProductImageWrite(product_id=product_id,variant_id=variant_id,storage_path=path,mime_type=content_type,size_bytes=len(content),alt_text=alt_text,sort_order=sort_order)
+  try:
+   image=await repo.create_product_image(db,organization_id,actor,payload)
+  except Exception:
+   await supabase_storage.delete(path,PRODUCT_MEDIA_BUCKET)
+   raise
+  return {**image,"signed_url":await supabase_storage.signed_download_url(path,900,PRODUCT_MEDIA_BUCKET)}
 
  async def create_product_image(self,db,organization_id,tenant,actor,payload):
   self._tenant(organization_id,tenant)
