@@ -1811,6 +1811,7 @@ export function CompanyPortalApp() {
                     </button>
                   </div>
 {renderMasterDataTransfer('teams')}
+                  {renderMasterDataTransfer('sales_profiles')}
 
                   <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 space-y-3">
                     <div><p className="text-sm font-bold">Buat Sales Profile</p><p className="text-xs text-[var(--color-text-muted)]">Hanya anggota organisasi aktif dengan role sales_rep atau supervisor yang dapat didaftarkan.</p></div>

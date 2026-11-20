@@ -84,7 +84,7 @@ class MasterDataRepository:
             ) or 0
             counts["assignments_closed"] = await connection.fetchval(
                 """with changed as (update public.outlet_assignment_history a
-                   set unassigned_at=now(),unassigned_by=$3,change_reason='branch_deactivated'
+                   set unassigned_at=now(),unassigned_by=$3,assignment_status='unassigned',assignment_status='unassigned',change_reason='branch_deactivated'
                    where a.organization_id=$1 and a.unassigned_at is null
                      and (a.outlet_id in (select id from public.outlets where organization_id=$1 and branch_id=$2)
                        or a.sales_profile_id in (select id from public.sales_profiles where organization_id=$1
@@ -98,7 +98,7 @@ class MasterDataRepository:
                 organization_id, resource_id,
             ) or 0
             counts["assignments_closed"] = await connection.fetchval(
-                """with changed as (update public.outlet_assignment_history set unassigned_at=now(),unassigned_by=$3,
+                """with changed as (update public.outlet_assignment_history set unassigned_at=now(),unassigned_by=$3,assignment_status='unassigned',
                    change_reason='team_deactivated' where organization_id=$1 and unassigned_at is null
                    and sales_profile_id in (select id from public.sales_profiles where organization_id=$1 and team_id=$2)
                    returning 1) select count(*) from changed""", organization_id, resource_id, actor_id,
@@ -114,7 +114,7 @@ class MasterDataRepository:
             ) or 0
             counts["assignments_closed"] = await connection.fetchval(
                 """with changed as (update public.outlet_assignment_history a
-                   set unassigned_at=now(),unassigned_by=$3,change_reason='territory_deactivated'
+                   set unassigned_at=now(),unassigned_by=$3,assignment_status='unassigned',assignment_status='unassigned',change_reason='territory_deactivated'
                    where a.organization_id=$1 and a.unassigned_at is null
                      and (a.outlet_id in (select id from public.outlets where organization_id=$1 and territory_id=$2)
                        or a.sales_profile_id in (select id from public.sales_profiles where organization_id=$1 and territory_id=$2))
@@ -122,7 +122,7 @@ class MasterDataRepository:
             ) or 0
         elif resource == "outlets":
             counts["assignments_closed"] = await connection.fetchval(
-                """with changed as (update public.outlet_assignment_history set unassigned_at=now(),unassigned_by=$3,
+                """with changed as (update public.outlet_assignment_history set unassigned_at=now(),unassigned_by=$3,assignment_status='unassigned',
                    change_reason='outlet_deactivated' where organization_id=$1 and outlet_id=$2 and unassigned_at is null
                    returning 1) select count(*) from changed""", organization_id, resource_id, actor_id,
             ) or 0
@@ -148,7 +148,7 @@ class MasterDataRepository:
         if previous:
             await connection.execute(
                 """update public.outlet_assignment_history
-                   set unassigned_at=now(),unassigned_by=$3,change_reason='reassigned'
+                   set unassigned_at=now(),unassigned_by=$3,assignment_status='unassigned',assignment_status='unassigned',change_reason='reassigned'
                    where id=$1 and organization_id=$2""",
                 previous["id"], organization_id, actor_id,
             )

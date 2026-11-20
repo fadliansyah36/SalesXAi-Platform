@@ -77,7 +77,7 @@ function SalesHome({auth}:{auth:AuthState}){
  useEffect(()=>{
   const api=auth.apiClient;
   const organizationId=auth.activeOrganizationId;
-  const cacheKey=organizationId?"salesx-assignment-context:"+organizationId:null;
+  const cacheKey=organizationId&&auth.context?.user.id?"salesx-assignment-context:"+auth.context.user.id+":"+organizationId:null;
   if(auth.status!=="authenticated"||!api||!organizationId||!canReadAssignmentContext){
    setAssignmentContext(null);setAssignmentContextOffline(false);return;
   }
