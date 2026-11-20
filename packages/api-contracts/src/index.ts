@@ -239,7 +239,7 @@ export interface SmartTeamAttendance {
  events?:Array<{id:UUID;event_type:"clocked_in"|"clocked_out"|"corrected";actor_user_id:UUID;actor_name?:string|null;occurred_at:ISODateTime;metadata:Record<string,unknown>}>;
 }
 export interface SmartTeamActivity {
- id:UUID; organization_id:UUID; sales_profile_id:UUID; visit_id:UUID|null; activity_type:"call"|"meeting"|"follow_up"|"prospecting"|"report"|"other";
+ id:UUID; organization_id:UUID; sales_profile_id:UUID; visit_id:UUID|null; activity_type:"task"|"call"|"meeting"|"follow_up"|"prospecting"|"report"|"other";
  title:string; description:string|null; due_at:ISODateTime|null; completed_at:ISODateTime|null; status:"open"|"in_progress"|"completed"|"cancelled";
  created_at:ISODateTime; updated_at:ISODateTime;
 }
