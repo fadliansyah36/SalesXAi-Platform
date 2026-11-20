@@ -40,6 +40,7 @@ class SmartTeamService:
           "sales_team_not_found":(404,"sales_team_not_found","The active sales team was not found in this organization."),
           "attendance_time_range_invalid":(422,"attendance_time_range_invalid","Clock-out must not precede clock-in."),
           "visit_evidence_state_invalid":(409,"visit_evidence_state_invalid","Evidence can only be uploaded for an in-progress or completed visit."),
+          "visit_window_invalid":(422,"visit_window_invalid","The visit window end must not precede its scheduled start."),
           "visit_profile_mismatch":(422,"visit_profile_mismatch","The linked visit belongs to a different sales profile."),
         }
         status,code,message=mapping.get(str(error),(422,"smartteam_validation_error","The SmartTeam operation violates a domain rule."))
