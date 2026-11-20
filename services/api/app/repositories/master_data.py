@@ -69,6 +69,29 @@ class MasterDataRepository:
         )
         return dict(row) if row else None
 
+    async def close_profile_assignments_if_scope_changed(self, connection: asyncpg.Connection, organization_id: UUID, profile_id: UUID, values: dict[str, Any], actor_id: UUID) -> int:
+        current = await connection.fetchrow(
+            """select team_id,territory_id,manager_user_id from public.sales_profiles
+               where organization_id=$1 and id=$2 for update""",
+            organization_id, profile_id,
+        )
+        if current is None:
+            return 0
+        scope_fields = ("team_id", "territory_id", "manager_user_id")
+        changed = any(field in values and values[field] != current[field] for field in scope_fields)
+        if not changed:
+            return 0
+        return await connection.fetchval(
+            """with changed as (
+                 update public.outlet_assignment_history
+                 set unassigned_at=now(),unassigned_by=$3,assignment_status='unassigned',
+                     change_reason='sales_profile_scope_changed'
+                 where organization_id=$1 and sales_profile_id=$2 and unassigned_at is null
+                 returning 1
+               ) select count(*) from changed""",
+            organization_id, profile_id, actor_id,
+        ) or 0
+
     async def deactivate_dependents(self, connection: asyncpg.Connection, resource: str, organization_id: UUID, resource_id: UUID, actor_id: UUID) -> dict[str, int]:
         counts = {"teams": 0, "territories": 0, "outlets": 0, "sales_profiles": 0, "assignments_closed": 0}
         if resource == "branches":
@@ -179,6 +202,17 @@ class MasterDataRepository:
                      where a.organization_id=$1 and a.unassigned_at is null
                        and (a.outlet_id in (select id from public.outlets where organization_id=$1 and territory_id in (select id from descendants))
                          or a.sales_profile_id in (select id from public.sales_profiles where organization_id=$1 and territory_id in (select id from descendants)))
+                     returning 1
+                   ) select count(*) from changed""",
+                organization_id, resource_id, actor_id,
+            ) or 0
+        elif resource == "sales_profiles":
+            counts["assignments_closed"] = await connection.fetchval(
+                """with changed as (
+                     update public.outlet_assignment_history
+                     set unassigned_at=now(),unassigned_by=$3,assignment_status='unassigned',
+                         change_reason='sales_profile_deactivated'
+                     where organization_id=$1 and sales_profile_id=$2 and unassigned_at is null
                      returning 1
                    ) select count(*) from changed""",
                 organization_id, resource_id, actor_id,

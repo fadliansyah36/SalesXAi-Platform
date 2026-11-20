@@ -211,12 +211,15 @@ class MasterDataService:
         try:
             async with connection.transaction():
                 clean = await self._validate_references(connection, organization_id, resource, dict(values), resource_id)
+                assignment_scope_closures = 0
+                if resource == "sales_profiles" and clean.get("status") not in {"inactive", "suspended"}:
+                    assignment_scope_closures = await self.repository.close_profile_assignments_if_scope_changed(connection, organization_id, resource_id, clean, principal.user_id)
                 row = await self.repository.update(connection, resource, organization_id, resource_id, clean)
                 if row is None:
                     raise APIError(404, "master_data_not_found", "The tenant-owned record was not found.")
-                dependency_counts = {}
-                if clean.get("status") in {"inactive", "archived"}:
-                    dependency_counts = await self.repository.deactivate_dependents(connection, resource, organization_id, resource_id, principal.user_id)
+                dependency_counts = {"assignments_closed": assignment_scope_closures} if assignment_scope_closures else {}
+                if clean.get("status") in {"inactive", "suspended", "archived"}:
+                    dependency_counts.update(await self.repository.deactivate_dependents(connection, resource, organization_id, resource_id, principal.user_id))
                 await write_audit(
                     connection, request, principal, f"{resource}.updated", resource, str(resource_id), tenant,
                     {"fields": sorted(clean), "dependency_changes": dependency_counts},
