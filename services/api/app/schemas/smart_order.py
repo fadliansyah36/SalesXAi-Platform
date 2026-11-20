@@ -77,6 +77,8 @@ class PromotionWrite(BaseModel):
     priority: int = 100
     stackable: bool = False
     stacking_group: str | None = None
+    max_redemptions: int | None = Field(default=None, gt=0, le=10000000)
+    max_per_customer: int | None = Field(default=None, gt=0, le=1000000)
     rules: list[dict[str, Any]] = Field(min_length=1, max_length=20)
 
     @model_validator(mode="after")
@@ -136,6 +138,13 @@ class OrderCreate(BaseModel):
 class OrderDecision(BaseModel):
     decision: Literal["approved", "rejected", "revision_requested"]
     reason: str | None = Field(default=None, max_length=1000)
+
+
+class PartnerOrderDecision(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    decision: Literal["accepted", "rejected", "revision_requested"]
+    reason: str | None = Field(default=None, min_length=3, max_length=1000)
+    idempotency_key: str = Field(min_length=8, max_length=180)
 
 
 class FulfillmentCreate(BaseModel):
