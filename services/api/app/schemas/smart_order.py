@@ -151,6 +151,12 @@ class PartnerOrderDecision(BaseModel):
     reason: str | None = Field(default=None, min_length=3, max_length=1000)
     idempotency_key: str = Field(min_length=8, max_length=180)
 
+    @model_validator(mode="after")
+    def require_reason_for_non_acceptance(self):
+        if self.decision != "accepted" and not self.reason:
+            raise ValueError("A reason is required for partner rejection or revision requests.")
+        return self
+
 
 class FulfillmentCreate(BaseModel):
     warehouse_id: UUID | None = None
