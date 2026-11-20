@@ -315,7 +315,7 @@ export interface SmartOrderOrderCancel {reason:string;}
 
 export interface SmartOrderPartnerDecision {id:UUID;decision:"accepted"|"rejected"|"revision_requested";reason?:string|null;actor_user_id:UUID;decided_at:string;}
 export interface SmartOrderPartnerDecisionWrite {decision:"accepted"|"rejected"|"revision_requested";reason?:string|null;idempotency_key:string;}
-export interface SmartOrderPartnerOrderSummary {id:UUID;buyer_organization_id:UUID;order_number:string;status:string;currency:string;partner_item_count:number;partner_item_total:string|number;partner_fulfillment_id?:UUID|null;partner_fulfillment_status?:string|null;created_at:string;updated_at:string;}
+export interface SmartOrderPartnerOrderSummary {id:UUID;buyer_organization_id:UUID;order_number:string;status:string;currency:string;partner_item_count:number;partner_item_total:string|number;partner_fulfillment_id?:UUID|null;partner_fulfillment_status?:string|null;partner_decision?:"accepted"|"rejected"|"revision_requested"|null;created_at:string;updated_at:string;}
 export interface SmartOrderPartnerOrderPage {items:SmartOrderPartnerOrderSummary[];page:number;page_size:number;total:number;}
 export interface SmartOrderPartnerOrder extends Omit<SmartOrderPartnerOrderSummary,"partner_item_count"|"partner_item_total"> {items:Array<Record<string,unknown>>;fulfillments:Array<Record<string,unknown>>;partner_decisions:SmartOrderPartnerDecision[];}
 export interface SmartOrderPartnerOrganization {id:UUID;slug:string;name:string;relationship_type:"principal"|"distributor"|"customer";starts_at:string;ends_at?:string|null;}
