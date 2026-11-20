@@ -52,7 +52,7 @@ async function proxy(request: NextRequest, context: RouteContext): Promise<Respo
     const headers = new Headers();
     headers.set("Authorization", "Bearer " + token);
     headers.set("X-Client-Platform", "web");
-    for (const name of ["content-type", "x-organization-id", "x-resource-branch-id", "x-correlation-id", "idempotency-key"]) {
+    for (const name of ["content-type", "accept", "x-organization-id", "x-resource-branch-id", "x-correlation-id", "idempotency-key"]) {
       const value = request.headers.get(name);
       if (value) headers.set(name, value);
     }
@@ -66,7 +66,7 @@ async function proxy(request: NextRequest, context: RouteContext): Promise<Respo
   };
 
   let upstream = await forward(accessToken);
-  let body = await upstream.clone().json().catch(() => ({})) as { error?: { code?: string } };
+  let body: { error?: { code?: string } } = upstream.headers.get("content-type")?.includes("text/event-stream") ? {} : await upstream.clone().json().catch(() => ({})) as { error?: { code?: string } };
   const terminalCodes = ["session_revoked", "account_inactive", "identity_unverified"];
   if (upstream.status === 401 && !terminalCodes.includes(body.error?.code ?? "") && !refreshed) {
     const limited = await enforceBffRateLimit(request, "refresh", tokenFingerprint(request.cookies.get("salesx_refresh")?.value ?? ""));
@@ -81,7 +81,7 @@ async function proxy(request: NextRequest, context: RouteContext): Promise<Respo
     if (refreshed) {
       accessToken = refreshed.access_token;
       upstream = await forward(accessToken);
-      body = await upstream.clone().json().catch(() => ({})) as { error?: { code?: string } };
+      body = upstream.headers.get("content-type")?.includes("text/event-stream") ? {} : await upstream.clone().json().catch(() => ({})) as { error?: { code?: string } };
     }
   }
 

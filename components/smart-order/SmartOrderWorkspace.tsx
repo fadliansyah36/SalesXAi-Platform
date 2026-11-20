@@ -47,6 +47,10 @@ export function SmartOrderWorkspace(){
   if(failed&&failed.status==="rejected")setError(errorText(failed.reason));
  },[api,organizationId,auth.status,auth.canPerformApiAction,canCatalog,canInventory,canPromotions,canOperations,canManagePricing,canAssist,canManagePolicies,search,categoryFilter]);
  useEffect(()=>{void load();},[load]);
+ useEffect(()=>{
+  if(!api||!organizationId||auth.status!=="authenticated"||!auth.canPerformApiAction("smartorder.events.read"))return;
+  return api.subscribeSmartOrderEvents(organizationId,event=>{if(event.organization_id===organizationId)void load();});
+ },[api,organizationId,auth.status,auth.canPerformApiAction,load]);
  const cartItems=cart?.items??[];
  const cartTotal=useMemo(()=>cartItems.reduce((sum,item)=>sum+Number((item as Record<string,any>).line_subtotal??0),0),[cartItems]);
  const run=async(action:()=>Promise<unknown>,message:string)=>{

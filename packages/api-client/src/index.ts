@@ -1,4 +1,4 @@
-export type { SmartOrderProduct, SmartOrderBrand, SmartOrderUnit, SmartOrderProductImage, SmartOrderStockMovement, SmartOrderStockMovementPage, SmartOrderProductPage, SmartOrderProductWrite, SmartOrderVariant, SmartOrderPriceQuote, SmartOrderInventoryBalance, SmartOrderStockMovementWrite, SmartOrderPromotion, SmartOrderPromotionWrite, SmartOrderCart, SmartOrderCartItemWrite, SmartOrderOrderCreate, SmartOrderOrder, SmartOrderOrderPage, SmartOrderFulfillmentWrite, SmartOrderFulfillmentUpdate, SmartOrderPriceListWrite, SmartOrderPriceList, SmartOrderWarehouse, SmartOrderWarehouseWrite, SmartOrderCategory, SmartOrderCategoryWrite, SmartOrderBrandWrite, SmartOrderUnitWrite, SmartOrderCatalogAccessWrite, SmartOrderStockTransferWrite, SmartOrderProductImageWrite, SmartOrderOrderCancel, SmartOrderPartnerOrganization, SmartOrderPartnerLinkWrite, SmartOrderAssistedCartWrite, SmartOrderPriceHistoryPage, SmartOrderApprovalPolicy, SmartOrderApprovalPolicyWrite } from "@salesx-ai/api-contracts";
+export type { SmartOrderProduct, SmartOrderBrand, SmartOrderUnit, SmartOrderProductImage, SmartOrderStockMovement, SmartOrderStockMovementPage, SmartOrderProductPage, SmartOrderProductWrite, SmartOrderVariant, SmartOrderPriceQuote, SmartOrderInventoryBalance, SmartOrderStockMovementWrite, SmartOrderPromotion, SmartOrderPromotionWrite, SmartOrderCart, SmartOrderCartItemWrite, SmartOrderOrderCreate, SmartOrderOrder, SmartOrderOrderPage, SmartOrderFulfillmentWrite, SmartOrderFulfillmentUpdate, SmartOrderPriceListWrite, SmartOrderPriceList, SmartOrderWarehouse, SmartOrderWarehouseWrite, SmartOrderCategory, SmartOrderCategoryWrite, SmartOrderBrandWrite, SmartOrderUnitWrite, SmartOrderCatalogAccessWrite, SmartOrderStockTransferWrite, SmartOrderProductImageWrite, SmartOrderOrderCancel, SmartOrderPartnerOrganization, SmartOrderPartnerLinkWrite, SmartOrderAssistedCartWrite, SmartOrderPriceHistoryPage, SmartOrderApprovalPolicy, SmartOrderApprovalPolicyWrite, SmartOrderRealtimeEvent } from "@salesx-ai/api-contracts";
 export type { MasterDataChangedEvent, MasterDataResource, PlatformAuditLog, PlatformRole, PlatformUserSummary, SmartTeamActivity, SmartTeamAttendance, SmartTeamDashboard, SmartTeamLocationCapture, SmartTeamTarget, SmartTeamTargetUpdate, SmartTeamTargetWrite, SmartTeamVisit, SmartTeamVisitCreate, PlatformSmartTeamOverviewRow, SmartTeamVisitEvidence, SmartTeamVisitAssign } from "@salesx-ai/api-contracts";
 import type {
   AccountStatusUpdateRequest,
@@ -655,6 +655,70 @@ export class SalesXApiClient {
 
   listSmartOrderApprovalPolicies(organizationId:string):Promise<import("@salesx-ai/api-contracts").SmartOrderApprovalPolicy[]>{return this.request("/api/v1/organizations/"+encodeURIComponent(organizationId)+"/smart-order/approval-policies");}
   createSmartOrderApprovalPolicy(organizationId:string,payload:import("@salesx-ai/api-contracts").SmartOrderApprovalPolicyWrite):Promise<import("@salesx-ai/api-contracts").SmartOrderApprovalPolicy>{return this.request("/api/v1/organizations/"+encodeURIComponent(organizationId)+"/smart-order/approval-policies",{method:"POST",body:JSON.stringify(payload)});}
+
+
+  subscribeSmartOrderEvents(organizationId:string,onEvent:(event:import("@salesx-ai/api-contracts").SmartOrderRealtimeEvent)=>void):()=>void{
+    let stopped=false,attempt=0,controller:AbortController|null=null,timer:ReturnType<typeof setTimeout>|null=null;
+    const schedule=()=>{if(stopped)return;attempt+=1;timer=setTimeout(()=>void connect(),Math.min(30000,1000*2**Math.min(attempt,5)));};
+    const connect=async()=>{
+      if(stopped)return;
+      controller=new AbortController();
+      try{
+        const response=await this.fetch("/api/v1/organizations/"+encodeURIComponent(organizationId)+"/smart-order/events",{headers:{Accept:"text/event-stream"},signal:controller.signal});
+        if(!response.ok||!response.body)throw new Error("SmartOrder event stream is unavailable.");
+        attempt=0;const reader=response.body.getReader();const decoder=new TextDecoder();let buffer="";
+        while(!stopped){
+          const part=await reader.read();if(part.done)break;
+          buffer+=decoder.decode(part.value,{stream:true});
+          let boundary=buffer.indexOf("\\n\\n");
+          while(boundary>=0){
+            const frame=buffer.slice(0,boundary);buffer=buffer.slice(boundary+2);
+            let eventName="message",data="";
+            for(const line of frame.split("\\n")){if(line.startsWith("event:"))eventName=line.slice(6).trim();else if(line.startsWith("data:"))data+=line.slice(5).trim();}
+            if(eventName==="smartorder.changed"&&data){try{onEvent(JSON.parse(data) as import("@salesx-ai/api-contracts").SmartOrderRealtimeEvent);}catch{}}
+            boundary=buffer.indexOf("\\n\\n");
+          }
+        }
+      }catch(error){if(stopped||controller.signal.aborted)return;}
+      schedule();
+    };
+    void connect();
+    return()=>{stopped=true;controller?.abort();if(timer)clearTimeout(timer);};
+  }
+
+  subscribeSmartOrderBroadcast(organizationId:string,supabaseUrl:string,publishableKey:string,onEvent:(event:import("@salesx-ai/api-contracts").SmartOrderRealtimeEvent)=>void):()=>void{
+    let stopped=false,attempt=0,socket:WebSocket|null=null,heartbeat:ReturnType<typeof setInterval>|null=null,timer:ReturnType<typeof setTimeout>|null=null;
+    const clear=()=>{if(heartbeat)clearInterval(heartbeat);heartbeat=null;};
+    const schedule=()=>{if(stopped)return;attempt+=1;timer=setTimeout(()=>void connect(),Math.min(30000,1000*2**Math.min(attempt,5)));};
+    const connect=async()=>{
+      if(stopped)return;
+      try{
+        const token=await this.auth.getAccessToken()??await this.auth.refreshAccessToken();
+        if(!token)throw new Error("Realtime access token is unavailable.");
+        const base=supabaseUrl.replace(/\\/$/,"").replace(/^https:/,"wss:").replace(/^http:/,"ws:");
+        socket=new WebSocket(base+"/realtime/v1/websocket?apikey="+encodeURIComponent(publishableKey)+"&vsn=2.0.0");
+        socket.onopen=()=>{
+          attempt=0;const joinRef="1";
+          socket?.send(JSON.stringify({topic:"realtime:tenant:"+organizationId+":smartorder",event:"phx_join",payload:{config:{broadcast:{ack:false,self:false},presence:{key:""},postgres_changes:[],private:true},access_token:token},ref:joinRef,join_ref:joinRef}));
+          let ref=1;heartbeat=setInterval(()=>{if(socket?.readyState===WebSocket.OPEN)socket.send(JSON.stringify({topic:"phoenix",event:"heartbeat",payload:{},ref:String(++ref),join_ref:null}));},25000);
+        };
+        socket.onmessage=(message)=>{
+          try{
+            const frame=JSON.parse(String(message.data));
+            if(frame.event==="phx_error"||frame.event==="phx_close"){socket?.close();return;}
+            if(frame.event==="broadcast"&&frame.payload?.event==="smartorder.changed"){
+              const event=frame.payload.payload as import("@salesx-ai/api-contracts").SmartOrderRealtimeEvent;
+              if(event?.organization_id===organizationId)onEvent(event);
+            }
+          }catch{}
+        };
+        socket.onerror=()=>socket?.close();
+        socket.onclose=()=>{clear();schedule();};
+      }catch{clear();schedule();}
+    };
+    void connect();
+    return()=>{stopped=true;clear();if(timer)clearTimeout(timer);socket?.close();};
+  }
 
   signOut(scope: "local" | "global" | "others" = "local"): Promise<void> {
     return this.request<void>("/api/v1/auth/sign-out", {

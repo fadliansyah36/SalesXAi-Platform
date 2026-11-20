@@ -1,6 +1,9 @@
 from uuid import UUID
 from decimal import Decimal
+import asyncio
+import json
 from fastapi import APIRouter, Depends, Query, Request
+from fastapi.responses import StreamingResponse
 from app.errors import APIError
 import asyncpg
 from app.db import get_connection
@@ -39,6 +42,43 @@ async def create_product(organization_id:UUID,payload:ProductWrite,principal:Pri
 async def update_product_status(organization_id:UUID,product_id:UUID,payload:ProductStatusWrite,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartorder.catalog.product.status")),db:asyncpg.Connection=Depends(get_connection)):
  return await smart_order_service.update_product_status(db,organization_id,tenant,principal.user_id,product_id,payload.status)
 
+
+
+@router.get("/{organization_id}/smart-order/events")
+async def stream_smart_order_events(
+ organization_id:UUID,
+ request:Request,
+ principal:Principal=Depends(get_current_principal),
+ tenant:TenantContext=Depends(require_api_action("smartorder.events.read")),
+):
+ if str(tenant.organization_id)!=str(organization_id):
+  raise APIError(403,"tenant_scope_mismatch","The requested organization is outside the active tenant.")
+ pool=getattr(request.app.state,"db_pool",None)
+ if pool is None:raise APIError(503,"database_not_ready","SmartOrder event stream requires the configured database pool.")
+ queue:asyncio.Queue[dict]=asyncio.Queue(maxsize=128)
+ def on_notify(connection,pid,channel,payload):
+  try:event=json.loads(payload)
+  except (TypeError,ValueError):return
+  if event.get("organization_id")!=str(organization_id):return
+  if queue.full():
+   try:queue.get_nowait()
+   except asyncio.QueueEmpty:pass
+  queue.put_nowait(event)
+ async def stream():
+  async with pool.acquire() as connection:
+   await connection.add_listener("smartorder_events",on_notify)
+   try:
+    yield "retry: 5000\n\n"
+    while not await request.is_disconnected():
+     try:event=await asyncio.wait_for(queue.get(),timeout=15)
+     except asyncio.TimeoutError:
+      yield ": keep-alive\n\n"
+      continue
+     yield "event: smartorder.changed\ndata: "+json.dumps(event,separators=(",",":"))+"\n\n"
+   finally:
+    try:await connection.remove_listener("smartorder_events",on_notify)
+    except Exception:pass
+ return StreamingResponse(stream(),media_type="text/event-stream",headers={"Cache-Control":"no-cache, no-transform","Connection":"keep-alive","X-Accel-Buffering":"no"})
 
 @router.get("/{organization_id}/smart-order/catalog/categories")
 async def list_categories(organization_id:UUID,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartorder.catalog.categories.read")),db:asyncpg.Connection=Depends(get_connection)):

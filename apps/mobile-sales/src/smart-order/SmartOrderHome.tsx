@@ -13,6 +13,7 @@ export function SmartOrderHome({auth}:{auth:Auth}){
  const canCart=auth.canPerformApiAction("smartorder.cart.read");
  const canOrders=auth.canPerformApiAction("smartorder.orders.mine.read");
  const canAssist=auth.canPerformApiAction("smartorder.cart.assisted_customer");
+ const canEvents=auth.canPerformApiAction("smartorder.events.read");
  const refresh=useCallback(async()=>{
   if(!api||!org||auth.status!=="authenticated")return;
   const jobs:Promise<void>[]=[];
@@ -24,6 +25,14 @@ export function SmartOrderHome({auth}:{auth:Auth}){
   if(failed&&failed.status==="rejected")setError(failed.reason instanceof Error?failed.reason.message:"Data SmartOrder gagal dimuat.");
  },[api,org,auth.status,canRead,canCart,canOrders,canAssist]);
  useEffect(()=>{void refresh();},[refresh]);
+ useEffect(()=>{
+  if(!api||!org||auth.status!=="authenticated"||!canEvents)return;
+  const realtimeUrl=process.env.EXPO_PUBLIC_SUPABASE_URL??"";
+  const publishableKey=process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY??"";
+  const onEvent=()=>void refresh();
+  if(realtimeUrl&&publishableKey)return api.subscribeSmartOrderBroadcast(org,realtimeUrl,publishableKey,onEvent);
+  return api.subscribeSmartOrderEvents(org,onEvent);
+ },[api,org,auth.status,canEvents,refresh]);
  const run=async(fn:()=>Promise<unknown>,message:string)=>{
   setBusy(true);setError("");setNotice("");
   try{await fn();setNotice(message);await refresh();}catch(e){setError(e instanceof Error?e.message:"Permintaan SmartOrder gagal.");}finally{setBusy(false);}

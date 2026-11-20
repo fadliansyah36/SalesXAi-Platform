@@ -1010,6 +1010,8 @@ API_ACTION_MATRIX: tuple[ApiActionContract, ...] = (
 
     ApiActionContract("smartorder.catalog.brands.read", "GET", "/api/v1/organizations/{organization_id}/smart-order/catalog/brands", "smartorder", "list_brands", "product_brand", "tenant_permission:commerce:catalog:read", "commerce:catalog:read", "tenant", "tenant_permission_and_resource_tenant_match"),
     ApiActionContract("smartorder.catalog.units.read", "GET", "/api/v1/organizations/{organization_id}/smart-order/catalog/units", "smartorder", "list_units", "unit_of_measure", "tenant_permission:commerce:catalog:read", "commerce:catalog:read", "tenant", "tenant_permission_and_resource_tenant_match"),
+
+    ApiActionContract("smartorder.events.read", "GET", "/api/v1/organizations/{organization_id}/smart-order/events", "smartorder", "stream_smart_order_events", "smartorder_event", "tenant_permission:commerce:order:read", "commerce:order:read", "tenant", "tenant_permission_and_resource_tenant_match"),
 )
 
 

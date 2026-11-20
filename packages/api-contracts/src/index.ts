@@ -323,3 +323,4 @@ export interface SmartOrderStockMovement {id:UUID;warehouse_id:UUID;warehouse_co
 export interface SmartOrderStockMovementPage {items:SmartOrderStockMovement[];page:number;page_size:number;total:number;}
 export interface SmartOrderBrand {id:UUID;name:string;status:string;}
 export interface SmartOrderUnit {id:UUID;code:string;name:string;symbol?:string|null;decimal_places:number;status:string;}
+export interface SmartOrderRealtimeEvent {organization_id:UUID;resource:string;record_id:UUID;operation:"INSERT"|"UPDATE"|"DELETE";status?:string|null;occurred_at:string;}
