@@ -1,9 +1,12 @@
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap");
 @import "../packages/design-tokens/generated/web.css";
 @import "../packages/design-system/src/styles.css";
 @import "tailwindcss";
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
+  --font-sans: "Plus Jakarta Sans";
+  --font-mono: "JetBrains Mono";
   --brand-50: var(--salesx-color-brand-50); --brand-100: var(--salesx-color-brand-100);
   --brand-200: var(--salesx-color-brand-200); --brand-300: var(--salesx-color-brand-300);
   --brand-400: var(--salesx-color-brand-400); --brand-500: var(--salesx-color-brand-500);

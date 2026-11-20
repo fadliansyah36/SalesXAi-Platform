@@ -1,63 +1,44 @@
-import type { Metadata, Viewport } from 'next';
-import { Plus_Jakarta_Sans, JetBrains_Mono } from 'next/font/google';
-import './globals.css';
-import { salesxTokens } from '../packages/design-tokens/generated/native';
-import { AppProviders } from '@/components/providers/AppProviders';
-
-const plusJakarta = Plus_Jakarta_Sans({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
-  variable: '--font-sans',
-  display: 'swap',
-});
-
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ['latin'],
-  weight: ['400', '500', '600'],
-  variable: '--font-mono',
-  display: 'swap',
-});
+import type { Metadata, Viewport } from "next";
+import "./globals.css";
+import { salesxTokens } from "../packages/design-tokens/generated/native";
+import { AppProviders } from "@/components/providers/AppProviders";
 
 export const viewport: Viewport = {
   themeColor: salesxTokens.primitives.color.brand[600].$value,
-  width: 'device-width',
+  width: "device-width",
   initialScale: 1,
 };
 
 export const metadata: Metadata = {
-  title: 'SalesX-Ai — Smart Sales, Distribution & Field Operations Platform',
+  title: "SalesX-Ai — Smart Sales, Distribution & Field Operations Platform",
   description:
-    'Platform operasional penjualan dan distribusi berbasis AI yang menghubungkan tim sales lapangan, outlet, SmartOrder, SmartReward, Realtime GPS, dan Staff AI SalesX-Ai.',
+    "Platform operasional penjualan dan distribusi berbasis AI yang menghubungkan tim sales lapangan, outlet, SmartOrder, SmartReward, Realtime GPS, dan Staff AI SalesX-Ai.",
   appleWebApp: {
     capable: true,
-    statusBarStyle: 'default',
-    title: 'SalesX-Ai',
+    statusBarStyle: "default",
+    title: "SalesX-Ai",
   },
   icons: {
-    icon: '/icon.svg',
-    apple: '/apple-touch-icon.png',
+    icon: "/icon.svg",
+    apple: "/apple-touch-icon.png",
   },
   openGraph: {
-    title: 'SalesX-Ai — Smart Sales, Distribution & Field Operations Platform',
+    title: "SalesX-Ai — Smart Sales, Distribution & Field Operations Platform",
     description:
-      'Kelola tim sales, pantau aktivitas lapangan secara real-time, percepat pemesanan, dan optimalkan kinerja dengan Staff AI SalesX-Ai.',
-    type: 'website',
+      "Kelola tim sales, pantau aktivitas lapangan secara real-time, percepat pemesanan, dan optimalkan kinerja dengan Staff AI SalesX-Ai.",
+    type: "website",
   },
   twitter: {
-    card: 'summary_large_image',
-    title: 'SalesX-Ai — Smart Sales & Field Operations',
+    card: "summary_large_image",
+    title: "SalesX-Ai — Smart Sales & Field Operations",
     description:
-      'Platform Sales Cerdas untuk Pertumbuhan Bisnis Anda — SmartTeam, SmartOrder, SmartReward, Realtime GPS & AI Assistant.',
+      "Platform Sales Cerdas untuk Pertumbuhan Bisnis Anda — SmartTeam, SmartOrder, SmartReward, Realtime GPS & AI Assistant.",
   },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html
-      lang="id"
-      className={`${plusJakarta.variable} ${jetbrainsMono.variable}`}
-      suppressHydrationWarning
-    >
+    <html lang="id" suppressHydrationWarning>
       <body className="min-h-screen antialiased" suppressHydrationWarning>
         <AppProviders>{children}</AppProviders>
       </body>
