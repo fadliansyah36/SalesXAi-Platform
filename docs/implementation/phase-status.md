@@ -887,3 +887,13 @@ The latest application-code commit is `b03459f7ed95bf43bb90653afa60305d0501b24c`
 - Expo production API base URL remains configured to the API Default Domain; Auth BFF origin remains pending Website app/domain extraction.
 - `CORS_ORIGINS` / `APP_PUBLIC_URL` remain unset until independent portal domains exist.
 - Phase 04 remains **IN_PROGRESS — NOT COMPLETED**. No Phase 05 work is started.
+
+
+## Phase 04 — Railway database connectivity follow-up — 2026-11-20
+
+- Rechecked Railway production service `salesx-api` after the user added database/server variables. Railway now lists `DATABASE_URL` and `SUPABASE_SECRET_KEY` alongside `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, and JWT settings. OAuth connector redacts variable values; presence is verified, credential contents are not readable or logged.
+- New deployment `8558c4ce-2350-4e46-bcab-3f4276f4cb82` for main commit `d8d77149d526ab3eb5087c4a4ffab1b161666318` successfully built the FastAPI Docker image but failed during application startup while `asyncpg.create_pool` attempted the PostgreSQL connection. Runtime error: `OSError: [Errno 101] Network is unreachable`; Railway healthcheck `/readyz` therefore did not pass.
+- Supabase project `eyofuiyxalbehbqoaeny` reports region `ap-northeast-1` and direct database host `db.eyofuiyxalbehbqoaeny.supabase.co`. Supabase connection documentation states direct database connections are IPv6-only unless the IPv4 add-on is enabled. For IPv4-only runtime networks, use Supavisor Shared Pooler **Session mode** on port `5432`.
+- The Railway connector returns variable names only and cannot read or transform the existing secret value. Do not replace `DATABASE_URL` with a guessed connection string or invent the database password. Required operator action: copy the exact Session Pooler connection string from Supabase Dashboard → Connect → Session pooler, retain the project's database password, and set it as Railway `salesx-api` → production `DATABASE_URL`. Keep TLS enabled. Do not send the password in chat.
+- API remains NOT READY until a subsequent deployment starts successfully and `/readyz` confirms a real PostgreSQL `select 1`.
+- Eight portal app roots remain absent; no placeholder portal services have been provisioned. Existing Mobile Railway service remains untouched. Phase 04 remains **IN_PROGRESS — NOT COMPLETED**; Phase 05 has not started.
