@@ -2,6 +2,7 @@
 from __future__ import annotations
 import json
 from decimal import Decimal
+from datetime import datetime, timezone
 from uuid import uuid4
 from app.errors import APIError
 from app.domain.smart_order_rules import money as money_value, line_totals, percentage_discount, fixed_discount, can_transition_fulfillment, can_cancel_order
@@ -136,6 +137,7 @@ class SmartOrderRepository:
 
  async def get_cart(self,db,org,actor,region_id=None):
   async with db.transaction():
+   await db.execute("update public.carts set status='expired',version=version+1,updated_at=now() where organization_id=$1 and owner_user_id=$2 and status='active' and expires_at<=now()",org,actor)
    c=await db.fetchrow("select * from public.carts where organization_id=$1 and owner_user_id=$2 and status='active' and expires_at>now() for update",org,actor)
    if not c:c=await db.fetchrow("insert into public.carts(organization_id,owner_user_id,customer_organization_id) values($1,$2,$1) returning *",org,actor)
   items=await db.fetch("""select ci.id,ci.product_id,ci.variant_id,ci.quantity,ci.notes,p.name product_name,p.product_code,v.sku,v.name variant_name
@@ -149,6 +151,7 @@ class SmartOrderRepository:
 
  async def upsert_cart_item(self,db,org,actor,p,region_id=None):
   async with db.transaction():
+   await db.execute("update public.carts set status='expired',version=version+1,updated_at=now() where organization_id=$1 and owner_user_id=$2 and status='active' and expires_at<=now()",org,actor)
    c=await db.fetchrow("select * from public.carts where organization_id=$1 and owner_user_id=$2 and status='active' and expires_at>now() for update",org,actor)
    if not c:c=await db.fetchrow("insert into public.carts(organization_id,owner_user_id) values($1,$2) returning *",org,actor)
    ok=await db.fetchval("""select exists(select 1 from public.products p join public.product_variants v on v.organization_id=p.organization_id and v.product_id=p.id
@@ -162,8 +165,9 @@ class SmartOrderRepository:
 
  async def update_cart_item(self,db,org,actor,iid,p,region_id=None):
   async with db.transaction():
+   await db.execute("update public.carts set status='expired',version=version+1,updated_at=now() where organization_id=$1 and owner_user_id=$2 and status='active' and expires_at<=now()",org,actor)
    r=await db.fetchrow("""update public.cart_items ci set quantity=$4,notes=$5,updated_at=now() from public.carts c
-    where ci.organization_id=$1 and ci.id=$2 and c.id=ci.cart_id and c.owner_user_id=$3 and c.status='active' returning ci.*""",org,iid,actor,p.quantity,p.notes)
+    where ci.organization_id=$1 and ci.id=$2 and c.id=ci.cart_id and c.owner_user_id=$3 and c.status='active' and c.expires_at>now() returning ci.*""",org,iid,actor,p.quantity,p.notes)
    if not r: raise APIError(404,"cart_item_not_found","Cart item was not found.")
    cart=await db.fetchrow("select customer_organization_id,channel from public.carts where organization_id=$1 and id=$2",org,r["cart_id"])
    await self.price_quote(db,org,r["product_id"],r["variant_id"],p.quantity,(cart["customer_organization_id"] or org),cart["channel"],region_id)
@@ -246,34 +250,75 @@ class SmartOrderRepository:
    await self.audit(db,org,actor,"order.draft.created","order",oid,{"order_number":number,"total":str(money(grand))})
   return dict(o)
 
- async def submit_order(self,db,org,actor,oid):
+ async def submit_order(self,db,org,actor,oid,region_id=None):
+  revalidation_error=None
+  result=None
   async with db.transaction():
    o=await db.fetchrow("select * from public.orders where organization_id=$1 and id=$2 and customer_user_id=$3 for update",org,oid,actor)
    if not o:raise APIError(404,"order_not_found","Order was not found.")
-   if o["status"] in {"pending_approval","approved","processing","fulfilled","completed"}:return await self.get_order(db,org,actor,oid)
-   if o["status"]!="draft":raise APIError(409,"invalid_order_transition","Only a draft order can be submitted.")
-   items=await db.fetch("select * from public.order_items where organization_id=$1 and order_id=$2 order by id",org,oid);alloc=[]
-   for i in items:
-    b=await db.fetchrow("select * from public.inventory_balances where organization_id=$1 and variant_id=$2 and available >= $3 order by available desc limit 1 for update skip locked",org,i["variant_id"],i["quantity"])
-    if not b:raise APIError(409,"insufficient_stock","One or more SKUs do not have sufficient available stock.")
-    alloc.append((i,b))
-   auto_policy=await db.fetchrow("""select * from public.order_approval_policies where organization_id=$1 and status='active'
-    and auto_approve_below=true and $2<minimum_total order by minimum_total asc limit 1""",org,o["grand_total"])
-   for i,b in alloc:
-    await db.execute("update public.inventory_balances set reserved=reserved+$4,version=version+1,updated_at=now() where organization_id=$1 and id=$2 and version=$3",org,b["id"],b["version"],i["quantity"])
-    await db.execute("""insert into public.stock_movements(organization_id,warehouse_id,product_id,variant_id,movement_type,quantity,reserved_delta,reference_type,reference_id,reason,actor_user_id,idempotency_key)
-     values($1,$2,$3,$4,'reserve',$5,$5,'order',$6,'Order stock reservation',$7,$8)""",org,b["warehouse_id"],i["product_id"],i["variant_id"],i["quantity"],oid,actor,f"order:{oid}:reserve:{i['variant_id']}")
-    if auto_policy:
-     await db.execute("update public.inventory_balances set reserved=reserved-$4,committed=committed+$4,version=version+1,updated_at=now() where organization_id=$1 and id=$2 and reserved >= $4",org,b["id"],i["quantity"])
-     await db.execute("""insert into public.stock_movements(organization_id,warehouse_id,product_id,variant_id,movement_type,quantity,reserved_delta,committed_delta,reference_type,reference_id,reason,actor_user_id,idempotency_key)
-      values($1,$2,$3,$4,'commit',$5,-$5,$5,'order',$6,'Auto-approved by order policy',$7,$8)""",org,b["warehouse_id"],i["product_id"],i["variant_id"],i["quantity"],oid,actor,f"order:{oid}:commit:{i['variant_id']}")
-   target="approved" if auto_policy else "pending_approval"
-   await db.execute("update public.orders set status=$2,submitted_at=now(),approved_at=case when $2='approved' then now() else approved_at end,updated_at=now() where organization_id=$1 and id=$3",org,target,oid)
-   await db.execute("insert into public.order_status_history(organization_id,order_id,from_status,to_status,actor_user_id) values($1,$2,'draft',$3,$4)",org,oid,target,actor)
-   if auto_policy:
-    await db.execute("update public.promotion_redemptions set status='redeemed',redeemed_at=now() where organization_id=$1 and order_id=$2 and status='reserved'",org,oid)
-   await self.audit(db,org,actor,"order.submitted","order",oid,{"reserved_skus":len(alloc),"auto_approved":bool(auto_policy)})
-  return await self.get_order(db,org,actor,oid,True)
+   if o["status"] in {"pending_approval","approved","processing","fulfilled","completed"}:
+    result=await self.get_order(db,org,actor,oid)
+   elif o["status"]!="draft":
+    raise APIError(409,"invalid_order_transition","Only a draft order can be submitted.")
+   elif o["expires_at"] is not None and o["expires_at"]<=datetime.now(timezone.utc):
+    await db.execute("update public.orders set status='expired',updated_at=now() where organization_id=$1 and id=$2",org,oid)
+    await db.execute("update public.carts set status='active',version=version+1,updated_at=now() where organization_id=$1 and id=$2 and expires_at>now()",org,o["cart_id"])
+    await db.execute("update public.promotion_redemptions set status='reversed',reversed_at=now() where organization_id=$1 and order_id=$2 and status='reserved'",org,oid)
+    await db.execute("insert into public.order_status_history(organization_id,order_id,from_status,to_status,reason,actor_user_id) values($1,$2,'draft','expired','Order draft expired before submission',$3)",org,oid,actor)
+    await self.audit(db,org,actor,"order.draft.expired","order",oid,{"expires_at":o["expires_at"].isoformat()})
+    revalidation_error="Order draft has expired. Review the active cart and create a new draft."
+   else:
+    items=await db.fetch("select * from public.order_items where organization_id=$1 and order_id=$2 order by id",org,oid)
+    price_changed=False
+    for item in items:
+     snapshot=item["product_snapshot"]
+     try:
+      current=await self.price_quote(db,org,item["product_id"],item["variant_id"],item["quantity"],(o["customer_organization_id"] or org),o["channel"],region_id)
+      if money(current["unit_price"])!=money(snapshot["unit_price"]) or current["currency"]!=snapshot["currency"]:
+       price_changed=True;break
+     except APIError:
+      price_changed=True;break
+    if price_changed:
+     await db.execute("update public.orders set status='revision_requested',updated_at=now() where organization_id=$1 and id=$2",org,oid)
+     await db.execute("update public.carts set status='active',version=version+1,updated_at=now() where organization_id=$1 and id=$2 and expires_at>now()",org,o["cart_id"])
+     await db.execute("update public.promotion_redemptions set status='reversed',reversed_at=now() where organization_id=$1 and order_id=$2 and status='reserved'",org,oid)
+     await db.execute("insert into public.order_status_history(organization_id,order_id,from_status,to_status,reason,actor_user_id) values($1,$2,'draft','revision_requested','Price changed after draft creation; revalidation required',$3)",org,oid,actor)
+     await self.audit(db,org,actor,"order.draft.revalidation_failed","order",oid,{"reason":"price_changed"})
+     revalidation_error="Product pricing changed after draft creation. Cart was reopened; create a refreshed order draft."
+    else:
+     alloc=[]
+     for i in items:
+      b=await db.fetchrow("select * from public.inventory_balances where organization_id=$1 and variant_id=$2 and available >= $3 order by available desc limit 1 for update skip locked",org,i["variant_id"],i["quantity"])
+      if not b:
+       revalidation_error="Stock availability changed after draft creation. Cart was reopened; review quantities and retry."
+       break
+      alloc.append((i,b))
+     if revalidation_error:
+      await db.execute("update public.orders set status='revision_requested',updated_at=now() where organization_id=$1 and id=$2",org,oid)
+      await db.execute("update public.carts set status='active',version=version+1,updated_at=now() where organization_id=$1 and id=$2 and expires_at>now()",org,o["cart_id"])
+      await db.execute("update public.promotion_redemptions set status='reversed',reversed_at=now() where organization_id=$1 and order_id=$2 and status='reserved'",org,oid)
+      await db.execute("insert into public.order_status_history(organization_id,order_id,from_status,to_status,reason,actor_user_id) values($1,$2,'draft','revision_requested','Stock availability changed after draft creation',$3)",org,oid,actor)
+      await self.audit(db,org,actor,"order.draft.revalidation_failed","order",oid,{"reason":"stock_unavailable"})
+     else:
+      auto_policy=await db.fetchrow("""select * from public.order_approval_policies where organization_id=$1 and status='active'
+       and auto_approve_below=true and $2<minimum_total order by minimum_total asc limit 1""",org,o["grand_total"])
+      for i,b in alloc:
+       await db.execute("update public.inventory_balances set reserved=reserved+$4,version=version+1,updated_at=now() where organization_id=$1 and id=$2 and version=$3",org,b["id"],b["version"],i["quantity"])
+       await db.execute("""insert into public.stock_movements(organization_id,warehouse_id,product_id,variant_id,movement_type,quantity,reserved_delta,reference_type,reference_id,reason,actor_user_id,idempotency_key)
+        values($1,$2,$3,$4,'reserve',$5,$5,'order',$6,'Order stock reservation',$7,$8)""",org,b["warehouse_id"],i["product_id"],i["variant_id"],i["quantity"],oid,actor,f"order:{oid}:reserve:{i['variant_id']}")
+       if auto_policy:
+        await db.execute("update public.inventory_balances set reserved=reserved-$4,committed=committed+$4,version=version+1,updated_at=now() where organization_id=$1 and id=$2 and reserved >= $4",org,b["id"],i["quantity"])
+        await db.execute("""insert into public.stock_movements(organization_id,warehouse_id,product_id,variant_id,movement_type,quantity,reserved_delta,committed_delta,reference_type,reference_id,reason,actor_user_id,idempotency_key)
+         values($1,$2,$3,$4,'commit',$5,-$5,$5,'order',$6,'Auto-approved by order policy',$7,$8)""",org,b["warehouse_id"],i["product_id"],i["variant_id"],i["quantity"],oid,actor,f"order:{oid}:commit:{i['variant_id']}")
+      target="approved" if auto_policy else "pending_approval"
+      await db.execute("update public.orders set status=$2,submitted_at=now(),approved_at=case when $2='approved' then now() else approved_at end,updated_at=now() where organization_id=$1 and id=$3",org,target,oid)
+      await db.execute("insert into public.order_status_history(organization_id,order_id,from_status,to_status,actor_user_id) values($1,$2,'draft',$3,$4)",org,oid,target,actor)
+      if auto_policy:
+       await db.execute("update public.promotion_redemptions set status='redeemed',redeemed_at=now() where organization_id=$1 and order_id=$2 and status='reserved'",org,oid)
+      await self.audit(db,org,actor,"order.submitted","order",oid,{"reserved_skus":len(alloc),"auto_approved":bool(auto_policy)})
+      result=await self.get_order(db,org,actor,oid,True)
+  if revalidation_error:raise APIError(409,"order_revalidation_required",revalidation_error)
+  return result or await self.get_order(db,org,actor,oid,True)
 
  async def decide_order(self,db,org,actor,membership_id,oid,p):
   async with db.transaction():
@@ -553,6 +598,7 @@ class SmartOrderRepository:
   linked=await db.fetchval("""select exists(select 1 from public.commerce_partner_links where organization_id=$1 and partner_organization_id=$2 and relationship_type='customer' and status='active' and starts_at<=now() and (ends_at is null or ends_at>now()))""",org,p.customer_organization_id)
   if not linked:raise APIError(403,"customer_relationship_required","Customer must be an active linked partner organization.")
   async with db.transaction():
+   await db.execute("update public.carts set status='expired',version=version+1,updated_at=now() where organization_id=$1 and owner_user_id=$2 and status='active' and expires_at<=now()",org,actor)
    cart=await db.fetchrow("select * from public.carts where organization_id=$1 and owner_user_id=$2 and status='active' and expires_at>now() for update",org,actor)
    if cart is None:
     cart=await db.fetchrow("""insert into public.carts(organization_id,owner_user_id,customer_organization_id,channel)

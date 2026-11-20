@@ -110,7 +110,8 @@ class SmartOrderService:
 
  async def submit_order(self,db,organization_id,tenant,actor,order_id):
   self._tenant(organization_id,tenant)
-  return await repo.submit_order(db,organization_id,actor,order_id)
+  region_id=await repo.resolve_region_id(db,organization_id,tenant.membership_id)
+  return await repo.submit_order(db,organization_id,actor,order_id,region_id)
 
  async def list_orders(self,db,organization_id,tenant,actor,page,page_size,status,tenant_scope=False):
   self._tenant(organization_id,tenant)
