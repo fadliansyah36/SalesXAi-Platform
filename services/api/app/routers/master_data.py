@@ -154,7 +154,7 @@ async def stream_master_data_events(
                 try:
                     event = await asyncio.wait_for(queue.get(), timeout=20)
                     yield "event: master_data.changed\ndata: " + json.dumps(event, default=str) + "\n\n"
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     yield ": keep-alive\n\n"
         finally:
             await connection.remove_listener("salesx_master_data", receive)
