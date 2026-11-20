@@ -1,12 +1,12 @@
 # ruff: noqa: E701, E702
 from __future__ import annotations
 import json
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import Decimal
 from uuid import uuid4
 from app.errors import APIError
+from app.domain.smart_order_rules import money as money_value, line_totals, percentage_discount, fixed_discount, can_transition_fulfillment, can_cancel_order
 
-CENT=Decimal("0.01")
-def money(v): return Decimal(str(v)).quantize(CENT,rounding=ROUND_HALF_UP)
+def money(v): return money_value(v)
 def rowdict(r): return dict(r) if r is not None else None
 
 class SmartOrderRepository:
@@ -184,7 +184,7 @@ class SmartOrderRepository:
    snaps=[];subtotal=Decimal("0");tax=Decimal("0");qty_total=Decimal("0")
    for i in items:
     q=await self.price_quote(db,org,i["product_id"],i["variant_id"],i["quantity"],c["customer_organization_id"])
-    qty=Decimal(i["quantity"]);unit=money(q["unit_price"]);line=money(unit*qty);t=money(line*Decimal(i["tax_rate"])/100)
+    qty=Decimal(i["quantity"]);totals=line_totals(q["unit_price"],qty,i["tax_rate"]);unit=totals["unit_price"];line=totals["subtotal"];t=totals["tax"]
     subtotal+=line;tax+=t;qty_total+=qty
     snaps.append({"product_id":str(i["product_id"]),"variant_id":str(i["variant_id"]),"product_name":i["product_name"],"product_code":i["product_code"],"sku":i["sku"],"variant_name":i["variant_name"],"quantity":str(qty),"unit_price":str(unit),"line_subtotal":str(line),"tax_rate":str(i["tax_rate"]),"tax_amount":str(t),"price_list_id":str(q["price_list_id"]),"currency":q["currency"]})
    promos,discount=await self.evaluate_promotions(db,org,p.promotion_codes,subtotal,qty_total,c["customer_organization_id"])
@@ -258,7 +258,7 @@ class SmartOrderRepository:
    f=await db.fetchrow("select * from public.fulfillments where organization_id=$1 and id=$2 for update",org,fid)
    if not f:raise APIError(404,"fulfillment_not_found","Fulfillment was not found.")
    allowed={"queued":{"picking","cancelled"},"picking":{"packed","failed","cancelled"},"packed":{"handed_over","failed","cancelled"},"handed_over":{"delivered","failed"},"failed":{"picking"},"cancelled":set(),"delivered":set()}
-   if p.status not in allowed.get(f["status"],set()):raise APIError(409,"invalid_fulfillment_transition","Fulfillment status transition is not allowed.")
+   if not can_transition_fulfillment(f["status"],p.status):raise APIError(409,"invalid_fulfillment_transition","Fulfillment status transition is not allowed.")
    await db.execute("update public.fulfillments set status=$3,carrier=coalesce($4,carrier),tracking_number=coalesce($5,tracking_number),external_status_at=case when $3='delivered' then now() else external_status_at end,updated_at=now() where id=$1 and organization_id=$2",fid,org,p.status,p.carrier,p.tracking_number)
    if p.status=="delivered":
     moves=await db.fetch("select * from public.stock_movements where organization_id=$1 and reference_id=$2 and movement_type='commit'",org,f["order_id"])
@@ -392,7 +392,7 @@ class SmartOrderRepository:
    o=await db.fetchrow("select * from public.orders where organization_id=$1 and id=$2 for update",org,oid)
    if not o:raise APIError(404,"order_not_found","Order was not found.")
    if o["status"]=="cancelled":return dict(o)
-   if o["status"] not in {"draft","pending_approval","approved"}:raise APIError(409,"order_cannot_be_cancelled","Order cannot be cancelled after fulfillment processing has started.")
+   if not can_cancel_order(o["status"]):raise APIError(409,"order_cannot_be_cancelled","Order cannot be cancelled after fulfillment processing has started.")
    if o["status"]=="pending_approval":
     movements=await db.fetch("select * from public.stock_movements where organization_id=$1 and reference_id=$2 and movement_type='reserve'",org,oid)
     for m in movements:
