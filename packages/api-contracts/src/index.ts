@@ -288,7 +288,7 @@ export interface SmartOrderProductWrite {product_code:string;name:string;descrip
 export interface SmartOrderPriceQuote {unit_price:string|number;currency:string;price_list_id:UUID;price_list_name:string;scope_type:string;tax_rate:string|number;sku:string;product_name:string;variant_name:string;}
 export interface SmartOrderInventoryBalance {id:UUID;warehouse_id:UUID;warehouse_code:string;warehouse_name:string;product_id:UUID;variant_id:UUID;on_hand:string|number;reserved:string|number;committed:string|number;available:string|number;version:number;}
 export interface SmartOrderStockMovementWrite {warehouse_id:UUID;product_id:UUID;variant_id:UUID;movement_type:"stock_in"|"stock_out"|"adjustment";quantity:number;adjustment_delta?:number;reason:string;idempotency_key:string;}
-export interface SmartOrderPromotion {id:UUID;code:string;name:string;description?:string|null;priority:number;stackable:boolean;starts_at:string;ends_at:string;rules:Array<{rule_type:string;rule_config:Record<string,unknown>}>;}
+export interface SmartOrderPromotion {id:UUID;code:string;name:string;description?:string|null;priority:number;stackable:boolean;stacking_group?:string|null;status?:string;starts_at:string;ends_at:string;rules:Array<{rule_type:string;rule_config:Record<string,unknown>}>;}
 export interface SmartOrderPromotionUpdate extends SmartOrderPromotionWrite {status:"active"|"inactive"|"archived";}
 export interface SmartOrderPromotionWrite {code:string;name:string;description?:string|null;starts_at:string;ends_at:string;priority?:number;stackable?:boolean;stacking_group?:string|null;rules:Array<{rule_type:string;rule_config:Record<string,unknown>}>;}
 export interface SmartOrderCart {cart:Record<string,unknown>;items:Array<Record<string,unknown>>;}
@@ -300,7 +300,8 @@ export interface SmartOrderFulfillmentWrite {warehouse_id?:UUID|null;assigned_to
 export interface SmartOrderFulfillmentUpdate {status:"picking"|"packed"|"handed_over"|"failed"|"cancelled";carrier?:string|null;tracking_number?:string|null;}
 
 export interface SmartOrderPriceListWrite {name:string;code:string;currency?:string;scope_type:"tenant"|"principal"|"distributor"|"customer"|"region"|"channel"|"contract";scope_id?:UUID|null;channel?:string|null;priority?:number;effective_from:string;effective_until?:string|null;status?:"draft"|"active"|"inactive"|"archived";prices:Array<{product_id:UUID;variant_id:UUID;unit_price:number;minimum_quantity?:number;maximum_quantity?:number|null}>;}
-export interface SmartOrderPriceList {id:UUID;name:string;code:string;currency:string;scope_type:string;status:string;prices:Array<Record<string,unknown>>;}
+export interface SmartOrderPriceListLine {id?:UUID;product_id:UUID;variant_id:UUID;unit_price:string|number;minimum_quantity:string|number;maximum_quantity?:string|number|null;effective_from?:string;effective_until?:string|null;}
+export interface SmartOrderPriceList {id:UUID;name:string;code:string;currency:string;scope_type:string;scope_id?:UUID|null;channel?:string|null;priority:number;effective_from:string;effective_until?:string|null;status:string;prices:SmartOrderPriceListLine[];}
 export interface SmartOrderWarehouse {id:UUID;code:string;name:string;branch_id?:UUID|null;address?:string|null;status:string;}
 export interface SmartOrderWarehouseWrite {code:string;name:string;branch_id?:UUID|null;address?:string|null;}
 export interface SmartOrderCategory {id:UUID;parent_id?:UUID|null;code:string;name:string;description?:string|null;sort_order:number;status:string;}
