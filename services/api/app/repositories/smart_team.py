@@ -1047,6 +1047,21 @@ class SmartTeamRepository:
             raise ValueError("profile_scope_forbidden")
         return visit
 
+    async def find_visit_evidence_by_digest(
+        self,
+        connection: asyncpg.Connection,
+        organization_id: UUID,
+        visit_id: UUID,
+        sha256: str,
+    ):
+        return await connection.fetchrow(
+            """select * from public.smartteam_visit_evidence
+               where organization_id=$1 and visit_id=$2 and sha256=$3""",
+            organization_id,
+            visit_id,
+            sha256,
+        )
+
     async def create_visit_evidence(
         self,
         connection: asyncpg.Connection,
@@ -1058,10 +1073,12 @@ class SmartTeamRepository:
         size_bytes: int,
         sha256: str,
     ):
-        return await connection.fetchrow(
+        row = await connection.fetchrow(
             """insert into public.smartteam_visit_evidence
                (organization_id,visit_id,uploaded_by,storage_path,mime_type,size_bytes,sha256)
-               values($1,$2,$3,$4,$5,$6,$7) returning *""",
+               values($1,$2,$3,$4,$5,$6,$7)
+               on conflict (organization_id,visit_id,sha256) do nothing
+               returning *""",
             organization_id,
             visit_id,
             actor_id,
@@ -1070,6 +1087,14 @@ class SmartTeamRepository:
             size_bytes,
             sha256,
         )
+        if row is not None:
+            return row, True
+        existing = await self.find_visit_evidence_by_digest(
+            connection, organization_id, visit_id, sha256
+        )
+        if existing is None:
+            raise RuntimeError("visit_evidence_deduplication_conflict")
+        return existing, False
 
     async def list_visit_evidence(
         self, connection: asyncpg.Connection, organization_id: UUID, actor_id: UUID, visit_id: UUID
