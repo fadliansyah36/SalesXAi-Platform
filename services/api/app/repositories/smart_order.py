@@ -274,7 +274,6 @@ class SmartOrderRepository:
   async with db.transaction():
    f=await db.fetchrow("select * from public.fulfillments where organization_id=$1 and id=$2 for update",org,fid)
    if not f:raise APIError(404,"fulfillment_not_found","Fulfillment was not found.")
-   allowed={"queued":{"picking","cancelled"},"picking":{"packed","failed","cancelled"},"packed":{"handed_over","failed","cancelled"},"handed_over":{"delivered","failed"},"failed":{"picking"},"cancelled":set(),"delivered":set()}
    if not can_transition_fulfillment(f["status"],p.status):raise APIError(409,"invalid_fulfillment_transition","Fulfillment status transition is not allowed.")
    await db.execute("update public.fulfillments set status=$3,carrier=coalesce($4,carrier),tracking_number=coalesce($5,tracking_number),external_status_at=case when $3='delivered' then now() else external_status_at end,updated_at=now() where id=$1 and organization_id=$2",fid,org,p.status,p.carrier,p.tracking_number)
    if p.status=="delivered":
