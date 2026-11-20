@@ -1161,17 +1161,18 @@ The latest application-code commit is `b03459f7ed95bf43bb90653afa60305d0501b24c`
 - A live authenticated login → session → FastAPI → refresh → logout round-trip is **not yet evidenced**: the connected Supabase/GitHub/Railway tools do not provide a disposable Auth user or authenticated HTTP session transport, and no test-account credentials were supplied. No existing user was impersonated and no synthetic user was inserted into production. This remains a Phase 04 closure blocker; configuration/build/health success is not substituted for session proof.
 
 ### Migration ledger reconciliation
-- Supabase remote migration ledger: 35 applied versions in order — Phase 00: 2, Phase 02: 14, Phase 03: 10, Phase 04: 9.
+- Supabase remote migration ledger: 36 applied versions in order — Phase 00: 2, Phase 02: 14, Phase 03: 10, Phase 04: 10.
 - Phase 02 and Phase 03 remain **COMPLETED** as recorded by their final closure entries; the previous later addendum incorrectly relabelled Phase 02 PARTIAL and Phase 03 LOCKED. This entry supersedes that incorrect note.
 - Four Phase 02 migration files were renamed in Git to match the exact already-applied remote version/name pairs; SQL contents were not changed and no historical migration was re-applied:
+  - `20261120123237_p04_dedupe_master_data_broadcast_triggers.sql` — applied as the 36th migration to remove the duplicate generic broadcast trigger on branches, teams, territories, outlets, sales_profiles and outlet_assignment_history. The canonical per-table trigger remains for each resource.
   - `20261119143000_p02_distributed_rate_limit_buckets.sql` → `20261119143440_p02_distributed_rate_limit_buckets.sql`
   - `20261119144800_p02_identity_link_permission_and_self_scopes.sql` → `20261119145000_p02_identity_link_permission_and_self_scopes.sql`
   - `20261119145500_p02_rate_limit_table_rls.sql` → `20261119145850_p02_rate_limit_table_rls.sql`
   - `20261119150000_p02_rate_limit_deny_client_policy.sql` → `20261119150146_p02_rate_limit_deny_client_policy.sql`
-- All 35 local migration filenames now match the remote ledger's version/name pairs. The live schema has 25 public tables and RLS enabled on 25/25; Security Advisor last returned zero security lints. No corrective database migration was required.
+- All 36 local migration filenames now match the remote ledger's version/name pairs. The live schema has 25 public tables and RLS enabled on 25/25; Security Advisor last returned zero security lints. A corrective Phase 04 migration was required and applied after runtime schema inspection identified duplicate master-data broadcast triggers; no historical migration was edited or replayed.
 
 ### Engineering validation
-- Added tests for 67 action placements/23 contracts, API-client/UI method presence, route/action-matrix consistency, exact CORS parsing and rejection of wildcard/path origins, plus local migration filename parity.
+- Added tests for 67 action placements/23 contracts, API-client/UI method presence, route/action-matrix consistency, exact CORS parsing and rejection of wildcard/path origins, plus local migration filename parity and the duplicate master-data trigger regression.
 - Phase 04 source changes require fresh API and foundation CI on the new commit. Railway deploys and health checks are to be recorded separately after the commit reaches production.
 
 ### Closure decision

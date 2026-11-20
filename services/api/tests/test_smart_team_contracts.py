@@ -101,9 +101,17 @@ class SmartTeamMigrationTests(unittest.TestCase):
             "20261120041314_p04_smartteam_evidence_broadcast.sql",
             "20261120041531_p04_smartteam_task_activity.sql",
             "20261120043558_p04_smartteam_evidence_content_dedup.sql",
+            "20261120123237_p04_dedupe_master_data_broadcast_triggers.sql",
         )
         for name in expected:
             self.assertTrue((migrations / name).is_file(), name)
+
+    def test_duplicate_master_data_broadcast_triggers_are_removed(self) -> None:
+        repository_root = Path(__file__).resolve().parents[3]
+        migration = repository_root / "supabase/migrations/20261120123237_p04_dedupe_master_data_broadcast_triggers.sql"
+        sql = migration.read_text().lower()
+        for table in ("branches", "teams", "territories", "outlets", "sales_profiles", "outlet_assignment_history"):
+            self.assertIn(f"drop trigger if exists salesx_master_data_broadcast on public.{table}", sql)
 
     def test_visit_evidence_content_deduplication_is_migrated(self) -> None:
         repository_root = Path(__file__).resolve().parents[3]
