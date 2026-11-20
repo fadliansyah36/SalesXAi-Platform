@@ -58,6 +58,7 @@ import { SalesGoogleMap } from '@/components/maps/SalesGoogleMap';
 import { PortalLoginView } from '@/components/portal/PortalLoginView';
 import { AIChatAndStudio } from '@/components/portal/AIChatAndStudio';
 import { LeadsDiscoveryModule } from '@/components/portal/LeadsDiscoveryModule';
+import { SmartTeamConsole } from '@/components/smart-team/SmartTeamConsole';
 import {
   WorkspaceHubView,
   OutletDetailModal,
@@ -105,7 +106,7 @@ type MainSection =
   | 'aktivitas'
   | 'lainnya';
 type OrderSubTab = 'catalog' | 'create' | 'history' | 'promo';
-type AktivitasSubTab = 'planner' | 'schedule' | 'history' | 'gps' | 'attendance';
+type AktivitasSubTab = 'planner' | 'schedule' | 'history' | 'gps' | 'attendance' | 'smartteam';
 type LainnyaSubTab =
   | 'menu'
   | 'target'
@@ -1782,13 +1783,14 @@ export function SalesPortalApp() {
              ================================================================ */}
           {section === 'aktivitas' && (
             <div className="space-y-5">
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 rounded-xl bg-[var(--color-surface-muted)] p-1.5">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-1.5 rounded-xl bg-[var(--color-surface-muted)] p-1.5">
                 {[
                   { id: 'planner' as const, label: 'Visit Planner' },
                   { id: 'schedule' as const, label: 'Jadwal Kunjungan' },
                   { id: 'history' as const, label: 'Riwayat Kunjungan' },
                   { id: 'gps' as const, label: 'Lokasi & GPS' },
                   { id: 'attendance' as const, label: 'Absensi Geofence' },
+                  { id: 'smartteam' as const, label: 'SmartTeam API' },
                 ].map((t) => (
                   <button
                     key={t.id}
@@ -1804,6 +1806,8 @@ export function SalesPortalApp() {
                   </button>
                 ))}
               </div>
+
+              {aktivitasTab === 'smartteam' && <SmartTeamConsole surface="sales" />}
 
               {/* 4A. Visit Planner (Screen 5) */}
               {aktivitasTab === 'planner' && (
