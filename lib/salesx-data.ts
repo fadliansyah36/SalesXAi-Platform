@@ -903,6 +903,7 @@ export interface TerritoryItem {
   id: string;
   name: string;
   branchName: string;
+  branchId?: string;
   outletCount: number;
   salesAssigned: number;
   coveragePct: number;

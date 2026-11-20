@@ -389,7 +389,7 @@ export function CompanyPortalApp() {
       const branchNames = new Map(nextBranches.map((branch) => [branch.id, branch.name]));
       const nextTerritories: TerritoryItem[] = territoryRows.map((row) => ({
         id: String(row.id), name: asText(row.name),
-        branchName: branchNames.get(asText(row.branch_id)) ?? '',
+        branchName: branchNames.get(asText(row.branch_id)) ?? '', branchId: asText(row.branch_id),
         outletCount: 0, salesAssigned: 0, coveragePct: 0,
         colorHex: '#348CB2', lat: 0, lng: 0, status: row.status === 'active' ? 'Aktif' : 'Nonaktif',
       }));
@@ -469,7 +469,7 @@ export function CompanyPortalApp() {
       code: masterCode(territory.name), name: territory.name, branch_id: branch?.id, status: 'active',
     });
     setTerritories((current) => [{
-      id: String(row.id), name: asText(row.name), branchName: territory.branchName,
+      id: String(row.id), name: asText(row.name), branchName: territory.branchName, branchId: asText(row.branch_id),
       outletCount: 0, salesAssigned: 0, coveragePct: 0, colorHex: '#348CB2', lat: 0, lng: 0,
     }, ...current]);
   };
@@ -1830,7 +1830,7 @@ export function CompanyPortalApp() {
                       </select>
                       <select value={newSalesTerritoryId} onChange={(event) => setNewSalesTerritoryId(event.target.value)} className="w-full rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-background)] px-3 py-2 text-xs">
                         <option value="">Pilih teritori aktif</option>
-                        {territories.filter((territory) => territory.status === 'Aktif').map((territory) => <option key={territory.id} value={territory.id}>{territory.name}</option>)}
+                        {territories.filter((territory) => territory.status === 'Aktif' && (!newSalesTeamId || territory.branchId === asText(teams.find((team) => asText(team.id) === newSalesTeamId)?.branch_id))).map((territory) => <option key={territory.id} value={territory.id}>{territory.name}</option>)}
                       </select>
                     </div>
                     <div className="flex flex-wrap gap-2">

@@ -80,8 +80,9 @@ class MasterDataService:
                    join public.roles r on r.id=ura.role_id
                    where m.organization_id=$1 and m.user_id=$2 and m.status='active'
                      and r.key='supervisor' and ura.revoked_at is null
-                     and ura.starts_at<=now() and (ura.expires_at is null or ura.expires_at>now()))""",
-                organization_id, values["supervisor_user_id"],
+                     and ura.starts_at<=now() and (ura.expires_at is null or ura.expires_at>now())
+                     and ((ura.scope_type='tenant' and ura.scope_id=$1) or (ura.scope_type='branch' and ura.scope_id=$3)))""",
+                organization_id, values["supervisor_user_id"], values.get("branch_id"),
             )
             if not valid_supervisor:
                 raise APIError(422, "supervisor_role_required", "Team supervisor must have an active supervisor role in this organization.")
@@ -133,6 +134,8 @@ class MasterDataService:
                 raise APIError(422, "outlet_territory_branch_mismatch", "Outlet territory must belong to the selected branch.")
 
         if resource == "sales_profiles":
+            if resource_id is None and (values.get("team_id") is None or values.get("territory_id") is None):
+                raise APIError(422, "sales_profile_scope_required", "A new sales profile must be assigned to an active team and territory.")
             user_id = values.get("user_id")
             if user_id is None:
                 raise APIError(422, "sales_profile_user_required", "Select a user with an active organization membership.")
@@ -145,9 +148,11 @@ class MasterDataService:
                        where ura.membership_id=m.id and ura.revoked_at is null
                          and ura.starts_at<=now() and (ura.expires_at is null or ura.expires_at>now())
                          and r.key in ('sales_rep','supervisor')
+                         and ((ura.scope_type='tenant' and ura.scope_id=$1)
+                           or (ura.scope_type='branch' and ura.scope_id=(select t.branch_id from public.teams t where t.id=$3 and t.organization_id=$1)))
                      )
                    order by m.created_at desc limit 1""",
-                organization_id, user_id,
+                organization_id, user_id, values.get("team_id"),
             )
             if membership is None:
                 raise APIError(422, "sales_profile_membership_role_required", "Sales profile requires an active membership with sales_rep or supervisor role.")
@@ -170,8 +175,10 @@ class MasterDataService:
                        join public.roles r on r.id=ura.role_id
                        where m.organization_id=$1 and m.user_id=$2 and m.status='active'
                          and r.key='supervisor' and ura.revoked_at is null
-                         and ura.starts_at<=now() and (ura.expires_at is null or ura.expires_at>now()))""",
-                    organization_id, manager_user_id,
+                         and ura.starts_at<=now() and (ura.expires_at is null or ura.expires_at>now())
+                         and ((ura.scope_type='tenant' and ura.scope_id=$1)
+                           or (ura.scope_type='branch' and ura.scope_id=(select t.branch_id from public.teams t where t.id=$3 and t.organization_id=$1))))""",
+                    organization_id, manager_user_id, values.get("team_id"),
                 )
                 if not valid_manager:
                     raise APIError(422, "manager_role_required", "Sales manager must have an active supervisor role in this organization.")

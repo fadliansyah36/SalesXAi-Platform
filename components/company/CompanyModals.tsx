@@ -1990,7 +1990,7 @@ export function EditUserAssignmentModal({
           <label className="block font-semibold mb-1">Teritori</label>
           <select required value={territoryId} onChange={(event) => setTerritoryId(event.target.value)} className="w-full rounded-xl border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 py-2">
             <option value="">Pilih teritori</option>
-            {territories.filter((territory) => !selectedTeam || territory.branchName === teams.find((team) => team.id === selectedTeam.id)?.name).map((territory) => <option key={territory.id} value={territory.id}>{territory.name}</option>)}
+            {territories.filter((territory) => !selectedTeam || territory.branchId === selectedTeam.branchId).map((territory) => <option key={territory.id} value={territory.id}>{territory.name}</option>)}
           </select>
         </div>
         <div>
