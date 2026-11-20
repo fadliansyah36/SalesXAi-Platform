@@ -978,3 +978,16 @@ The latest application-code commit is `b03459f7ed95bf43bb90653afa60305d0501b24c`
 - SmartTeam dashboard contract binding and Web evidence upload progress/cancellation: `afb4e19b56683afea0627074f6c60ac67b476b9c`, `0d2c5f103cfe276fa1f7c4d44c7b8dce18614eec`.
 
 **Phase 04 remains IN_PROGRESS / NOT COMPLETED.** The eight app roots and their CI builds are complete, and API readiness is healthy. The remaining five Railway services cannot be provisioned under the current Railway Free plan resource limit; the three deployed portal services still need final health confirmation; CORS needs all eight real domains; and full role-scoped integration/no-demo cleanup of all relevant existing dashboard actions remains outstanding. Do not start Phase 05.
+
+
+## Phase 04 — Railway portal health-check deployment evidence — 2026-11-20
+
+- The three provisioned portal services completed their API-dependent health-check deployment on commit `e2725dfe89a1f43854f204d95f012fe75ece9abe`:
+  - Website deployment `151405db-cb1d-42eb-bad9-fe1e1528f7ab` — **SUCCESS**.
+  - Customer deployment `cbfaa5a1-ee77-4676-bf28-411396248be4` — **SUCCESS**.
+  - Company deployment `96b7134e-1c31-46c7-93c6-b0a36522990f` — **SUCCESS**.
+- Their Railway health check path is `/api/health`; each handler calls the configured FastAPI `/readyz` endpoint and returns HTTP 200 only when the API reports readiness. Successful Railway health-check deployment therefore confirms the three portal runtimes could reach the healthy FastAPI dependency at that deployment revision.
+- API deployment `b0f7ea0b-8380-4cb2-bc81-6b1e7882d0d9` remains **SUCCESS/Online** and logged repeated `/readyz` HTTP 200.
+- The latest application commit `0d2c5f103cfe276fa1f7c4d44c7b8dce18614eec` includes the SmartTeam dashboard and evidence upload progress/cancellation refinements. Its corresponding Railway redeployments were still QUEUED behind the previous deployment chain at this check; do not claim that these latest component changes are live until those deployment IDs finish successfully.
+- The eight-portal GitHub build matrix on `0d2c5f1` is **8/8 SUCCESS**, and API Checks are **SUCCESS**. Foundation Verification run `44689132195` remains in progress.
+- The five missing portal services remain blocked by Railway Free plan resource provisioning limit. CORS remains scoped to the three actual provisioned domains only. Phase 04 remains **IN_PROGRESS**.
