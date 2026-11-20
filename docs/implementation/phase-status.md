@@ -1143,41 +1143,90 @@ The latest application-code commit is `b03459f7ed95bf43bb90653afa60305d0501b24c`
 **Official status: PHASE 04 — IN_PROGRESS / NOT COMPLETED. Phase 05 — SMARTORDER remains locked.**
 
 
-## Phase 04 — Final action coverage, exact portal origins and migration reconciliation — 2026-11-20
+## Phase 04 — Latest implementation, production health and closure status — 2026-11-20
 
-### Canonical action-level integration
-- Added `docs/implementation/phase-04-action-coverage.tsv`: 67 portal/action placements across 23 unique FastAPI action contracts (22 tenant SmartTeam actions and one platform SmartTeam overview).
-- Portal coverage: Sales 22/22; Company 22/22; Supervisor 22/22; Super Admin 1/1. Website, Customer, Distributor and Principal have 0 Phase 04 SmartTeam business actions by the PRD phase map (Website public lead/contact, Customer/Distributor commerce Phase 05, Principal product/pricing Phase 05/06); these are N/A, not missing Phase 04 endpoints.
-- The active shared SmartTeam UI now exposes target update as well as visit assignment/cancel, visit edit/check-in/out, attendance correction, activity completion, evidence upload/read, visit history, dashboard and event stream. The event stream now uses `SalesXApiClient.subscribeSmartTeamEvents`; the UI no longer constructs EventSource directly and subscription is gated by `smartteam:dashboard:read`.
-- Super Admin global SmartTeam overview remains connected through `listPlatformSmartTeamOverview` and platform-scoped permission.
-- Expo remains a separate native channel, with 12 SmartTeam API operations through the shared typed client and offline outbox.
-- Added static coverage tests that compare every placement with the FastAPI action matrix, typed API client and active UI source; startup route/action validation remains the server-side drift gate.
+This addendum supersedes the immediately preceding action-coverage and closure notes. The implementation commit is `35e00f0f87b932330c8a18f157b6492c790bcf55`; this tracker-only revision records the final evidence without changing application code.
 
-### CORS and BFF deployment configuration
-- Four active Railway Default Domains: API `https://salesx-api-production.up.railway.app`; Website `https://salesx-website-production.up.railway.app`; Customer `https://salesx-customer-production.up.railway.app`; Company `https://salesx-company-production.up.railway.app`.
-- API `CORS_ORIGINS` is set to the exact three browser origins: `https://salesx-website-production.up.railway.app,https://salesx-customer-production.up.railway.app,https://salesx-company-production.up.railway.app`. No wildcard is allowed; credentialed CORS remains enabled.
-- API `APP_PUBLIC_URL` is the Website origin. Portal-service `APP_PUBLIC_URL` values are Website/Customer/Company origin respectively. All three portal services use the API Default Domain as `SALESX_API_URL`.
-- `SALESX_BFF_SHARED_SECRET` is synchronized across the API and three portal services; its value is deliberately not written to source or this tracker. Supabase publishable keys remain in server configuration; service-role/secret credentials remain API-only.
-- The BFF code uses HttpOnly Secure session cookies, SameSite=Lax auth cookies, SameSite=Strict CSRF cookie, exact Origin + CSRF header validation, server-side token refresh and API proxy. Google OAuth and SMTP credentials remain unpopulated per instruction.
-- A live authenticated login → session → FastAPI → refresh → logout round-trip is **not yet evidenced**: the connected Supabase/GitHub/Railway tools do not provide a disposable Auth user or authenticated HTTP session transport, and no test-account credentials were supplied. No existing user was impersonated and no synthetic user was inserted into production. This remains a Phase 04 closure blocker; configuration/build/health success is not substituted for session proof.
+### Phase 04 scope and action-level API coverage
 
-### Migration ledger reconciliation
-- Supabase remote migration ledger: 36 applied versions in order — Phase 00: 2, Phase 02: 14, Phase 03: 10, Phase 04: 10.
-- Phase 02 and Phase 03 remain **COMPLETED** as recorded by their final closure entries; the previous later addendum incorrectly relabelled Phase 02 PARTIAL and Phase 03 LOCKED. This entry supersedes that incorrect note.
-- Four Phase 02 migration files were renamed in Git to match the exact already-applied remote version/name pairs; SQL contents were not changed and no historical migration was re-applied:
-  - `20261120123237_p04_dedupe_master_data_broadcast_triggers.sql` — applied as the 36th migration to remove the duplicate generic broadcast trigger on branches, teams, territories, outlets, sales_profiles and outlet_assignment_history. The canonical per-table trigger remains for each resource.
-  - `20261119143000_p02_distributed_rate_limit_buckets.sql` → `20261119143440_p02_distributed_rate_limit_buckets.sql`
-  - `20261119144800_p02_identity_link_permission_and_self_scopes.sql` → `20261119145000_p02_identity_link_permission_and_self_scopes.sql`
-  - `20261119145500_p02_rate_limit_table_rls.sql` → `20261119145850_p02_rate_limit_table_rls.sql`
-  - `20261119150000_p02_rate_limit_deny_client_policy.sql` → `20261119150146_p02_rate_limit_deny_client_policy.sql`
-- All 36 local migration filenames now match the remote ledger's version/name pairs. The live schema has 25 public tables and RLS enabled on 25/25; Security Advisor last returned zero security lints. A corrective Phase 04 migration was required and applied after runtime schema inspection identified duplicate master-data broadcast triggers; no historical migration was edited or replayed.
+The Master PRD separates SmartTeam / Field Operations (visits, attendance, shifts, evidence, daily activity, targets and performance) from SmartOrder commerce (catalog, pricing, inventory, order and fulfillment). The Engineering Execution Plan explicitly requires Phase 04 operations to work through Web and Mobile. The portal scope matrix therefore records Phase 04 applicability rather than treating future-phase commerce modules as SmartTeam gaps.
 
-### Engineering validation
-- Added tests for 67 action placements/23 contracts, API-client/UI method presence, route/action-matrix consistency, exact CORS parsing and rejection of wildcard/path origins, plus local migration filename parity and the duplicate master-data trigger regression.
-- Phase 04 source changes require fresh API and foundation CI on the new commit. Railway deploys and health checks are to be recorded separately after the commit reaches production.
+- `docs/implementation/phase-04-portal-scope.tsv` maps all eight web portals and the separate Mobile Sales channel.
+- `docs/implementation/phase-04-action-coverage.tsv` now contains **79 action placements across 23 unique FastAPI action contracts**. Every contract has an endpoint, typed-client method and permission key (23/23).
+- Web portal action counts:
 
-### Closure decision
-- Action-level API coverage for the Phase 04 scope is implemented and statically mapped across the relevant portals.
-- Exact CORS origins and BFF service configuration are applied.
-- **Phase 04 remains IN_PROGRESS — NOT COMPLETED** until a real authenticated session round-trip is demonstrated and final CI/deployment health is confirmed on the latest source commit.
-- Phase 05 — SmartOrder remains locked; no Phase 05 business implementation was started.
+| Portal | Total Phase 04 actions | Integrated | Remaining | Scope |
+|---|---:|---:|---:|---|
+| Website | 0 | 0 | 0 | N/A — no SmartTeam field-operations UI |
+| Customer Portal | 0 | 0 | 0 | N/A — commerce/reward belongs to Phase 05/06 |
+| Sales Portal | 22 | 22 | 0 | SmartTeam |
+| Company Portal | 22 | 22 | 0 | SmartTeam |
+| Distributor Portal | 0 | 0 | 0 | N/A — inventory/order/fulfillment belongs to Phase 05 |
+| Principal Portal | 0 | 0 | 0 | N/A — product/pricing/campaign belongs to Phase 05/06 |
+| Supervisor Portal | 22 | 22 | 0 | SmartTeam |
+| Super Admin | 1 | 1 | 0 | Platform SmartTeam overview |
+
+- Additional cross-platform channel: Mobile Sales **12/12** SmartTeam API operations use the shared typed API client and offline outbox. Mobile clock-in/clock-out and visit check-in/check-out now gate each mutation against its exact action ID, including `smartteam.attendance.clock_out` and `smartteam.visits.checkout`.
+- The Web SmartTeam console still serves Sales, Company and Supervisor. Visit history/evidence controls are now hidden unless `smartteam:visit:read` is granted. Legacy SmartTeam demo panels remain disabled; no mock fallback is used for Phase 04 SmartTeam actions.
+- Super Admin overview remains connected through `listPlatformSmartTeamOverview` and its platform-scoped permission.
+- Static source validation scans all `components/**/*.tsx`, `apps/*/app/**/*.tsx` and `apps/mobile-sales/src/**/*.tsx`: no direct `supabase.from/rpc/storage` calls were found. The check also confirms the active SmartTeam console mounts in Sales, Company and Supervisor.
+- The 23 action contracts cover visit CRUD/assignment/cancel/check-in/check-out/history/evidence, attendance/clock-in/clock-out/correction, activities, targets, dashboard, event stream and platform overview. The action matrix enforces resource policy, tenant scope and permission mapping at the FastAPI boundary.
+- This is **Phase 04 SmartTeam coverage**, not a claim that Phase 05 SmartOrder or Phase 06 SmartReward business workflows are already integrated. Those phases remain unstarted.
+
+### Exact CORS, BFF and Railway production evidence
+
+Four target Railway services and their actual Default Domains:
+
+| Service | Default Domain | Deployment | Source commit | Status |
+|---|---|---|---|---|
+| `salesx-api` | `https://salesx-api-production.up.railway.app` | `0e6b0195-c1cd-4eb7-8739-e850a50c873c` | `35e00f0f87b932330c8a18f157b6492c790bcf55` | SUCCESS / online |
+| `salesx-website` | `https://salesx-website-production.up.railway.app` | `90e307da-3e08-4385-946f-cf6e88c4ea9e` | `7829e34c14160bf01a7728db866a30354e44fe37` | SUCCESS / online |
+| `salesx-customer` | `https://salesx-customer-production.up.railway.app` | `0ca51c1c-a348-4a4c-a824-0dbe228deed9` | `7829e34c14160bf01a7728db866a30354e44fe37` | SUCCESS / online |
+| `salesx-company` | `https://salesx-company-production.up.railway.app` | `771e580a-fe5b-469d-8299-c614d39b0646` | `7829e34c14160bf01a7728db866a30354e44fe37` | SUCCESS / online |
+
+- Exact credentialed CORS allowlist on FastAPI:
+  - `https://salesx-website-production.up.railway.app`
+  - `https://salesx-customer-production.up.railway.app`
+  - `https://salesx-company-production.up.railway.app`
+- Sales Portal is routed under Website `/sales`; Distributor, Principal, Supervisor and Super Admin are routed under Company `/distributor`, `/principal`, `/supervisor`, and `/admin`. They do not require invented extra origins.
+- Website, Customer and Company each have their own exact `APP_PUBLIC_URL`; all three use the API Default Domain as `SALESX_API_URL`. API `APP_PUBLIC_URL` is Website and is a member of `CORS_ORIGINS`.
+- Railway runtime HTTP metrics for the latest production window: API `/readyz` **68/68 HTTP 2xx**; `OPTIONS /api/v1/auth/me` **35/35 HTTP 2xx**; internal BFF distributed rate-limit requests **6/6 HTTP 2xx**; no 4xx/5xx in those samples. The portal health gate issues preflight requests with each portal's exact Origin and requires exact `Access-Control-Allow-Origin` plus `Access-Control-Allow-Credentials: true`; successful Website, Customer and Company deployments therefore confirm the exact-origin credentialed preflight gate.
+- Website gateway starts Website + Sales; Company gateway starts Company + Distributor + Principal + Supervisor + Super Admin. Both gateways report all contained Next.js servers Ready. Customer is independently online. The four target Railway services remain the only target services; no service was added.
+- BFF auth cookies are HttpOnly, Secure in production and SameSite=Lax; CSRF cookie is HttpOnly, Secure in production and SameSite=Strict. Mutations validate exact Origin and the CSRF header using timing-safe comparison. Refresh, logout/session invalidation and API proxy remain server-side.
+- `SALESX_BFF_SHARED_SECRET` is configured on API and the three server-side portal services. `SUPABASE_SECRET_KEY` is present only on API; portal services have only the server-side publishable key and project URL. No service-role/private key is included in browser or Expo public configuration.
+- SMTP, Google OAuth and other provider credentials remain deliberately unset. No dummy credentials were introduced.
+- **Authenticated login → session creation → authenticated FastAPI request → refresh → logout/invalidation has not been demonstrated.** The runtime health gate proves CSRF/session endpoint availability and CORS, not a signed-in user lifecycle. No disposable Auth test account or authenticated HTTP session was available through the connected tools; no production user was impersonated and no synthetic user was inserted. The BFF round-trip remains the explicit closure blocker.
+
+### Phase 02/03 and migration-ledger reconciliation
+
+- Remote Supabase ledger: **36 applied migrations**; local repository: **36 migration files**; version/name pairs match exactly, with no orphan or mismatch.
+- Phase counts: Phase 00 = 2, Phase 02 = 14, Phase 03 = 10, Phase 04 = 10.
+- Phase 02 and Phase 03 are **COMPLETED** in the authoritative tracker, corroborated by their applied migration ledgers and passing API contract tests. Historical PARTIAL/LOCKED notes above are superseded by the current closure entries and this reconciliation.
+- Four Phase 02 migration filename prefixes were aligned in Git to their already-applied remote versions; SQL contents were not changed and historical migrations were not re-applied.
+- Corrective migration `20261120123237_p04_dedupe_master_data_broadcast_triggers.sql` is the 36th applied migration. It removes duplicate generic broadcast triggers from branches, teams, territories, outlets, sales_profiles and outlet_assignment_history while preserving canonical per-table triggers.
+- Live schema: **25/25 public tables have RLS enabled**, 25 public policies are present, SmartTeam evidence Storage remains private, and Supabase Security Advisor returned **0 lints**.
+
+### Final engineering validation
+
+- API Checks run **44740643402** — SUCCESS on implementation commit `35e00f0f87b932330c8a18f157b6492c790bcf55`: **71 Python tests passed**, FastAPI compileall, Ruff, Web TypeScript, Web lint and API Docker build passed.
+- Portal Build Matrix run **44740148667** — SUCCESS, **8/8 portal builds** on commit `7829e34c14160bf01a7728db866a30354e44fe37`.
+- Foundation Verification run **44740148719** — SUCCESS: all 20 engineering steps passed, including frozen Bun workspace install, design-token reproducibility, Web TypeScript/lint, Native TypeScript, Expo SDK compatibility, Expo config, Metro startup, Android and iOS bundle exports, and Turborepo workspace build.
+- The latest source-code commit is `35e00f0f87b932330c8a18f157b6492c790bcf55`; this tracker revision is documentation-only and does not change application code.
+
+### Definition of Done and closure decision
+
+| DoD | Status | Evidence / remaining gap |
+|---|---|---|
+| 1. Phase 04 actions mapped and connected for all eight web portals according to PRD scope | COMPLETED — Phase 04 scope | 79 placements / 23 contracts, with explicit N/A scope for Website, Customer, Distributor and Principal; Mobile Sales adds 12 operations. Phase 05/06 commerce is not represented as completed. |
+| 2. No Phase 04 SmartTeam mock/placeholder or direct frontend database mutation | COMPLETED — Phase 04 scope | Legacy SmartTeam demos disabled; no mock fallback; all portal TSX UI sources statically scanned with zero direct Supabase table/RPC/storage mutation calls. |
+| 3. Authorization, tenant isolation and permission on each Phase 04 endpoint | COMPLETED — code/contract evidence | 23/23 action contracts have permission keys and resource/tenant scope; API policy tests pass; 25/25 public tables have RLS. |
+| 4. Exact CORS allowlist and credentialed preflight | COMPLETED | Three exact origins; 35/35 OPTIONS 2xx; wildcard rejected by configuration validator. |
+| 5. Authenticated session round-trip | NOT VERIFIED | No signed-in test session was available; health/preflight is not a substitute. |
+| 6. Website Auth BFF and session lifecycle | PARTIAL | Cookie/CSRF/refresh/logout code and endpoint readiness are deployed; complete signed-in round-trip is not evidenced. |
+| 7. Four Railway services and multi-portal routing healthy | COMPLETED | All four services online; Website, Customer and Company gateway deployments SUCCESS; contained portal servers report Ready. |
+| 8. Phase 02/03 tracker and migration ledger consistent | COMPLETED | 36/36 local/remote migration parity; Phase 02/03 completed; RLS and Security Advisor verified. |
+| 9. Engineering validation on latest source | COMPLETED | 71 API tests, 8/8 portal builds, Foundation Verification 20/20, Railway deployments SUCCESS. |
+| 10. Phase tracker contains current evidence and commit | COMPLETED | This addendum records action counts, origins, deployment IDs, migration ledger, validation runs and implementation SHA. |
+
+**Official status remains: PHASE 04 — IN_PROGRESS / NOT COMPLETED.** The sole unproven runtime gate is a real authenticated BFF session round-trip. Do not mark Phase 04 COMPLETED until that round-trip is demonstrated. **Phase 05 — SmartOrder remains LOCKED and has not been started.**
+
