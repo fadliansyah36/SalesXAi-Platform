@@ -665,7 +665,7 @@ export class SalesXApiClient {
   createSmartOrderApprovalPolicy(organizationId:string,payload:import("@salesx-ai/api-contracts").SmartOrderApprovalPolicyWrite):Promise<import("@salesx-ai/api-contracts").SmartOrderApprovalPolicy>{return this.request("/api/v1/organizations/"+encodeURIComponent(organizationId)+"/smart-order/approval-policies",{method:"POST",body:JSON.stringify(payload)});}
 
 
-  subscribeSmartOrderEvents(organizationId:string,onEvent:(event:import("@salesx-ai/api-contracts").SmartOrderRealtimeEvent)=>void):()=>void{
+  subscribeSmartOrderEvents(organizationId:string,onEvent:(event:import("@salesx-ai/api-contracts").SmartOrderRealtimeEvent)=>void,onReconnect?:()=>void):()=>void{
     let stopped=false,attempt=0,controller:AbortController|null=null,timer:ReturnType<typeof setTimeout>|null=null;
     const seen=new Set<string>();
     const emit=(event:import("@salesx-ai/api-contracts").SmartOrderRealtimeEvent)=>{const key=event.event_id??[event.organization_id,event.resource,event.record_id,event.operation,event.status??"",event.occurred_at].join("|");if(seen.has(key))return;seen.add(key);if(seen.size>512){const first=seen.values().next().value;if(first)seen.delete(first);}onEvent(event);};
@@ -674,9 +674,10 @@ export class SalesXApiClient {
       if(stopped)return;
       controller=new AbortController();
       try{
+        const reconnecting=attempt>0;
         const response=await this.fetch("/api/v1/organizations/"+encodeURIComponent(organizationId)+"/smart-order/events",{headers:{Accept:"text/event-stream"},signal:controller.signal});
         if(!response.ok||!response.body)throw new Error("SmartOrder event stream is unavailable.");
-        attempt=0;const reader=response.body.getReader();const decoder=new TextDecoder();let buffer="";
+        attempt=0;if(reconnecting)onReconnect?.();const reader=response.body.getReader();const decoder=new TextDecoder();let buffer="";
         while(!stopped){
           const part=await reader.read();if(part.done)break;
           buffer+=decoder.decode(part.value,{stream:true});
@@ -696,7 +697,7 @@ export class SalesXApiClient {
     return()=>{stopped=true;controller?.abort();if(timer)clearTimeout(timer);};
   }
 
-  subscribeSmartOrderBroadcast(organizationId:string,supabaseUrl:string,publishableKey:string,onEvent:(event:import("@salesx-ai/api-contracts").SmartOrderRealtimeEvent)=>void):()=>void{
+  subscribeSmartOrderBroadcast(organizationId:string,supabaseUrl:string,publishableKey:string,onEvent:(event:import("@salesx-ai/api-contracts").SmartOrderRealtimeEvent)=>void,onReconnect?:()=>void):()=>void{
     let stopped=false,attempt=0,socket:WebSocket|null=null,heartbeat:ReturnType<typeof setInterval>|null=null,timer:ReturnType<typeof setTimeout>|null=null;
     const seen=new Set<string>();
     const emit=(event:import("@salesx-ai/api-contracts").SmartOrderRealtimeEvent)=>{const key=event.event_id??[event.organization_id,event.resource,event.record_id,event.operation,event.status??"",event.occurred_at].join("|");if(seen.has(key))return;seen.add(key);if(seen.size>512){const first=seen.values().next().value;if(first)seen.delete(first);}onEvent(event);};
@@ -705,12 +706,13 @@ export class SalesXApiClient {
     const connect=async()=>{
       if(stopped)return;
       try{
+        const reconnecting=attempt>0;
         const token=await this.auth.getAccessToken()??await this.auth.refreshAccessToken();
         if(!token)throw new Error("Realtime access token is unavailable.");
         const base=(supabaseUrl.endsWith("/")?supabaseUrl.slice(0,-1):supabaseUrl).replace(/^https:/,"wss:").replace(/^http:/,"ws:");
         socket=new WebSocket(base+"/realtime/v1/websocket?apikey="+encodeURIComponent(publishableKey)+"&vsn=2.0.0");
         socket.onopen=()=>{
-          attempt=0;const joinRef="1";
+          attempt=0;if(reconnecting)onReconnect?.();const joinRef="1";
           socket?.send(JSON.stringify({topic:"realtime:tenant:"+organizationId+":smartorder",event:"phx_join",payload:{config:{broadcast:{ack:false,self:false},presence:{key:""},postgres_changes:[],private:true},access_token:token},ref:joinRef,join_ref:joinRef}));
           let ref=1;heartbeat=setInterval(()=>{if(socket?.readyState===WebSocket.OPEN)socket.send(JSON.stringify({topic:"phoenix",event:"heartbeat",payload:{},ref:String(++ref),join_ref:null}));},25000);
         };
