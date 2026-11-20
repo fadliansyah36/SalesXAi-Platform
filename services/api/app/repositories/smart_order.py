@@ -375,7 +375,7 @@ class SmartOrderRepository:
      else:
       partner_approval_required=await db.fetchval("""select exists(select 1 from public.order_items oi
        join public.commerce_partner_links l on l.organization_id=oi.product_owner_organization_id and l.partner_organization_id=$1
-        and l.relationship_type in ('principal','distributor') and l.status='active' and l.starts_at<=now() and (l.ends_at is null or l.ends_at>now())
+        and l.relationship_type in ('principal','distributor','company','customer') and l.status='active' and l.starts_at<=now() and (l.ends_at is null or l.ends_at>now())
        where oi.organization_id=$1 and oi.order_id=$2 and oi.product_owner_organization_id<>$1)""",org,oid)
       auto_policy=None
       if not partner_approval_required:
@@ -410,7 +410,7 @@ class SmartOrderRepository:
    if o["status"]!="pending_approval":raise APIError(409,"invalid_order_transition","Only pending approval orders can be decided.")
    pending_partners=await db.fetchval("""select count(*) from (select distinct oi.product_owner_organization_id from public.order_items oi
     join public.commerce_partner_links l on l.organization_id=oi.product_owner_organization_id and l.partner_organization_id=$1
-     and l.relationship_type in ('principal','distributor') and l.status='active' and l.starts_at<=now() and (l.ends_at is null or l.ends_at>now())
+     and l.relationship_type in ('principal','distributor','company','customer') and l.status='active' and l.starts_at<=now() and (l.ends_at is null or l.ends_at>now())
     where oi.organization_id=$1 and oi.order_id=$2 and oi.product_owner_organization_id<>$1
      and coalesce((select d.decision from public.order_partner_decisions d where d.organization_id=$1 and d.order_id=$2 and d.partner_organization_id=oi.product_owner_organization_id order by d.decided_at desc,d.id desc limit 1),'')<>'accepted') pending""",org,oid)
    if pending_partners:raise APIError(409,"partner_approval_pending","All Principal and Distributor partners must accept their order allocations before buyer approval.")
@@ -586,7 +586,8 @@ class SmartOrderRepository:
      and ca.access_type in ('ordering','inventory')
      and (ca.product_id is null or exists(select 1 from public.order_items oi where oi.organization_id=o.organization_id and oi.order_id=o.id and oi.product_id=ca.product_id))
      and ca.starts_at<=now() and (ca.ends_at is null or ca.ends_at>now())
-   )""",partner_org,order_id)
+   ) and exists(select 1 from public.commerce_partner_links pl where pl.organization_id=$1 and pl.partner_organization_id=o.organization_id
+     and pl.relationship_type in ('principal','distributor','company','customer') and pl.status='active' and pl.starts_at<=now() and (pl.ends_at is null or pl.ends_at>now()))""",partner_org,order_id)
 
  async def partner_fulfillment_buyer(self,db,partner_org,fulfillment_id):
   return await db.fetchval("""select f.organization_id from public.fulfillments f
@@ -597,11 +598,13 @@ class SmartOrderRepository:
      and ca.access_type in ('ordering','inventory')
      and (ca.product_id is null or exists(select 1 from public.order_items oi where oi.organization_id=o.organization_id and oi.order_id=o.id and oi.product_id=ca.product_id))
      and ca.starts_at<=now() and (ca.ends_at is null or ca.ends_at>now())
-   )""",partner_org,fulfillment_id)
+   ) and exists(select 1 from public.commerce_partner_links pl where pl.organization_id=$1 and pl.partner_organization_id=o.organization_id
+     and pl.relationship_type in ('principal','distributor','company','customer') and pl.status='active' and pl.starts_at<=now() and (pl.ends_at is null or pl.ends_at>now()))""",partner_org,fulfillment_id)
 
  async def list_partner_orders(self,db,partner_org,page,size,status=None):
   where=["exists(select 1 from public.order_items oi where oi.organization_id=o.organization_id and oi.order_id=o.id and (oi.product_owner_organization_id=$1 or exists(select 1 from public.stock_movements sm where sm.reference_type='order' and sm.reference_id=o.id and sm.organization_id=$1 and sm.product_owner_organization_id=oi.product_owner_organization_id and sm.variant_id=oi.variant_id)))",
-   "exists(select 1 from public.commerce_catalog_access ca where ca.owner_organization_id=$1 and ca.consumer_organization_id=o.organization_id and ca.access_type in ('ordering','inventory') and (ca.product_id is null or exists(select 1 from public.order_items oi where oi.organization_id=o.organization_id and oi.order_id=o.id and oi.product_id=ca.product_id)) and ca.starts_at<=now() and (ca.ends_at is null or ca.ends_at>now()))"]
+   "exists(select 1 from public.commerce_catalog_access ca where ca.owner_organization_id=$1 and ca.consumer_organization_id=o.organization_id and ca.access_type in ('ordering','inventory') and (ca.product_id is null or exists(select 1 from public.order_items oi where oi.organization_id=o.organization_id and oi.order_id=o.id and oi.product_id=ca.product_id)) and ca.starts_at<=now() and (ca.ends_at is null or ca.ends_at>now()))",
+   "exists(select 1 from public.commerce_partner_links pl where pl.organization_id=$1 and pl.partner_organization_id=o.organization_id and pl.relationship_type in ('principal','distributor','company','customer') and pl.status='active' and pl.starts_at<=now() and (pl.ends_at is null or pl.ends_at>now()))"]
   args=[partner_org]
   if status:
    args.append(status)
@@ -643,7 +646,7 @@ class SmartOrderRepository:
    order=await db.fetchrow("select * from public.orders where organization_id=$1 and id=$2 for update",buyer_org,oid)
    if not order or order["status"]!="pending_approval":raise APIError(409,"partner_order_not_pending","Partner decisions are only accepted while the order is pending approval.")
    relationship=await db.fetchval("""select exists(select 1 from public.commerce_partner_links where organization_id=$1 and partner_organization_id=$2
-    and relationship_type in ('principal','distributor') and status='active' and starts_at<=now() and (ends_at is null or ends_at>now()))""",partner_org,buyer_org)
+    and relationship_type in ('principal','distributor','company','customer') and status='active' and starts_at<=now() and (ends_at is null or ends_at>now()))""",partner_org,buyer_org)
    owns_items=await db.fetchval("""select exists(select 1 from public.order_items oi where oi.organization_id=$1 and oi.order_id=$2
     and (oi.product_owner_organization_id=$3 or exists(select 1 from public.stock_movements sm where sm.reference_type='order' and sm.reference_id=$2
      and sm.organization_id=$3 and sm.product_owner_organization_id=oi.product_owner_organization_id and sm.variant_id=oi.variant_id)))""",buyer_org,oid,partner_org)
