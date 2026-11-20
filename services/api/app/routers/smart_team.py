@@ -42,12 +42,12 @@ async def create_visit(organization_id:UUID,payload:VisitCreate,request:Request,
 @router.post("/{organization_id}/smart-team/visits/{visit_id}/check-in")
 async def check_in(organization_id:UUID,visit_id:UUID,payload:VisitExecution,request:Request,principal:Principal=Depends(get_current_principal),
  tenant:TenantContext=Depends(require_api_action("smartteam.visits.execute")),connection:asyncpg.Connection=Depends(get_connection)):
- return await smart_team_service.check_in(connection,request,organization_id,tenant,principal,visit_id,payload.location.model_dump())
+ return await smart_team_service.check_in(connection,request,organization_id,tenant,principal,visit_id,payload.location.model_dump(),payload.idempotency_key)
 
 @router.post("/{organization_id}/smart-team/visits/{visit_id}/check-out")
 async def check_out(organization_id:UUID,visit_id:UUID,payload:VisitExecution,request:Request,principal:Principal=Depends(get_current_principal),
  tenant:TenantContext=Depends(require_api_action("smartteam.visits.checkout")),connection:asyncpg.Connection=Depends(get_connection)):
- return await smart_team_service.check_out(connection,request,organization_id,tenant,principal,visit_id,payload.location.model_dump(),payload.outcome,payload.notes)
+ return await smart_team_service.check_out(connection,request,organization_id,tenant,principal,visit_id,payload.location.model_dump(),payload.outcome,payload.notes,payload.idempotency_key)
 
 @router.post("/{organization_id}/smart-team/visits/{visit_id}/cancel")
 async def cancel_visit(organization_id:UUID,visit_id:UUID,payload:VisitCancel,request:Request,principal:Principal=Depends(get_current_principal),
