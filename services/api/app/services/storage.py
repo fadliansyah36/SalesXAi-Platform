@@ -41,6 +41,20 @@ class SupabaseStorageAdapter:
         except (URLError, TimeoutError) as error:
             raise APIError(502, "storage_unavailable", "Supabase Storage could not be reached.") from error
 
+    async def delete(self, path: str) -> None:
+        base, key = self._credentials()
+        url = f"{base}/storage/v1/object/{BUCKET}"
+        body = json.dumps({"prefixes": [path]}).encode()
+        headers = {"apikey": key, "Authorization": f"Bearer {key}", "Content-Type": "application/json"}
+        def send() -> None:
+            request = Request(url, data=body, headers=headers, method="DELETE")
+            with urlopen(request, timeout=15) as response:
+                response.read()
+        try:
+            await asyncio.to_thread(send)
+        except Exception:
+            return
+
     async def signed_download_url(self, path: str, expires_in: int = 900) -> str:
         base, key = self._credentials()
         url = f"{base}/storage/v1/object/sign/{BUCKET}/{quote(path, safe='/')}"
