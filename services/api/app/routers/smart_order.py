@@ -8,7 +8,7 @@ from app.errors import APIError
 import asyncpg
 from app.db import get_connection
 from app.security.dependencies import Principal, TenantContext, get_current_principal, require_api_action
-from app.schemas.smart_order import ProductWrite, ProductStatusWrite, CartItemWrite, CartItemUpdate, StockMovementWrite, PromotionWrite, PromotionUpdate, PromotionEvaluation, OrderCreate, OrderDecision, FulfillmentCreate, FulfillmentUpdate, PriceListWrite, WarehouseWrite, CategoryWrite, BrandWrite, UnitWrite, CatalogAccessWrite, StockTransferWrite, OrderCancel, PartnerLinkWrite, AssistedCartWrite, OrderApprovalPolicyWrite
+from app.schemas.smart_order import ProductWrite, ProductStatusWrite, CartItemWrite, CartItemUpdate, StockMovementWrite, PromotionWrite, PromotionUpdate, PromotionEvaluation, OrderCreate, OrderDecision, FulfillmentCreate, FulfillmentUpdate, PriceListWrite, WarehouseWrite, CategoryWrite, BrandWrite, UnitWrite, CatalogAccessWrite, StockTransferWrite, OrderCancel, PartnerLinkWrite, AssistedCartWrite, OrderApprovalPolicyWrite, PartnerOrderDecision
 from app.services.smart_order import smart_order_service
 
 router=APIRouter(prefix="/organizations",tags=["smart-order"])
@@ -249,6 +249,10 @@ async def list_partner_order_operations(organization_id:UUID,page:int=Query(1,ge
 @router.get("/{organization_id}/smart-order/partner-orders/{order_id}")
 async def get_partner_order(organization_id:UUID,order_id:UUID,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartorder.partner_orders.detail.read")),db:asyncpg.Connection=Depends(get_connection)):
  return await smart_order_service.get_partner_order(db,organization_id,tenant,order_id)
+
+@router.post("/{organization_id}/smart-order/partner-orders/{order_id}/decision")
+async def decide_partner_order(organization_id:UUID,order_id:UUID,payload:PartnerOrderDecision,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartorder.partner_orders.decision")),db:asyncpg.Connection=Depends(get_connection)):
+ return await smart_order_service.decide_partner_order(db,organization_id,tenant,principal.user_id,order_id,payload)
 
 @router.post("/{organization_id}/smart-order/partner-orders/{order_id}/fulfillments",status_code=201)
 async def create_partner_fulfillment(organization_id:UUID,order_id:UUID,payload:FulfillmentCreate,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartorder.partner_fulfillment.create")),db:asyncpg.Connection=Depends(get_connection)):
