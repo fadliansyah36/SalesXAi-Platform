@@ -1049,6 +1049,20 @@ class SmartTeamRepository:
                     connection, organization_id, row["sales_profile_id"], actor_id
                 )
             )
+        if resource == "smartteam_visit_evidence":
+            row = await connection.fetchrow(
+                """select v.sales_profile_id from public.smartteam_visit_evidence e
+                   join public.smartteam_visits v on v.organization_id=e.organization_id and v.id=e.visit_id
+                   where e.organization_id=$1 and e.id=$2""",
+                organization_id,
+                record_id,
+            )
+            return bool(
+                row
+                and await self.can_access_profile(
+                    connection, organization_id, row["sales_profile_id"], actor_id
+                )
+            )
         if resource == "smartteam_targets":
             row = await connection.fetchrow(
                 "select sales_profile_id,team_id,branch_id from public.smartteam_targets where organization_id=$1 and id=$2",
