@@ -645,25 +645,24 @@ class SmartOrderRepository:
    if not o:raise APIError(404,"order_not_found","Order was not found.")
    if o["status"]=="cancelled":return dict(o)
    if not can_cancel_order(o["status"]):raise APIError(409,"order_cannot_be_cancelled","Order cannot be cancelled after fulfillment processing has started.")
-   if o["status"]=="pending_approval":
-    movements=await db.fetch("select * from public.stock_movements where organization_id=$1 and reference_id=$2 and movement_type='reserve'",org,oid)
+   movement_type="reserve" if o["status"]=="pending_approval" else "commit" if o["status"]=="approved" else None
+   if movement_type:
+    movements=await db.fetch("select * from public.stock_movements where reference_type='order' and reference_id=$1 and movement_type=$2",oid,movement_type)
     for m in movements:
-     await db.execute("update public.inventory_balances set reserved=reserved-$4,version=version+1,updated_at=now() where organization_id=$1 and warehouse_id=$2 and variant_id=$3 and reserved >= $4",org,m["warehouse_id"],m["variant_id"],m["quantity"])
-     await db.execute("""insert into public.stock_movements(organization_id,warehouse_id,product_id,variant_id,movement_type,quantity,reserved_delta,reference_type,reference_id,reason,actor_user_id,idempotency_key)
-      values($1,$2,$3,$4,'release',$5,-$5,'order',$6,$7,$8,$9)""",org,m["warehouse_id"],m["product_id"],m["variant_id"],m["quantity"],oid,reason,actor,f"order:{oid}:cancel:{m['variant_id']}")
-   elif o["status"]=="approved":
-    movements=await db.fetch("select * from public.stock_movements where organization_id=$1 and reference_id=$2 and movement_type='commit'",org,oid)
-    for m in movements:
-     await db.execute("update public.inventory_balances set committed=committed-$4,version=version+1,updated_at=now() where organization_id=$1 and warehouse_id=$2 and variant_id=$3 and committed >= $4",org,m["warehouse_id"],m["variant_id"],m["quantity"])
-     await db.execute("""insert into public.stock_movements(organization_id,warehouse_id,product_id,variant_id,movement_type,quantity,committed_delta,reference_type,reference_id,reason,actor_user_id,idempotency_key)
-      values($1,$2,$3,$4,'release',$5,-$5,'order',$6,$7,$8,$9)""",org,m["warehouse_id"],m["product_id"],m["variant_id"],m["quantity"],oid,reason,actor,f"order:{oid}:cancel:{m['variant_id']}")
+     owner=m["organization_id"]
+     if movement_type=="reserve":
+      await db.execute("update public.inventory_balances set reserved=reserved-$4,version=version+1,updated_at=now() where organization_id=$1 and warehouse_id=$2 and variant_id=$3 and reserved >= $4",owner,m["warehouse_id"],m["variant_id"],m["quantity"])
+      await db.execute("""insert into public.stock_movements(organization_id,warehouse_id,product_id,variant_id,movement_type,quantity,reserved_delta,reference_type,reference_id,reason,actor_user_id,idempotency_key,product_owner_organization_id)
+       values($1,$2,$3,$4,'release',$5,-$5,'order',$6,$7,$8,$9,$10)""",owner,m["warehouse_id"],m["product_id"],m["variant_id"],m["quantity"],oid,reason,actor,f"order:{oid}:cancel:{m['id']}",m["product_owner_organization_id"])
+     else:
+      await db.execute("update public.inventory_balances set committed=committed-$4,version=version+1,updated_at=now() where organization_id=$1 and warehouse_id=$2 and variant_id=$3 and committed >= $4",owner,m["warehouse_id"],m["variant_id"],m["quantity"])
+      await db.execute("""insert into public.stock_movements(organization_id,warehouse_id,product_id,variant_id,movement_type,quantity,committed_delta,reference_type,reference_id,reason,actor_user_id,idempotency_key,product_owner_organization_id)
+       values($1,$2,$3,$4,'release',$5,-$5,'order',$6,$7,$8,$9,$10)""",owner,m["warehouse_id"],m["product_id"],m["variant_id"],m["quantity"],oid,reason,actor,f"order:{oid}:cancel:{m['id']}",m["product_owner_organization_id"])
    await db.execute("update public.promotion_redemptions set status='reversed',reversed_at=now() where organization_id=$1 and order_id=$2 and status in ('reserved','redeemed')",org,oid)
-   await db.execute("update public.orders set status='cancelled',cancelled_at=now(),updated_at=now() where id=$1",oid)
+   await db.execute("update public.orders set status='cancelled',cancelled_at=now(),updated_at=now() where organization_id=$1 and id=$2",org,oid)
    await db.execute("insert into public.order_status_history(organization_id,order_id,from_status,to_status,reason,actor_user_id) values($1,$2,$3,'cancelled',$4,$5)",org,oid,o["status"],reason,actor)
    await self.audit(db,org,actor,"order.cancelled","order",oid,{"reason":reason})
   return await self.get_order(db,org,actor,oid,True)
-
-
  async def list_partner_organizations(self,db,org):
   rows=await db.fetch("""select o.id,o.slug,o.name,pl.relationship_type,pl.starts_at,pl.ends_at
    from public.commerce_partner_links pl join public.organizations o on o.id=pl.partner_organization_id
