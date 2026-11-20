@@ -1,7 +1,7 @@
 'use client';
 import React,{useCallback,useEffect,useMemo,useState} from "react";
 import {useSalesXAuth} from "@/components/providers/AppProviders";
-import type {SmartTeamActivity,SmartTeamAttendance,SmartTeamLocationCapture,SmartTeamTarget,SmartTeamVisit} from "@salesx-ai/api-client";
+import type {SmartTeamActivity,SmartTeamAttendance,SmartTeamDashboard,SmartTeamLocationCapture,SmartTeamTarget,SmartTeamVisit} from "@salesx-ai/api-client";
 
 type Tab="visits"|"attendance"|"activities"|"targets";
 type MasterRecord={id:string;name?:string;code?:string;employee_code?:string;user_id?:string;status?:string};
@@ -25,6 +25,9 @@ export function SmartTeamConsole({surface}:{surface:"company"|"supervisor"|"sale
  const [attendance,setAttendance]=useState<SmartTeamAttendance[]>([]);
  const [activities,setActivities]=useState<SmartTeamActivity[]>([]);
  const [targets,setTargets]=useState<SmartTeamTarget[]>([]);
+ const [dashboard,setDashboard]=useState<SmartTeamDashboard|null>(null);
+ const [uploadProgress,setUploadProgress]=useState<number|null>(null);
+ const [uploadController,setUploadController]=useState<AbortController|null>(null);
  const [profiles,setProfiles]=useState<MasterRecord[]>([]);
  const [outlets,setOutlets]=useState<MasterRecord[]>([]);
  const [myProfileId,setMyProfileId]=useState<string|null>(null);
@@ -71,6 +74,7 @@ export function SmartTeamConsole({surface}:{surface:"company"|"supervisor"|"sale
    if(canReadAttendance)jobs.push(api.listSmartTeamAttendance(organizationId).then(setAttendance));
    if(canReadActivities)jobs.push(api.listSmartTeamActivities(organizationId).then(setActivities));
    if(canReadTargets)jobs.push(api.listSmartTeamTargets(organizationId).then(setTargets));
+   if(canReadDashboard)jobs.push(api.getSmartTeamDashboard(organizationId).then(setDashboard));
    if(can("master_data:sales_profiles:read")||can("sales_profile:read"))jobs.push(api.listSalesProfiles(organizationId).then(setProfiles));
    if(can("master_data:outlets:read")||can("outlet:read"))jobs.push(api.listOutlets(organizationId).then(setOutlets));
    if(can("master_data:assignment_context:read")){
@@ -81,7 +85,7 @@ export function SmartTeamConsole({surface}:{surface:"company"|"supervisor"|"sale
    }
    await Promise.all(jobs);
   }catch(cause){setError(cause instanceof Error?cause.message:"Data SmartTeam tidak dapat dimuat.");}
- },[api,organizationId,canReadVisits,canReadAttendance,canReadActivities,canReadTargets,can]);
+ },[api,organizationId,canReadVisits,canReadAttendance,canReadActivities,canReadTargets,canReadDashboard,can]);
  useEffect(()=>{void reload();},[reload]);
  useEffect(()=>{
   if(!api||!organizationId||typeof EventSource==="undefined")return;
@@ -154,13 +158,13 @@ export function SmartTeamConsole({surface}:{surface:"company"|"supervisor"|"sale
  return <section className="mx-auto w-full max-w-7xl space-y-6 px-4 py-6 sm:px-6">
   <header className="flex flex-wrap items-end justify-between gap-4">
    <div><p className="text-xs font-semibold uppercase tracking-[.16em] text-[var(--color-primary)]">SmartTeam · {surface}</p><h1 className="mt-2 text-2xl font-semibold text-[var(--color-text)]">Sales Operations</h1><p className="mt-1 text-sm text-[var(--color-text-secondary)]">Kunjungan, kehadiran, aktivitas dan target operasional berdasarkan data FastAPI.</p></div>
-   <button type="button" onClick={()=>void reload()} disabled={busy} className="rounded-lg border border-[var(--color-border)] px-4 py-2 text-sm font-medium disabled:opacity-50">Refresh data</button>
+   <div className="flex items-center gap-2"><button type="button" onClick={()=>void reload()} disabled={busy} className="rounded-lg border border-[var(--color-border)] px-4 py-2 text-sm font-medium disabled:opacity-50">Refresh data</button>{uploadProgress!==null&&<div className="flex items-center gap-2 text-xs"><span>Upload {uploadProgress}%</span><button type="button" onClick={()=>uploadController?.abort()} className="rounded-lg border border-[var(--color-border)] px-2 py-1">Batalkan</button></div>}</div>
   </header>
   {!organizationId&&<p className="rounded-xl border border-[var(--color-border)] p-4 text-sm">Pilih organisasi aktif untuk membuka SmartTeam.</p>}
   {error&&<div role="alert" className="rounded-xl border border-red-300 bg-red-50 p-3 text-sm text-red-800">{error}</div>}
   {notice&&<div role="status" className="rounded-xl border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-800">{notice}</div>}
   {canReadDashboard&&<div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-   {[["Kunjungan",visits.length],["Kehadiran",attendance.length],["Aktivitas",activities.length],["Target",targets.length]].map(([label,value])=><div key={String(label)} className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4"><p className="text-xs text-[var(--color-text-secondary)]">{label}</p><p className="mt-1 text-2xl font-semibold">{value}</p></div>)}
+   {[["Kunjungan",dashboard?.visits_total],["Terjadwal",dashboard?.visits_scheduled],["Berlangsung",dashboard?.visits_in_progress],["Selesai",dashboard?.visits_completed],["Kehadiran",dashboard?.attendance_records],["Shift aktif",dashboard?.active_shifts],["Aktivitas terbuka",dashboard?.activities_open],["Target",dashboard?.targets_visible]].map(([label,value])=><div key={String(label)} className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4"><p className="text-xs text-[var(--color-text-secondary)]">{label}</p><p className="mt-1 text-2xl font-semibold">{value??"—"}</p></div>)}
   </div>}
   <nav className="flex flex-wrap gap-2 border-b border-[var(--color-border)] pb-3">
    {tabs.map(value=><button key={value} type="button" onClick={()=>setTab(value)} className={`rounded-lg px-3 py-2 text-sm font-medium ${tab===value?"bg-[var(--color-primary)] text-white":"border border-[var(--color-border)]"}`}>{value==="visits"?"Visits":value==="attendance"?"Attendance":value==="activities"?"Daily Activity":"Targets"}</button>)}
