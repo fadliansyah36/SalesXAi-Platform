@@ -78,6 +78,23 @@ Supabase project: `eyofuiyxalbehbqoaeny`
 - Existing Web portal actions and Expo screens must be reconciled with the new partner-owned product and split-fulfillment contracts; no claim of full cross-surface integration is made.
 - Relevant focused API tests, static checks and complete portal/Expo builds for this continuation have not yet been recorded. The Railway image build and readiness check alone are not substitutes.
 
+## Cross-tenant inventory, partner portal and CRUD continuation — 2026-11-20
+
+- Added inventory-owner scoping for stock movements and stock transfers. Inventory and transfer operations now derive product ownership from active inventory grants; stock movement and transfer history joins resolve product metadata through product owner rather than warehouse owner.
+- Added owner-aware order cancellation reversal, partner inventory reservation/approval commit/release, and item-level split fulfillment allocations across partner warehouses.
+- Added partner order inbox/detail and partner fulfillment API routes; the shared SmartOrder workspace now exposes partner orders, warehouse selection and fulfillment progression. Partner warehouse creation is restricted to the active partner organization.
+- Added product edit, price-list update/deactivation, and promotion update/deactivation APIs and typed client methods. The shared workspace now exposes product edit, price-list edit/deactivation and promotion edit/deactivation controls.
+- Added indexes for the new owner-scoped composite foreign keys. Performance Advisor now reports zero unindexed foreign keys; unused-index notices remain informational.
+- The partner API deployment at commit `cd1b457dc26191497b5223183742e7997a5afe1b` reached Railway SUCCESS and `/readyz` HTTP 200. Subsequent CRUD, catalog projection, and UI updates are in the Railway deployment queue and are not yet claimed deployed.
+
+### Remaining Phase 05 completion blockers
+
+- Confirm the latest queued API and portal builds complete successfully after all recent source changes; run focused API/schema/action-matrix checks and relevant Web/Expo typecheck/build workflows.
+- Complete seller-side partner order access tests, item-level grant isolation and multi-warehouse fulfillment/cancellation consistency validation.
+- Finish UI editing for all price-list line items and full promotion rule editing; ensure all relevant portal actions and Expo workflows are connected to the updated contracts.
+- Complete cross-tenant promotion ownership/redemption integration where promotion owner differs from buyer organization.
+- No live authenticated partner order/stock transaction has been executed. Do not mark Phase 05 COMPLETED until the above gaps are closed.
+
 ## Definition-of-done blockers
 
 1. **Cross-tenant catalog-to-order/fulfillment path is not complete.** Catalog list visibility can include a product through `commerce_catalog_access`, but `cart_items` and `order_items` still use composite foreign keys tying product/SKU ownership to the cart/order organization. The cart insertion query also validates product ownership against the buyer tenant. `inventory_balances` and `fulfillments.warehouse_id` similarly bind product/warehouse to the order tenant. Consequently, a customer/distributor tenant cannot reliably order a principal-owned catalog SKU and fulfill it from a separate distributor warehouse. This requires an additive schema and service design for product-owner identity, inventory-owner/fulfillment organization, partner access checks, and order operations across the buyer/seller boundary.
