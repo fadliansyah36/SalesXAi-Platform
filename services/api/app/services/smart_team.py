@@ -32,6 +32,11 @@ class SmartTeamService:
           "shift_not_found":(404,"shift_not_found","Attendance shift was not found."),
           "target_scope_not_found":(404,"target_scope_not_found","Target scope was not found in this organization."),
           "profile_scope_forbidden":(403,"forbidden","The sales profile is outside the actor's authorized team or ownership scope."),
+          "idempotency_conflict":(409,"idempotency_conflict","The idempotency key was already used for a different SmartTeam action."),
+          "outlet_branch_mismatch":(409,"outlet_branch_mismatch","The outlet branch does not match the assigned sales team branch."),
+          "outlet_territory_mismatch":(409,"outlet_territory_mismatch","The outlet is outside the sales profile territory."),
+          "sales_team_not_found":(404,"sales_team_not_found","The active sales team was not found in this organization."),
+          "attendance_time_range_invalid":(422,"attendance_time_range_invalid","Clock-out must not precede clock-in."),
           "visit_profile_mismatch":(422,"visit_profile_mismatch","The linked visit belongs to a different sales profile."),
         }
         status,code,message=mapping.get(str(error),(422,"smartteam_validation_error","The SmartTeam operation violates a domain rule."))
@@ -81,9 +86,9 @@ class SmartTeamService:
         await write_audit(connection,request,principal,"smartteam.attendance.clocked_in","smartteam_shift",str(row["id"]),tenant,{"accuracy_m":location["accuracy_m"],"source":location["source"]})
         return dict(row)
 
-    async def clock_out(self,connection,request,organization_id,tenant,principal,location):
+    async def clock_out(self,connection,request,organization_id,tenant,principal,location,key):
         self._tenant(organization_id,tenant)
-        try:row=await self.repository.clock_out(connection,organization_id,principal.user_id,location)
+        try:row=await self.repository.clock_out(connection,organization_id,principal.user_id,location,key)
         except ValueError as error:self._translate(error)
         await write_audit(connection,request,principal,"smartteam.attendance.clocked_out","smartteam_shift",str(row["id"]),tenant,{"accuracy_m":location["accuracy_m"],"source":location["source"]})
         return dict(row)
