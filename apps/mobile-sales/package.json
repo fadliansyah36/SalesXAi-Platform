@@ -27,7 +27,11 @@
     "@salesx-ai/api-client": "workspace:*",
     "@salesx-ai/auth-client": "workspace:*",
     "@salesx-ai/shared-types": "workspace:*",
-    "expo-secure-store": "~58.0.3"
+    "expo-secure-store": "~58.0.3",
+    "expo-location": "*",
+    "expo-sqlite": "*",
+    "expo-image-picker": "*",
+    "expo-file-system": "*"
   },
   "devDependencies": {
     "@types/react": "^19.2.0",
