@@ -100,6 +100,8 @@ class SmartTeamRepository:
             row=await self.visit(connection,organization_id,visit_id)
             if row is None: raise ValueError("visit_not_found")
             if row["status"] not in ("scheduled","assigned"): raise ValueError("visit_transition_invalid")
+            if not await self.can_access_profile(connection,organization_id,row["sales_profile_id"],actor_id):
+                raise ValueError("profile_scope_forbidden")
             if not await self.outlet_is_assigned(connection,organization_id,row["sales_profile_id"],row["outlet_id"]):
                 raise ValueError("outlet_assignment_inactive")
             updated=await connection.fetchrow(
@@ -118,6 +120,10 @@ class SmartTeamRepository:
             row=await self.visit(connection,organization_id,visit_id)
             if row is None: raise ValueError("visit_not_found")
             if row["status"]!="in_progress" or row["check_in_at"] is None: raise ValueError("visit_transition_invalid")
+            if not await self.can_access_profile(connection,organization_id,row["sales_profile_id"],actor_id):
+                raise ValueError("profile_scope_forbidden")
+            if not await self.outlet_is_assigned(connection,organization_id,row["sales_profile_id"],row["outlet_id"]):
+                raise ValueError("outlet_assignment_inactive")
             updated=await connection.fetchrow(
                 """update public.smartteam_visits set status='completed',check_out_at=now(),outcome=coalesce($3,outcome),
                 notes=coalesce($4,notes),check_out_latitude=$5,check_out_longitude=$6,check_out_accuracy_m=$7,
@@ -218,7 +224,10 @@ class SmartTeamRepository:
             if profile is None:raise ValueError("sales_profile_not_found")
             if not await self.can_access_profile(connection,organization_id,data["sales_profile_id"],actor_id):
                 raise ValueError("profile_scope_forbidden")
-            if data.get("visit_id") and await self.visit(connection,organization_id,data["visit_id"]) is None:raise ValueError("visit_not_found")
+            if data.get("visit_id"):
+                linked_visit=await self.visit(connection,organization_id,data["visit_id"])
+                if linked_visit is None:raise ValueError("visit_not_found")
+                if linked_visit["sales_profile_id"]!=data["sales_profile_id"]:raise ValueError("visit_profile_mismatch")
             return await connection.fetchrow(
                 """insert into public.smartteam_activities(organization_id,sales_profile_id,visit_id,created_by,activity_type,title,description,due_at,idempotency_key)
                    values($1,$2,$3,$4,$5,$6,$7,$8,$9) returning *""",
@@ -257,6 +266,17 @@ class SmartTeamRepository:
         table={"sales_profile_id":"sales_profiles","team_id":"teams","branch_id":"branches"}[scope_field]
         exists=await connection.fetchval(f"select exists(select 1 from public.{table} where organization_id=$1 and id=$2 and status='active')",organization_id,data[scope_field])
         if not exists: raise ValueError("target_scope_not_found")
+        if scope_field=="sales_profile_id" and not await self.can_access_profile(connection,organization_id,data[scope_field],actor_id):
+            raise ValueError("profile_scope_forbidden")
+        if scope_field=="team_id":
+            team_allowed=await connection.fetchval("""select exists(select 1 from public.teams where organization_id=$1 and id=$2 and supervisor_user_id=$3)
+              or exists(select 1 from public.organization_memberships m join public.user_role_assignments ura on ura.membership_id=m.id join public.roles r on r.id=ura.role_id
+              where m.organization_id=$1 and m.user_id=$3 and m.status='active' and r.key in ('company_admin','tenant_owner','platform_admin') and ura.revoked_at is null)""",organization_id,data[scope_field],actor_id)
+            if not team_allowed: raise ValueError("profile_scope_forbidden")
+        if scope_field=="branch_id":
+            branch_allowed=await connection.fetchval("""select exists(select 1 from public.organization_memberships m join public.user_role_assignments ura on ura.membership_id=m.id join public.roles r on r.id=ura.role_id
+              where m.organization_id=$1 and m.user_id=$3 and m.status='active' and r.key in ('company_admin','tenant_owner','platform_admin') and ura.revoked_at is null)""",organization_id,actor_id)
+            if not branch_allowed: raise ValueError("profile_scope_forbidden")
         return await connection.fetchrow(
             """insert into public.smartteam_targets(organization_id,sales_profile_id,team_id,branch_id,metric_key,period_start,period_end,target_value,created_by,updated_by)
                values($1,$2,$3,$4,$5,$6,$7,$8,$9,$9) returning *""",
