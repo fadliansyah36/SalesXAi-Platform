@@ -506,7 +506,8 @@ class SmartOrderRepository:
     available=max(Decimal(balance["on_hand"])-Decimal(balance["reserved"])-Decimal(balance["committed"]),Decimal("0"))
     commit_quantity=min(needed,available)
     if commit_quantity<=0:continue
-    await db.execute("update public.inventory_balances set committed=committed+$4,version=version+1,updated_at=now() where organization_id=$1 and warehouse_id=$2 and variant_id=$3",owner,p.warehouse_id,item["variant_id"],commit_quantity)
+    changed=await db.fetchrow("update public.inventory_balances set committed=committed+$4,version=version+1,updated_at=now() where organization_id=$1 and warehouse_id=$2 and variant_id=$3 returning id",owner,p.warehouse_id,item["variant_id"],commit_quantity)
+    if not changed:raise APIError(409,"fulfillment_recommit_conflict","Available inventory changed before replacement fulfillment commitment.")
     await db.execute("""insert into public.stock_movements(organization_id,warehouse_id,product_id,variant_id,movement_type,quantity,committed_delta,reference_type,reference_id,reason,actor_user_id,idempotency_key,product_owner_organization_id)
      values($1,$2,$3,$4,'commit',$5,$5,'order',$6,'Replacement fulfillment commitment',$7,$8,$9)""",owner,p.warehouse_id,item["product_id"],item["variant_id"],commit_quantity,oid,actor,"fulfillment:"+str(r["id"])+":recommit:"+str(item["id"]),item["product_owner_organization_id"])
     recommitted_quantity+=commit_quantity
@@ -887,7 +888,7 @@ class SmartOrderRepository:
       await db.execute("""insert into public.stock_movements(organization_id,warehouse_id,product_id,variant_id,movement_type,quantity,reserved_delta,reference_type,reference_id,reason,actor_user_id,idempotency_key,product_owner_organization_id)
        values($1,$2,$3,$4,'release',$5,-$5,'order',$6,$7,$8,$9,$10)""",owner,m["warehouse_id"],m["product_id"],m["variant_id"],m["quantity"],oid,reason,actor,f"order:{oid}:cancel:{m['id']}",m["product_owner_organization_id"])
      else:
-      changed=await db.fetchrow("update public.inventory_balances set reserved=reserved-$4,version=version+1,updated_at=now() where organization_id=$1 and warehouse_id=$2 and variant_id=$3 and committed >= $4 returning id",owner,m["warehouse_id"],m["variant_id"],m["quantity"])
+      changed=await db.fetchrow("update public.inventory_balances set committed=committed-$4,version=version+1,updated_at=now() where organization_id=$1 and warehouse_id=$2 and variant_id=$3 and committed >= $4 returning id",owner,m["warehouse_id"],m["variant_id"],m["quantity"])
       if not changed:raise APIError(409,"inventory_release_conflict","Committed stock changed before order cancellation release.")
       await db.execute("""insert into public.stock_movements(organization_id,warehouse_id,product_id,variant_id,movement_type,quantity,committed_delta,reference_type,reference_id,reason,actor_user_id,idempotency_key,product_owner_organization_id)
        values($1,$2,$3,$4,'release',$5,-$5,'order',$6,$7,$8,$9,$10)""",owner,m["warehouse_id"],m["product_id"],m["variant_id"],m["quantity"],oid,reason,actor,f"order:{oid}:cancel:{m['id']}",m["product_owner_organization_id"])
