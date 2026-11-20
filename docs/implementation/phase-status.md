@@ -853,3 +853,13 @@ The latest application-code commit is `b03459f7ed95bf43bb90653afa60305d0501b24c`
 - The generated Railway Default Domain exists, but it is **not a healthy production API endpoint yet**. Do not claim portal connectivity or a successful API deployment until the Supabase database connection secret is configured and a new deployment passes `/readyz`.
 
 **Phase 04 remains IN_PROGRESS / NOT COMPLETED.** The successful engineering checks validate the current monolith and Mobile code batch; they do not satisfy the eight independent portal boundary requirement or the nine-service Railway Definition of Done.
+
+
+## Phase 04 — Railway Supabase variable binding continuation — 2026-11-20
+
+- Verified Supabase project `eyofuiyxalbehbqoaeny` is `ACTIVE_HEALTHY`, PostgreSQL 17.12, region `ap-northeast-1`; canonical API URL and JWKS/Auth issuer match the existing Railway configuration.
+- Retrieved the active Supabase publishable key through the connected Supabase project connector and set Railway production variable `SUPABASE_PUBLISHABLE_KEY` on `salesx-api`. This is a public/publishable key, not a service-role credential.
+- Railway automatically triggered deployment `b5b51d28-f8ab-4248-b84f-e51ccd40d39c` from `main` commit `12a21fd0bcd91d678e5b64221ca580974fb1ca9e`. Build completed and Uvicorn started; `/readyz` continues to return HTTP 503 while `DATABASE_URL` is absent. Railway reports the deployment as `DEPLOYING` at the time of this record.
+- The connected Supabase project API exposes project metadata, URL and publishable keys, but does not expose the database password/connection secret or server secret key. These cannot be derived from the project ref, URL, anon key or publishable key. No guessed credential was written. The server-only variables `DATABASE_URL` and `SUPABASE_SECRET_KEY` remain to be added securely to Railway production Variables; `SALESX_BFF_SHARED_SECRET` remains conditional on enabling the BFF shared-secret contract.
+- The eight independent portal roots remain absent in the repository tree. No empty portal services were created; doing so would produce invalid deployments rather than independently runnable apps. Existing Mobile Railway service remains untouched.
+- Phase 04 remains **IN_PROGRESS / NOT COMPLETED**. API Default Domain exists but is not yet a healthy production endpoint; portal domains and CORS/trusted origins cannot be completed until portal app roots exist and API readiness is healthy.
