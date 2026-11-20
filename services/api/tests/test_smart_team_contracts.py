@@ -76,6 +76,8 @@ class SmartTeamMigrationTests(unittest.TestCase):
             "20261120035216_p04_smartteam_offline_evidence.sql",
             "20261120040009_p04_smartteam_event_stream_bridge.sql",
             "20261120040308_p04_smartteam_private_realtime_scope.sql",
+            "20261120040825_p04_smartteam_storage_scope.sql",
+            "20261120040910_p04_smartteam_fk_indexes.sql",
         )
         for name in expected:
             self.assertTrue((migrations / name).is_file(), name)
@@ -87,6 +89,8 @@ class SmartTeamMigrationTests(unittest.TestCase):
         offline = (migrations / "20261120035216_p04_smartteam_offline_evidence.sql").read_text()
         bridge = (migrations / "20261120040009_p04_smartteam_event_stream_bridge.sql").read_text()
         realtime = (migrations / "20261120040308_p04_smartteam_private_realtime_scope.sql").read_text()
+        storage_scope = (migrations / "20261120040825_p04_smartteam_storage_scope.sql").read_text()
+        indexes = (migrations / "20261120040910_p04_smartteam_fk_indexes.sql").read_text()
         self.assertIn("alter table public.smartteam_visits enable row level security", base)
         self.assertIn("create table if not exists public.smartteam_visit_evidence", base)
         self.assertIn("smartteam_attendance_events", offline)
@@ -94,6 +98,8 @@ class SmartTeamMigrationTests(unittest.TestCase):
         self.assertIn("public=false", offline)
         self.assertIn("pg_notify('salesx_smartteam'", bridge)
         self.assertIn("r.key in ('company_admin','tenant_owner','platform_admin')", realtime)
+        self.assertIn("smartteam_visit_evidence_read_scoped", storage_scope)
+        self.assertIn("smartteam_shifts_user_fk_idx", indexes)
 
 
 if __name__ == "__main__":
