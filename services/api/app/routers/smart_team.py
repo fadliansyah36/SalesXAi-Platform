@@ -18,6 +18,13 @@ from app.schemas.smart_team import (
     ActivityUpdate,
     TargetWrite,
     TargetUpdate,
+    SmartTeamVisitResponse,
+    SmartTeamAttendanceResponse,
+    SmartTeamActivityResponse,
+    SmartTeamTargetResponse,
+    SmartTeamVisitEvidenceResponse,
+    SmartTeamEventResponse,
+    SmartTeamDashboardResponse,
 )
 from app.security.dependencies import (
     Principal,
@@ -78,7 +85,7 @@ async def stream_smartteam_events(
     )
 
 
-@router.get("/{organization_id}/smart-team/dashboard")
+@router.get("/{organization_id}/smart-team/dashboard", response_model=SmartTeamDashboardResponse)
 async def dashboard(
     organization_id: UUID,
     principal: Principal = Depends(get_current_principal),
@@ -88,7 +95,7 @@ async def dashboard(
     return await smart_team_service.dashboard(connection, organization_id, tenant, principal)
 
 
-@router.patch("/{organization_id}/smart-team/visits/{visit_id}")
+@router.patch("/{organization_id}/smart-team/visits/{visit_id}", response_model=SmartTeamVisitResponse)
 async def update_visit(
     organization_id: UUID,
     visit_id: UUID,
@@ -109,7 +116,7 @@ async def update_visit(
     )
 
 
-@router.post("/{organization_id}/smart-team/visits/{visit_id}/evidence", status_code=201)
+@router.post("/{organization_id}/smart-team/visits/{visit_id}/evidence", status_code=201, response_model=SmartTeamVisitEvidenceResponse)
 async def upload_visit_evidence(
     organization_id: UUID,
     visit_id: UUID,
@@ -131,7 +138,7 @@ async def upload_visit_evidence(
     )
 
 
-@router.get("/{organization_id}/smart-team/visits/{visit_id}/evidence")
+@router.get("/{organization_id}/smart-team/visits/{visit_id}/evidence", response_model=list[SmartTeamVisitEvidenceResponse])
 async def list_visit_evidence(
     organization_id: UUID,
     visit_id: UUID,
@@ -144,7 +151,7 @@ async def list_visit_evidence(
     )
 
 
-@router.get("/{organization_id}/smart-team/visits/{visit_id}/history")
+@router.get("/{organization_id}/smart-team/visits/{visit_id}/history", response_model=list[SmartTeamEventResponse])
 async def visit_history(
     organization_id: UUID,
     visit_id: UUID,
@@ -157,7 +164,7 @@ async def visit_history(
     )
 
 
-@router.patch("/{organization_id}/smart-team/targets/{target_id}")
+@router.patch("/{organization_id}/smart-team/targets/{target_id}", response_model=SmartTeamTargetResponse)
 async def update_target(
     organization_id: UUID,
     target_id: UUID,
@@ -178,7 +185,7 @@ async def update_target(
     )
 
 
-@router.get("/{organization_id}/smart-team/visits")
+@router.get("/{organization_id}/smart-team/visits", response_model=list[SmartTeamVisitResponse])
 async def list_visits(
     organization_id: UUID,
     status: str | None = None,
@@ -194,7 +201,7 @@ async def list_visits(
     )
 
 
-@router.post("/{organization_id}/smart-team/visits", status_code=201)
+@router.post("/{organization_id}/smart-team/visits", status_code=201, response_model=SmartTeamVisitResponse)
 async def create_visit(
     organization_id: UUID,
     payload: VisitCreate,
@@ -208,7 +215,7 @@ async def create_visit(
     )
 
 
-@router.post("/{organization_id}/smart-team/visits/{visit_id}/check-in")
+@router.post("/{organization_id}/smart-team/visits/{visit_id}/check-in", response_model=SmartTeamVisitResponse)
 async def check_in(
     organization_id: UUID,
     visit_id: UUID,
@@ -230,7 +237,7 @@ async def check_in(
     )
 
 
-@router.post("/{organization_id}/smart-team/visits/{visit_id}/check-out")
+@router.post("/{organization_id}/smart-team/visits/{visit_id}/check-out", response_model=SmartTeamVisitResponse)
 async def check_out(
     organization_id: UUID,
     visit_id: UUID,
@@ -254,7 +261,7 @@ async def check_out(
     )
 
 
-@router.post("/{organization_id}/smart-team/visits/{visit_id}/cancel")
+@router.post("/{organization_id}/smart-team/visits/{visit_id}/cancel", response_model=SmartTeamVisitResponse)
 async def cancel_visit(
     organization_id: UUID,
     visit_id: UUID,
@@ -269,7 +276,7 @@ async def cancel_visit(
     )
 
 
-@router.get("/{organization_id}/smart-team/attendance")
+@router.get("/{organization_id}/smart-team/attendance", response_model=list[SmartTeamAttendanceResponse])
 async def list_attendance(
     organization_id: UUID,
     limit: int = Query(100, ge=1, le=500),
@@ -283,7 +290,7 @@ async def list_attendance(
     )
 
 
-@router.post("/{organization_id}/smart-team/attendance/clock-in", status_code=201)
+@router.post("/{organization_id}/smart-team/attendance/clock-in", status_code=201, response_model=SmartTeamAttendanceResponse)
 async def clock_in(
     organization_id: UUID,
     payload: ClockInRequest,
@@ -303,7 +310,7 @@ async def clock_in(
     )
 
 
-@router.post("/{organization_id}/smart-team/attendance/clock-out")
+@router.post("/{organization_id}/smart-team/attendance/clock-out", response_model=SmartTeamAttendanceResponse)
 async def clock_out(
     organization_id: UUID,
     payload: ClockOutRequest,
@@ -323,7 +330,7 @@ async def clock_out(
     )
 
 
-@router.post("/{organization_id}/smart-team/attendance/{shift_id}/correct")
+@router.post("/{organization_id}/smart-team/attendance/{shift_id}/correct", response_model=SmartTeamAttendanceResponse)
 async def correct_attendance(
     organization_id: UUID,
     shift_id: UUID,
@@ -346,7 +353,7 @@ async def correct_attendance(
     )
 
 
-@router.get("/{organization_id}/smart-team/activities")
+@router.get("/{organization_id}/smart-team/activities", response_model=list[SmartTeamActivityResponse])
 async def list_activities(
     organization_id: UUID,
     limit: int = Query(100, ge=1, le=500),
@@ -360,7 +367,7 @@ async def list_activities(
     )
 
 
-@router.post("/{organization_id}/smart-team/activities", status_code=201)
+@router.post("/{organization_id}/smart-team/activities", status_code=201, response_model=SmartTeamActivityResponse)
 async def create_activity(
     organization_id: UUID,
     payload: ActivityCreate,
@@ -374,7 +381,7 @@ async def create_activity(
     )
 
 
-@router.patch("/{organization_id}/smart-team/activities/{activity_id}")
+@router.patch("/{organization_id}/smart-team/activities/{activity_id}", response_model=SmartTeamActivityResponse)
 async def update_activity(
     organization_id: UUID,
     activity_id: UUID,
@@ -395,7 +402,7 @@ async def update_activity(
     )
 
 
-@router.get("/{organization_id}/smart-team/targets")
+@router.get("/{organization_id}/smart-team/targets", response_model=list[SmartTeamTargetResponse])
 async def list_targets(
     organization_id: UUID,
     limit: int = Query(100, ge=1, le=500),
@@ -409,7 +416,7 @@ async def list_targets(
     )
 
 
-@router.post("/{organization_id}/smart-team/targets", status_code=201)
+@router.post("/{organization_id}/smart-team/targets", status_code=201, response_model=SmartTeamTargetResponse)
 async def create_target(
     organization_id: UUID,
     payload: TargetWrite,
