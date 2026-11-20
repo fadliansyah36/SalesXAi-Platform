@@ -411,8 +411,11 @@ class SmartOrderRepository:
      await db.execute("update public.inventory_balances set on_hand=on_hand-$4,committed=committed-$4,version=version+1,updated_at=now() where organization_id=$1 and warehouse_id=$2 and variant_id=$3 and on_hand >= $4 and committed >= $4",a["inventory_owner_organization_id"],a["warehouse_id"],a["variant_id"],a["quantity"])
      await db.execute("""insert into public.stock_movements(organization_id,warehouse_id,product_id,variant_id,movement_type,quantity,on_hand_delta,committed_delta,reference_type,reference_id,reason,actor_user_id,idempotency_key,product_owner_organization_id)
       values($1,$2,$3,$4,'stock_out',$5,-$5,-$5,'fulfillment',$6,'Stock handed over to carrier',$7,$8,$9)""",a["inventory_owner_organization_id"],a["warehouse_id"],a["product_id"],a["variant_id"],a["quantity"],fid,actor,f"fulfillment:{fid}:dispatch:{a['order_item_id']}",a["product_owner_organization_id"])
-    remaining=await db.fetchval("select count(*) from public.fulfillments where organization_id=$1 and order_id=$2 and status not in ('handed_over','delivered','cancelled') and id<>$3",org,f["order_id"],fid)
-    if remaining==0:
+    pending_fulfillments=await db.fetchval("select count(*) from public.fulfillments where organization_id=$1 and order_id=$2 and status not in ('handed_over','delivered','cancelled') and id<>$3",org,f["order_id"],fid)
+    unallocated_items=await db.fetchval("""select count(*) from public.order_items oi
+     where oi.organization_id=$1 and oi.order_id=$2
+      and coalesce((select sum(a.quantity) from public.order_item_fulfillment_allocations a where a.order_item_id=oi.id),0)<oi.quantity""",org,f["order_id"])
+    if pending_fulfillments==0 and unallocated_items==0:
      await db.execute("update public.orders set status='fulfilled',fulfilled_at=now(),updated_at=now() where organization_id=$1 and id=$2 and status='processing'",org,f["order_id"])
      await db.execute("insert into public.order_status_history(organization_id,order_id,from_status,to_status,actor_user_id) values($1,$2,'processing','fulfilled',$3)",org,f["order_id"],actor)
    elif p.status in {"failed","cancelled"} and f["status"] in {"queued","picking","packed"}:
