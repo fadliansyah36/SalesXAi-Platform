@@ -242,7 +242,7 @@ class SmartOrderRepository:
     where upper(p.code)=any($2::text[]) and p.status='active' and p.starts_at<=now() and p.ends_at>now()
      and (p.organization_id=$1 or exists(select 1 from public.commerce_partner_links l
       where l.organization_id=p.organization_id and l.partner_organization_id=$3
-       and l.relationship_type in ('principal','distributor') and l.status='active'
+       and l.relationship_type in ('principal','distributor','customer') and l.status='active'
        and l.starts_at<=now() and (l.ends_at is null or l.ends_at>now())))
     order by p.organization_id,p.id""",org,normalized,consumer)
    for item in ids:
@@ -255,7 +255,7 @@ class SmartOrderRepository:
    where upper(p.code)=any($2::text[]) and p.status='active' and p.starts_at<=now() and p.ends_at>now()
     and (p.organization_id=$1 or exists(select 1 from public.commerce_partner_links l
      where l.organization_id=p.organization_id and l.partner_organization_id=$3
-      and l.relationship_type in ('principal','distributor') and l.status='active'
+      and l.relationship_type in ('principal','distributor','customer') and l.status='active'
       and l.starts_at<=now() and (l.ends_at is null or l.ends_at>now())))
    group by p.id order by p.priority asc,p.created_at asc,p.id asc""",org,normalized,consumer)
   eligible=[]
