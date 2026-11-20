@@ -1,0 +1,126 @@
+from __future__ import annotations
+from typing import Any
+from uuid import UUID
+import asyncpg
+from fastapi import Request
+from app.errors import APIError
+from app.repositories.smart_team import SmartTeamRepository,smart_team_repository
+from app.security.dependencies import Principal,TenantContext
+from app.services.audit import write_audit
+
+class SmartTeamService:
+    def __init__(self,repository:SmartTeamRepository|None=None):
+        self.repository=repository or smart_team_repository
+
+    def _tenant(self,organization_id:UUID,tenant:TenantContext):
+        if tenant.organization_id!=organization_id:
+            raise APIError(403,"forbidden","Cross-tenant SmartTeam access is denied.")
+
+    def _translate(self,error:ValueError):
+        code=str(error)
+        mapping={
+          "sales_profile_not_found":(404,"sales_profile_not_found","Active sales profile was not found in this organization."),
+          "outlet_not_found":(404,"outlet_not_found","Active outlet was not found in this organization."),
+          "outlet_not_assigned":(409,"outlet_not_assigned","The outlet is not actively assigned to this sales profile."),
+          "outlet_assignment_inactive":(409,"outlet_assignment_inactive","The outlet assignment is no longer active."),
+          "visit_not_found":(404,"visit_not_found","Visit was not found in this organization."),
+          "visit_transition_invalid":(409,"visit_transition_invalid","The requested visit lifecycle transition is invalid."),
+          "visit_already_checked_in":(409,"visit_already_checked_in","Visit has already been checked in."),
+          "active_sales_profile_required":(403,"active_sales_profile_required","An active sales profile is required for attendance."),
+          "shift_already_closed_today":(409,"shift_already_closed_today","Today's shift is already closed."),
+          "active_shift_not_found":(409,"active_shift_not_found","No active shift is available to clock out."),
+          "shift_not_found":(404,"shift_not_found","Attendance shift was not found."),
+          "target_scope_not_found":(404,"target_scope_not_found","Target scope was not found in this organization."),
+        }
+        status,code,message=mapping.get(str(error),(422,"smartteam_validation_error","The SmartTeam operation violates a domain rule."))
+        raise APIError(status,code,message) from error
+
+    async def list_visits(self,connection,organization_id,tenant,principal,profile_id,status,limit,offset):
+        self._tenant(organization_id,tenant)
+        rows=await self.repository.list_visits(connection,organization_id,principal.user_id,profile_id,status,limit,offset)
+        return [dict(row) for row in rows]
+
+    async def create_visit(self,connection,request,organization_id,tenant,principal,payload):
+        self._tenant(organization_id,tenant)
+        try: row=await self.repository.create_visit(connection,organization_id,principal.user_id,payload)
+        except ValueError as error:self._translate(error)
+        await write_audit(connection,request,principal,"smartteam.visit.created","smartteam_visit",str(row["id"]),tenant,{"status":row["status"],"outlet_id":str(row["outlet_id"]),"sales_profile_id":str(row["sales_profile_id"])})
+        return dict(row)
+
+    async def check_in(self,connection,request,organization_id,tenant,principal,visit_id,location):
+        self._tenant(organization_id,tenant)
+        try:row=await self.repository.check_in(connection,organization_id,principal.user_id,visit_id,location)
+        except ValueError as error:self._translate(error)
+        await write_audit(connection,request,principal,"smartteam.visit.checked_in","smartteam_visit",str(visit_id),tenant,{"accuracy_m":location["accuracy_m"],"source":location["source"]})
+        return dict(row)
+
+    async def check_out(self,connection,request,organization_id,tenant,principal,visit_id,location,outcome,notes):
+        self._tenant(organization_id,tenant)
+        try:row=await self.repository.check_out(connection,organization_id,principal.user_id,visit_id,location,outcome,notes)
+        except ValueError as error:self._translate(error)
+        await write_audit(connection,request,principal,"smartteam.visit.checked_out","smartteam_visit",str(visit_id),tenant,{"outcome":outcome,"accuracy_m":location["accuracy_m"],"source":location["source"]})
+        return dict(row)
+
+    async def cancel_visit(self,connection,request,organization_id,tenant,principal,visit_id,reason):
+        self._tenant(organization_id,tenant)
+        try:row=await self.repository.cancel_visit(connection,organization_id,principal.user_id,visit_id,reason)
+        except ValueError as error:self._translate(error)
+        await write_audit(connection,request,principal,"smartteam.visit.cancelled","smartteam_visit",str(visit_id),tenant,{"reason":reason})
+        return dict(row)
+
+    async def list_shifts(self,connection,organization_id,tenant,principal,limit,offset):
+        self._tenant(organization_id,tenant)
+        return [dict(row) for row in await self.repository.list_shifts(connection,organization_id,principal.user_id,limit,offset)]
+
+    async def clock_in(self,connection,request,organization_id,tenant,principal,location,key):
+        self._tenant(organization_id,tenant)
+        try:row=await self.repository.clock_in(connection,organization_id,principal.user_id,location,key)
+        except ValueError as error:self._translate(error)
+        await write_audit(connection,request,principal,"smartteam.attendance.clocked_in","smartteam_shift",str(row["id"]),tenant,{"accuracy_m":location["accuracy_m"],"source":location["source"]})
+        return dict(row)
+
+    async def clock_out(self,connection,request,organization_id,tenant,principal,location):
+        self._tenant(organization_id,tenant)
+        try:row=await self.repository.clock_out(connection,organization_id,principal.user_id,location)
+        except ValueError as error:self._translate(error)
+        await write_audit(connection,request,principal,"smartteam.attendance.clocked_out","smartteam_shift",str(row["id"]),tenant,{"accuracy_m":location["accuracy_m"],"source":location["source"]})
+        return dict(row)
+
+    async def correct_attendance(self,connection,request,organization_id,tenant,principal,shift_id,clock_in_at,clock_out_at,reason):
+        self._tenant(organization_id,tenant)
+        if not reason.strip():raise APIError(422,"correction_reason_required","Attendance correction requires a reason.")
+        try:row=await self.repository.correct_attendance(connection,organization_id,principal.user_id,shift_id,clock_in_at,clock_out_at,reason)
+        except ValueError as error:self._translate(error)
+        await write_audit(connection,request,principal,"smartteam.attendance.corrected","smartteam_shift",str(shift_id),tenant,{"reason":reason})
+        return dict(row)
+
+    async def list_activities(self,connection,organization_id,tenant,principal,limit,offset):
+        self._tenant(organization_id,tenant)
+        return [dict(row) for row in await self.repository.list_activities(connection,organization_id,principal.user_id,limit,offset)]
+
+    async def create_activity(self,connection,request,organization_id,tenant,principal,payload):
+        self._tenant(organization_id,tenant)
+        try:row=await self.repository.create_activity(connection,organization_id,principal.user_id,payload)
+        except ValueError as error:self._translate(error)
+        await write_audit(connection,request,principal,"smartteam.activity.created","smartteam_activity",str(row["id"]),tenant,{"activity_type":row["activity_type"]})
+        return dict(row)
+
+    async def update_activity(self,connection,request,organization_id,tenant,principal,activity_id,payload):
+        self._tenant(organization_id,tenant)
+        row=await self.repository.update_activity(connection,organization_id,activity_id,payload)
+        if row is None:raise APIError(404,"activity_not_found","Activity was not found.")
+        await write_audit(connection,request,principal,"smartteam.activity.updated","smartteam_activity",str(activity_id),tenant,{"status":row["status"]})
+        return dict(row)
+
+    async def list_targets(self,connection,organization_id,tenant,limit,offset):
+        self._tenant(organization_id,tenant)
+        return [dict(row) for row in await self.repository.list_targets(connection,organization_id,limit,offset)]
+
+    async def create_target(self,connection,request,organization_id,tenant,principal,payload):
+        self._tenant(organization_id,tenant)
+        try:row=await self.repository.create_target(connection,organization_id,principal.user_id,payload)
+        except ValueError as error:self._translate(error)
+        await write_audit(connection,request,principal,"smartteam.target.created","smartteam_target",str(row["id"]),tenant,{"metric_key":row["metric_key"],"target_value":str(row["target_value"])})
+        return dict(row)
+
+smart_team_service=SmartTeamService()
