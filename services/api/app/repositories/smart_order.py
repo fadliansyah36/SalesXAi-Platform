@@ -2,7 +2,7 @@
 from __future__ import annotations
 import json
 from decimal import Decimal
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import uuid4
 from app.errors import APIError
 from app.domain.smart_order_rules import money as money_value, line_totals, percentage_discount, fixed_discount, can_transition_fulfillment, can_cancel_order
@@ -260,7 +260,7 @@ class SmartOrderRepository:
     result=await self.get_order(db,org,actor,oid)
    elif o["status"]!="draft":
     raise APIError(409,"invalid_order_transition","Only a draft order can be submitted.")
-   elif o["expires_at"] is not None and o["expires_at"]<=datetime.now(timezone.utc):
+   elif o["expires_at"] is not None and o["expires_at"]<=datetime.now(UTC):
     await db.execute("update public.orders set status='expired',updated_at=now() where organization_id=$1 and id=$2",org,oid)
     await db.execute("update public.carts set status='active',version=version+1,updated_at=now() where organization_id=$1 and id=$2 and expires_at>now()",org,o["cart_id"])
     await db.execute("update public.promotion_redemptions set status='reversed',reversed_at=now() where organization_id=$1 and order_id=$2 and status='reserved'",org,oid)
