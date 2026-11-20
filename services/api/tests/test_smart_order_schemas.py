@@ -8,6 +8,7 @@ from app.schemas.smart_order import (
     PriceListWrite,
     PromotionWrite,
     StockMovementWrite,
+    PartnerOrderDecision,
 )
 
 
@@ -53,6 +54,40 @@ class SmartOrderSchemaTests(unittest.TestCase):
             PromotionWrite(**base)
         valid = PromotionWrite(**{**base, "rules": [{"rule_type": "discount_percent", "rule_config": {"percent": 15}}]})
         self.assertEqual(valid.rules[0]["rule_type"], "discount_percent")
+
+    def test_company_price_scope_requires_and_accepts_tenant_scope_id(self):
+        base = {
+            "name": "Company pricing",
+            "code": "COMPANY-1",
+            "scope_type": "company",
+            "effective_from": "2026-11-20T00:00:00Z",
+            "prices": [{"product_id": str(uuid4()), "variant_id": str(uuid4()), "unit_price": 100}],
+        }
+        with self.assertRaises(ValidationError):
+            PriceListWrite(**base)
+        valid = PriceListWrite(**base, scope_id=str(uuid4()))
+        self.assertEqual(valid.scope_type, "company")
+
+    def test_promotion_organization_audience_accepts_supported_tenant_types(self):
+        base = {
+            "code": "B2B",
+            "name": "Partner campaign",
+            "starts_at": "2026-11-20T00:00:00Z",
+            "ends_at": "2026-12-20T00:00:00Z",
+            "rules": [
+                {"rule_type": "organization_type", "rule_config": {"organization_types": ["principal", "distributor", "company", "customer"]}},
+                {"rule_type": "discount_percent", "rule_config": {"percent": 10}},
+            ],
+        }
+        self.assertEqual(PromotionWrite(**base).rules[0]["rule_type"], "organization_type")
+        with self.assertRaises(ValidationError):
+            PromotionWrite(**{**base, "rules": [{"rule_type": "organization_type", "rule_config": {"organization_types": ["unknown"]}}, base["rules"][1]]})
+
+    def test_partner_decision_requires_reason_for_rejection_and_idempotency(self):
+        with self.assertRaises(ValidationError):
+            PartnerOrderDecision(decision="rejected", reason="no", idempotency_key="key-12345")
+        accepted = PartnerOrderDecision(decision="accepted", idempotency_key="key-12345")
+        self.assertEqual(accepted.decision, "accepted")
 
     def test_adjustment_delta_and_quantity_must_match(self):
         base = {
