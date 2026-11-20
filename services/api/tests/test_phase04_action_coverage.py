@@ -14,6 +14,12 @@ COVERAGE = ROOT / "docs/implementation/phase-04-action-coverage.tsv"
 SMARTTEAM_UI = ROOT / "components/smart-team/SmartTeamConsole.tsx"
 SUPER_ADMIN_UI = ROOT / "components/super-admin/SuperAdminPortalApp.tsx"
 API_CLIENT = ROOT / "packages/api-client/src/index.ts"
+PERMISSIONS = ROOT / "packages/permissions/src/index.ts"
+PORTAL_COMPONENTS = [
+    ROOT / "components/portal/SalesPortalApp.tsx",
+    ROOT / "components/company/CompanyPortalApp.tsx",
+    ROOT / "components/supervisor/SupervisorPortalApp.tsx",
+]
 
 class Phase04ActionCoverageTests(unittest.TestCase):
     def setUp(self) -> None:
@@ -32,11 +38,14 @@ class Phase04ActionCoverageTests(unittest.TestCase):
         client = API_CLIENT.read_text(encoding="utf-8")
         smart_ui = SMARTTEAM_UI.read_text(encoding="utf-8")
         admin_ui = SUPER_ADMIN_UI.read_text(encoding="utf-8")
+        permission_registry = PERMISSIONS.read_text(encoding="utf-8")
         for row in self.rows:
             contract = self.contracts[row["action_id"]]
             self.assertEqual(row["http_method"], contract.method, row["action_id"])
             self.assertEqual(row["endpoint"], contract.path, row["action_id"])
-            self.assertEqual(row["permission"], contract.permission_key or "", row["action_id"])
+            self.assertTrue(contract.permission_key, row["action_id"] + " has no permission")
+            self.assertEqual(row["permission"], contract.permission_key, row["action_id"])
+            self.assertIn(f'"{contract.permission_key}"', permission_registry, row["action_id"])
             self.assertIn(row["typed_api_method"] + "(", client, row["action_id"])
             source = admin_ui if row["portal"] == "Super Admin" else smart_ui
             self.assertIn(row["typed_api_method"] + "(", source, row["action_id"])
@@ -45,9 +54,13 @@ class Phase04ActionCoverageTests(unittest.TestCase):
         validate_api_action_matrix(app.routes)
 
     def test_active_phase04_ui_does_not_mutate_supabase_directly(self) -> None:
-        for path in (SMARTTEAM_UI, SUPER_ADMIN_UI):
+        for path in (SMARTTEAM_UI, SUPER_ADMIN_UI, *PORTAL_COMPONENTS):
             source = path.read_text(encoding="utf-8")
             self.assertIsNone(re.search(r"supabase\s*\.\s*(?:from|rpc|storage)\b", source, re.I), str(path))
+        for path in PORTAL_COMPONENTS:
+            source = path.read_text(encoding="utf-8")
+            self.assertIn("const LEGACY_SMARTTEAM_UI_ENABLED = false", source, str(path))
+            self.assertIn("<SmartTeamConsole", source, str(path))
 
 if __name__ == "__main__":
     unittest.main()

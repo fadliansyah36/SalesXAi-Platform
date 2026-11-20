@@ -31,7 +31,7 @@ The companion TSV maps each active Phase 04 action placement to its UI handler, 
 ## Action completeness and enforcement
 
 - All 22 SmartTeam action contracts are exposed by the shared typed API client and active SmartTeam UI handlers, including target update and the tenant-authorized event stream.
-- Super Admin global overview is exposed through `listPlatformSmartTeamOverview` and `platform.smartteam.overview.read`.
+- Super Admin global overview is exposed through `listPlatformSmartTeamOverview` and `platform.smartteam.overview.read`, with `platform_permission:organization:read` enforced at the platform scope.
 - The event stream is opened through `SalesXApiClient.subscribeSmartTeamEvents` and the same-origin Website Auth BFF proxy; it is no longer instantiated directly by the UI.
 - Every registered FastAPI `/api/v1` route must have exactly one action contract and a matching `require_api_action` dependency (or an explicit BFF marker). FastAPI startup rejects missing, stale or miswired contracts.
 - SmartTeam route dependencies enforce verified identity, tenant match, permission and resource ownership/scope in the application service/repository. UI gates are convenience only; server authorization remains authoritative.
