@@ -28,7 +28,7 @@
     "@salesx-ai/auth-client": "workspace:*",
     "@salesx-ai/shared-types": "workspace:*",
     "expo-secure-store": "~58.0.3",
-    "expo-location": "*",
+    "expo-location": "latest",
     "expo-sqlite": "*",
     "expo-image-picker": "*",
     "expo-file-system": "*"
