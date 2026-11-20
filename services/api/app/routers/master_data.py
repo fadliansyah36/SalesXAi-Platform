@@ -10,7 +10,7 @@ from fastapi.responses import Response, StreamingResponse
 
 from app.db import get_connection
 from app.errors import APIError
-from app.schemas.master_data import MasterDataImportRequest, MasterDataWrite, OutletAssignmentCreate
+from app.schemas.master_data import MasterDataImportRequest, MasterDataWrite, OutletAssignmentCreate, OutletAssignmentUnassignRequest
 from app.security.dependencies import Principal, TenantContext, get_current_principal, require_api_action
 from app.services.master_data import master_data_service
 from app.repositories.master_data import RESOURCE_TABLES
@@ -115,6 +115,18 @@ async def assign_outlet(organization_id: UUID, outlet_id: UUID, payload: OutletA
     return await master_data_service.assign_outlet(connection, request, principal, tenant, organization_id, outlet_id, payload.sales_profile_id, payload.note)
 
 
+@router.post("/{organization_id}/outlet-assignments/{assignment_id}/unassign")
+async def unassign_outlet(
+    organization_id: UUID, assignment_id: UUID, payload: OutletAssignmentUnassignRequest, request: Request,
+    principal: Principal = Depends(get_current_principal),
+    tenant: TenantContext = Depends(require_api_action("master.assignments.unassign")),
+    connection: asyncpg.Connection = Depends(get_connection),
+):
+    return await master_data_service.unassign_outlet(
+        connection, request, principal, tenant, organization_id, assignment_id, payload.reason,
+    )
+
+
 @router.get("/{organization_id}/sales-profiles/me/assignment-context")
 async def my_assignment_context(organization_id: UUID, principal: Principal = Depends(get_current_principal), tenant: TenantContext = Depends(require_api_action("master.assignments.context.read")), connection: asyncpg.Connection = Depends(get_connection)):
     return await master_data_service.my_assignment_context(connection, organization_id, tenant, principal)
@@ -175,7 +187,7 @@ async def export_master_data(organization_id: UUID, resource: str, request: Requ
     writer.writeheader()
     for row in rows:
         writer.writerow({
-            key: json.dumps(row.get(key), separators=(",", ":")) if isinstance(row.get(key), (dict, list))
+            key: json.dumps(row.get(key), separators=(",", ":")) if isinstance(row.get(key), dict | list)
             else str(row.get(key)) if row.get(key) is not None else ""
             for key in fields
         })

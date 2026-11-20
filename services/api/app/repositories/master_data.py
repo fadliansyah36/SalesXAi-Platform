@@ -233,6 +233,17 @@ class MasterDataRepository:
         )
         return dict(row)
 
+    async def unassign_outlet(self, connection: asyncpg.Connection, organization_id: UUID, assignment_id: UUID, actor_id: UUID, reason: str | None) -> dict[str, Any] | None:
+        row = await connection.fetchrow(
+            """update public.outlet_assignment_history
+               set unassigned_at=now(),unassigned_by=$4,assignment_status='unassigned',
+                   change_reason=coalesce(nullif($5,''),'manual_unassign')
+               where organization_id=$1 and id=$2 and unassigned_at is null
+               returning *""",
+            organization_id, assignment_id, actor_id, reason,
+        )
+        return dict(row) if row else None
+
     async def list_assignments(self, connection: asyncpg.Connection, organization_id: UUID, limit: int, offset: int) -> list[dict[str, Any]]:
         rows = await connection.fetch(
             """select a.*,o.code outlet_code,o.name outlet_name,sp.user_id sales_user_id,sp.employee_code,

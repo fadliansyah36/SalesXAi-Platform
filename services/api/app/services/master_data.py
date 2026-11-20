@@ -272,6 +272,26 @@ class MasterDataService:
         except asyncpg.ForeignKeyViolationError as exc:
             raise APIError(404, "assignment_resource_not_found", "Outlet or sales profile does not exist in the active tenant.") from exc
 
+    async def unassign_outlet(self, connection: asyncpg.Connection, request: Request, principal: Principal, tenant: TenantContext, organization_id: UUID, assignment_id: UUID, reason: str | None) -> dict[str, Any]:
+        self._tenant(organization_id, tenant)
+        async with connection.transaction():
+            row = await self.repository.unassign_outlet(connection, organization_id, assignment_id, principal.user_id, reason)
+            if row is None:
+                raise APIError(404, "active_assignment_not_found", "Active outlet assignment was not found.")
+            await write_audit(
+                connection, request, principal, "outlet.assignment.unassigned", "outlet_assignment",
+                str(assignment_id), tenant,
+                {
+                    "reason": reason or "manual_unassign",
+                    "outlet_id": str(row["outlet_id"]),
+                    "sales_profile_id": str(row["sales_profile_id"]),
+                    "team_id": str(row["assigned_team_id"]) if row["assigned_team_id"] else None,
+                    "supervisor_user_id": str(row["assigned_supervisor_user_id"]) if row["assigned_supervisor_user_id"] else None,
+                    "territory_id": str(row["assigned_territory_id"]) if row["assigned_territory_id"] else None,
+                },
+            )
+            return row
+
     async def audit_export(self, connection: asyncpg.Connection, request: Request, principal: Principal, tenant: TenantContext, organization_id: UUID, resource: str, row_count: int) -> None:
         self._tenant(organization_id, tenant)
         await write_audit(
