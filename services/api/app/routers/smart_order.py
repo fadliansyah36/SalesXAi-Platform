@@ -235,7 +235,7 @@ async def list_partner_order_operations(organization_id:UUID,page:int=Query(1,ge
  return await smart_order_service.list_partner_orders(db,organization_id,tenant,page,page_size,status)
 
 @router.get("/{organization_id}/smart-order/partner-orders/{order_id}")
-async def get_partner_order(organization_id:UUID,order_id:UUID,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartorder.partner_orders.read")),db:asyncpg.Connection=Depends(get_connection)):
+async def get_partner_order(organization_id:UUID,order_id:UUID,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartorder.partner_orders.detail.read")),db:asyncpg.Connection=Depends(get_connection)):
  return await smart_order_service.get_partner_order(db,organization_id,tenant,order_id)
 
 @router.post("/{organization_id}/smart-order/partner-orders/{order_id}/fulfillments",status_code=201)
