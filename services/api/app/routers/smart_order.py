@@ -10,6 +10,7 @@ from app.db import get_connection
 from app.security.dependencies import Principal, TenantContext, get_current_principal, require_api_action
 from app.schemas.smart_order import ProductWrite, ProductStatusWrite, CartItemWrite, CartItemUpdate, StockMovementWrite, PromotionWrite, PromotionUpdate, PromotionEvaluation, OrderCreate, OrderDecision, FulfillmentCreate, FulfillmentUpdate, PriceListWrite, WarehouseWrite, CategoryWrite, BrandWrite, UnitWrite, CatalogAccessWrite, StockTransferWrite, OrderCancel, PartnerLinkWrite, AssistedCartWrite, OrderApprovalPolicyWrite, PartnerOrderDecision
 from app.services.smart_order import smart_order_service
+from app.services.authorization import authorization_service
 
 router=APIRouter(prefix="/organizations",tags=["smart-order"])
 
@@ -69,6 +70,36 @@ async def stream_smart_order_events(
     if pool is None:
         raise APIError(503, "database_not_ready", "SmartOrder event stream requires the configured database pool.")
     queue: asyncio.Queue[dict] = asyncio.Queue(maxsize=128)
+    permission_keys = (
+        "commerce:order:read", "commerce:order:approve", "commerce:order:manage",
+        "commerce:order:operations:read", "commerce:order:fulfill",
+        "commerce:inventory:read", "commerce:inventory:manage",
+        "commerce:catalog:read", "commerce:catalog:manage",
+        "commerce:pricing:read", "commerce:pricing:manage",
+        "commerce:promotion:read", "commerce:promotion:manage",
+        "commerce:cart:read", "commerce:cart:manage", "commerce:cart:assisted",
+    )
+    order_permissions = {"commerce:order:read", "commerce:order:approve", "commerce:order:manage", "commerce:order:operations:read", "commerce:order:fulfill"}
+    inventory_permissions = {"commerce:inventory:read", "commerce:inventory:manage"}
+    def required_permissions(event: dict) -> set[str]:
+        resource = event.get("resource")
+        if resource in {"orders", "order_items", "order_status_history", "order_approvals", "order_partner_decisions", "fulfillments", "order_returns", "order_return_items", "order_approval_policies"}:
+            return order_permissions
+        if resource == "promotion_redemptions":
+            return order_permissions | {"commerce:promotion:read", "commerce:promotion:manage"}
+        if resource == "stock_movements":
+            return order_permissions | inventory_permissions if event.get("order_id") else inventory_permissions
+        if resource in {"carts", "cart_items"}:
+            return {"commerce:cart:read", "commerce:cart:manage", "commerce:cart:assisted"}
+        if resource in {"inventory_balances", "stock_transfers", "warehouses"}:
+            return inventory_permissions
+        if resource in {"products", "product_variants", "product_brands", "product_categories", "product_images", "units_of_measure", "commerce_catalog_access"}:
+            return {"commerce:catalog:read", "commerce:catalog:manage"}
+        if resource in {"price_lists", "product_prices", "price_list_history"}:
+            return {"commerce:pricing:read", "commerce:pricing:manage"}
+        if resource in {"promotions", "promotion_rules"}:
+            return {"commerce:promotion:read", "commerce:promotion:manage"}
+        return set()
 
     def on_notify(connection, pid, channel, payload):
         try:
@@ -84,18 +115,40 @@ async def stream_smart_order_events(
                 pass
         queue.put_nowait(event)
 
+    async def read_permissions(connection) -> set[str]:
+        allowed = set()
+        for permission_key in permission_keys:
+            if await authorization_service.has_tenant_permission(
+                connection, principal.user_id, tenant.membership_id,
+                tenant.organization_id, tenant.branch_id, permission_key, {},
+            ):
+                allowed.add(permission_key)
+        return allowed
+
     async def stream():
         async with pool.acquire() as connection:
+            allowed_permissions = await read_permissions(connection)
+            if "commerce:order:read" not in allowed_permissions:
+                raise APIError(403, "forbidden", "SmartOrder event subscription requires active order read permission.")
+            next_permission_refresh = asyncio.get_running_loop().time() + 30
             await connection.add_listener("smartorder_events", on_notify)
             try:
-                yield "retry: 5000\n\n"
+                yield "retry: 5000\\n\\n"
                 while not await request.is_disconnected():
+                    if asyncio.get_running_loop().time() >= next_permission_refresh:
+                        allowed_permissions = await read_permissions(connection)
+                        if "commerce:order:read" not in allowed_permissions:
+                            yield "event: auth_revoked\\ndata: {}\\n\\n"
+                            break
+                        next_permission_refresh = asyncio.get_running_loop().time() + 30
                     try:
                         event = await asyncio.wait_for(queue.get(), timeout=15)
                     except TimeoutError:
-                        yield ": keep-alive\n\n"
+                        yield ": keep-alive\\n\\n"
                         continue
-                    yield "event: smartorder.changed\ndata: " + json.dumps(event, separators=(",", ":")) + "\n\n"
+                    if not (required_permissions(event) & allowed_permissions):
+                        continue
+                    yield "event: smartorder.changed\\ndata: " + json.dumps(event, separators=(",", ":")) + "\\n\\n"
             finally:
                 try:
                     await connection.remove_listener("smartorder_events", on_notify)
