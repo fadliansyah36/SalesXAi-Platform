@@ -555,8 +555,8 @@ export class SalesXApiClient {
   }
 
 
-  listSmartOrderProducts(organizationId:string,options:{search?:string;categoryId?:string;page?:number;pageSize?:number}={}):Promise<import("@salesx-ai/api-contracts").SmartOrderProductPage>{
-    const q=new URLSearchParams();if(options.search)q.set("search",options.search);if(options.categoryId)q.set("category_id",options.categoryId);q.set("page",String(options.page??1));q.set("page_size",String(options.pageSize??24));
+  listSmartOrderProducts(organizationId:string,options:{search?:string;categoryId?:string;brandId?:string;sortBy?:"name"|"code"|"updated_at";sortOrder?:"asc"|"desc";page?:number;pageSize?:number}={}):Promise<import("@salesx-ai/api-contracts").SmartOrderProductPage>{
+    const q=new URLSearchParams();if(options.search)q.set("search",options.search);if(options.categoryId)q.set("category_id",options.categoryId);if(options.brandId)q.set("brand_id",options.brandId);if(options.sortBy)q.set("sort_by",options.sortBy);if(options.sortOrder)q.set("sort_order",options.sortOrder);q.set("page",String(options.page??1));q.set("page_size",String(options.pageSize??24));
     return this.request(`/api/v1/organizations/${encodeURIComponent(organizationId)}/smart-order/catalog/products?${q.toString()}`);
   }
   getSmartOrderProduct(organizationId:string,productId:string):Promise<import("@salesx-ai/api-contracts").SmartOrderProduct>{

@@ -5,16 +5,20 @@ from decimal import Decimal
 from datetime import UTC, datetime
 from uuid import uuid4
 from app.errors import APIError
-from app.domain.smart_order_rules import money as money_value, line_totals, percentage_discount, fixed_discount, can_transition_fulfillment, can_cancel_order
+from app.domain.smart_order_rules import money as money_value, line_totals, evaluate_promotion_candidates, can_transition_fulfillment, can_cancel_order
 
 def money(v): return money_value(v)
 def rowdict(r): return dict(r) if r is not None else None
 
 class SmartOrderRepository:
- async def list_products(self,db,org,search,category,page,size):
+ async def list_products(self,db,org,search,category,brand,sort_by,sort_order,page,size):
   where=["p.status='published'","(p.organization_id=$1 or exists(select 1 from public.commerce_catalog_access ca where ca.owner_organization_id=p.organization_id and ca.consumer_organization_id=$1 and ca.access_type='catalog' and ca.starts_at<=now() and (ca.ends_at is null or ca.ends_at>now()) and (ca.product_id is null or ca.product_id=p.id)))"]; args=[org]
   if search: args.append(search); where.append(f"to_tsvector('simple',coalesce(p.name,'')||' '||coalesce(p.product_code,'')||' '||coalesce(p.description,'')) @@ plainto_tsquery('simple',${len(args)})")
   if category: args.append(category); where.append(f"p.category_id=${len(args)}")
+  if brand: args.append(brand); where.append(f"p.brand_id=${len(args)}")
+  sort_columns={"name":"p.name","code":"p.product_code","updated_at":"p.updated_at"}
+  sort_column=sort_columns.get(sort_by,"p.updated_at")
+  sort_direction="ASC" if sort_order=="asc" else "DESC"
   clause=" and ".join(where); total=await db.fetchval(f"select count(*) from public.products p where {clause}",*args)
   args.extend([size,(page-1)*size])
   rows=await db.fetch(f"""select p.id,p.organization_id,p.product_code,p.name,p.description,p.specifications,p.tax_rate,p.category_id,c.name category_name,b.name brand_name,
@@ -22,7 +26,7 @@ class SmartOrderRepository:
    coalesce((select jsonb_agg(jsonb_build_object('id',i.id,'storage_path',i.storage_path,'mime_type',i.mime_type,'alt_text',i.alt_text,'sort_order',i.sort_order) order by i.sort_order) from public.product_images i where i.organization_id=p.organization_id and i.product_id=p.id),'[]'::jsonb) images
    from public.products p left join public.product_categories c on c.organization_id=p.organization_id and c.id=p.category_id
    left join public.product_brands b on b.organization_id=p.organization_id and b.id=p.brand_id where {clause}
-   order by p.updated_at desc,p.name limit ${len(args)-1} offset ${len(args)}""",*args)
+   order by {sort_column} {sort_direction},p.name asc limit ${len(args)-1} offset ${len(args)}""",*args)
   return {"items":[dict(r) for r in rows],"page":page,"page_size":size,"total":total}
 
  async def get_product(self,db,org,pid):
@@ -30,7 +34,7 @@ class SmartOrderRepository:
    coalesce((select jsonb_agg(to_jsonb(v)-'organization_id') from public.product_variants v where v.organization_id=p.organization_id and v.product_id=p.id),'[]'::jsonb) variants,
    coalesce((select jsonb_agg(jsonb_build_object('id',i.id,'storage_path',i.storage_path,'mime_type',i.mime_type,'alt_text',i.alt_text)) from public.product_images i where i.organization_id=p.organization_id and i.product_id=p.id),'[]'::jsonb) images
    from public.products p left join public.product_categories c on c.organization_id=p.organization_id and c.id=p.category_id
-   left join public.product_brands b on b.organization_id=p.organization_id and b.id=p.brand_id where p.organization_id=$1 and p.id=$2""",org,pid)
+   left join public.product_brands b on b.organization_id=p.organization_id and b.id=p.brand_id where p.id=$2 and (p.organization_id=$1 or (p.status='published' and exists(select 1 from public.commerce_catalog_access ca where ca.owner_organization_id=p.organization_id and ca.consumer_organization_id=$1 and ca.access_type='catalog' and ca.starts_at<=now() and (ca.ends_at is null or ca.ends_at>now()) and (ca.product_id is null or ca.product_id=p.id))))""",org,pid)
   return rowdict(r)
 
  async def create_product(self,db,org,actor,p):
@@ -183,39 +187,11 @@ class SmartOrderRepository:
 
  async def evaluate_promotions(self,db,org,codes,subtotal,qty,customer,lines=None):
   if not codes:return [],Decimal("0")
-  rows=await db.fetch("""select p.*,coalesce(jsonb_agg(jsonb_build_object('rule_type',r.rule_type,'rule_config',r.rule_config)) filter(where r.id is not null),'[]'::jsonb) rules
+  rows=await db.fetch("""select p.*,coalesce(jsonb_agg(jsonb_build_object('rule_type',r.rule_type,'rule_config',r.rule_config) order by r.created_at,r.id) filter(where r.id is not null),'[]'::jsonb) rules
    from public.promotions p left join public.promotion_rules r on r.organization_id=p.organization_id and r.promotion_id=p.id
    where p.organization_id=$1 and upper(p.code)=any($2::text[]) and p.status='active' and p.starts_at<=now() and p.ends_at>now()
-   group by p.id order by p.priority""",org,[x.upper() for x in codes])
-  applied=[];total=Decimal("0");lines=lines or []
-  for p in rows:
-   eligible=True;eligible_subtotal=Decimal("0");disc=Decimal("0")
-   for rule in p["rules"]:
-    cfg=rule["rule_config"];kind=rule["rule_type"]
-    if kind=="minimum_value" and subtotal<Decimal(str(cfg.get("amount",0))):eligible=False
-    elif kind=="minimum_quantity" and qty<Decimal(str(cfg.get("quantity",0))):eligible=False
-    elif kind=="customer" and cfg.get("organization_id") and str(customer)!=str(cfg["organization_id"]):eligible=False
-    elif kind=="product":
-     allowed={str(cfg["product_id"])} if cfg.get("product_id") else {str(x) for x in cfg.get("product_ids",[])}
-     matched=[line for line in lines if line.get("product_id") in allowed]
-     if not matched:eligible=False
-     else:eligible_subtotal=sum((Decimal(str(line.get("subtotal",0))) for line in matched),Decimal("0"))
-    elif kind=="category":
-     allowed={str(cfg["category_id"])} if cfg.get("category_id") else {str(x) for x in cfg.get("category_ids",[])}
-     matched=[line for line in lines if line.get("category_id") in allowed]
-     if not matched:eligible=False
-     else:eligible_subtotal=sum((Decimal(str(line.get("subtotal",0))) for line in matched),Decimal("0"))
-    elif kind=="voucher" and cfg.get("code") and str(cfg["code"]).upper()!=p["code"].upper():eligible=False
-    elif kind=="discount_percent":
-     base=eligible_subtotal if eligible_subtotal>0 else subtotal
-     disc=max(disc,percentage_discount(base,cfg.get("percent",0)))
-    elif kind=="discount_amount":
-     base=eligible_subtotal if eligible_subtotal>0 else subtotal
-     disc=max(disc,fixed_discount(base,cfg.get("amount",0)))
-   if eligible and disc>0:
-    applied.append({"promotion_id":str(p["id"]),"code":p["code"],"discount_amount":str(disc),"priority":p["priority"]});total+=disc
-    if not p["stackable"]:break
-  return applied,min(money(total),money(subtotal))
+   group by p.id order by p.priority asc,p.created_at asc,p.id asc""",org,[x.upper() for x in codes])
+  return evaluate_promotion_candidates([dict(row) for row in rows],subtotal,qty,customer,lines or [])
 
  async def create_order(self,db,org,actor,p,snapshot,region_id=None):
   async with db.transaction():
@@ -373,6 +349,9 @@ class SmartOrderRepository:
    o=await db.fetchrow("select * from public.orders where organization_id=$1 and id=$2 for update",org,oid)
    if not o:raise APIError(404,"order_not_found","Order was not found.")
    if o["status"] not in {"approved","processing"}:raise APIError(409,"order_not_approved","Only approved orders can enter fulfillment.")
+   if p.assigned_to:
+    assigned=await db.fetchval("select exists(select 1 from public.organization_memberships where organization_id=$1 and user_id=$2 and status='active')",org,p.assigned_to)
+    if not assigned:raise APIError(422,"fulfillment_assignee_not_member","Fulfillment assignee must be an active member of this organization.")
    r=await db.fetchrow("insert into public.fulfillments(organization_id,order_id,warehouse_id,assigned_to,created_by) values($1,$2,$3,$4,$5) returning *",org,oid,p.warehouse_id,p.assigned_to,actor)
    if o["status"]=="approved":
     await db.execute("update public.orders set status='processing',updated_at=now() where id=$1",oid)

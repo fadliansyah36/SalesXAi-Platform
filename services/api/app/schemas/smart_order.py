@@ -1,4 +1,4 @@
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Any, Literal
 from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -57,12 +57,18 @@ class StockMovementWrite(BaseModel):
     def validate_adjustment(self):
         if self.movement_type == "adjustment" and self.adjustment_delta is None:
             raise ValueError("adjustment_delta is required for adjustment movements")
+        if self.movement_type == "adjustment":
+            if self.adjustment_delta is None:
+                raise ValueError("adjustment_delta is required for adjustment movements")
+            if self.adjustment_delta == 0 or self.quantity != abs(self.adjustment_delta):
+                raise ValueError("adjustment quantity must equal the absolute non-zero adjustment delta")
         if self.movement_type != "adjustment" and self.adjustment_delta is not None:
             raise ValueError("adjustment_delta is only valid for adjustment movements")
         return self
 
 
 class PromotionWrite(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     code: str = Field(min_length=2, max_length=60)
     name: str = Field(min_length=2, max_length=180)
     description: str | None = None
@@ -72,6 +78,46 @@ class PromotionWrite(BaseModel):
     stackable: bool = False
     stacking_group: str | None = None
     rules: list[dict[str, Any]] = Field(min_length=1, max_length=20)
+
+    @model_validator(mode="after")
+    def validate_rules(self):
+        from datetime import datetime
+        try:
+            starts = datetime.fromisoformat(self.starts_at.replace("Z", "+00:00"))
+            ends = datetime.fromisoformat(self.ends_at.replace("Z", "+00:00"))
+        except ValueError as exc:
+            raise ValueError("Promotion validity dates must be ISO-8601 timestamps") from exc
+        if starts.tzinfo is None or ends.tzinfo is None or ends <= starts:
+            raise ValueError("Promotion end must be later than start and both timestamps must include timezone")
+        allowed = {"minimum_value", "minimum_quantity", "product", "category", "customer", "discount_percent", "discount_amount", "voucher"}
+        for rule in self.rules:
+            kind = rule.get("rule_type")
+            config = rule.get("rule_config")
+            if kind not in allowed or not isinstance(config, dict):
+                raise ValueError("Every promotion rule requires a supported rule_type and object rule_config")
+            try:
+                percent = Decimal(str(config.get("percent", 0)))
+                amount = Decimal(str(config.get("amount", 0)))
+                quantity = Decimal(str(config.get("quantity", 0)))
+            except (InvalidOperation, TypeError, ValueError) as exc:
+                raise ValueError("Promotion numeric rule values must be valid decimals") from exc
+            if kind == "discount_percent" and not Decimal("0") < percent <= Decimal("100"):
+                raise ValueError("discount_percent requires percent between 0 and 100")
+            if kind == "discount_amount" and amount <= 0:
+                raise ValueError("discount_amount requires a positive amount")
+            if kind == "minimum_value" and amount < 0:
+                raise ValueError("minimum_value amount cannot be negative")
+            if kind == "minimum_quantity" and quantity <= 0:
+                raise ValueError("minimum_quantity requires a positive quantity")
+            if kind == "product" and not (config.get("product_id") or config.get("product_ids")):
+                raise ValueError("product rule requires a target id")
+            if kind == "category" and not (config.get("category_id") or config.get("category_ids")):
+                raise ValueError("category rule requires a target id")
+            if kind == "customer" and not config.get("organization_id"):
+                raise ValueError("customer rule requires organization_id")
+            if kind == "voucher" and not config.get("code"):
+                raise ValueError("voucher rule requires code")
+        return self
 
 
 class PromotionEvaluation(BaseModel):
@@ -102,6 +148,12 @@ class FulfillmentUpdate(BaseModel):
     carrier: str | None = Field(default=None, max_length=120)
     tracking_number: str | None = Field(default=None, max_length=180)
 
+    @model_validator(mode="after")
+    def require_carrier_tracking_on_handover(self):
+        if self.status == "handed_over" and (not self.carrier or not self.carrier.strip() or not self.tracking_number or not self.tracking_number.strip()):
+            raise ValueError("Carrier and tracking_number are required before handover")
+        return self
+
 
 class PageResponse(BaseModel):
     items: list[dict[str, Any]]
@@ -131,6 +183,32 @@ class PriceListWrite(BaseModel):
     effective_until: str | None = None
     status: Literal["draft", "active", "inactive", "archived"] = "draft"
     prices: list[PriceListLineWrite] = Field(min_length=1, max_length=1000)
+
+    @model_validator(mode="after")
+    def validate_scope_and_lines(self):
+        from datetime import datetime
+        try:
+            starts = datetime.fromisoformat(self.effective_from.replace("Z", "+00:00"))
+            ends = datetime.fromisoformat(self.effective_until.replace("Z", "+00:00")) if self.effective_until else None
+        except ValueError as exc:
+            raise ValueError("Price list validity dates must be ISO-8601 timestamps") from exc
+        if starts.tzinfo is None or (ends is not None and (ends.tzinfo is None or ends <= starts)):
+            raise ValueError("Price list timestamps must include timezone and effective_until must be later than effective_from")
+        if self.scope_type == "tenant" and self.scope_id is not None:
+            raise ValueError("tenant price lists cannot have scope_id")
+        if self.scope_type == "channel":
+            if not self.channel or not self.channel.strip():
+                raise ValueError("channel price lists require channel")
+            if self.scope_id is not None:
+                raise ValueError("channel price lists do not use scope_id")
+        elif self.scope_type != "tenant" and self.scope_id is None:
+            raise ValueError("non-tenant price lists require scope_id")
+        if self.effective_until and self.effective_until <= self.effective_from:
+            raise ValueError("effective_until must be later than effective_from")
+        for line in self.prices:
+            if line.maximum_quantity is not None and line.maximum_quantity < line.minimum_quantity:
+                raise ValueError("maximum_quantity must be greater than or equal to minimum_quantity")
+        return self
 
 
 class WarehouseWrite(BaseModel):

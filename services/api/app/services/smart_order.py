@@ -15,9 +15,9 @@ class SmartOrderService:
   if tenant.organization_id != organization_id:
    raise APIError(403,"forbidden","Cross-tenant SmartOrder access is denied.")
 
- async def list_products(self,db,organization_id,tenant,search,category,page,page_size):
+ async def list_products(self,db,organization_id,tenant,search,category,brand,sort_by,sort_order,page,page_size):
   self._tenant(organization_id,tenant)
-  return await repo.list_products(db,organization_id,search,category,page,page_size)
+  return await repo.list_products(db,organization_id,search,category,brand,sort_by,sort_order,page,page_size)
 
  async def get_product(self,db,organization_id,tenant,product_id):
   self._tenant(organization_id,tenant)

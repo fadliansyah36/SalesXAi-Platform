@@ -12,14 +12,14 @@ Supabase project ref: eyofuiyxalbehbqoaeny
 | Phase 01 — Canonical Design System & Design Tokens | COMPLETED |
 | Phase 02 — Identity, Tenant & Authorization Foundation | COMPLETED |
 | Phase 03 — Master Data Foundation | COMPLETED |
-| Phase 04 — SmartTeam Operations | IN_PROGRESS — NOT COMPLETED |
-| Phase 05 — SmartOrder | LOCKED — not started |
+| Phase 04 — SmartTeam Operations | COMPLETED — closure addendum supersedes historical entries below |
+| Phase 05 — SmartOrder | IN_PROGRESS — NOT COMPLETED; cross-tenant cart/inventory/fulfillment model remains a blocker |
 
-**Migration ledger:** 36 remote applied versions and 36 local migration files, all version/name pairs matching exactly: Phase 00 = 2, Phase 02 = 14, Phase 03 = 10, Phase 04 = 10. Four Phase 02 filename prefixes were reconciled to the already-applied remote IDs without changing SQL contents. One additive Phase 04 corrective migration removes six duplicate Master Data broadcast triggers; no historical migration was edited or replayed.
+**Migration ledger:** 46 remote applied versions and 46 local migration files, all version/name pairs matching exactly: Phase 00 = 2, Phase 02 = 14, Phase 03 = 10, Phase 04 = 10, Phase 05 = 10. No historical migration was edited or replayed.
 
-**Live database:** 25/25 public tables have RLS enabled, 25 public policies are present, the SmartTeam evidence bucket is private, and the latest Supabase Security Advisor result contains zero lints.
+**Live database:** 55/55 public tables have RLS enabled and 55 public policies are present. The 30 SmartOrder tables have 30 explicit RLS policies; 27 SmartOrder broadcast triggers and 3 private `realtime.messages` policies are installed. The private SmartTeam evidence bucket remains private. Security Advisor is not re-queried in this Phase 05 continuation.
 
-The dated Phase 02 PARTIAL / Phase 03 LOCKED entries below are historical snapshots. The Phase 02 final closure and Phase 03 final closure entries, corroborated by the live migration ledger, are authoritative. Phase 04 remains the active phase; Phase 05 must not start until Phase 04 is closed.
+The dated Phase 02 PARTIAL / Phase 03 LOCKED and earlier Phase 04 IN_PROGRESS entries below are historical snapshots. The Phase 04 closure addendum and Phase 05 status record are authoritative for the current execution.
 
 ## Phase 00 — Repository Bootstrap & Governance
 
@@ -86,7 +86,7 @@ Status: COMPLETED
 
 ## Next phase
 
-Phase 02 and Phase 03 are COMPLETED. Phase 04 — SmartTeam Operations is the active phase. Phase 05 — SmartOrder remains LOCKED until Phase 04 reaches COMPLETED.
+Phase 00–04 are COMPLETED. Phase 05 — SmartOrder is the active phase and remains IN_PROGRESS. Phase 06 stays LOCKED until the cross-tenant SmartOrder order/fulfillment path and the remaining lifecycle operations are implemented.
 
 
 ## Phase 02 — Revalidation & additive database hardening (2026-11-19)
@@ -1230,3 +1230,8 @@ Four target Railway services and their actual Default Domains:
 
 **Official status remains: PHASE 04 — IN_PROGRESS / NOT COMPLETED.** The sole unproven runtime gate is a real authenticated BFF session round-trip. Do not mark Phase 04 COMPLETED until that round-trip is demonstrated. **Phase 05 — SmartOrder remains LOCKED and has not been started.**
 
+
+
+## Phase 05 — SmartOrder current execution status (2026-11-20)
+
+See `docs/implementation/phase-05-smartorder-status.md` for the current implementation inventory, migration ledger, validation evidence, and explicit blockers. This entry supersedes all older Phase 05 LOCKED / not-started snapshots in this file. Phase 05 is active but is **not completed**.

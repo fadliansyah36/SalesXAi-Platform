@@ -27,8 +27,8 @@ async def set_assisted_customer(organization_id:UUID,payload:AssistedCartWrite,p
  return await smart_order_service.set_assisted_customer(db,organization_id,tenant,principal.user_id,payload)
 
 @router.get("/{organization_id}/smart-order/catalog/products")
-async def list_products(organization_id:UUID,search:str|None=None,category_id:UUID|None=None,page:int=Query(1,ge=1),page_size:int=Query(24,ge=1,le=100),principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartorder.catalog.products.read")),db:asyncpg.Connection=Depends(get_connection)):
- return await smart_order_service.list_products(db,organization_id,tenant,search,category_id,page,page_size)
+async def list_products(organization_id:UUID,search:str|None=None,category_id:UUID|None=None,brand_id:UUID|None=None,sort_by:str=Query("updated_at",pattern="^(name|code|updated_at)$"),sort_order:str=Query("desc",pattern="^(asc|desc)$"),page:int=Query(1,ge=1),page_size:int=Query(24,ge=1,le=100),principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartorder.catalog.products.read")),db:asyncpg.Connection=Depends(get_connection)):
+ return await smart_order_service.list_products(db,organization_id,tenant,search,category_id,brand_id,sort_by,sort_order,page,page_size)
 
 @router.get("/{organization_id}/smart-order/catalog/products/{product_id}")
 async def get_product(organization_id:UUID,product_id:UUID,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartorder.catalog.product.read")),db:asyncpg.Connection=Depends(get_connection)):
