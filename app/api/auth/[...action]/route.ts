@@ -28,6 +28,24 @@ function requestCsrf(request: NextRequest): boolean {
   return csrfIsValid(request);
 }
 
+function callbackNextPath(request: NextRequest, origin: string): string | null {
+  const referer = request.headers.get("referer");
+  if (!referer) return null;
+  try {
+    const source = new URL(referer);
+    if (source.origin !== origin) return null;
+    const pathname = source.pathname;
+    const prefixes = ["/sales", "/distributor", "/principal", "/supervisor", "/admin"];
+    const portalPrefix = prefixes.find((prefix) => pathname === prefix || pathname.startsWith(prefix + "/"));
+    if (portalPrefix) return portalPrefix;
+    if (pathname === "/") return "/";
+    if (pathname === "/portal" || pathname.startsWith("/portal/")) return "/portal";
+    return "/";
+  } catch {
+    return null;
+  }
+}
+
 export async function GET(request: NextRequest, context: RouteContext) {
   const { action } = await context.params;
   const route = action.join("/");
@@ -131,8 +149,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const limited = await enforceBffRateLimit(request, "signup", email);
     if (limited) return limited;
     const origin = appOrigin(request);
+    const callback = new URL(origin + "/auth/callback");
+    const next = callbackNextPath(request, origin);
+    if (next) callback.searchParams.set("next", next);
     const result = await supabaseAuthRequest<SupabaseAuthSession | { user: { id: string; email?: string } }>(
-      "signup?redirect_to=" + encodeURIComponent(origin + "/auth/callback"),
+      "signup?redirect_to=" + encodeURIComponent(callback.toString()),
       { method: "POST", body: JSON.stringify({ email, password }) },
     );
     if (!result.ok) return authError(result.status, "signup_failed", supabaseMessage(result.body));
@@ -193,7 +214,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const limited = await enforceBffRateLimit(request, "password_recovery", email);
     if (limited) return limited;
     const origin = appOrigin(request);
-    const result = await supabaseAuthRequest("recover?redirect_to=" + encodeURIComponent(origin + "/auth/callback?flow=recovery"), {
+    const callback = new URL(origin + "/auth/callback");
+    callback.searchParams.set("flow", "recovery");
+    const next = callbackNextPath(request, origin);
+    if (next) callback.searchParams.set("next", next);
+    const result = await supabaseAuthRequest("recover?redirect_to=" + encodeURIComponent(callback.toString()), {
       method: "POST", body: JSON.stringify({ email }),
     });
     if (!result.ok) return authError(result.status, "recovery_failed", "If the account is eligible, recovery instructions will be sent.");
@@ -230,6 +255,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const origin = appOrigin(request);
     const callback = new URL(origin + "/auth/callback");
     callback.searchParams.set("oauth_state", state);
+    const next = callbackNextPath(request, origin);
+    if (next) callback.searchParams.set("next", next);
     const query = new URLSearchParams({
       provider,
       nonce,

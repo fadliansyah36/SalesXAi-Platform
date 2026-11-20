@@ -1,6 +1,6 @@
 import http from "node:http";
 import { spawn } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import path from "node:path";
 
 const groups = {
@@ -86,7 +86,24 @@ function resolveApp(requestUrl) {
   )) || defaultApp;
 }
 
-function checkEndpoint(app, route) {
+function firstStaticAsset(app) {
+  const staticRoot = path.join(root, app.directory, ".next", "standalone", app.directory, ".next", "static");
+  if (!existsSync(staticRoot)) return null;
+  const pending = [staticRoot];
+  while (pending.length) {
+    const directory = pending.pop();
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      const fullPath = path.join(directory, entry.name);
+      if (entry.isDirectory()) pending.push(fullPath);
+      else if (entry.isFile() && entry.name.endsWith(".js")) {
+        return path.relative(staticRoot, fullPath).split(path.sep).join("/");
+      }
+    }
+  }
+  return null;
+}
+
+function requestStatus(app, route) {
   return new Promise((resolve) => {
     const request = http.get({
       hostname: "127.0.0.1",
@@ -95,25 +112,43 @@ function checkEndpoint(app, route) {
       timeout: 2500,
       headers: { host: "127.0.0.1:" + app.port },
     }, (response) => {
-      const healthy = (response.statusCode || 500) < 500;
+      const status = response.statusCode || 500;
       response.resume();
-      resolve(healthy);
+      resolve(status);
     });
     request.on("timeout", () => request.destroy(new Error("health timeout")));
-    request.on("error", () => resolve(false));
+    request.on("error", () => resolve(0));
   });
 }
 
 async function readiness() {
-  const [apiHealth, ...portalHealth] = await Promise.all([
-    checkEndpoint(defaultApp, "/api/health"),
-    ...apps.map((app) => checkEndpoint(app, (app.basePath || "") + "/")),
+  const [apiStatus, bffStatus] = await Promise.all([
+    requestStatus(defaultApp, "/api/health"),
+    requestStatus(defaultApp, "/api/auth/csrf"),
   ]);
-  const appStatus = Object.fromEntries(apps.map((app, index) => [app.name, portalHealth[index]]));
+  const portalResults = await Promise.all(apps.map(async (app) => {
+    const prefix = app.basePath || "";
+    const asset = firstStaticAsset(app);
+    const [rootStatus, deepLinkStatus, assetStatus] = await Promise.all([
+      requestStatus(app, prefix + "/"),
+      requestStatus(app, prefix + "/portal"),
+      asset ? requestStatus(app, prefix + "/_next/static/" + asset) : Promise.resolve(0),
+    ]);
+    return {
+      root: rootStatus > 0 && rootStatus < 500,
+      deepLink: deepLinkStatus > 0 && deepLinkStatus < 500,
+      staticAssets: assetStatus === 200,
+      status: { root: rootStatus, deepLink: deepLinkStatus, staticAssets: assetStatus },
+    };
+  }));
+  const portalStatus = Object.fromEntries(apps.map((app, index) => [app.name, portalResults[index]]));
+  const healthy = apiStatus === 200 && bffStatus === 200 && portalResults.every((result) =>
+    result.root && result.deepLink && result.staticAssets);
   return {
-    healthy: apiHealth && portalHealth.every(Boolean),
-    api: apiHealth ? "ready" : "not_ready",
-    apps: appStatus,
+    healthy,
+    api: apiStatus === 200 ? "ready" : "not_ready",
+    bff: bffStatus === 200 ? "ready" : "not_ready",
+    apps: portalStatus,
   };
 }
 

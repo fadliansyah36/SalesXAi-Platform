@@ -1029,3 +1029,14 @@ The latest application-code commit is `b03459f7ed95bf43bb90653afa60305d0501b24c`
 - SmartTeam feature action coverage and all existing dashboard local/demo interactions still require evidence of complete Fastapi typed-client integration; later-phase SmartOrder/Reward/AI/GPS/Analytics UI is not to be treated as Phase 04 completion evidence.
 
 **Phase 04 remains IN_PROGRESS — NOT COMPLETED. Phase 05 — SmartOrder remains locked.**
+
+
+## Phase 04 — Route asset and authentication callback hardening — 2026-11-20
+
+- Website and Company grouped deployments are now `SUCCESS` on commit `1c95a6187c8ea17505bc39f45ac111e804602d91`; Customer deployment on the same commit is `SUCCESS`; API remains online on its previous successful deployment.
+- Runtime logs confirm Website + Sales gateway starts both Next.js servers and reports both ready. Company gateway starts all five Next.js servers and reports each ready. All four target Railway services are online.
+- The BFF callback path is now preserved from same-origin Referer into Supabase signup, recovery and OAuth callback URLs, with strict allowlisted route-prefix validation in the callback page. This prevents a login or recovery initiated in a child portal from returning users to the wrong root portal.
+- Gateway readiness now checks each app root, its `/portal` deep route, one generated Next static JavaScript asset, root BFF CSRF, and FastAPI readiness. This is the production health gate for route and asset delivery.
+- These source changes trigger a follow-up deployment of Website, Customer and Company. Update this record with their final deployment IDs/status and verify the health gate before treating route/asset readiness as complete.
+
+**Phase 04 remains IN_PROGRESS — NOT COMPLETED. Phase 05 — SmartOrder remains locked.**

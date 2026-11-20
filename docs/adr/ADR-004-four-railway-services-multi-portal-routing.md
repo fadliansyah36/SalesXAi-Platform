@@ -44,3 +44,10 @@ Each portal remains a separate Bun workspace and Next.js application with its ow
 - Each portal is still independently buildable and has its own source/configuration, but portals in a group share one Railway deploy/release boundary and replica lifecycle.
 - A failure in one grouped child makes the group unhealthy; this is intentional to avoid silently serving a partial portal group.
 - Changes to any grouped portal or shared UI/runtime dependency must trigger the corresponding group deployment.
+
+
+## Route and BFF readiness gate
+
+The gateway `/api/health` endpoint checks, for every child app, its basePath root, its `/portal` deep route and one generated JavaScript asset under its own `/_next/static` namespace. It also checks the root BFF CSRF endpoint and the root app's FastAPI-dependent health route. This catches missing child processes, basePath mismatches and static-asset path collisions before Railway marks the group healthy.
+
+Auth callback redirects preserve the same-origin portal prefix and accept only the allowlisted portal paths. A callback from Sales returns to `/sales`; Distributor, Principal, Supervisor and Super Admin return to their respective path prefixes. Recovery and invitation routes are scoped the same way.
