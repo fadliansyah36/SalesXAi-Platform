@@ -288,9 +288,9 @@ export interface SmartOrderProductWrite {product_code:string;name:string;descrip
 export interface SmartOrderPriceQuote {unit_price:string|number;currency:string;price_list_id:UUID;price_list_name:string;scope_type:string;tax_rate:string|number;sku:string;product_name:string;variant_name:string;}
 export interface SmartOrderInventoryBalance {id:UUID;warehouse_id:UUID;warehouse_code:string;warehouse_name:string;product_id:UUID;variant_id:UUID;on_hand:string|number;reserved:string|number;committed:string|number;available:string|number;version:number;}
 export interface SmartOrderStockMovementWrite {warehouse_id:UUID;product_id:UUID;variant_id:UUID;movement_type:"stock_in"|"stock_out"|"adjustment";quantity:number;adjustment_delta?:number;reason:string;idempotency_key:string;}
-export interface SmartOrderPromotion {id:UUID;code:string;name:string;description?:string|null;priority:number;stackable:boolean;stacking_group?:string|null;status?:string;starts_at:string;ends_at:string;rules:Array<{rule_type:string;rule_config:Record<string,unknown>}>;}
+export interface SmartOrderPromotion {id:UUID;organization_id?:UUID;code:string;name:string;description?:string|null;priority:number;stackable:boolean;stacking_group?:string|null;max_redemptions?:number|null;max_per_customer?:number|null;status?:string;starts_at:string;ends_at:string;rules:Array<{rule_type:string;rule_config:Record<string,unknown>}>;}
 export interface SmartOrderPromotionUpdate extends SmartOrderPromotionWrite {status:"active"|"inactive"|"archived";}
-export interface SmartOrderPromotionWrite {code:string;name:string;description?:string|null;starts_at:string;ends_at:string;priority?:number;stackable?:boolean;stacking_group?:string|null;rules:Array<{rule_type:string;rule_config:Record<string,unknown>}>;}
+export interface SmartOrderPromotionWrite {code:string;name:string;description?:string|null;starts_at:string;ends_at:string;priority?:number;stackable?:boolean;stacking_group?:string|null;max_redemptions?:number|null;max_per_customer?:number|null;rules:Array<{rule_type:string;rule_config:Record<string,unknown>}>;}
 export interface SmartOrderCart {cart:Record<string,unknown>;items:Array<Record<string,unknown>>;}
 export interface SmartOrderCartItemWrite {product_id:UUID;variant_id:UUID;quantity:number;notes?:string|null;}
 export interface SmartOrderOrderCreate {cart_id:UUID;idempotency_key:string;promotion_codes?:string[];shipping_snapshot?:Record<string,unknown>;notes?:string|null;}
@@ -313,9 +313,11 @@ export interface SmartOrderStockTransferWrite {from_warehouse_id:UUID;to_warehou
 export interface SmartOrderProductImageWrite {product_id:UUID;variant_id?:UUID|null;storage_path:string;mime_type:"image/jpeg"|"image/png"|"image/webp";size_bytes:number;alt_text?:string|null;sort_order?:number;}
 export interface SmartOrderOrderCancel {reason:string;}
 
+export interface SmartOrderPartnerDecision {id:UUID;decision:"accepted"|"rejected"|"revision_requested";reason?:string|null;actor_user_id:UUID;decided_at:string;}
+export interface SmartOrderPartnerDecisionWrite {decision:"accepted"|"rejected"|"revision_requested";reason?:string|null;idempotency_key:string;}
 export interface SmartOrderPartnerOrderSummary {id:UUID;buyer_organization_id:UUID;order_number:string;status:string;currency:string;partner_item_count:number;partner_item_total:string|number;partner_fulfillment_id?:UUID|null;partner_fulfillment_status?:string|null;created_at:string;updated_at:string;}
 export interface SmartOrderPartnerOrderPage {items:SmartOrderPartnerOrderSummary[];page:number;page_size:number;total:number;}
-export interface SmartOrderPartnerOrder extends Omit<SmartOrderPartnerOrderSummary,"partner_item_count"|"partner_item_total"> {items:Array<Record<string,unknown>>;fulfillments:Array<Record<string,unknown>>;}
+export interface SmartOrderPartnerOrder extends Omit<SmartOrderPartnerOrderSummary,"partner_item_count"|"partner_item_total"> {items:Array<Record<string,unknown>>;fulfillments:Array<Record<string,unknown>>;partner_decisions:SmartOrderPartnerDecision[];}
 export interface SmartOrderPartnerOrganization {id:UUID;slug:string;name:string;relationship_type:"principal"|"distributor"|"customer";starts_at:string;ends_at?:string|null;}
 export interface SmartOrderPartnerLinkWrite {partner_organization_id:UUID;relationship_type:"principal"|"distributor"|"customer";starts_at:string;ends_at?:string|null;}
 export interface SmartOrderAssistedCartWrite {customer_organization_id:UUID;}
