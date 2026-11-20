@@ -157,6 +157,7 @@ export interface MasterDataRecord {
   [field: string]: unknown;
 }
 export interface OutletAssignmentCreate { sales_profile_id: UUID; note?: string | null; }
+export interface OutletAssignmentUnassignRequest { reason?: string | null; }
 export interface MasterDataImportRequest { idempotency_key: string; rows: Array<Record<string, unknown>>; }
 export interface MasterDataImportRowError { row: number; code: string; message: string; }
 export interface MasterDataImportResult {

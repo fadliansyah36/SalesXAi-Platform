@@ -20,7 +20,7 @@ class Phase03MasterDataContractTests(unittest.TestCase):
             "master.territories.read", "master.territories.create", "master.territories.update",
             "master.outlets.read", "master.outlets.create", "master.outlets.update",
             "master.sales_profiles.read", "master.sales_profiles.create", "master.sales_profiles.update",
-            "master.assignments.read", "master.assignments.manage", "master.assignments.context.read",
+            "master.assignments.read", "master.assignments.manage", "master.assignments.unassign", "master.assignments.context.read",
             "master.data.import", "master.data.export", "master.data.events.read",
             "platform.organizations.list", "platform.organizations.update",
             "platform.organizations.branches.read", "platform.organizations.branches.create",

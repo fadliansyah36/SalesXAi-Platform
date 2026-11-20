@@ -20,6 +20,7 @@ import type {
   MasterDataRecord,
   MasterDataWrite,
   OutletAssignmentCreate,
+  OutletAssignmentUnassignRequest,
   OutletAssignmentRecord,
   PlatformOrganization,
   PlatformOrganizationStatusUpdate,
@@ -380,6 +381,12 @@ export class SalesXApiClient {
   }
 
 
+
+  unassignOutletAssignment(organizationId: string, assignmentId: string, payload: OutletAssignmentUnassignRequest): Promise<OutletAssignmentRecord> {
+    return this.request(`/api/v1/organizations/${encodeURIComponent(organizationId)}/outlet-assignments/${encodeURIComponent(assignmentId)}/unassign`, {
+      method: "POST", body: JSON.stringify(payload),
+    });
+  }
 
   listOrganizationBranches(organizationId: string): Promise<MasterDataRecord[]> {
     return this.request(`/api/v1/admin/organizations/${encodeURIComponent(organizationId)}/branches`);
