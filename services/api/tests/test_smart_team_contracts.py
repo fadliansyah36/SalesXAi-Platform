@@ -1,0 +1,100 @@
+from datetime import date, datetime, timezone
+from pathlib import Path
+import unittest
+from uuid import uuid4
+
+from pydantic import ValidationError
+
+from app.schemas.smart_team import (
+    AttendanceCorrection,
+    ClockOutRequest,
+    LocationCapture,
+    TargetWrite,
+    VisitCreate,
+    VisitExecution,
+)
+
+
+class SmartTeamSchemaTests(unittest.TestCase):
+    def test_location_capture_rejects_invalid_coordinates_and_accuracy(self) -> None:
+        with self.assertRaises(ValidationError):
+            LocationCapture(latitude=91, longitude=0, accuracy_m=5)
+        with self.assertRaises(ValidationError):
+            LocationCapture(latitude=0, longitude=0, accuracy_m=-1)
+
+    def test_visit_schedule_window_must_be_valid(self) -> None:
+        with self.assertRaises(ValidationError):
+            VisitCreate(
+                sales_profile_id=uuid4(),
+                outlet_id=uuid4(),
+                scheduled_at=datetime(2026, 11, 20, 10, tzinfo=timezone.utc),
+                window_end_at=datetime(2026, 11, 20, 9, tzinfo=timezone.utc),
+                idempotency_key="visit-create-123",
+            )
+
+    def test_target_requires_exactly_one_scope_and_valid_period(self) -> None:
+        base = {
+            "metric_key": "visits",
+            "period_start": date(2026, 11, 1),
+            "period_end": date(2026, 11, 30),
+            "target_value": 25,
+        }
+        with self.assertRaises(ValidationError):
+            TargetWrite(**base)
+        with self.assertRaises(ValidationError):
+            TargetWrite(**base, sales_profile_id=uuid4(), team_id=uuid4())
+        with self.assertRaises(ValidationError):
+            TargetWrite(
+                **{**base, "period_start": date(2026, 12, 1), "period_end": date(2026, 11, 30)},
+                sales_profile_id=uuid4(),
+            )
+
+    def test_offline_visit_and_attendance_mutations_require_idempotency(self) -> None:
+        location = {"latitude": -6.2, "longitude": 106.8, "accuracy_m": 8, "source": "gps"}
+        with self.assertRaises(ValidationError):
+            VisitExecution(location=location)
+        with self.assertRaises(ValidationError):
+            ClockOutRequest(location=location)
+        VisitExecution(location=location, idempotency_key="visit-check-in-123")
+        ClockOutRequest(location=location, idempotency_key="attendance-clockout-123")
+
+    def test_attendance_correction_rejects_reversed_timestamps(self) -> None:
+        with self.assertRaises(ValidationError):
+            AttendanceCorrection(
+                clock_in_at=datetime(2026, 11, 20, 11, tzinfo=timezone.utc),
+                clock_out_at=datetime(2026, 11, 20, 10, tzinfo=timezone.utc),
+                reason="Correction approved",
+            )
+
+
+class SmartTeamMigrationTests(unittest.TestCase):
+    def test_applied_phase04_migrations_are_version_aligned_and_present(self) -> None:
+        repository_root = Path(__file__).resolve().parents[3]
+        migrations = repository_root / "supabase" / "migrations"
+        expected = (
+            "20261120033210_p04_smartteam_operations.sql",
+            "20261120035216_p04_smartteam_offline_evidence.sql",
+            "20261120040009_p04_smartteam_event_stream_bridge.sql",
+            "20261120040308_p04_smartteam_private_realtime_scope.sql",
+        )
+        for name in expected:
+            self.assertTrue((migrations / name).is_file(), name)
+
+    def test_smartteam_database_migrations_keep_private_rls_and_realtime_scope(self) -> None:
+        repository_root = Path(__file__).resolve().parents[3]
+        migrations = repository_root / "supabase" / "migrations"
+        base = (migrations / "20261120033210_p04_smartteam_operations.sql").read_text()
+        offline = (migrations / "20261120035216_p04_smartteam_offline_evidence.sql").read_text()
+        bridge = (migrations / "20261120040009_p04_smartteam_event_stream_bridge.sql").read_text()
+        realtime = (migrations / "20261120040308_p04_smartteam_private_realtime_scope.sql").read_text()
+        self.assertIn("alter table public.smartteam_visits enable row level security", base)
+        self.assertIn("create table if not exists public.smartteam_visit_evidence", base)
+        self.assertIn("smartteam_attendance_events", offline)
+        self.assertIn("clock_out_idempotency_key", offline)
+        self.assertIn("public=false", offline)
+        self.assertIn("pg_notify('salesx_smartteam'", bridge)
+        self.assertIn("r.key in ('company_admin','tenant_owner','platform_admin')", realtime)
+
+
+if __name__ == "__main__":
+    unittest.main()
