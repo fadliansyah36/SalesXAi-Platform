@@ -8,7 +8,7 @@ WORKDIR /app
 
 COPY pyproject.toml ./pyproject.toml
 COPY app ./app
-COPY certs ./certs
+COPY certs/supabase-prod-ca-2021.crt /etc/ssl/certs/supabase-prod-ca-2021.crt
 
 RUN python -m pip install --no-cache-dir --upgrade pip \
     && python -m pip install --no-cache-dir .
