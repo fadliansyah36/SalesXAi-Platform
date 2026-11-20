@@ -41,6 +41,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { BrandLogo } from '@/components/common/BrandLogo';
+import type { MasterDataChangedEvent } from '@salesx-ai/api-contracts';
 import { Modal } from '@/components/common/Modal';
 import { PWAInstallButton } from '@/components/common/PWAInstallButton';
 import { SalesGoogleMap } from '@/components/maps/SalesGoogleMap';
@@ -501,7 +502,14 @@ export function CompanyPortalApp() {
     const organizationId = auth.activeOrganizationId;
     const source = new EventSource('/api/backend/api/v1/organizations/' + encodeURIComponent(organizationId) + '/master-data/events', { withCredentials: true });
     let refreshTimer: ReturnType<typeof setTimeout> | undefined;
-    source.addEventListener('master_data.changed', () => {
+    source.addEventListener('master_data.changed', (event) => {
+      let payload: MasterDataChangedEvent;
+      try {
+        payload = JSON.parse((event as MessageEvent<string>).data) as MasterDataChangedEvent;
+      } catch {
+        return;
+      }
+      if (payload.organization_id !== organizationId) return;
       if (refreshTimer) clearTimeout(refreshTimer);
       refreshTimer = setTimeout(() => setMasterDataRevision((value) => value + 1), 150);
     });

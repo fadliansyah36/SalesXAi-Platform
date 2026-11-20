@@ -168,6 +168,15 @@ export interface SalesAssignmentContext {
   sales_profile: (MasterDataRecord & Record<string, unknown>) | null;
   assignments: Array<Record<string, unknown>>;
 }
+export type MasterDataResource = 'branches' | 'teams' | 'territories' | 'outlets' | 'sales_profiles' | 'outlet_assignment_history';
+export interface MasterDataChangedEvent {
+  organization_id: UUID;
+  resource: MasterDataResource;
+  record_id: UUID;
+  operation: 'INSERT' | 'UPDATE' | 'DELETE';
+  status: string | null;
+  occurred_at: ISODateTime;
+}
 export interface OutletAssignmentRecord {
   id: UUID;
   organization_id: UUID;
@@ -176,11 +185,25 @@ export interface OutletAssignmentRecord {
   assigned_by: UUID;
   assigned_at: ISODateTime;
   unassigned_at: ISODateTime | null;
+  unassigned_by?: UUID | null;
+  assignment_status: 'active' | 'unassigned';
+  change_reason?: string | null;
   note: string | null;
+  previous_assignment_id?: UUID | null;
+  previous_sales_profile_id?: UUID | null;
+  previous_team_id?: UUID | null;
+  previous_supervisor_user_id?: UUID | null;
+  previous_territory_id?: UUID | null;
+  assigned_team_id?: UUID | null;
+  assigned_supervisor_user_id?: UUID | null;
+  assigned_territory_id?: UUID | null;
   outlet_code?: string;
   outlet_name?: string;
   sales_user_id?: UUID;
   employee_code?: string | null;
+  team_name?: string | null;
+  supervisor_name?: string | null;
+  territory_name?: string | null;
 }
 
 export interface PlatformOrganization {
