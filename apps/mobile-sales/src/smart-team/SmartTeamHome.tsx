@@ -314,12 +314,12 @@ export function SmartTeamHome({auth,salesProfileId}:{auth:AuthState;salesProfile
       {canExecuteVisits&&visit.status==="in_progress"&&<NativeInline gap="1" style={{flexWrap:"wrap",alignItems:"center"}}>
        {(["productive","not_productive","order_taken","follow_up","closed","no_contact"] as const).map(value=><Pressable key={value} onPress={()=>setOutcome(value)} style={{padding:6,borderRadius:7,borderWidth:1,borderColor:outcome===value?colors.primary:colors.border,backgroundColor:outcome===value?colors.primary:colors.surface}}><NativeText color={outcome===value?colors.surface:colors.textPrimary} variant="caption">{value.replaceAll("_"," ")}</NativeText></Pressable>)}
       </NativeInline>}
-      {canUploadEvidence&&["in_progress","completed"].includes(visit.status)&&<Pressable disabled={busy} onPress={()=>void uploadEvidence(visit)} style={{padding:10,borderRadius:8,borderWidth:1,borderColor:colors.border}}><NativeText weight="semibold">Tambah bukti foto</NativeText></Pressable>
+      {canUploadEvidence&&["in_progress","completed"].includes(visit.status)&&<Pressable disabled={busy} onPress={()=>void uploadEvidence(visit)} style={{padding:10,borderRadius:8,borderWidth:1,borderColor:colors.border}}><NativeText weight="semibold">Tambah bukti foto</NativeText></Pressable>}
       {canUploadEvidence&&["in_progress","completed"].includes(visit.status)&&<Pressable disabled={busy} onPress={()=>void uploadDocumentEvidence(visit)} style={{padding:10,borderRadius:8,borderWidth:1,borderColor:colors.border}}><NativeText weight="semibold">Pilih dokumen / PDF</NativeText></Pressable>}
       {evidenceProgress[visit.id]!==undefined&&<NativeInline gap="2" style={{alignItems:"center"}}>
        <NativeText variant="caption" color={colors.textSecondary}>Upload {evidenceProgress[visit.id]}%</NativeText>
        <Pressable onPress={cancelEvidenceUpload}><NativeText color={colors.primary} weight="semibold">Batalkan</NativeText></Pressable>
-      </NativeInline>}}
+      </NativeInline>}
       <Pressable disabled={busy} onPress={()=>void loadVisitDetails(visit.id)} style={{padding:10,borderRadius:8,borderWidth:1,borderColor:colors.border}}><NativeText weight="semibold">{expandedVisitId===visit.id?"Tutup detail":"Riwayat & bukti"}</NativeText></Pressable>
      </NativeInline>
      {expandedVisitId===visit.id&&<View style={{marginTop:10,padding:12,borderRadius:10,backgroundColor:colors.surface,borderWidth:1,borderColor:colors.border}}>
