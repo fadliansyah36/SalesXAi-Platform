@@ -1,6 +1,7 @@
 import React,{useCallback,useEffect,useMemo,useRef,useState} from "react";
 import {Pressable,TextInput,View} from "react-native";
 import * as Location from "expo-location";
+import * as ImagePicker from "expo-image-picker";
 import * as SQLite from "expo-sqlite";
 import {NativeInline,NativeStack,NativeSurface,NativeText,useNativeTheme} from "@salesx-ai/design-system/native";
 import type {SmartTeamActivity,SmartTeamAttendance,SmartTeamLocationCapture,SmartTeamTarget,SmartTeamVisit} from "@salesx-ai/api-client";
@@ -50,6 +51,7 @@ export function SmartTeamHome({auth,salesProfileId}:{auth:AuthState;salesProfile
  const api=auth.apiClient;
  const canReadVisits=auth.canPerformApiAction("smartteam.visits.read");
  const canExecuteVisits=auth.canPerformApiAction("smartteam.visits.execute");
+ const canUploadEvidence=auth.canPerformApiAction("smartteam.visits.evidence.upload");
  const canReadAttendance=auth.canPerformApiAction("smartteam.attendance.read");
  const canManageAttendance=auth.canPerformApiAction("smartteam.attendance.clock_in");
  const canReadActivities=auth.canPerformApiAction("smartteam.activities.read");
@@ -135,6 +137,23 @@ export function SmartTeamHome({auth,salesProfileId}:{auth:AuthState;salesProfile
  const checkIn=(visit:SmartTeamVisit)=>captureAndEnqueue("visit_check_in",(location,key)=>({visit_id:visit.id,location,idempotency_key:key}));
  const checkOut=(visit:SmartTeamVisit)=>captureAndEnqueue("visit_check_out",(location,key)=>({visit_id:visit.id,location,outcome,notes:null,idempotency_key:key}));
 
+ async function uploadEvidence(visit:SmartTeamVisit){
+  if(!api||!organizationId)return;
+  setBusy(true);setError("");setNotice("");
+  try{
+   const permission=await ImagePicker.requestMediaLibraryPermissionsAsync();
+   if(!permission.granted)throw new Error("Izin galeri ditolak. Aktifkan izin foto untuk memilih bukti kunjungan.");
+   const result=await ImagePicker.launchImageLibraryAsync({mediaTypes:["images"],quality:0.85,allowsEditing:false});
+   if(result.canceled||!result.assets[0])return;
+   const asset=result.assets[0];
+   const blob=await fetch(asset.uri).then(response=>response.blob());
+   await api.uploadSmartTeamVisitEvidence(organizationId,visit.id,blob,asset.fileName??("visit-evidence-"+Date.now()+".jpg"),asset.mimeType??"image/jpeg");
+   setNotice("Bukti kunjungan tersimpan di private Supabase Storage.");
+   await refresh();
+  }catch(cause){setError(cause instanceof Error?cause.message:"Bukti kunjungan tidak dapat diunggah.");}
+  finally{setBusy(false);}
+ }
+
  async function createActivity(){
   if(!api||!organizationId||!salesProfileId||!activityTitle.trim())return;
   setBusy(true);setError("");setNotice("");
@@ -175,6 +194,7 @@ export function SmartTeamHome({auth,salesProfileId}:{auth:AuthState;salesProfile
      <NativeInline gap="2" style={{marginTop:8,flexWrap:"wrap"}}>
       {canExecuteVisits&&visit.status==="scheduled"&&<Pressable disabled={busy} onPress={()=>void checkIn(visit)} style={{padding:10,borderRadius:8,backgroundColor:colors.primary}}><NativeText color={colors.surface} weight="semibold">Check-in GPS</NativeText></Pressable>}
       {canExecuteVisits&&visit.status==="in_progress"&&<Pressable disabled={busy} onPress={()=>void checkOut(visit)} style={{padding:10,borderRadius:8,borderWidth:1,borderColor:colors.border}}><NativeText weight="semibold">Check-out GPS</NativeText></Pressable>}
+      {canUploadEvidence&&["in_progress","completed"].includes(visit.status)&&<Pressable disabled={busy} onPress={()=>void uploadEvidence(visit)} style={{padding:10,borderRadius:8,borderWidth:1,borderColor:colors.border}}><NativeText weight="semibold">Tambah bukti foto</NativeText></Pressable>}
      </NativeInline>
     </View>)}
     {visits.length===0&&<NativeText color={colors.textSecondary}>Tidak ada kunjungan yang ditugaskan pada cakupan akun ini.</NativeText>}
