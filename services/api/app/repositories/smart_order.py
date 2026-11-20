@@ -490,7 +490,7 @@ class SmartOrderRepository:
      join public.fulfillments f on f.id=a.fulfillment_id and f.status not in ('failed','cancelled') where a.order_item_id=$1""",item["id"]))
     remaining=Decimal(item["quantity"])-allocated_total
     if remaining<=0:continue
-    balance=await db.fetchrow("select on_hand,reserved,committed from public.inventory_balances where organization_id=$1 and warehouse_id=$2 and variant_id=$3 for update",owner,p.warehouse_id,item["variant_id"])
+    balance=await db.fetchrow("select on_hand,reserved,committed from public.inventory_balances where organization_id=$1 and warehouse_id=$2 and variant_id=$3 and product_owner_organization_id=$4 for update",owner,p.warehouse_id,item["variant_id"],item["product_owner_organization_id"])
     if not balance:continue
     committed_for_order=Decimal(await db.fetchval("""select coalesce(sum(sm.quantity),0) from public.stock_movements sm
      where sm.reference_type='order' and sm.reference_id=$1 and sm.movement_type='commit' and sm.organization_id=$2
@@ -506,7 +506,7 @@ class SmartOrderRepository:
     available=max(Decimal(balance["on_hand"])-Decimal(balance["reserved"])-Decimal(balance["committed"]),Decimal("0"))
     commit_quantity=min(needed,available)
     if commit_quantity<=0:continue
-    changed=await db.fetchrow("update public.inventory_balances set committed=committed+$4,version=version+1,updated_at=now() where organization_id=$1 and warehouse_id=$2 and variant_id=$3 returning id",owner,p.warehouse_id,item["variant_id"],commit_quantity)
+    changed=await db.fetchrow("update public.inventory_balances set committed=committed+$4,version=version+1,updated_at=now() where organization_id=$1 and warehouse_id=$2 and variant_id=$3 and product_owner_organization_id=$5 returning id",owner,p.warehouse_id,item["variant_id"],commit_quantity,item["product_owner_organization_id"])
     if not changed:raise APIError(409,"fulfillment_recommit_conflict","Available inventory changed before replacement fulfillment commitment.")
     await db.execute("""insert into public.stock_movements(organization_id,warehouse_id,product_id,variant_id,movement_type,quantity,committed_delta,reference_type,reference_id,reason,actor_user_id,idempotency_key,product_owner_organization_id)
      values($1,$2,$3,$4,'commit',$5,$5,'order',$6,'Replacement fulfillment commitment',$7,$8,$9)""",owner,p.warehouse_id,item["product_id"],item["variant_id"],commit_quantity,oid,actor,"fulfillment:"+str(r["id"])+":recommit:"+str(item["id"]),item["product_owner_organization_id"])
