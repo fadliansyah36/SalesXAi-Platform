@@ -162,6 +162,41 @@ class SmartTeamService:
         )
         return dict(row)
 
+    async def assign_visit(
+        self,
+        connection,
+        request,
+        organization_id,
+        tenant,
+        principal,
+        visit_id,
+        sales_profile_id,
+        idempotency_key,
+    ):
+        self._tenant(organization_id, tenant)
+        try:
+            row = await self.repository.assign_visit(
+                connection,
+                organization_id,
+                principal.user_id,
+                visit_id,
+                sales_profile_id,
+                idempotency_key,
+            )
+        except ValueError as error:
+            self._translate(error)
+        await write_audit(
+            connection,
+            request,
+            principal,
+            "smartteam.visit.assigned",
+            "smartteam_visit",
+            str(visit_id),
+            tenant,
+            {"sales_profile_id": str(sales_profile_id), "status": row["status"]},
+        )
+        return dict(row)
+
     async def check_in(
         self,
         connection,
