@@ -82,6 +82,18 @@ export function SmartTeamConsole({surface}:{surface:"company"|"supervisor"|"sale
   }catch(cause){setError(cause instanceof Error?cause.message:"Data SmartTeam tidak dapat dimuat.");}
  },[api,organizationId,canReadVisits,canReadAttendance,canReadActivities,canReadTargets,can]);
  useEffect(()=>{void reload();},[reload]);
+ useEffect(()=>{
+  if(!api||!organizationId||typeof EventSource==="undefined")return;
+  const source=new EventSource(`/api/backend/api/v1/organizations/${encodeURIComponent(organizationId)}/smart-team/events`,{withCredentials:true});
+  let refreshTimer:ReturnType<typeof setTimeout>|null=null;
+  const onChanged=()=>{
+   if(refreshTimer)clearTimeout(refreshTimer);
+   refreshTimer=setTimeout(()=>{refreshTimer=null;void reload();},350);
+  };
+  source.addEventListener("smartteam.changed",onChanged as EventListener);
+  return()=>{source.removeEventListener("smartteam.changed",onChanged as EventListener);source.close();if(refreshTimer)clearTimeout(refreshTimer);};
+ },[api,organizationId,reload]);
+
  const activeShift=useMemo(()=>attendance.find(item=>item.status==="active"&&item.user_id===auth.context?.user.id),[attendance,auth.context?.user.id]);
  async function perform(action:()=>Promise<unknown>,success:string){
   setBusy(true);setError("");setNotice("");
