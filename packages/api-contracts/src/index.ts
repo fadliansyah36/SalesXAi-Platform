@@ -231,7 +231,7 @@ export interface SmartTeamVisit {
 }
 export interface SmartTeamAttendance {
  id:UUID; organization_id:UUID; sales_profile_id:UUID; user_id:UUID; shift_date:string;
- status:"scheduled"|"active"|"completed"|"cancelled"; scheduled_start:ISODateTime|null; scheduled_end:ISODateTime|null;
+ status:"scheduled"|"active"|"completed"|"cancelled"; attendance_status?:"absent"|"present"|"completed"|"cancelled"; scheduled_start:ISODateTime|null; scheduled_end:ISODateTime|null;
  clock_in_at:ISODateTime|null; clock_out_at:ISODateTime|null; clock_in_latitude:number|null; clock_in_longitude:number|null;
  clock_in_accuracy_m:number|null; clock_in_source:string|null; clock_out_latitude:number|null; clock_out_longitude:number|null;
  clock_out_accuracy_m:number|null; clock_out_source:string|null; correction_reason:string|null; corrected_at:ISODateTime|null;
