@@ -236,6 +236,7 @@ export interface SmartTeamAttendance {
  clock_in_accuracy_m:number|null; clock_in_source:string|null; clock_out_latitude:number|null; clock_out_longitude:number|null;
  clock_out_accuracy_m:number|null; clock_out_source:string|null; correction_reason:string|null; corrected_at:ISODateTime|null;
  display_name?:string|null; employee_code?:string|null; team_name?:string|null;
+ events?:Array<{id:UUID;event_type:"clocked_in"|"clocked_out"|"corrected";actor_user_id:UUID;actor_name?:string|null;occurred_at:ISODateTime;metadata:Record<string,unknown>}>;
 }
 export interface SmartTeamActivity {
  id:UUID; organization_id:UUID; sales_profile_id:UUID; visit_id:UUID|null; activity_type:"call"|"meeting"|"follow_up"|"prospecting"|"report"|"other";
@@ -245,7 +246,7 @@ export interface SmartTeamActivity {
 export interface SmartTeamTarget {
  id:UUID; organization_id:UUID; sales_profile_id:UUID|null; team_id:UUID|null; branch_id:UUID|null;
  metric_key:"visits"|"productive_visits"|"activities"|"orders"|"sales_value"; period_start:string; period_end:string;
- target_value:string|number; employee_code?:string|null; team_name?:string|null; branch_name?:string|null;
+ target_value:string|number; actual_value:number|null; progress_percentage:number|null; employee_code?:string|null; team_name?:string|null; branch_name?:string|null;
 }
 export interface SmartTeamVisitCreate {
  sales_profile_id:UUID; outlet_id:UUID; scheduled_at:ISODateTime; window_end_at?:ISODateTime|null; notes?:string|null; idempotency_key:string;
