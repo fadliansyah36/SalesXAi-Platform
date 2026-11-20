@@ -1442,25 +1442,25 @@ assignment.
 
 ### Implementation
 
--   [ ] Company Portal shell.
--   [ ] Super Admin tenant management foundation.
--   [ ] Branch CRUD.
--   [ ] Team and supervisor hierarchy.
--   [ ] Territory management.
--   [ ] Outlet master.
--   [ ] Sales profile and assignment.
--   [ ] Import/export foundation.
--   [ ] API endpoints and contracts.
+-   [x] Company Portal shell.
+-   [x] Super Admin tenant management foundation.
+-   [x] Branch CRUD.
+-   [x] Team and supervisor hierarchy.
+-   [x] Territory management.
+-   [x] Outlet master.
+-   [x] Sales profile and assignment.
+-   [x] Import/export foundation.
+-   [x] API endpoints and contracts.
 
 ### Supabase migration/realtime
 
--   [ ] Organization/branch/team/territory migrations.
--   [ ] Outlet and sales profile migrations.
--   [ ] Assignment history migrations.
--   [ ] Constraints, indexes, RLS.
--   [ ] Private realtime events for assignment and master-data updates
+-   [x] Organization/branch/team/territory migrations.
+-   [x] Outlet and sales profile migrations.
+-   [x] Assignment history migrations.
+-   [x] Constraints, indexes, RLS.
+-   [x] Private realtime events for assignment and master-data updates
     where needed.
--   [ ] Apply and record migrations.
+-   [x] Apply and record migrations.
 
 ### Phase output
 

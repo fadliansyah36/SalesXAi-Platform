@@ -1,6 +1,6 @@
 # Phase 03 — Master Data & Organization Action Inventory
 
-Status: **IN_PROGRESS**  
+Status: **COMPLETED**  
 Repository: `fadliansyah36/SalesXAi-Platform` · branch `main`  
 Database: Supabase project `eyofuiyxalbehbqoaeny`
 
@@ -105,3 +105,16 @@ The current UI still does not create a new sales profile from an organization me
 - Company Portal assignment history exposes the guarded unassign action and displays assignment snapshots and actor/timestamp metadata.
 - Added a shared Company Portal edit modal for Branch, Team, Territory and Outlet with all mutable repository fields; updates use the existing typed update methods and FastAPI services.
 - Added database triggers for tenant-scoped minimal Realtime invalidations; the portal SSE consumer debounces invalidation and refetches authoritative state from FastAPI. Expo refreshes context on app resume and on a bounded 30-second foreground cadence.
+
+
+## Phase 03 closure — COMPLETED (2026-11-20)
+
+The previously listed Phase 03 remaining tasks are closed by the implementation and evidence recorded in `docs/implementation/phase-status.md`.
+
+- Manual outlet unassignment and sales profile team/territory/supervisor unassignment are implemented with audit and preserved assignment history.
+- Full edit forms cover every mutable repository field for Branch, Team, Territory and Outlet.
+- Company Portal, Super Admin tenant/branch management, FastAPI and Expo assigned context are connected through typed contracts.
+- Six tenant-scoped Realtime invalidation triggers and the tenant-admin private channel policy are applied.
+- Final API and Foundation CI evidence is recorded in the phase status tracker; no Phase 03 code blocker remains.
+
+**Next execution phase: Phase 04 — SmartTeam: Visit, Attendance & Sales Operations.**

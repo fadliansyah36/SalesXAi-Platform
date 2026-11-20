@@ -591,7 +591,7 @@ Target project: `eyofuiyxalbehbqoaeny`.
 
 **Decision: Phase 02 = COMPLETED.** No Phase 02 implementation-code blocker remains. Deferred provider/deployment credentials are not a code blocker.
 
-## Phase 03 — IN_PROGRESS
+## Phase 03 — COMPLETED
 
 ### Implemented
 - Supabase core master-data migration:
@@ -708,3 +708,30 @@ The four handler inventories now cover **1,619 callback/event prop occurrences a
 - Shared API contract, typed client and both action registries include manual unassignment.
 - Migration `20261120025728_p03_master_data_event_triggers` is applied to Supabase project `eyofuiyxalbehbqoaeny`; verified six AFTER INSERT/UPDATE/DELETE triggers on branches, teams, territories, outlets, sales_profiles and outlet_assignment_history. Company Portal debounces SSE invalidation and refetches from FastAPI; Expo refreshes assigned context on resume and every 30 seconds while foregrounded with overlapping requests suppressed.
 - Phase 03 remains IN_PROGRESS until fresh CI and database security/schema checks on the final commit pass.
+
+
+## Phase 03 final closure — 2026-11-20
+
+**Decision: Phase 03 — COMPLETED.** This closure supersedes earlier historical IN_PROGRESS/remaining-work notes in this tracker.
+
+### Completed implementation
+- Company Portal master data now supports create, full edit and lifecycle status for Branch, Team, Territory and Outlet through FastAPI; Super Admin tenant and organization-branch administration remains platform-scoped.
+- Team hierarchy, supervisor assignment, territory relations and membership-backed sales profiles are tenant-validated. Sales profile team/territory/supervisor unassignment closes active outlet assignments with actor/time/reason while preserving prior history.
+- Manual outlet unassignment is available in Company Portal with confirmation and reason; FastAPI route, application service, repository transaction, tenant permission and audit receipt are connected.
+- Assignment history retains prior/current sales, team, supervisor, territory and outlet snapshots, assignment/unassignment actor and timestamps, reason and lifecycle status.
+- Import/export uses application service/repository, row-level validation/errors, batch audit and idempotency. Export is audited and preserves structured CSV fields.
+- Private Realtime trigger and tenant-admin-only read policy are installed. Six triggers cover branches, teams, territories, outlets, sales profiles and outlet assignment history. Company Portal debounces SSE invalidation and refetches authoritative FastAPI state; Expo refreshes assigned context on app resume and every 30 seconds while foregrounded.
+- Expo assigned team/supervisor/territory/outlet context uses the shared API contract and protected local cache; offline cache is not the source of truth.
+
+### Database evidence
+- Applied final Phase 03 trigger migration: `20261120025728_p03_master_data_event_triggers`.
+- Supabase migration history: 26 applied migrations; public tables: 18/18 with RLS enabled; private Realtime messages policy: 1; master-data change triggers: 6.
+- Security Advisor: 0 lints. The performance advisor reports informational unused-index observations; no security blocker is reported.
+- `assignment:manage` is granted to company_admin, tenant_owner and platform_admin; assignment-context read is granted to the permitted company, sales and supervisor roles according to the existing role matrix.
+
+### Engineering evidence
+- API Checks run `44665067734`, code/test HEAD `8feb20dfc4490afe44505ecedc5d3712b0c27eea`: **SUCCESS** — 48 Python tests, Python compileall, Ruff, Web TypeScript and Web lint.
+- Foundation Verification run `44664888374`, application HEAD `9f7feae7ba5eeaf965ddf0ae661ad0686bfbd594`: **SUCCESS** — 20/20 steps including design-token reproducibility, Web TypeScript/lint, Expo Native TypeScript, SDK compatibility, Expo config, Metro, Android/iOS bundle exports and Turborepo workspace build.
+- No staging, production deployment, real-world testing, Product Owner Acceptance or provider credential population was performed.
+
+**Next phase: Phase 04 — SmartTeam: Visit, Attendance & Sales Operations.** Phase 04 may begin from this completed Phase 03 baseline.
