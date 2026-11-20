@@ -86,6 +86,8 @@ class SmartOrderSchemaTests(unittest.TestCase):
     def test_partner_decision_requires_reason_for_rejection_and_idempotency(self):
         with self.assertRaises(ValidationError):
             PartnerOrderDecision(decision="rejected", reason="no", idempotency_key="key-12345")
+        with self.assertRaises(ValidationError):
+            PartnerOrderDecision(decision="revision_requested", idempotency_key="key-12345")
         accepted = PartnerOrderDecision(decision="accepted", idempotency_key="key-12345")
         self.assertEqual(accepted.decision, "accepted")
 
