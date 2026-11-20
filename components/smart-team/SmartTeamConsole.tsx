@@ -1,7 +1,7 @@
 'use client';
 import React,{useCallback,useEffect,useMemo,useState} from "react";
 import {useSalesXAuth} from "@/components/providers/AppProviders";
-import type {SmartTeamActivity,SmartTeamAttendance,SmartTeamLocationCapture,SmartTeamTarget,SmartTeamVisit} from "@salesx-ai/api-contracts";
+import type {SmartTeamActivity,SmartTeamAttendance,SmartTeamLocationCapture,SmartTeamTarget,SmartTeamVisit} from "@salesx-ai/api-client";
 
 type Tab="visits"|"attendance"|"activities"|"targets";
 type MasterRecord={id:string;name?:string;code?:string;employee_code?:string;user_id?:string;status?:string};
@@ -78,8 +78,8 @@ export function SmartTeamConsole({surface}:{surface:"company"|"supervisor"|"sale
  }
  async function clockIn(){if(!api||!organizationId)return;const location=await locationCapture();await perform(()=>api.clockInSmartTeam(organizationId,location,crypto.randomUUID()),"Clock-in tersimpan dengan timestamp server.");}
  async function clockOut(){if(!api||!organizationId)return;const location=await locationCapture();await perform(()=>api.clockOutSmartTeam(organizationId,location),"Clock-out tersimpan dengan timestamp server.");}
- async function checkIn(visit:SmartTeamVisit){if(!api||!organizationId)return;const location=await locationCapture();await perform(()=>api.checkInSmartTeam(organizationId,visit.id,{location}),"Check-in kunjungan tersimpan.");}
- async function checkOut(visit:SmartTeamVisit){if(!api||!organizationId)return;const location=await locationCapture();await perform(()=>api.checkOutSmartTeam(organizationId,visit.id,{location,outcome:"follow_up"}),"Kunjungan selesai dan outcome tersimpan.");}
+ async function checkIn(visit:SmartTeamVisit){if(!api||!organizationId)return;const location=await locationCapture();await perform(()=>api.checkInSmartTeamVisit(organizationId,visit.id,{location}),"Check-in kunjungan tersimpan.");}
+ async function checkOut(visit:SmartTeamVisit){if(!api||!organizationId)return;const location=await locationCapture();await perform(()=>api.checkOutSmartTeamVisit(organizationId,visit.id,{location,outcome:"follow_up"}),"Kunjungan selesai dan outcome tersimpan.");}
  async function createVisit(event:React.FormEvent){
   event.preventDefault();if(!api||!organizationId)return;
   await perform(()=>api.createSmartTeamVisit(organizationId,{sales_profile_id:profileId,outlet_id:outletId,scheduled_at:new Date(scheduledAt).toISOString(),idempotency_key:crypto.randomUUID()}),"Kunjungan berhasil dijadwalkan.");
