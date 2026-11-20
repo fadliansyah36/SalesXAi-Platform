@@ -3,6 +3,7 @@ import {AppState,Linking,Pressable,TextInput,View} from "react-native";
 import * as Location from "expo-location";
 import * as ImagePicker from "expo-image-picker";
 import * as SQLite from "expo-sqlite";
+import * as FileSystem from "expo-file-system/legacy";
 import {NativeInline,NativeStack,NativeSurface,NativeText,useNativeTheme} from "@salesx-ai/design-system/native";
 import type {SmartTeamActivity,SmartTeamAttendance,SmartTeamLocationCapture,SmartTeamTarget,SmartTeamVisit,SmartTeamVisitEvidence} from "@salesx-ai/api-client";
 
@@ -13,7 +14,7 @@ type AuthState={
  apiClient:import("@salesx-ai/api-client").SalesXApiClient|null;
  canPerformApiAction:(id:import("@salesx-ai/permissions").ApiActionId)=>boolean;
 };
-type QueueKind="clock_in"|"clock_out"|"visit_check_in"|"visit_check_out"|"activity_create";
+type QueueKind="clock_in"|"clock_out"|"visit_check_in"|"visit_check_out"|"activity_create"|"evidence_upload";
 type OutboxRow={id:string;organization_id:string;kind:QueueKind;payload_json:string;created_at:string;attempts:number;last_error:string|null;status:"pending"|"blocked";next_attempt_at:string};
 type CacheRow={payload_json:string;updated_at:string};
 const makeKey=()=>Date.now().toString(36)+"-"+Math.random().toString(36).slice(2)+"-"+Math.random().toString(36).slice(2);
@@ -120,6 +121,11 @@ export function SmartTeamHome({auth,salesProfileId}:{auth:AuthState;salesProfile
      else if(row.kind==="visit_check_in")await api.checkInSmartTeamVisit(organizationId,payload.visit_id,{location:payload.location,idempotency_key:payload.idempotency_key});
      else if(row.kind==="visit_check_out")await api.checkOutSmartTeamVisit(organizationId,payload.visit_id,{location:payload.location,outcome:payload.outcome,notes:payload.notes,idempotency_key:payload.idempotency_key});
      else if(row.kind==="activity_create")await api.createSmartTeamActivity(organizationId,payload.activity);
+     else if(row.kind==="evidence_upload"){
+      const file=await fetch(payload.local_uri).then(response=>{if(!response.ok)throw new Error("File bukti offline tidak tersedia.");return response.blob();});
+      await api.uploadSmartTeamVisitEvidence(organizationId,payload.visit_id,file,payload.file_name,payload.mime_type);
+      await FileSystem.deleteAsync(payload.local_uri,{idempotent:true});
+     }
      await db.runAsync("delete from smartteam_outbox where id=?",[row.id]);
     }catch(cause){
      const attempts=row.attempts+1;
@@ -162,7 +168,7 @@ export function SmartTeamHome({auth,salesProfileId}:{auth:AuthState;salesProfile
   await db.runAsync("insert or ignore into smartteam_outbox(id,organization_id,kind,payload_json,created_at,attempts,status,next_attempt_at) values(?,?,?,?,?,0,'pending',?)",
    [makeKey(),organizationId,kind,JSON.stringify(payload),new Date().toISOString(),new Date().toISOString()]);
   await refreshQueue();
-  await syncOutbox(true);
+  await syncOutbox(false);
  }
 
  async function captureAndEnqueue(kind:QueueKind,build:(location:SmartTeamLocationCapture,key:string)=>Record<string,unknown>){
@@ -199,9 +205,18 @@ export function SmartTeamHome({auth,salesProfileId}:{auth:AuthState;salesProfile
    const result=await ImagePicker.launchImageLibraryAsync({mediaTypes:["images"],quality:0.85,allowsEditing:false});
    if(result.canceled||!result.assets[0])return;
    const asset=result.assets[0];
-   const blob=await fetch(asset.uri).then(response=>response.blob());
-   await api.uploadSmartTeamVisitEvidence(organizationId,visit.id,blob,asset.fileName??("visit-evidence-"+Date.now()+".jpg"),asset.mimeType??"image/jpeg");
-   setNotice("Bukti kunjungan tersimpan di private Supabase Storage.");
+   const root=FileSystem.documentDirectory;
+   if(!root)throw new Error("Penyimpanan dokumen perangkat tidak tersedia.");
+   const directory=root+"smartteam-evidence/";
+   const directoryInfo=await FileSystem.getInfoAsync(directory);
+   if(!directoryInfo.exists)await FileSystem.makeDirectoryAsync(directory,{intermediates:true});
+   const fileName=asset.fileName??("visit-evidence-"+Date.now()+".jpg");
+   const localUri=directory+makeKey()+"-"+fileName.replace(/[^a-zA-Z0-9._-]/g,"_");
+   await FileSystem.copyAsync({from:asset.uri,to:localUri});
+   await enqueue("evidence_upload",{visit_id:visit.id,local_uri:localUri,file_name:fileName,mime_type:asset.mimeType??"image/jpeg"});
+   setNotice("Bukti disimpan di antrean perangkat dan akan diunggah otomatis saat koneksi tersedia.");
+   const evidence=await api.listSmartTeamVisitEvidence(organizationId,visit.id).catch(()=>null);
+   if(evidence)setVisitEvidence(current=>({...current,[visit.id]:evidence}));
    await refresh();
   }catch(cause){setError(cause instanceof Error?cause.message:"Bukti kunjungan tidak dapat diunggah.");}
   finally{setBusy(false);}
@@ -247,6 +262,9 @@ export function SmartTeamHome({auth,salesProfileId}:{auth:AuthState;salesProfile
      <NativeInline gap="2" style={{marginTop:8,flexWrap:"wrap"}}>
       {canExecuteVisits&&visit.status==="scheduled"&&<Pressable disabled={busy} onPress={()=>void checkIn(visit)} style={{padding:10,borderRadius:8,backgroundColor:colors.primary}}><NativeText color={colors.surface} weight="semibold">Check-in GPS</NativeText></Pressable>}
       {canExecuteVisits&&visit.status==="in_progress"&&<Pressable disabled={busy} onPress={()=>void checkOut(visit)} style={{padding:10,borderRadius:8,borderWidth:1,borderColor:colors.border}}><NativeText weight="semibold">Check-out GPS</NativeText></Pressable>}
+      {canExecuteVisits&&visit.status==="in_progress"&&<NativeInline gap="1" style={{flexWrap:"wrap",alignItems:"center"}}>
+       {(["productive","not_productive","order_taken","follow_up","closed","no_contact"] as const).map(value=><Pressable key={value} onPress={()=>setOutcome(value)} style={{padding:6,borderRadius:7,borderWidth:1,borderColor:outcome===value?colors.primary:colors.border,backgroundColor:outcome===value?colors.primary:colors.surface}}><NativeText color={outcome===value?colors.surface:colors.textPrimary} variant="caption">{value.replaceAll("_"," ")}</NativeText></Pressable>)}
+      </NativeInline>}
       {canUploadEvidence&&["in_progress","completed"].includes(visit.status)&&<Pressable disabled={busy} onPress={()=>void uploadEvidence(visit)} style={{padding:10,borderRadius:8,borderWidth:1,borderColor:colors.border}}><NativeText weight="semibold">Tambah bukti foto</NativeText></Pressable>}
       <Pressable disabled={busy} onPress={()=>void loadVisitDetails(visit.id)} style={{padding:10,borderRadius:8,borderWidth:1,borderColor:colors.border}}><NativeText weight="semibold">{expandedVisitId===visit.id?"Tutup detail":"Riwayat & bukti"}</NativeText></Pressable>
      </NativeInline>
