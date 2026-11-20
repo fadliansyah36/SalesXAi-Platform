@@ -39,7 +39,8 @@ async def stream_smartteam_events(
    while True:
     try:
      event=await asyncio.wait_for(queue.get(),timeout=20)
-     yield "event: smartteam.changed\\ndata: "+json.dumps(event,default=str)+"\\n\\n"
+     if await smart_team_service.can_receive_event(connection,organization_id,principal.user_id,event):
+      yield "event: smartteam.changed\\ndata: "+json.dumps(event,default=str)+"\\n\\n"
     except TimeoutError:
      yield ": keep-alive\\n\\n"
   finally:
