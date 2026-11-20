@@ -667,6 +667,8 @@ export class SalesXApiClient {
 
   subscribeSmartOrderEvents(organizationId:string,onEvent:(event:import("@salesx-ai/api-contracts").SmartOrderRealtimeEvent)=>void):()=>void{
     let stopped=false,attempt=0,controller:AbortController|null=null,timer:ReturnType<typeof setTimeout>|null=null;
+    const seen=new Set<string>();
+    const emit=(event:import("@salesx-ai/api-contracts").SmartOrderRealtimeEvent)=>{const key=event.event_id??[event.organization_id,event.resource,event.record_id,event.operation,event.status??"",event.occurred_at].join("|");if(seen.has(key))return;seen.add(key);if(seen.size>512){const first=seen.values().next().value;if(first)seen.delete(first);}onEvent(event);};
     const schedule=()=>{if(stopped)return;attempt+=1;timer=setTimeout(()=>void connect(),Math.min(30000,1000*2**Math.min(attempt,5)));};
     const connect=async()=>{
       if(stopped)return;
@@ -683,7 +685,7 @@ export class SalesXApiClient {
             const frame=buffer.slice(0,boundary);buffer=buffer.slice(boundary+2);
             let eventName="message",data="";
             for(const line of frame.split("\\n")){if(line.startsWith("event:"))eventName=line.slice(6).trim();else if(line.startsWith("data:"))data+=line.slice(5).trim();}
-            if(eventName==="smartorder.changed"&&data){try{onEvent(JSON.parse(data) as import("@salesx-ai/api-contracts").SmartOrderRealtimeEvent);}catch{}}
+            if(eventName==="smartorder.changed"&&data){try{emit(JSON.parse(data) as import("@salesx-ai/api-contracts").SmartOrderRealtimeEvent);}catch{}}
             boundary=buffer.indexOf("\\n\\n");
           }
         }
@@ -696,6 +698,8 @@ export class SalesXApiClient {
 
   subscribeSmartOrderBroadcast(organizationId:string,supabaseUrl:string,publishableKey:string,onEvent:(event:import("@salesx-ai/api-contracts").SmartOrderRealtimeEvent)=>void):()=>void{
     let stopped=false,attempt=0,socket:WebSocket|null=null,heartbeat:ReturnType<typeof setInterval>|null=null,timer:ReturnType<typeof setTimeout>|null=null;
+    const seen=new Set<string>();
+    const emit=(event:import("@salesx-ai/api-contracts").SmartOrderRealtimeEvent)=>{const key=event.event_id??[event.organization_id,event.resource,event.record_id,event.operation,event.status??"",event.occurred_at].join("|");if(seen.has(key))return;seen.add(key);if(seen.size>512){const first=seen.values().next().value;if(first)seen.delete(first);}onEvent(event);};
     const clear=()=>{if(heartbeat)clearInterval(heartbeat);heartbeat=null;};
     const schedule=()=>{if(stopped)return;attempt+=1;timer=setTimeout(()=>void connect(),Math.min(30000,1000*2**Math.min(attempt,5)));};
     const connect=async()=>{
@@ -716,7 +720,7 @@ export class SalesXApiClient {
             if(frame.event==="phx_error"||frame.event==="phx_close"){socket?.close();return;}
             if(frame.event==="broadcast"&&frame.payload?.event==="smartorder.changed"){
               const event=frame.payload.payload as import("@salesx-ai/api-contracts").SmartOrderRealtimeEvent;
-              if(event?.organization_id===organizationId)onEvent(event);
+              if(event?.organization_id===organizationId)emit(event);
             }
           }catch{}
         };
