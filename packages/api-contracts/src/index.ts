@@ -218,3 +218,42 @@ export interface PlatformOrganization {
   outlet_count: number;
 }
 export interface PlatformOrganizationStatusUpdate { status: OrganizationStatus; }
+
+export interface SmartTeamLocationCapture { latitude:number; longitude:number; accuracy_m:number; source:"gps"|"network"|"fused"|"manual"; }
+export interface SmartTeamVisit {
+ id:UUID; organization_id:UUID; sales_profile_id:UUID; outlet_id:UUID; scheduled_at:ISODateTime;
+ window_end_at:ISODateTime|null; status:"scheduled"|"assigned"|"in_progress"|"completed"|"cancelled"|"missed";
+ outcome:"productive"|"not_productive"|"order_taken"|"follow_up"|"closed"|"no_contact"|null;
+ notes:string|null; check_in_at:ISODateTime|null; check_out_at:ISODateTime|null;
+ check_in_latitude:number|null; check_in_longitude:number|null; check_in_accuracy_m:number|null; check_in_source:string|null;
+ check_out_latitude:number|null; check_out_longitude:number|null; check_out_accuracy_m:number|null; check_out_source:string|null;
+ outlet_code?:string; outlet_name?:string; sales_user_id?:UUID;
+}
+export interface SmartTeamAttendance {
+ id:UUID; organization_id:UUID; sales_profile_id:UUID; user_id:UUID; shift_date:string;
+ status:"scheduled"|"active"|"completed"|"cancelled"; scheduled_start:ISODateTime|null; scheduled_end:ISODateTime|null;
+ clock_in_at:ISODateTime|null; clock_out_at:ISODateTime|null; clock_in_latitude:number|null; clock_in_longitude:number|null;
+ clock_in_accuracy_m:number|null; clock_in_source:string|null; clock_out_latitude:number|null; clock_out_longitude:number|null;
+ clock_out_accuracy_m:number|null; clock_out_source:string|null; correction_reason:string|null; corrected_at:ISODateTime|null;
+ display_name?:string|null; employee_code?:string|null; team_name?:string|null;
+}
+export interface SmartTeamActivity {
+ id:UUID; organization_id:UUID; sales_profile_id:UUID; visit_id:UUID|null; activity_type:"call"|"meeting"|"follow_up"|"prospecting"|"report"|"other";
+ title:string; description:string|null; due_at:ISODateTime|null; completed_at:ISODateTime|null; status:"open"|"in_progress"|"completed"|"cancelled";
+ created_at:ISODateTime; updated_at:ISODateTime;
+}
+export interface SmartTeamTarget {
+ id:UUID; organization_id:UUID; sales_profile_id:UUID|null; team_id:UUID|null; branch_id:UUID|null;
+ metric_key:"visits"|"productive_visits"|"activities"|"orders"|"sales_value"; period_start:string; period_end:string;
+ target_value:string|number; employee_code?:string|null; team_name?:string|null; branch_name?:string|null;
+}
+export interface SmartTeamVisitCreate {
+ sales_profile_id:UUID; outlet_id:UUID; scheduled_at:ISODateTime; window_end_at?:ISODateTime|null; notes?:string|null; idempotency_key:string;
+}
+export interface SmartTeamActivityCreate {
+ sales_profile_id:UUID; visit_id?:UUID|null; activity_type:SmartTeamActivity["activity_type"]; title:string; description?:string|null; due_at?:ISODateTime|null; idempotency_key:string;
+}
+export interface SmartTeamTargetWrite {
+ sales_profile_id?:UUID|null; team_id?:UUID|null; branch_id?:UUID|null; metric_key:SmartTeamTarget["metric_key"];
+ period_start:string; period_end:string; target_value:number;
+}
