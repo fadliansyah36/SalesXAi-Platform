@@ -98,7 +98,7 @@ class SmartTeamMigrationTests(unittest.TestCase):
             "20261120040308_p04_smartteam_private_realtime_scope.sql",
             "20261120040825_p04_smartteam_storage_scope.sql",
             "20261120040910_p04_smartteam_fk_indexes.sql",
-            "20261120100000_p04_smartteam_evidence_content_dedup.sql",
+            "20261120043558_p04_smartteam_evidence_content_dedup.sql",
         )
         for name in expected:
             self.assertTrue((migrations / name).is_file(), name)
