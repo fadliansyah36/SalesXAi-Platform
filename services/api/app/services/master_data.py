@@ -10,6 +10,7 @@ from fastapi import Request
 from app.errors import APIError
 from app.repositories.master_data import MasterDataRepository, RESOURCE_TABLES
 from app.security.dependencies import Principal, TenantContext
+from app.schemas.master_data import MasterDataWrite
 from app.services.audit import write_audit
 
 
@@ -189,7 +190,8 @@ class MasterDataService:
             for index, raw in enumerate(rows, start=1):
                 try:
                     async with connection.transaction():
-                        clean = {key: value for key, value in raw.items() if key in RESOURCE_TABLES[resource]}
+                        validated = MasterDataWrite.model_validate(raw)
+                        clean = {key: value for key, value in validated.model_dump(exclude_unset=True).items() if key in RESOURCE_TABLES[resource]}
                         clean = await self._validate_references(connection, organization_id, resource, clean)
                         await self.repository.create(connection, resource, organization_id, clean)
                         imported += 1

@@ -2,6 +2,9 @@
 -- idempotent master-data import batches and tenant-private Realtime invalidations.
 begin;
 
+create schema if not exists private;
+revoke all on schema private from public, anon, authenticated;
+
 create unique index if not exists organization_memberships_org_id_id_uq
   on public.organization_memberships(organization_id,id);
 
@@ -71,6 +74,16 @@ begin
       add constraint outlet_assignment_previous_territory_same_org_fk
       foreign key (organization_id,previous_territory_id)
       references public.territories(organization_id,id) on delete restrict;
+  end if;
+  if not exists (select 1 from pg_constraint where conname='outlet_assignment_assigned_supervisor_fk') then
+    alter table public.outlet_assignment_history
+      add constraint outlet_assignment_assigned_supervisor_fk
+      foreign key (assigned_supervisor_user_id) references public.profiles(id) on delete restrict;
+  end if;
+  if not exists (select 1 from pg_constraint where conname='outlet_assignment_previous_supervisor_fk') then
+    alter table public.outlet_assignment_history
+      add constraint outlet_assignment_previous_supervisor_fk
+      foreign key (previous_supervisor_user_id) references public.profiles(id) on delete restrict;
   end if;
   if not exists (select 1 from pg_constraint where conname='outlet_assignment_previous_assignment_fk') then
     alter table public.outlet_assignment_history

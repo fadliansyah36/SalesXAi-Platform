@@ -72,15 +72,27 @@ class MasterDataRepository:
     async def deactivate_dependents(self, connection: asyncpg.Connection, resource: str, organization_id: UUID, resource_id: UUID, actor_id: UUID) -> dict[str, int]:
         counts = {"teams": 0, "territories": 0, "outlets": 0, "sales_profiles": 0, "assignments_closed": 0}
         if resource == "branches":
-            counts["teams"] = await connection.fetchval("with changed as (update public.teams set status='inactive',updated_at=now() where organization_id=$1 and branch_id=$2 and status='active' returning 1) select count(*) from changed", organization_id, resource_id) or 0
-            counts["territories"] = await connection.fetchval("with changed as (update public.territories set status='inactive',updated_at=now() where organization_id=$1 and branch_id=$2 and status='active' returning 1) select count(*) from changed", organization_id, resource_id) or 0
-            counts["outlets"] = await connection.fetchval("with changed as (update public.outlets set status='inactive',updated_at=now() where organization_id=$1 and branch_id=$2 and status='active' returning 1) select count(*) from changed", organization_id, resource_id) or 0
+            counts["teams"] = await connection.fetchval(
+                "with changed as (update public.teams set status='inactive',updated_at=now() where organization_id=$1 and branch_id=$2 and status='active' returning 1) select count(*) from changed",
+                organization_id, resource_id,
+            ) or 0
+            counts["territories"] = await connection.fetchval(
+                "with changed as (update public.territories set status='inactive',updated_at=now() where organization_id=$1 and branch_id=$2 and status='active' returning 1) select count(*) from changed",
+                organization_id, resource_id,
+            ) or 0
+            counts["outlets"] = await connection.fetchval(
+                "with changed as (update public.outlets set status='inactive',updated_at=now() where organization_id=$1 and branch_id=$2 and status='active' returning 1) select count(*) from changed",
+                organization_id, resource_id,
+            ) or 0
             counts["sales_profiles"] = await connection.fetchval(
-                """update public.sales_profiles sp set status='inactive',updated_at=now()
-                   where sp.organization_id=$1 and sp.status='active'
-                     and (sp.team_id in (select id from public.teams where organization_id=$1 and branch_id=$2)
-                       or sp.territory_id in (select id from public.territories where organization_id=$1 and branch_id=$2))
-                   returning 1""", organization_id, resource_id,
+                """with changed as (
+                     update public.sales_profiles sp set status='inactive',updated_at=now()
+                     where sp.organization_id=$1 and sp.status='active'
+                       and (sp.team_id in (select id from public.teams where organization_id=$1 and branch_id=$2)
+                         or sp.territory_id in (select id from public.territories where organization_id=$1 and branch_id=$2))
+                     returning 1
+                   ) select count(*) from changed""",
+                organization_id, resource_id,
             ) or 0
         elif resource == "teams":
             counts["sales_profiles"] = await connection.fetchval(
@@ -98,20 +110,26 @@ class MasterDataRepository:
             ) or 0
         elif resource == "outlets":
             counts["assignments_closed"] = await connection.fetchval(
-                """update public.outlet_assignment_history set unassigned_at=now(),unassigned_by=$3,
-                          change_reason='outlet_deactivated'
-                   where organization_id=$1 and outlet_id=$2 and unassigned_at is null returning 1""",
+                """with changed as (
+                     update public.outlet_assignment_history set unassigned_at=now(),unassigned_by=$3,
+                       change_reason='outlet_deactivated'
+                     where organization_id=$1 and outlet_id=$2 and unassigned_at is null
+                     returning 1
+                   ) select count(*) from changed""",
                 organization_id, resource_id, actor_id,
             ) or 0
         if resource in {"branches", "teams", "territories"} and counts["sales_profiles"]:
             counts["assignments_closed"] = await connection.fetchval(
-                """update public.outlet_assignment_history a set unassigned_at=now(),unassigned_by=$3,
-                          change_reason='master_data_dependency_deactivated'
-                   where a.organization_id=$1 and a.unassigned_at is null
-                     and a.sales_profile_id in (
-                       select id from public.sales_profiles
-                       where organization_id=$1 and status='inactive'
-                     ) returning 1""",
+                """with changed as (
+                     update public.outlet_assignment_history a set unassigned_at=now(),unassigned_by=$3,
+                       change_reason='master_data_dependency_deactivated'
+                     where a.organization_id=$1 and a.unassigned_at is null
+                       and a.sales_profile_id in (
+                         select id from public.sales_profiles
+                         where organization_id=$1 and status='inactive'
+                       )
+                     returning 1
+                   ) select count(*) from changed""",
                 organization_id, resource_id, actor_id,
             ) or 0
         return counts
