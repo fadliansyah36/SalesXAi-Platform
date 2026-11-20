@@ -463,6 +463,15 @@ export class SalesXApiClient {
   getSmartTeamDashboard(organizationId:string):Promise<import("@salesx-ai/api-contracts").SmartTeamDashboard> {
     return this.request(`/api/v1/organizations/${encodeURIComponent(organizationId)}/smart-team/dashboard`);
   }
+
+  subscribeSmartTeamEvents(organizationId:string,onChanged:()=>void):()=>void {
+    if(typeof EventSource==="undefined")return ()=>undefined;
+    const url=this.baseUrl+`/api/v1/organizations/${encodeURIComponent(organizationId)}/smart-team/events`;
+    const source=new EventSource(url,{withCredentials:this.authMode==="cookie"});
+    const listener=()=>onChanged();
+    source.addEventListener("smartteam.changed",listener);
+    return ()=>{source.removeEventListener("smartteam.changed",listener);source.close();};
+  }
   updateSmartTeamVisit(organizationId:string,visitId:string,payload:Record<string,unknown>):Promise<import("@salesx-ai/api-contracts").SmartTeamVisit> {
     return this.request(`/api/v1/organizations/${encodeURIComponent(organizationId)}/smart-team/visits/${encodeURIComponent(visitId)}`,{method:"PATCH",body:JSON.stringify(payload)});
   }

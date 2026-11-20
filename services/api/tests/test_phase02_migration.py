@@ -28,6 +28,17 @@ class Phase02MigrationConsistencyTests(unittest.TestCase):
             versions.append(match.group(1))
         self.assertEqual(len(versions), len(set(versions)))
 
+    def test_phase02_migration_filenames_match_applied_remote_ledger(self) -> None:
+        expected = {
+            "20261119143440_p02_distributed_rate_limit_buckets.sql",
+            "20261119145000_p02_identity_link_permission_and_self_scopes.sql",
+            "20261119145850_p02_rate_limit_table_rls.sql",
+            "20261119150146_p02_rate_limit_deny_client_policy.sql",
+        }
+        actual = {path.name for path in MIGRATIONS.glob("*.sql")}
+        self.assertTrue(expected.issubset(actual))
+        self.assertFalse(any(name.startswith(("20261119143000_", "20261119144800_", "20261119145500_", "20261119150000_")) for name in actual))
+
     def test_platform_read_permissions_match_both_action_registries(self) -> None:
         self.assertTrue(PLATFORM_READ_MIGRATION.is_file())
         migration = PLATFORM_READ_MIGRATION.read_text(encoding="utf-8")

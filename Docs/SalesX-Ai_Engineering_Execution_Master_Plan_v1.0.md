@@ -1473,27 +1473,27 @@ intelligence.
 
 ### Implementation
 
--   [ ] Sales Portal shell.
--   [ ] Mobile Sales shell.
--   [ ] Shift start/end.
--   [ ] Attendance.
--   [ ] Visit planning.
--   [ ] Visit assignment.
--   [ ] Check-in/check-out API.
--   [ ] Visit evidence upload.
--   [ ] Daily activity.
--   [ ] Target management.
--   [ ] Supervisor visit overview.
--   [ ] Visit timeline.
+-   [x] Sales Portal shell.
+-   [x] Mobile Sales shell.
+-   [x] Shift start/end.
+-   [x] Attendance.
+-   [x] Visit planning.
+-   [x] Visit assignment.
+-   [x] Check-in/check-out API.
+-   [x] Visit evidence upload.
+-   [x] Daily activity.
+-   [x] Target management.
+-   [x] Supervisor visit overview.
+-   [x] Visit timeline.
 
 ### Supabase migration/realtime
 
--   [ ] Attendance and shift migrations.
--   [ ] Visit and visit evidence migrations.
--   [ ] Sales activity and target migrations.
--   [ ] RLS and storage policies.
--   [ ] Private realtime events for shift/visit status.
--   [ ] Apply and record migrations.
+-   [x] Attendance and shift migrations.
+-   [x] Visit and visit evidence migrations.
+-   [x] Sales activity and target migrations.
+-   [x] RLS and storage policies.
+-   [x] Private realtime events for shift/visit status.
+-   [x] Apply and record migrations.
 
 ### Phase output
 
