@@ -173,7 +173,11 @@ class SmartTeamRepository:
         return await connection.fetch(
             """select sh.*,sp.employee_code,p.display_name,tm.name team_name,
                       case when sh.status='cancelled' then 'cancelled' when sh.clock_in_at is null then 'absent'
-                           when sh.clock_out_at is null then 'present' else 'completed' end attendance_status
+                           when sh.clock_out_at is null then 'present' else 'completed' end attendance_status,
+                      coalesce((select jsonb_agg(jsonb_build_object('id',e.id,'event_type',e.event_type,'actor_user_id',e.actor_user_id,
+                        'actor_name',ep.display_name,'occurred_at',e.occurred_at,'metadata',e.metadata) order by e.occurred_at desc)
+                        from public.smartteam_attendance_events e join public.profiles ep on ep.id=e.actor_user_id
+                        where e.organization_id=sh.organization_id and e.shift_id=sh.id),'[]'::jsonb) events
                from public.smartteam_shifts sh join public.sales_profiles sp on sp.organization_id=sh.organization_id and sp.id=sh.sales_profile_id
                join public.profiles p on p.id=sh.user_id left join public.teams tm on tm.organization_id=sh.organization_id and tm.id=sh.team_id
                where sh.organization_id=$1 and (sh.user_id=$2 or sp.manager_user_id=$2 or exists(
@@ -303,10 +307,45 @@ class SmartTeamRepository:
 
     async def list_targets(self, connection: asyncpg.Connection, organization_id: UUID, actor_id: UUID, limit: int, offset: int):
         return await connection.fetch(
-            """select t.*,sp.employee_code,tm.name team_name,b.name branch_name from public.smartteam_targets t
+            """select t.*,sp.employee_code,tm.name team_name,b.name branch_name,
+                      progress.actual_value,
+                      case when progress.actual_value is not null and t.target_value>0
+                           then round(progress.actual_value/t.target_value*100,2) else null end progress_percentage
+               from public.smartteam_targets t
                left join public.sales_profiles sp on sp.organization_id=t.organization_id and sp.id=t.sales_profile_id
                left join public.teams tm on tm.organization_id=t.organization_id and tm.id=t.team_id
                left join public.branches b on b.organization_id=t.organization_id and b.id=t.branch_id
+               left join lateral (
+                 select case
+                   when t.metric_key='visits' then (
+                     select count(*)::numeric from public.smartteam_visits v
+                     where v.organization_id=t.organization_id and v.status='completed'
+                       and v.scheduled_at::date between t.period_start and t.period_end
+                       and ((t.sales_profile_id is not null and v.sales_profile_id=t.sales_profile_id)
+                         or (t.team_id is not null and v.team_id=t.team_id)
+                         or (t.branch_id is not null and v.branch_id=t.branch_id))
+                   )
+                   when t.metric_key='productive_visits' then (
+                     select count(*)::numeric from public.smartteam_visits v
+                     where v.organization_id=t.organization_id and v.status='completed'
+                       and v.outcome in ('productive','order_taken')
+                       and v.scheduled_at::date between t.period_start and t.period_end
+                       and ((t.sales_profile_id is not null and v.sales_profile_id=t.sales_profile_id)
+                         or (t.team_id is not null and v.team_id=t.team_id)
+                         or (t.branch_id is not null and v.branch_id=t.branch_id))
+                   )
+                   when t.metric_key='activities' then (
+                     select count(*)::numeric from public.smartteam_activities a
+                     join public.sales_profiles asp on asp.organization_id=a.organization_id and asp.id=a.sales_profile_id
+                     where a.organization_id=t.organization_id and a.status='completed'
+                       and a.created_at::date between t.period_start and t.period_end
+                       and ((t.sales_profile_id is not null and a.sales_profile_id=t.sales_profile_id)
+                         or (t.team_id is not null and asp.team_id=t.team_id)
+                         or (t.branch_id is not null and exists(select 1 from public.teams at where at.organization_id=asp.organization_id and at.id=asp.team_id and at.branch_id=t.branch_id)))
+                   )
+                   else null
+                 end actual_value
+               ) progress on true
                where t.organization_id=$1 and (
                  (t.sales_profile_id is not null and (sp.user_id=$2 or sp.manager_user_id=$2 or exists(select 1 from public.teams st where st.organization_id=sp.organization_id and st.id=sp.team_id and st.supervisor_user_id=$2)))
                  or (t.team_id is not null and exists(select 1 from public.teams st where st.organization_id=t.organization_id and st.id=t.team_id and st.supervisor_user_id=$2))
