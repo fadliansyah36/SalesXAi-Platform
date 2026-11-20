@@ -26,7 +26,7 @@ async def visit_history(organization_id:UUID,visit_id:UUID,principal:Principal=D
 
 @router.patch("/{organization_id}/smart-team/targets/{target_id}")
 async def update_target(organization_id:UUID,target_id:UUID,payload:TargetUpdate,request:Request,principal:Principal=Depends(get_current_principal),
- tenant:TenantContext=Depends(require_api_action("smartteam.targets.manage")),connection:asyncpg.Connection=Depends(get_connection)):
+ tenant:TenantContext=Depends(require_api_action("smartteam.targets.create")),connection:asyncpg.Connection=Depends(get_connection)):
  return await smart_team_service.update_target(connection,request,organization_id,tenant,principal,target_id,payload.model_dump(exclude_unset=True))
 
 @router.get("/{organization_id}/smart-team/visits")
