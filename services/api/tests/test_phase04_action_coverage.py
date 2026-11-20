@@ -18,7 +18,7 @@ API_CLIENT = ROOT / "packages/api-client/src/index.ts"
 class Phase04ActionCoverageTests(unittest.TestCase):
     def setUp(self) -> None:
         with COVERAGE.open(encoding="utf-8", newline="") as stream:
-            self.rows = list(csv.DictReader(stream, delimiter="\\t"))
+            self.rows = list(csv.DictReader(stream, delimiter="\t"))
         self.contracts = {item.id: item for item in API_ACTION_MATRIX}
 
     def test_all_phase04_contracts_have_complete_portal_placements(self) -> None:
