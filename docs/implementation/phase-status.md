@@ -1071,3 +1071,72 @@ The latest application-code commit is `b03459f7ed95bf43bb90653afa60305d0501b24c`
 - This code change triggers another Website, Customer and Company deployment. Phase 04 remains IN_PROGRESS until these deployments and the final health/contract validation succeed.
 
 **Phase 04 remains IN_PROGRESS — NOT COMPLETED. Phase 05 — SmartOrder remains locked.**
+
+
+## Phase 04 — Final deployment evidence and closure gate — 2026-11-20
+
+### Source revision
+- SmartTeam portal cutover source commit: `75ce8de9dbeb8495f09ece085f3e1a30afb205b8`.
+- Final tracker/documentation revision is this addendum; it does not change runtime source.
+- Branch: `main`.
+
+### Four-service Railway deployment — latest production state
+
+| Service | App roots | Build/runtime | Health | Default domain | Latest deployment |
+|---|---|---|---|---|---|
+| `salesx-api` | `/services/api` | Dockerfile; `uvicorn app.main:app --host 0.0.0.0 --port $PORT`; port 8080 | `/readyz` | `https://salesx-api-production.up.railway.app` | `b0f7ea0b-8380-4cb2-bc81-6b1e7882d0d9` — SUCCESS |
+| `salesx-website` | `apps/website` + `apps/sales-portal` | Root context `.`; Bun workspace build; `node infrastructure/scripts/portal-gateway.mjs website`; port 3000 | `/api/health` | `https://salesx-website-production.up.railway.app` | `d993fe74-329f-4c9e-bd73-fa4a15068f6e` — SUCCESS |
+| `salesx-customer` | `apps/customer-portal` | Root context `.`; Bun workspace build; standalone Next server; port 3000 | `/api/health` | `https://salesx-customer-production.up.railway.app` | `96cfa63c-a732-4926-b8df-a0990f12d554` — SUCCESS |
+| `salesx-company` | `apps/company-portal`, `apps/distributor-portal`, `apps/principal-portal`, `apps/supervisor-portal`, `apps/super-admin` | Root context `.`; sequential Bun workspace builds; `node infrastructure/scripts/portal-gateway.mjs company`; port 3000 | `/api/health` | `https://salesx-company-production.up.railway.app` | `f6a212b6-8d64-4b82-9853-61e3db71f34f` — SUCCESS |
+
+- No new portal Railway services were created. The four target services are online.
+- The old `@salesx-ai/mobile-sales` Railway service remains offline and untouched; Expo mobile is built through EAS and is not a fifth target deployment.
+- Website gateway runtime logs confirm both Website and Sales Next.js servers report Ready.
+- Company gateway runtime logs confirm all five Company/Distributor/Principal/Supervisor/Super Admin Next.js servers report Ready.
+- Gateway health checks require each grouped app root and `/portal` deep route to respond (not 404), a generated Next static JavaScript asset to return 200, its manifest and scoped service worker to return 200, the root BFF CSRF endpoint to return 200, and FastAPI readiness to return 200.
+- The PWA build commands run `node --check public/sw.js`; grouped gateway services also run `node --check infrastructure/scripts/portal-gateway.mjs`.
+- Railway root build contexts remain `.` for all Next.js services so shared packages and Bun workspace resolution remain intact.
+
+### Route mapping deployed
+
+- Website service: `/` → Landing Page; `/sales` → Sales Portal.
+- Customer service: `/` → Customer Portal.
+- Company service: `/` → Company Portal; `/distributor` → Distributor Portal; `/principal` → Principal Portal; `/supervisor` → Supervisor Portal; `/admin` → Super Admin Portal.
+- API service: all FastAPI endpoints, including SmartTeam domain endpoints.
+
+### Engineering validation evidence
+
+- GitHub portal build matrix run `44695868380`: SUCCESS, 8/8 portal builds.
+- GitHub API checks run `44695868502`: SUCCESS.
+- GitHub foundation/workspace run `44695868395`: SUCCESS, including Expo native typecheck/config/Metro and Android/iOS bundle export.
+- Railway latest Website, Customer and Company deployments above: SUCCESS; API readiness deployment: SUCCESS.
+- API runtime logs show `/readyz` returning HTTP 200.
+- Supabase applied migration ledger: 35 versions total — Phase 00: 2, Phase 02: 14, Phase 03: 10, Phase 04: 9. These live migration counts supersede older historical counts in earlier tracker entries.
+- SmartTeam RLS remains enabled on the seven operational tables; evidence storage remains private; latest Supabase Security Advisor check returned zero lints.
+- SmartTeam API contract, shared typed client, role-gated console, tenant scope, evidence upload and SSE integration are recorded in `docs/implementation/phase-04-smartteam-portal-integration.md`.
+- Sales, Supervisor and Company Phase 04 tabs now mount the live SmartTeam console. Legacy local-state/demo panels for those Phase 04 tabs are not rendered and there is no mock fallback.
+
+### Definition of Done status
+
+| DoD | Status | Evidence / remaining gap |
+|---|---|---|
+| 1. Eight portal source roots, layout, routes and permissions remain separate | COMPLETED | Eight independent app roots/build targets remain; grouped apps retain distinct basePaths, manifests and service-worker scopes. |
+| 2. Four Railway services configured | COMPLETED | Four target services above; no eight-service deployment topology. |
+| 3. Multi-portal routing without conflicts | COMPLETED | Website and Company gateways pass per-app root/deep-route/static-asset/manifest/service-worker health checks. |
+| 4. Build, start, runtime and environment for four services | COMPLETED | 8/8 CI builds, Railway deployments and gateway readiness pass. |
+| 5. Shared packages and dependency graph | COMPLETED | Bun workspace/lockfile and root build contexts retained; foundation workspace workflow succeeds. |
+| 6. All portal actions integrated through shared typed API client | PARTIAL | Phase 04 SmartTeam operations are wired in Sales, Supervisor and Company; the exhaustive action-level mapping for every existing feature/action across all eight portals is not yet proven. Future-phase features are not represented as completed or given placeholder endpoints. |
+| 7. Website Auth BFF, CORS, trusted origins and session lifecycle | PARTIAL | BFF source, callback return-path validation, CSRF and proxy health are implemented. Railway connector redacts literal environment values, so the exact three-origin CORS list cannot be independently inspected here; a real authenticated sign-in/refresh/logout session round-trip has not been evidenced by the health check. |
+| 8. Expo production API and Mobile Evidence | COMPLETED | Expo API/BFF config, SecureStore, native picker, evidence upload lifecycle, progress/cancel, and Android/iOS bundle export validated. |
+| 9. Default Domains, API connectivity and health | COMPLETED | Four Railway default domains are live; gateway health checks include FastAPI readiness. |
+| 10. Final engineering validation and tracker | PARTIAL | CI/build/deploy and static/runtime health gates pass; authenticated end-to-end authorization/session verification and exhaustive all-action API coverage remain open. |
+
+### Governance and remaining closure gates
+
+- Phase 02 remains PARTIAL in the authoritative tracker; Phase 03 is still labelled LOCKED/NOT STARTED there. However, the live Supabase migration ledger contains 10 Phase 03 migrations. This is a tracker-versus-database governance inconsistency and must be reconciled against Phase 02/03 source evidence before phase-sequence closure.
+- Do not claim full all-action portal integration from shared provider availability alone. The SmartTeam surfaces are live; later-phase portal workflows remain governed by their designated phases.
+- The exact production `CORS_ORIGINS` and per-service `APP_PUBLIC_URL` values are write-only/redacted in the Railway connector. The API starts successfully and its configuration validator is active, but the full three-origin literal allowlist remains an evidence gap.
+- SMTP, Google OAuth and provider secrets were not fabricated or populated. Their provider-dependent live flows remain blocked until genuine credentials/settings are supplied.
+- No Phase 05 implementation was started.
+
+**Official status: PHASE 04 — IN_PROGRESS / NOT COMPLETED. Phase 05 — SMARTORDER remains locked.**
