@@ -150,19 +150,20 @@ class SmartOrderRepository:
    await self.audit(db,org,actor,"inventory.movement.recorded","stock_movement",m["id"],{"type":p.movement_type,"quantity":str(p.quantity),"product_owner_organization_id":str(owner)})
   return dict(m)
  async def list_promotions(self,db,org):
-  rows=await db.fetch("""select p.id,p.code,p.name,p.description,p.priority,p.stackable,p.stacking_group,p.starts_at,p.ends_at,p.status,
+  rows=await db.fetch("""select p.id,p.organization_id,p.code,p.name,p.description,p.priority,p.stackable,p.stacking_group,p.max_redemptions,p.max_per_customer,p.starts_at,p.ends_at,p.status,
    coalesce(jsonb_agg(jsonb_build_object('rule_type',r.rule_type,'rule_config',r.rule_config)) filter(where r.id is not null),'[]'::jsonb) rules
    from public.promotions p left join public.promotion_rules r on r.organization_id=p.organization_id and r.promotion_id=p.id
-   where p.organization_id=$1 group by p.id order by p.priority,p.created_at desc""",org)
+   where p.organization_id=$1 or exists(select 1 from public.commerce_partner_links l where l.organization_id=p.organization_id and l.partner_organization_id=$1 and l.relationship_type in ('principal','distributor') and l.status='active' and l.starts_at<=now() and (l.ends_at is null or l.ends_at>now()))
+   group by p.id order by p.priority,p.created_at desc""",org)
   return [dict(r) for r in rows]
 
  async def update_promotion(self,db,org,actor,promotion_id,p):
   async with db.transaction():
    current=await db.fetchrow("select id from public.promotions where organization_id=$1 and id=$2 for update",org,promotion_id)
    if not current:raise APIError(404,"promotion_not_found","Promotion was not found in this organization.")
-   row=await db.fetchrow("""update public.promotions set code=$3,name=$4,description=$5,priority=$6,stackable=$7,stacking_group=$8,
-    starts_at=$9::timestamptz,ends_at=$10::timestamptz,status=$11,updated_at=now()
-    where organization_id=$1 and id=$2 returning *""",org,promotion_id,p.code.upper(),p.name,p.description,p.priority,p.stackable,p.stacking_group,p.starts_at,p.ends_at,p.status)
+   row=await db.fetchrow("""update public.promotions set code=$3,name=$4,description=$5,priority=$6,stackable=$7,stacking_group=$8,max_redemptions=$9,max_per_customer=$10,
+    starts_at=$11::timestamptz,ends_at=$12::timestamptz,status=$13,updated_at=now()
+    where organization_id=$1 and id=$2 returning *""",org,promotion_id,p.code.upper(),p.name,p.description,p.priority,p.stackable,p.stacking_group,p.max_redemptions,p.max_per_customer,p.starts_at,p.ends_at,p.status)
    await db.execute("delete from public.promotion_rules where organization_id=$1 and promotion_id=$2",org,promotion_id)
    for rule in p.rules:
     if rule.get("rule_type") not in {"minimum_value","minimum_quantity","product","category","customer","discount_percent","discount_amount","voucher"} or not isinstance(rule.get("rule_config",{}),dict):
@@ -173,8 +174,8 @@ class SmartOrderRepository:
 
  async def create_promotion(self,db,org,actor,p):
   async with db.transaction():
-   r=await db.fetchrow("""insert into public.promotions(organization_id,code,name,description,priority,stackable,stacking_group,starts_at,ends_at,status,created_by)
-    values($1,$2,$3,$4,$5,$6,$7,$8::timestamptz,$9::timestamptz,'active',$10) returning *""",org,p.code.upper(),p.name,p.description,p.priority,p.stackable,p.stacking_group,p.starts_at,p.ends_at,actor)
+   r=await db.fetchrow("""insert into public.promotions(organization_id,code,name,description,priority,stackable,stacking_group,max_redemptions,max_per_customer,starts_at,ends_at,status,created_by)
+    values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::timestamptz,$11::timestamptz,'active',$12) returning *""",org,p.code.upper(),p.name,p.description,p.priority,p.stackable,p.stacking_group,p.max_redemptions,p.max_per_customer,p.starts_at,p.ends_at,actor)
    for rule in p.rules:
     if rule.get("rule_type") not in {"minimum_value","minimum_quantity","product","category","customer","discount_percent","discount_amount","voucher"} or not isinstance(rule.get("rule_config",{}),dict):
      raise APIError(422,"invalid_promotion_rule","Promotion rule type or configuration is invalid.")
