@@ -278,3 +278,21 @@ export interface SmartTeamVisitEvidence {
 }
 
 export interface SmartTeamVisitAssign { sales_profile_id:UUID; idempotency_key:string; }
+
+
+export interface SmartOrderVariant {id:UUID;sku:string;name:string;barcode?:string|null;attributes:Record<string,unknown>;specifications?:Record<string,unknown>;weight_grams?:number|null;}
+export interface SmartOrderProduct {id:UUID;organization_id:UUID;product_code:string;name:string;description?:string|null;status:string;tax_rate:string|number;category_id?:UUID|null;category_name?:string|null;brand_name?:string|null;variants:SmartOrderVariant[];images?:Array<Record<string,unknown>>;}
+export interface SmartOrderProductPage {items:SmartOrderProduct[];page:number;page_size:number;total:number;}
+export interface SmartOrderProductWrite {product_code:string;name:string;description?:string|null;category_id?:UUID|null;brand_id?:UUID|null;unit_id?:UUID|null;tax_rate?:number;specifications?:Record<string,unknown>;status?:"draft"|"published"|"inactive"|"archived";variants: Array<{sku:string;name:string;barcode?:string|null;attributes?:Record<string,unknown>;specifications?:Record<string,unknown>;weight_grams?:number|null}>;}
+export interface SmartOrderPriceQuote {unit_price:string|number;currency:string;price_list_id:UUID;price_list_name:string;scope_type:string;tax_rate:string|number;sku:string;product_name:string;variant_name:string;}
+export interface SmartOrderInventoryBalance {id:UUID;warehouse_id:UUID;warehouse_code:string;warehouse_name:string;product_id:UUID;variant_id:UUID;on_hand:string|number;reserved:string|number;committed:string|number;available:string|number;version:number;}
+export interface SmartOrderStockMovementWrite {warehouse_id:UUID;product_id:UUID;variant_id:UUID;movement_type:"stock_in"|"stock_out"|"adjustment";quantity:number;adjustment_delta?:number;reason:string;idempotency_key:string;}
+export interface SmartOrderPromotion {id:UUID;code:string;name:string;description?:string|null;priority:number;stackable:boolean;starts_at:string;ends_at:string;rules:Array<{rule_type:string;rule_config:Record<string,unknown>}>;}
+export interface SmartOrderPromotionWrite {code:string;name:string;description?:string|null;starts_at:string;ends_at:string;priority?:number;stackable?:boolean;stacking_group?:string|null;rules:Array<{rule_type:string;rule_config:Record<string,unknown>}>;}
+export interface SmartOrderCart {cart:Record<string,unknown>;items:Array<Record<string,unknown>>;}
+export interface SmartOrderCartItemWrite {product_id:UUID;variant_id:UUID;quantity:number;notes?:string|null;}
+export interface SmartOrderOrderCreate {cart_id:UUID;idempotency_key:string;promotion_codes?:string[];shipping_snapshot?:Record<string,unknown>;notes?:string|null;}
+export interface SmartOrderOrder {id:UUID;order_number:string;status:string;currency:string;subtotal:string|number;discount_total:string|number;tax_total:string|number;grand_total:string|number;items?:Array<Record<string,unknown>>;history?:Array<Record<string,unknown>>;approvals?:Array<Record<string,unknown>>;fulfillments?:Array<Record<string,unknown>>;}
+export interface SmartOrderOrderPage {items:SmartOrderOrder[];page:number;page_size:number;total:number;}
+export interface SmartOrderFulfillmentWrite {warehouse_id?:UUID|null;assigned_to?:UUID|null;}
+export interface SmartOrderFulfillmentUpdate {status:"picking"|"packed"|"handed_over"|"delivered"|"failed"|"cancelled";carrier?:string|null;tracking_number?:string|null;}
