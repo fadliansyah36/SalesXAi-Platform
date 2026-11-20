@@ -740,7 +740,7 @@ The four handler inventories now cover **1,619 callback/event prop occurrences a
 
 ## Phase 04 — SmartTeam full implementation continuation — 2026-11-20
 
-**Current status: IN_PROGRESS — application work committed; Railway production provisioning remains blocked by workspace identity and current Web deployment boundary.** This entry supersedes the earlier Phase 03 “Next phase: Phase 04” note; Phase 03 remains COMPLETED.
+**Current status: IN_PROGRESS — SmartTeam and Mobile evidence work are committed; independent portal roots, remaining Railway services and API production readiness remain open.** This entry supersedes the earlier Phase 03 “Next phase: Phase 04” note; Phase 03 remains COMPLETED.
 
 ### Implemented and connected
 
@@ -780,10 +780,10 @@ The four handler inventories now cover **1,619 callback/event prop occurrences a
 
 ### Railway and production blockers
 
-- Railway identity currently connected is **Arrohmaniyah** (`smpitarrohmaniyah2019@gmail.com`) with workspace `Arrohmaniyah's Projects` and unrelated project `heroic-expression`. No SalesXAi Railway service was created or modified.
+- Railway connector **SalesXAi** currently maps to user **Arrohmaniyah** and workspace `Arrohmaniyah's Projects`, project `heroic-expression`. The project contains the pre-existing `@salesx-ai/mobile-sales` service linked to this exact repository and `main`; it is the active connected deployment target. A `salesx-api` service has since been provisioned as recorded in the continuation entries below.
 - The current source tree has one root Next.js app serving Website/Customer/Company/Sales/Distributor/Principal/Supervisor/Super Admin routes. The eight independent `apps/*-portal` roots listed in the Engineering Execution Plan do not exist. The deployment registry records the root Web app as the existing boundary. Creating eight Railway services against the same root would duplicate a monolith, not provide independent portal deployments; this has not been done.
-- `salesx-api` has a Dockerfile and Railway config but no Railway service/deployment ID, generated domain, or runtime health evidence yet.
-- Custom domains, DNS ownership and TLS remain unverified. EAS production API origins remain to be filled after the correct API domain is provisioned. SMTP/OAuth/provider credentials remain intentionally unset.
+- `salesx-api` now has Railway service ID `14b0489c-8431-480d-828f-d001b5c82fdd` and Default Domain `salesx-api-production.up.railway.app`; its initial deployment failed the `/readyz` health check because `DATABASE_URL` is not configured.
+- Custom domains, DNS ownership and TLS remain unverified. EAS production `EXPO_PUBLIC_SALESX_API_URL` is now set to the Railway API Default Domain; `EXPO_PUBLIC_AUTH_BFF_URL` remains pending the independent Website deployment. SMTP/OAuth/provider credentials remain intentionally unset.
 - No staging environment, staging deployment, field test or Product Owner Acceptance gate was introduced.
 
 **Phase 04 is NOT COMPLETED.** Code-level work is substantially integrated, but the required production deployment cannot be completed until the Railway connector is switched to the intended SalesXAi workspace and the Web deployment boundary decision is resolved. Do not begin Phase 05 until Phase 04 is closed with the deployment status and remaining evidence recorded.
@@ -827,3 +827,29 @@ This entry corrects the earlier Railway identity note above. The connected Railw
 - Expo production API origin is set, but Auth BFF origin awaits the Website portal's Railway Default Domain. Portal CORS/trusted origins and portal-to-API connectivity await the independent portal deployments.
 - Supabase migration history was re-queried and contains **35 applied migrations**, including the nine Phase 04 SmartTeam migrations already listed above. No new database migration was required for this client-side document picker/API upload progress change.
 - Phase 04 remains **IN_PROGRESS / NOT COMPLETED**. Do not begin Phase 05 until all ten Definition of Done items, including all eight portal builds and nine Railway service domains/health states, have current evidence.
+
+
+## Phase 04 — final validation and live Supabase/Railway state correction — 2026-11-20
+
+### Latest implementation validation
+
+The latest application-code commit is `b03459f7ed95bf43bb90653afa60305d0501b24c`. The current repository HEAD `854f8c1602f18ffff7bc193166a4f01134ca4913` is a documentation-only Phase 04 tracker update; no application code changed after `b03459f`.
+
+- API Checks run **44680626066** — **SUCCESS** on code commit `b03459f7ed95bf43bb90653afa60305d0501b24c`: **59 Python tests**, compileall, Ruff, FastAPI Docker image build, Web TypeScript and Web lint all passed.
+- Foundation Verification run **44680626014** — **SUCCESS** on code commit `b03459f7ed95bf43bb90653afa60305d0501b24c`: **20/20 steps** passed, including Bun workspace resolution/frozen install, design-token reproducibility, Web TypeScript/lint, Expo Native TypeScript, SDK dependency compatibility, Expo config, Metro startup, Android bundle export, iOS bundle export and Turborepo workspace build.
+- The earlier SDK compatibility failure was resolved by aligning `expo-document-picker` to `~58.0.5`, the version expected by the installed Expo SDK 58.
+
+### Live Supabase verification
+
+- Migration history was re-read from project `eyofuiyxalbehbqoaeny`: **35 applied migrations**, including all nine Phase 04 migrations from `20261120033210` through `20261120043558`.
+- Live public schema: **25 tables; 25/25 RLS enabled**. The seven SmartTeam tables (`smartteam_shifts`, `smartteam_visits`, `smartteam_visit_events`, `smartteam_activities`, `smartteam_targets`, `smartteam_visit_evidence`, `smartteam_attendance_events`) all have RLS enabled.
+- Security Advisor: **0 lints**.
+- Performance Advisor: **81 informational unused-index observations**. These are informational and are not security lints; no index was dropped as part of this phase.
+
+### Railway API deployment outcome
+
+- Deployment `2405f36c-160b-4633-a7a4-3c64f9977404` for `salesx-api` built the container and started Uvicorn, but ended **FAILED at HEALTHCHECK**.
+- Railway logs show repeated `GET /readyz` responses of HTTP 503. The API intentionally returns 503 while `DATABASE_URL` is absent; this is a real readiness blocker, not a container/build failure.
+- The generated Railway Default Domain exists, but it is **not a healthy production API endpoint yet**. Do not claim portal connectivity or a successful API deployment until the Supabase database connection secret is configured and a new deployment passes `/readyz`.
+
+**Phase 04 remains IN_PROGRESS / NOT COMPLETED.** The successful engineering checks validate the current monolith and Mobile code batch; they do not satisfy the eight independent portal boundary requirement or the nine-service Railway Definition of Done.
