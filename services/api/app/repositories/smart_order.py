@@ -149,23 +149,37 @@ class SmartOrderRepository:
    await db.execute("update public.carts set version=version+1,updated_at=now() where id=$1",r["cart_id"])
   return {"removed":True}
 
- async def evaluate_promotions(self,db,org,codes,subtotal,qty,customer):
+ async def evaluate_promotions(self,db,org,codes,subtotal,qty,customer,lines=None):
   if not codes:return [],Decimal("0")
   rows=await db.fetch("""select p.*,coalesce(jsonb_agg(jsonb_build_object('rule_type',r.rule_type,'rule_config',r.rule_config)) filter(where r.id is not null),'[]'::jsonb) rules
    from public.promotions p left join public.promotion_rules r on r.organization_id=p.organization_id and r.promotion_id=p.id
    where p.organization_id=$1 and upper(p.code)=any($2::text[]) and p.status='active' and p.starts_at<=now() and p.ends_at>now()
    group by p.id order by p.priority""",org,[x.upper() for x in codes])
-  applied=[]; total=Decimal("0")
+  applied=[];total=Decimal("0");lines=lines or []
   for p in rows:
-   eligible=True; disc=Decimal("0")
+   eligible=True;eligible_subtotal=Decimal("0");disc=Decimal("0")
    for rule in p["rules"]:
-    cfg=rule["rule_config"]; kind=rule["rule_type"]
+    cfg=rule["rule_config"];kind=rule["rule_type"]
     if kind=="minimum_value" and subtotal<Decimal(str(cfg.get("amount",0))):eligible=False
     elif kind=="minimum_quantity" and qty<Decimal(str(cfg.get("quantity",0))):eligible=False
     elif kind=="customer" and cfg.get("organization_id") and str(customer)!=str(cfg["organization_id"]):eligible=False
-    elif kind=="discount_percent":disc=max(disc,money(subtotal*min(Decimal(str(cfg.get("percent",0))),Decimal("100"))/100))
-    elif kind=="discount_amount":disc=max(disc,money(cfg.get("amount",0)))
-    elif kind in {"product","category","voucher"}:eligible=False
+    elif kind=="product":
+     allowed={str(cfg["product_id"])} if cfg.get("product_id") else {str(x) for x in cfg.get("product_ids",[])}
+     matched=[line for line in lines if line.get("product_id") in allowed]
+     if not matched:eligible=False
+     else:eligible_subtotal=sum((Decimal(str(line.get("subtotal",0))) for line in matched),Decimal("0"))
+    elif kind=="category":
+     allowed={str(cfg["category_id"])} if cfg.get("category_id") else {str(x) for x in cfg.get("category_ids",[])}
+     matched=[line for line in lines if line.get("category_id") in allowed]
+     if not matched:eligible=False
+     else:eligible_subtotal=sum((Decimal(str(line.get("subtotal",0))) for line in matched),Decimal("0"))
+    elif kind=="voucher" and cfg.get("code") and str(cfg["code"]).upper()!=p["code"].upper():eligible=False
+    elif kind=="discount_percent":
+     base=eligible_subtotal if eligible_subtotal>0 else subtotal
+     disc=max(disc,percentage_discount(base,cfg.get("percent",0)))
+    elif kind=="discount_amount":
+     base=eligible_subtotal if eligible_subtotal>0 else subtotal
+     disc=max(disc,fixed_discount(base,cfg.get("amount",0)))
    if eligible and disc>0:
     applied.append({"promotion_id":str(p["id"]),"code":p["code"],"discount_amount":str(disc),"priority":p["priority"]});total+=disc
     if not p["stackable"]:break
@@ -177,7 +191,7 @@ class SmartOrderRepository:
    if old:return dict(old)
    c=await db.fetchrow("select * from public.carts where organization_id=$1 and id=$2 and owner_user_id=$3 and status='active' and expires_at>now() for update",org,p.cart_id,actor)
    if not c:raise APIError(404,"active_cart_not_found","An active cart owned by this actor is required.")
-   items=await db.fetch("""select ci.*,p.name product_name,p.product_code,p.tax_rate,p.specifications product_specs,v.sku,v.name variant_name,v.attributes variant_attributes
+   items=await db.fetch("""select ci.*,p.name product_name,p.product_code,p.tax_rate,p.category_id,p.specifications product_specs,v.sku,v.name variant_name,v.attributes variant_attributes
     from public.cart_items ci join public.products p on p.organization_id=ci.organization_id and p.id=ci.product_id
     join public.product_variants v on v.organization_id=ci.organization_id and v.id=ci.variant_id where ci.organization_id=$1 and ci.cart_id=$2 for update of ci""",org,p.cart_id)
    if not items:raise APIError(409,"empty_cart","An order cannot be created from an empty cart.")
@@ -186,8 +200,9 @@ class SmartOrderRepository:
     q=await self.price_quote(db,org,i["product_id"],i["variant_id"],i["quantity"],c["customer_organization_id"])
     qty=Decimal(i["quantity"]);totals=line_totals(q["unit_price"],qty,i["tax_rate"]);unit=totals["unit_price"];line=totals["subtotal"];t=totals["tax"]
     subtotal+=line;tax+=t;qty_total+=qty
-    snaps.append({"product_id":str(i["product_id"]),"variant_id":str(i["variant_id"]),"product_name":i["product_name"],"product_code":i["product_code"],"sku":i["sku"],"variant_name":i["variant_name"],"quantity":str(qty),"unit_price":str(unit),"line_subtotal":str(line),"tax_rate":str(i["tax_rate"]),"tax_amount":str(t),"price_list_id":str(q["price_list_id"]),"currency":q["currency"]})
-   promos,discount=await self.evaluate_promotions(db,org,p.promotion_codes,subtotal,qty_total,c["customer_organization_id"])
+    snaps.append({"product_id":str(i["product_id"]),"variant_id":str(i["variant_id"]),"product_name":i["product_name"],"product_code":i["product_code"],"category_id":str(i["category_id"]) if i["category_id"] else None,"sku":i["sku"],"variant_name":i["variant_name"],"quantity":str(qty),"unit_price":str(unit),"line_subtotal":str(line),"tax_rate":str(i["tax_rate"]),"tax_amount":str(t),"price_list_id":str(q["price_list_id"]),"currency":q["currency"]})
+   promo_lines=[{"product_id":x["product_id"],"category_id":x["category_id"],"subtotal":x["line_subtotal"]} for x in snaps]
+   promos,discount=await self.evaluate_promotions(db,org,p.promotion_codes,subtotal,qty_total,c["customer_organization_id"],promo_lines)
    oid=uuid4();number="SO-"+oid.hex[:12].upper();grand=max(Decimal(0),subtotal-discount+tax)
    o=await db.fetchrow("""insert into public.orders(id,organization_id,order_number,cart_id,customer_organization_id,customer_user_id,channel,status,currency,subtotal,discount_total,tax_total,grand_total,price_snapshot,promotion_snapshot,customer_snapshot,shipping_snapshot,notes,idempotency_key)
     values($1,$2,$3,$4,$5,$6,$7,'draft','IDR',$8,$9,$10,$11,$12::jsonb,$13::jsonb,$14::jsonb,$15::jsonb,$16,$17) returning *""",
@@ -195,6 +210,8 @@ class SmartOrderRepository:
    for i,s in zip(items,snaps,strict=True):
     await db.execute("""insert into public.order_items(organization_id,order_id,product_id,variant_id,product_snapshot,quantity,unit_price,tax_amount,line_total)
      values($1,$2,$3,$4,$5::jsonb,$6,$7,$8,$9)""",org,oid,i["product_id"],i["variant_id"],json.dumps(s),i["quantity"],s["unit_price"],s["tax_amount"],s["line_subtotal"])
+   for promo in promos:
+    await db.execute("insert into public.promotion_redemptions(organization_id,promotion_id,order_id,customer_user_id,discount_amount) values($1,$2,$3,$4,$5)",org,promo["promotion_id"],oid,actor,promo["discount_amount"])
    await db.execute("insert into public.order_status_history(organization_id,order_id,from_status,to_status,actor_user_id) values($1,$2,null,'draft',$3)",org,oid,actor)
    await db.execute("update public.carts set status='submitted',version=version+1,updated_at=now() where id=$1",c["id"])
    await self.audit(db,org,actor,"order.draft.created","order",oid,{"order_number":number,"total":str(money(grand))})
@@ -444,6 +461,15 @@ class SmartOrderRepository:
       where organization_id=$1 and id=$2 returning *""",org,cart["id"],p.customer_organization_id)
    await self.audit(db,org,actor,"cart.assisted_customer.set","cart",cart["id"],{"customer_organization_id":str(p.customer_organization_id)})
   return dict(cart)
+
+
+ async def list_price_history(self,db,org,price_list_id,page,size):
+  exists=await db.fetchval("select exists(select 1 from public.price_lists where organization_id=$1 and id=$2)",org,price_list_id)
+  if not exists:raise APIError(404,"price_list_not_found","Price list was not found.")
+  total=await db.fetchval("select count(*) from public.price_list_history where organization_id=$1 and price_list_id=$2",org,price_list_id)
+  rows=await db.fetch("""select id,entity_type,entity_id,action,before_snapshot,after_snapshot,actor_user_id,occurred_at
+   from public.price_list_history where organization_id=$1 and price_list_id=$2 order by occurred_at desc limit $3 offset $4""",org,price_list_id,size,(page-1)*size)
+  return {"items":[dict(x) for x in rows],"page":page,"page_size":size,"total":total}
 
  async def audit(self,db,org,actor,action,kind,rid,metadata):
   await db.execute("insert into public.commerce_audit_events(organization_id,actor_user_id,action,resource_type,resource_id,metadata) values($1,$2,$3,$4,$5,$6::jsonb)",org,actor,action,kind,rid,json.dumps(metadata,default=str))

@@ -70,6 +70,11 @@ async def grant_catalog_access(organization_id:UUID,payload:CatalogAccessWrite,p
 async def list_price_lists(organization_id:UUID,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartorder.pricing.lists.read")),db:asyncpg.Connection=Depends(get_connection)):
  return await smart_order_service.price_lists(db,organization_id,tenant)
 
+
+@router.get("/{organization_id}/smart-order/pricing/price-lists/{price_list_id}/history")
+async def list_price_history(organization_id:UUID,price_list_id:UUID,page:int=Query(1,ge=1),page_size:int=Query(50,ge=1,le=200),principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartorder.pricing.history.read")),db:asyncpg.Connection=Depends(get_connection)):
+ return await smart_order_service.price_history(db,organization_id,tenant,price_list_id,page,page_size)
+
 @router.post("/{organization_id}/smart-order/pricing/price-lists",status_code=201)
 async def create_price_list(organization_id:UUID,payload:PriceListWrite,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartorder.pricing.list.create")),db:asyncpg.Connection=Depends(get_connection)):
  return await smart_order_service.create_price_list(db,organization_id,tenant,principal.user_id,payload)

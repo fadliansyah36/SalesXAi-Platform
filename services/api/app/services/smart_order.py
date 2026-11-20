@@ -58,12 +58,12 @@ class SmartOrderService:
   self._tenant(organization_id,tenant)
   cart=await db.fetchrow("select * from public.carts where organization_id=$1 and id=$2 and owner_user_id=$3 and status='active'",organization_id,cart_id,actor)
   if not cart: raise APIError(404,"active_cart_not_found","Active cart was not found.")
-  items=await db.fetch("select product_id,variant_id,quantity from public.cart_items where organization_id=$1 and cart_id=$2",organization_id,cart_id)
-  subtotal=Decimal("0");qty=Decimal("0")
+  items=await db.fetch("""select ci.product_id,ci.variant_id,ci.quantity,p.category_id from public.cart_items ci join public.products p on p.organization_id=ci.organization_id and p.id=ci.product_id where ci.organization_id=$1 and ci.cart_id=$2""",organization_id,cart_id)
+  subtotal=Decimal("0");qty=Decimal("0");lines=[]
   for item in items:
    price=await repo.price_quote(db,organization_id,item["product_id"],item["variant_id"],item["quantity"],cart["customer_organization_id"])
-   subtotal+=Decimal(price["unit_price"])*Decimal(item["quantity"]);qty+=Decimal(item["quantity"])
-  promotions,discount=await repo.evaluate_promotions(db,organization_id,codes,subtotal,qty,cart["customer_organization_id"])
+   subtotal+=Decimal(price["unit_price"])*Decimal(item["quantity"]);qty+=Decimal(item["quantity"]);lines.append({"product_id":str(item["product_id"]),"category_id":str(item["category_id"]) if item["category_id"] else None,"subtotal":str(Decimal(price["unit_price"])*Decimal(item["quantity"]))})
+  promotions,discount=await repo.evaluate_promotions(db,organization_id,codes,subtotal,qty,cart["customer_organization_id"],lines)
   return {"eligible_promotions":promotions,"subtotal":str(subtotal),"discount_total":str(discount),"total_after_discount":str(max(Decimal(0),subtotal-discount))}
 
  async def cart(self,db,organization_id,tenant,actor):
@@ -184,5 +184,10 @@ class SmartOrderService:
  async def set_assisted_customer(self,db,organization_id,tenant,actor,payload):
   self._tenant(organization_id,tenant)
   return await repo.set_assisted_customer(db,organization_id,actor,payload)
+
+
+ async def price_history(self,db,organization_id,tenant,price_list_id,page,page_size):
+  self._tenant(organization_id,tenant)
+  return await repo.list_price_history(db,organization_id,price_list_id,page,page_size)
 
 smart_order_service=SmartOrderService()

@@ -313,3 +313,5 @@ export interface SmartOrderOrderCancel {reason:string;}
 export interface SmartOrderPartnerOrganization {id:UUID;slug:string;name:string;relationship_type:"principal"|"distributor"|"customer";starts_at:string;ends_at?:string|null;}
 export interface SmartOrderPartnerLinkWrite {partner_organization_id:UUID;relationship_type:"principal"|"distributor"|"customer";starts_at:string;ends_at?:string|null;}
 export interface SmartOrderAssistedCartWrite {customer_organization_id:UUID;}
+
+export interface SmartOrderPriceHistoryPage {items:Array<{id:UUID;entity_type:string;entity_id:UUID;action:string;before_snapshot?:Record<string,unknown>|null;after_snapshot?:Record<string,unknown>|null;actor_user_id?:UUID|null;occurred_at:string}>;page:number;page_size:number;total:number;}
