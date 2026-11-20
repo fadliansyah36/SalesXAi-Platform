@@ -124,7 +124,7 @@ export function SmartTeamHome({auth,salesProfileId}:{auth:AuthState;salesProfile
      else if(row.kind==="evidence_upload"){
       const file=await fetch(payload.local_uri).then(response=>{if(!response.ok)throw new Error("File bukti offline tidak tersedia.");return response.blob();});
       await api.uploadSmartTeamVisitEvidence(organizationId,payload.visit_id,file,payload.file_name,payload.mime_type);
-      await FileSystem.deleteAsync(payload.local_uri,{idempotent:true});
+      await FileSystem.deleteAsync(payload.local_uri,{idempotent:true}).catch(()=>undefined);
      }
      await db.runAsync("delete from smartteam_outbox where id=?",[row.id]);
     }catch(cause){
