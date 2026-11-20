@@ -49,18 +49,18 @@ class SmartTeamService:
         await write_audit(connection,request,principal,"smartteam.visit.created","smartteam_visit",str(row["id"]),tenant,{"status":row["status"],"outlet_id":str(row["outlet_id"]),"sales_profile_id":str(row["sales_profile_id"])})
         return dict(row)
 
-    async def check_in(self,connection,request,organization_id,tenant,principal,visit_id,location):
+    async def check_in(self,connection,request,organization_id,tenant,principal,visit_id,location,idempotency_key):
         self._tenant(organization_id,tenant)
-        try:row=await self.repository.check_in(connection,organization_id,principal.user_id,visit_id,location)
+        try:row=await self.repository.check_in(connection,organization_id,principal.user_id,visit_id,location,idempotency_key)
         except ValueError as error:self._translate(error)
-        await write_audit(connection,request,principal,"smartteam.visit.checked_in","smartteam_visit",str(visit_id),tenant,{"accuracy_m":location["accuracy_m"],"source":location["source"]})
+        await write_audit(connection,request,principal,"smartteam.visit.checked_in","smartteam_visit",str(visit_id),tenant,{"accuracy_m":location["accuracy_m"],"source":location["source"],"captured_at":location.get("captured_at").isoformat() if location.get("captured_at") else None})
         return dict(row)
 
-    async def check_out(self,connection,request,organization_id,tenant,principal,visit_id,location,outcome,notes):
+    async def check_out(self,connection,request,organization_id,tenant,principal,visit_id,location,outcome,notes,idempotency_key):
         self._tenant(organization_id,tenant)
-        try:row=await self.repository.check_out(connection,organization_id,principal.user_id,visit_id,location,outcome,notes)
+        try:row=await self.repository.check_out(connection,organization_id,principal.user_id,visit_id,location,outcome,notes,idempotency_key)
         except ValueError as error:self._translate(error)
-        await write_audit(connection,request,principal,"smartteam.visit.checked_out","smartteam_visit",str(visit_id),tenant,{"outcome":outcome,"accuracy_m":location["accuracy_m"],"source":location["source"]})
+        await write_audit(connection,request,principal,"smartteam.visit.checked_out","smartteam_visit",str(visit_id),tenant,{"outcome":outcome,"accuracy_m":location["accuracy_m"],"source":location["source"],"captured_at":location.get("captured_at").isoformat() if location.get("captured_at") else None})
         return dict(row)
 
     async def cancel_visit(self,connection,request,organization_id,tenant,principal,visit_id,reason):
