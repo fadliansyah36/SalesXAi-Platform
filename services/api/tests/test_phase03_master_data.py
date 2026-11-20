@@ -43,6 +43,18 @@ class Phase03MasterDataContractTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             repository._table("user_supplied_table")
 
+    def test_phase03_closure_and_next_phase_are_recorded(self) -> None:
+        root = Path(__file__).resolve().parents[3]
+        tracker = (root / "docs/implementation/phase-status.md").read_text()
+        self.assertIn("Phase 03 final closure", tracker)
+        self.assertIn("Decision: Phase 03 — COMPLETED.", tracker)
+        self.assertIn("Phase 04 — SmartTeam: Visit, Attendance & Sales Operations", tracker)
+        plan = (root / "Docs/SalesX-Ai_Engineering_Execution_Master_Plan_v1.0.md").read_text()
+        lines = plan.splitlines()
+        start = next(i for i, line in enumerate(lines) if "## Phase 03 --- Core Master Data & Company Administration" in line)
+        end = next(i for i, line in enumerate(lines) if i > start and "## Phase 04 --- SmartTeam" in line)
+        self.assertFalse(any("-   [ ]" in line for line in lines[start:end]))
+
     def test_cross_tenant_service_context_is_denied(self) -> None:
         service = MasterDataService()
         with self.assertRaises(APIError):
