@@ -546,6 +546,9 @@ class SmartOrderRepository:
   return dict(r)
  async def update_fulfillment(self,db,org,actor,fid,p):
   async with db.transaction():
+   order_id=await db.fetchval("select order_id from public.fulfillments where organization_id=$1 and id=$2",org,fid)
+   if not order_id:raise APIError(404,"fulfillment_not_found","Fulfillment was not found.")
+   await db.fetchrow("select id from public.orders where organization_id=$1 and id=$2 for update",org,order_id)
    f=await db.fetchrow("select * from public.fulfillments where organization_id=$1 and id=$2 for update",org,fid)
    if not f:raise APIError(404,"fulfillment_not_found","Fulfillment was not found.")
    if not can_transition_fulfillment(f["status"],p.status):raise APIError(409,"invalid_fulfillment_transition","Fulfillment status transition is not allowed.")
@@ -585,8 +588,12 @@ class SmartOrderRepository:
  async def process_shipping_event(self,db,provider,event):
   event_id=str(event["event_id"]);tracking=str(event["tracking_number"]);status=str(event["status"])
   async with db.transaction():
-   f=await db.fetchrow("select * from public.fulfillments where lower(carrier)=lower($1) and tracking_number=$2 for update",provider,tracking)
-   if not f:raise APIError(404,"shipping_tracking_not_found","No fulfillment matches this provider and tracking number.")
+   candidate=await db.fetchrow("select id,organization_id,order_id from public.fulfillments where lower(carrier)=lower($1) and tracking_number=$2",provider,tracking)
+   if not candidate:raise APIError(404,"shipping_tracking_not_found","No fulfillment matches this provider and tracking number.")
+   await db.fetchrow("select id from public.orders where organization_id=$1 and id=$2 for update",candidate["organization_id"],candidate["order_id"])
+   f=await db.fetchrow("select * from public.fulfillments where organization_id=$1 and id=$2 for update",candidate["organization_id"],candidate["id"])
+   if not f or (f["carrier"] or "").lower()!=provider.lower() or f["tracking_number"]!=tracking:
+    raise APIError(404,"shipping_tracking_not_found","No fulfillment matches this provider and tracking number.")
    prior=await db.fetchrow("select id from public.shipping_provider_events where provider=$1 and provider_event_id=$2",provider,event_id)
    if prior or f["status"]==status:return {"accepted":True,"duplicate":True,"fulfillment_id":str(f["id"]),"status":f["status"]}
    if status=="delivered" and f["status"]!="handed_over":
