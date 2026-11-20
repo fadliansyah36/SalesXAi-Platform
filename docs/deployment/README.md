@@ -71,6 +71,17 @@ Optional/operational:
 - `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_JWT_SECRET` (legacy HS256 only), `SUPABASE_JWT_AUDIENCE`, DB pool/timeouts, request limit and rate-limit controls.
 - SMTP variables (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM_EMAIL`) remain intentionally unset until credential handoff.
 
+### Existing Web application environment
+
+The current Web portals are served by the existing root Next.js application. Configure these values in that Web service's secret/environment store:
+- `SUPABASE_URL` — fixed to the bound SalesXAi project.
+- `SUPABASE_PUBLISHABLE_KEY` — public/publishable Supabase key used by the server-side Auth BFF; never use a secret/service-role key in browser variables.
+- `SALESX_API_URL` — HTTPS origin of the independent FastAPI service.
+- `APP_PUBLIC_URL` — exact HTTPS origin of the Web application/BFF.
+- `SALESX_BFF_SHARED_SECRET` — same random 32+ character value as the FastAPI service.
+
+Do not configure `DATABASE_URL` or `SUPABASE_SECRET_KEY` in browser-visible variables. The Web API client uses the same-origin backend BFF; the BFF forwards authenticated requests to `SALESX_API_URL`.
+
 ### Mobile EAS environment
 
 The Expo `preview` and `production` profiles now select their corresponding EAS environments. Configure `EXPO_PUBLIC_AUTH_BFF_URL` and `EXPO_PUBLIC_SALESX_API_URL` in the EAS environment before producing a production binary. Do not put Supabase secret/service-role keys in Expo variables.
