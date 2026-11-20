@@ -132,3 +132,126 @@ class TargetUpdate(BaseModel):
         ):
             raise ValueError("period_end must not precede period_start")
         return self
+
+
+class SmartTeamEventResponse(BaseModel):
+    id: UUID
+    event_type: str
+    actor_user_id: UUID | None = None
+    actor_name: str | None = None
+    occurred_at: datetime
+    metadata: dict[str, object] = Field(default_factory=dict)
+
+
+class SmartTeamVisitResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    id: UUID
+    organization_id: UUID
+    sales_profile_id: UUID
+    outlet_id: UUID
+    branch_id: UUID | None = None
+    team_id: UUID | None = None
+    scheduled_at: datetime
+    window_end_at: datetime | None = None
+    status: str
+    outcome: str | None = None
+    notes: str | None = None
+    check_in_at: datetime | None = None
+    check_out_at: datetime | None = None
+    check_in_latitude: float | None = None
+    check_in_longitude: float | None = None
+    check_in_accuracy_m: float | None = None
+    check_out_latitude: float | None = None
+    check_out_longitude: float | None = None
+    check_out_accuracy_m: float | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+
+class SmartTeamAttendanceResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    id: UUID
+    organization_id: UUID
+    sales_profile_id: UUID
+    user_id: UUID
+    shift_date: date
+    status: str
+    attendance_status: str | None = None
+    clock_in_at: datetime | None = None
+    clock_out_at: datetime | None = None
+    clock_in_latitude: float | None = None
+    clock_in_longitude: float | None = None
+    clock_in_accuracy_m: float | None = None
+    clock_out_latitude: float | None = None
+    clock_out_longitude: float | None = None
+    clock_out_accuracy_m: float | None = None
+    events: list[SmartTeamEventResponse] = Field(default_factory=list)
+
+
+class SmartTeamActivityResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    id: UUID
+    organization_id: UUID
+    sales_profile_id: UUID
+    visit_id: UUID | None = None
+    activity_type: str
+    title: str
+    description: str | None = None
+    due_at: datetime | None = None
+    completed_at: datetime | None = None
+    status: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class SmartTeamTargetResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    id: UUID
+    organization_id: UUID
+    sales_profile_id: UUID | None = None
+    team_id: UUID | None = None
+    branch_id: UUID | None = None
+    metric_key: str
+    period_start: date
+    period_end: date
+    target_value: Decimal
+    actual_value: Decimal | None = None
+    progress_percentage: Decimal | None = None
+
+
+class SmartTeamVisitEvidenceResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    id: UUID
+    organization_id: UUID
+    visit_id: UUID
+    uploaded_by: UUID
+    storage_path: str
+    mime_type: str
+    size_bytes: int
+    sha256: str
+    created_at: datetime
+    download_url: str | None = None
+
+
+class SmartTeamDashboardResponse(BaseModel):
+    visits_total: int
+    visits_scheduled: int
+    visits_in_progress: int
+    visits_completed: int
+    attendance_records: int
+    active_shifts: int
+    activities_open: int
+    targets_visible: int
+
+
+class PlatformSmartTeamOverviewResponse(BaseModel):
+    organization_id: UUID
+    organization_name: str
+    organization_status: str
+    visits_total: int
+    visits_in_progress: int
+    visits_completed: int
+    attendance_30d: int
+    active_shifts: int
+    activities_30d: int
+    active_targets: int
