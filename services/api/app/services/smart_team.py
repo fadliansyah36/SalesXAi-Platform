@@ -207,6 +207,9 @@ class SmartTeamService:
             result.append(item)
         return result
 
+    async def can_receive_event(self,connection,organization_id,actor_id,event):
+        return await self.repository.can_receive_event(connection,organization_id,actor_id,event)
+
     async def platform_overview(self,connection,limit,offset):
         return [dict(row) for row in await self.repository.platform_overview(connection,limit,offset)]
 
