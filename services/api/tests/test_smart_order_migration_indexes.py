@@ -13,6 +13,8 @@ class SmartOrderMigrationIndexTests(unittest.TestCase):
             "20261120180953_p05_promotion_redemption_audit_events.sql": "promotion.redemption",
             "20261120181305_p05_promotion_organization_audience_rule.sql": "organization_type",
             "20261120181815_p05_harden_trigger_search_paths.sql": "search_path=pg_catalog,public",
+            "20261120182440_p05_realtime_tenant_role_scope.sql": "scope_type='tenant'",
+            "20261120182536_p05_realtime_resource_and_partner_scope.sql": "payload->>'resource'",
         }
         for filename, marker in expected.items():
             sql = (root / filename).read_text(encoding="utf-8")
