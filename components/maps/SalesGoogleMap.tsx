@@ -12,6 +12,7 @@ import {
   useMapsLibrary,
 } from '@vis.gl/react-google-maps';
 import { ExternalLink, Navigation, AlertCircle, MapPin } from 'lucide-react';
+import { resolveMapsRuntimeConfig } from '@/packages/maps/src';
 import type { Outlet } from '@/lib/salesx-data';
 import { formatRupiah } from '@/lib/salesx-data';
 
@@ -176,7 +177,13 @@ export function SalesGoogleMap({
   showRouteToSelected = true,
   heightClass = 'h-[340px] md:h-[400px]',
 }: SalesGoogleMapProps) {
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '';
+  const mapsConfig = resolveMapsRuntimeConfig("web", {
+    NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
+    NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID: process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID,
+    GOOGLE_MAPS_LANGUAGE: process.env.GOOGLE_MAPS_LANGUAGE,
+    GOOGLE_MAPS_REGION: process.env.GOOGLE_MAPS_REGION,
+  });
+  const apiKey = mapsConfig.apiKey || '';
   const [routeSummary, setRouteSummary] = useState<{
     distanceKm: string;
     durationMins: string;
@@ -185,7 +192,7 @@ export function SalesGoogleMap({
     selectedOutlet?.id ?? null
   );
 
-  if (!apiKey) {
+  if (!mapsConfig.enabled || !apiKey) {
     return (
       <div
         className={`w-full ${heightClass} rounded-2xl border border-[var(--color-border)] bg-[#E5F4F8] dark:bg-[#111C2D] p-6 flex flex-col items-center justify-center text-center`}
@@ -213,9 +220,9 @@ export function SalesGoogleMap({
       <div
         className={`relative w-full ${heightClass} overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-muted)]`}
       >
-        <APIProvider apiKey={apiKey} language="id" region="ID">
+        <APIProvider apiKey={apiKey} language={mapsConfig.language} region={mapsConfig.region}>
           <GoogleMap
-            mapId="DEMO_MAP_ID"
+            mapId={mapsConfig.mapId}
             defaultZoom={13}
             defaultCenter={currentPos}
             gestureHandling="greedy"
