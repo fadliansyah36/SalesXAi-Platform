@@ -1,0 +1,4 @@
+begin;
+alter table public.analytics_scheduled_jobs
+ validate constraint analytics_scheduled_jobs_attempt_bounds;
+commit;
