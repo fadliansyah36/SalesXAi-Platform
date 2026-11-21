@@ -52,7 +52,7 @@ class SmartRewardService:
     join public.organization_memberships m on m.id=ura.membership_id where m.organization_id=$1 and m.user_id=$2
      and m.status='active' and ura.revoked_at is null and ura.starts_at<=now() and (ura.expires_at is null or ura.expires_at>now())""",org,actor)
    role_keys={x["key"] for x in role_rows}
-   account=await db.fetchrow("select id from public.reward_accounts where organization_id=$1 and participant_user_id=$2",org,actor)
+   account=await db.fetchrow("select id from public.reward_accounts where organization_id=$1 and participant_user_id=$2",org,actor) if member else None
    balance=0
    if account:
     _,balance=await self._account(db,org,actor)
