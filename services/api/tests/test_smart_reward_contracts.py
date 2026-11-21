@@ -12,6 +12,7 @@ from app.schemas.smart_reward import (
     RewardPageResponse,
     RewardProgramResponse,
     RewardProgramWrite,
+    RewardProgressResponse,
     RewardRedemptionWrite,
     RewardReportResponse,
     RewardRuleWrite,
@@ -92,6 +93,29 @@ class SmartRewardSchemaTests(unittest.TestCase):
         )
         self.assertEqual(page.total, 0)
 
+    def test_server_progress_response_carries_metric_and_period_progress(self):
+        progress = RewardProgressResponse(
+            organization_id=uuid4(),
+            participant_user_id=uuid4(),
+            items=[{
+                "program_id": uuid4(),
+                "program_name": "Sales Incentive",
+                "rule_id": uuid4(),
+                "rule_name": "Completed visits",
+                "event_key": "visit.completed",
+                "period_days": 30,
+                "points_earned": 120,
+                "points_limit": 500,
+                "points_remaining": 380,
+                "metric_achieved": 6,
+                "target_metric": 10,
+                "progress_percent": 60,
+                "requires_approval": False,
+            }],
+        )
+        self.assertEqual(progress.items[0].points_remaining, 380)
+        self.assertEqual(progress.items[0].progress_percent, 60)
+
     def test_company_and_platform_report_schemas_include_lifecycle_metrics(self):
         report = RewardReportResponse(
             earned_points=100,
@@ -160,6 +184,9 @@ class SmartRewardRepositoryContractTests(unittest.TestCase):
         self.assertIn("for update", self.approval.lower())
 
     def test_source_ownership_and_program_audience_are_server_checked(self):
+        self.assertIn("async def progress", self.service)
+        self.assertIn("metric_achieved", self.service)
+        self.assertIn("smartreward.progress.read", self.router)
         self.assertIn("reward_source_owner_mismatch", self.service)
         self.assertIn("owner!=user", self.service)
         self.assertIn("eligible_roles", self.service)
