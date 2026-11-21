@@ -377,3 +377,5 @@ export interface RewardCustomerSegment {id:UUID;organization_id:UUID;code:string
 export interface RewardCustomerSegmentWrite {code:string;name:string;description?:string|null;status:"draft"|"active"|"paused"|"archived";membership_mode:"manual"|"rule_based"|"hybrid";criteria:RewardCustomerSegmentCriteria;starts_at?:ISODateTime|null;ends_at?:ISODateTime|null;}
 export interface RewardCustomerSegmentMember {id:UUID;organization_id:UUID;segment_id:UUID;participant_user_id:UUID;membership_source:"manual"|"rule"|"import";status:"active"|"inactive"|"removed";matched_criteria:Record<string,unknown>;joined_at:ISODateTime;expires_at:ISODateTime|null;updated_at:ISODateTime;}
 export interface RewardCustomerSegmentMemberWrite {participant_user_id:UUID;expires_at?:ISODateTime|null;}
+
+export interface RewardCustomerSegmentReport {active_members:number;inactive_members:number;removed_members:number;ledger_entries:number;earned_points:number;redeemed_points:number;expired_points:number;adjusted_points:number;}
