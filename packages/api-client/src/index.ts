@@ -781,7 +781,7 @@ export class SalesXApiClient {
   }
 }
 
-export type {RewardProgram,RewardRule,RewardCatalogItem,RewardLedgerEntry,RewardBalance,RewardRedemption,RewardPage,RewardApprovalRequest,RewardApprovalWrite,RewardApprovalDecision,SmartRewardRealtimeEvent} from "@salesx-ai/api-contracts";
+export type {RewardProgram,RewardRule,RewardCatalogItem,RewardLedgerEntry,RewardBalance,RewardRedemption,RewardPage,RewardApprovalRequest,RewardApprovalWrite,RewardApprovalDecision,RewardApprovalHistory,SmartRewardRealtimeEvent} from "@salesx-ai/api-contracts";
 export function createSmartRewardApi(client:SalesXApiClient,organizationId:string){
  const base="/api/v1/organizations/"+encodeURIComponent(organizationId)+"/smart-reward";
  return {
