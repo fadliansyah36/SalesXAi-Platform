@@ -1,4 +1,5 @@
 'use client';
+import { getSalesXPortalUrlForPath } from '@/components/auth/portalUrls';
 
 import React, { useState } from 'react';
 import Link from 'next/link';
@@ -518,7 +519,7 @@ export function LandingPage() {
       {/* Top Navigation Bar — Strict 3-Zone Contract */}
       <header className="sticky top-0 z-40 border-b border-[var(--color-border)] bg-[var(--color-surface)]/95 backdrop-blur-md">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 sm:gap-8 px-4 sm:px-6 lg:px-8">
-          <Link href="/" className="shrink-0 min-w-0">
+          <Link href={getSalesXPortalUrlForPath("/")} className="shrink-0 min-w-0">
             <BrandLogo />
           </Link>
 
@@ -575,7 +576,7 @@ export function LandingPage() {
               )}
             </button>
             <Link
-              href="/portal"
+              href={getSalesXPortalUrlForPath("/portal")}
               className="hidden sm:inline-flex items-center gap-2 rounded-lg bg-[#348CB2] px-4 py-2 text-sm font-semibold text-white hover:bg-[#236D91] transition-colors whitespace-nowrap shrink-0"
             >
               <span>Masuk Portal</span>
@@ -645,7 +646,7 @@ export function LandingPage() {
             </div>
             <div className="flex flex-col gap-2.5 pt-3 border-t border-[var(--color-border)]">
               <Link
-                href="/portal"
+                href={getSalesXPortalUrlForPath("/portal")}
                 onClick={() => setMobileMenuOpen(false)}
                 className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-[#348CB2] py-3 text-sm font-bold text-white hover:bg-[#236D91] transition-colors"
               >
@@ -716,7 +717,7 @@ export function LandingPage() {
                   <span>Jadwalkan Demo</span>
                 </a>
                 <Link
-                  href="/portal"
+                  href={getSalesXPortalUrlForPath("/portal")}
                   className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-[#ADD8E6] bg-[#E5F4F8] dark:bg-[#19394B] dark:border-[#348CB2] px-5 py-3.5 text-sm font-semibold text-[#194F70] dark:text-[#87CEEB] hover:bg-[#ADD8E6]/40 transition-colors text-center sm:whitespace-nowrap"
                 >
                   <span>Masuk ke Portal</span>
@@ -1606,7 +1607,7 @@ export function LandingPage() {
                 </div>
               </div>
               <Link
-                href="/portal"
+                href={getSalesXPortalUrlForPath("/portal")}
                 className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-[#F97316] hover:bg-[#EA580C] px-5 py-3 text-sm font-bold text-white transition-colors text-center shrink-0"
               >
                 <span>Buka Sales Portal Sekarang</span>
@@ -2025,22 +2026,22 @@ export function LandingPage() {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-5 text-xs font-medium text-[var(--color-text-secondary)]">
-            <Link href="/distributor" className="hover:text-[#348CB2]">
+            <Link href={getSalesXPortalUrlForPath("/distributor")} className="hover:text-[#348CB2]">
               Distributor Portal
             </Link>
-            <Link href="/principal" className="hover:text-[#348CB2]">
+            <Link href={getSalesXPortalUrlForPath("/principal")} className="hover:text-[#348CB2]">
               Principal Portal
             </Link>
-            <Link href="/supervisor" className="hover:text-[#348CB2]">
+            <Link href={getSalesXPortalUrlForPath("/supervisor")} className="hover:text-[#348CB2]">
               Supervisor Portal
             </Link>
-            <Link href="/company" className="hover:text-[#348CB2]">
+            <Link href={getSalesXPortalUrlForPath("/company")} className="hover:text-[#348CB2]">
               Company Portal
             </Link>
-            <Link href="/portal" className="hover:text-[#348CB2]">
+            <Link href={getSalesXPortalUrlForPath("/portal")} className="hover:text-[#348CB2]">
               Sales Portal
             </Link>
-            <Link href="/customer" className="hover:text-[#348CB2]">
+            <Link href={getSalesXPortalUrlForPath("/customer")} className="hover:text-[#348CB2]">
               Customer Portal
             </Link>
             <a href="#produk" className="hover:text-[#348CB2]">
@@ -2100,7 +2101,7 @@ export function LandingPage() {
                 Tutup
               </button>
               <Link
-                href="/portal"
+                href={getSalesXPortalUrlForPath("/portal")}
                 className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#348CB2] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#236D91]"
               >
                 <span>Buka di Sales Portal</span>
@@ -2141,7 +2142,7 @@ export function LandingPage() {
               Selesai
             </button>
             <Link
-              href="/portal"
+              href={getSalesXPortalUrlForPath("/portal")}
               className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#348CB2] px-4 py-2.5 text-sm font-semibold text-white"
             >
               <span>Masuk ke Sales Portal</span>
