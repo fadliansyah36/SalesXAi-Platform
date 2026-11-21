@@ -75,11 +75,23 @@ function callbackNextPath(request: NextRequest, origin: string): string | null {
     const source = new URL(referer);
     if (source.origin !== origin) return null;
     const pathname = source.pathname;
-    const prefixes = ["/sales", "/customer", "/company", "/distributor", "/principal", "/supervisor", "/super-admin", "/admin"];
+    const aliases:Array<[string,string]>=[
+      ["/sales/portal","/portal"],
+      ["/sales","/portal"],
+      ["/distributor/portal","/distributor"],
+      ["/principal/portal","/principal"],
+      ["/supervisor/portal","/supervisor"],
+      ["/admin/portal","/super-admin"],
+      ["/admin","/super-admin"],
+    ];
+    for(const [legacy,canonical] of aliases){
+      if(pathname===legacy||pathname.startsWith(legacy+"/"))return canonical+pathname.slice(legacy.length);
+    }
+    const prefixes = ["/customer", "/company", "/distributor", "/principal", "/supervisor", "/super-admin"];
     const portalPrefix = prefixes.find((prefix) => pathname === prefix || pathname.startsWith(prefix + "/"));
-    if (portalPrefix) return portalPrefix;
+    if (portalPrefix) return pathname;
     if (pathname === "/") return "/";
-    if (pathname === "/portal" || pathname.startsWith("/portal/")) return "/portal";
+    if (pathname === "/portal" || pathname.startsWith("/portal/")) return pathname;
     return "/";
   } catch {
     return null;
