@@ -482,9 +482,24 @@ export interface AnalyticsDashboardResponse {
 }
 export interface AnalyticsReportRunCreate {
   report_key:string; period_start:string; period_end:string; period_grain:AnalyticsPeriodGrain;
-  scope_type:"tenant"; scope_id?:null; idempotency_key:string; parameters?:Record<string,unknown>;
+  scope_type:AnalyticsScopeType; scope_id?:UUID|null; idempotency_key:string; parameters?:Record<string,unknown>;
 }
 export interface AnalyticsReportRun {
   id:UUID; report_key:string; status:"queued"|"running"|"completed"|"failed"|"cancelled";
   period_start:string; period_end:string; period_grain:AnalyticsPeriodGrain; requested_at:ISODateTime;
+}
+
+export interface AnalyticsReportExportResponse extends AnalyticsReportRun {
+  export_id:UUID;
+  export_status:"queued"|"running"|"completed"|"failed"|"cancelled";
+}
+export interface AnalyticsReportDownloadResponse {
+  report_run_id:UUID;
+  download_url:string;
+  expires_in_seconds:60;
+}
+export interface AnalyticsScheduledJob {
+  id:UUID; job_key:string; job_type:"refresh_daily"|"refresh_weekly"|"refresh_monthly"|"export_report";
+  schedule_kind:"interval"|"daily"|"weekly"|"monthly"; timezone:string; next_run_at:ISODateTime;
+  enabled:boolean; last_run_at:ISODateTime|null; last_status:"completed"|"failed"|"skipped"|null;
 }
