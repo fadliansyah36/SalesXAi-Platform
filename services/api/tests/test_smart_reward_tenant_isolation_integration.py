@@ -22,7 +22,7 @@ from starlette.requests import Request
 from app.errors import APIError
 from app.routers import smart_reward
 from app.schemas.smart_reward import RewardProgramWrite, RewardRedemptionWrite
-from app.security.dependencies import Principal, get_current_principal, require_permission
+from app.security.dependencies import get_current_principal, require_permission
 
 
 class _FixtureJWTVerifier:
