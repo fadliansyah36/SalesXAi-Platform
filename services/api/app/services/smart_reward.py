@@ -61,6 +61,62 @@ class SmartRewardService:
   a,b=await self._account(db,org,user)
   expiry=await db.fetchrow("select min(expires_at) next_expiration_at,coalesce(sum(points_remaining) filter(where expires_at<=now()+interval '30 days'),0)::bigint expiring_points_30d from public.reward_point_lots where organization_id=$1 and account_id=$2 and points_remaining>0",org,a["id"])
   return {"account_id":str(a["id"]),"organization_id":str(org),"participant_user_id":str(user),"points_balance":b,"next_expiration_at":expiry["next_expiration_at"],"expiring_points_30d":int(expiry["expiring_points_30d"])}
+ async def progress(self,db:SmartRewardRepository,org,user):
+  async with db.transaction():
+   await self._account(db,org,user)
+   membership=await db.fetchrow("select branch_id from public.organization_memberships where organization_id=$1 and user_id=$2 and status='active'",org,user)
+   if not membership: raise APIError(403,"reward_participant_not_member","Active organization membership is required.")
+   role_rows=await db.fetch("""select r.key from public.user_role_assignments ura
+    join public.roles r on r.id=ura.role_id join public.organization_memberships m on m.id=ura.membership_id
+    where m.organization_id=$1 and m.user_id=$2 and m.status='active' and ura.revoked_at is null
+     and ura.starts_at<=now() and (ura.expires_at is null or ura.expires_at>now())""",org,user)
+   role_keys={x["key"] for x in role_rows}
+   rules=await db.fetch("""select p.id program_id,p.name program_name,p.audience,r.id rule_id,r.name rule_name,
+    r.event_key,r.rule_config,r.max_points,r.requires_approval
+    from public.reward_programs p join public.reward_incentive_rules r
+     on r.organization_id=p.organization_id and r.program_id=p.id
+    where p.organization_id=$1 and p.status='active' and p.starts_at<=now() and p.ends_at>now()
+     and r.status='active' order by p.name,r.priority,r.name""",org)
+   items=[]
+   for rule in rules:
+    audience=rule["audience"] or {};cfg=rule["rule_config"] or {}
+    allowed_roles=set(audience.get("roles",[]))|set(cfg.get("eligible_roles",[]))
+    allowed_users=set(audience.get("user_ids",[]))
+    allowed_branches=set(audience.get("branch_ids",[]))|set(cfg.get("eligible_branch_ids",[]))
+    if allowed_roles and not role_keys.intersection(allowed_roles): continue
+    if allowed_users and str(user) not in allowed_users: continue
+    if allowed_branches and (membership["branch_id"] is None or str(membership["branch_id"]) not in allowed_branches): continue
+    period_days=max(1,min(int(cfg.get("period_days",30)),366))
+    totals=await db.fetchrow("""select
+     coalesce(sum(case when l.entry_type='earn' then l.points_delta
+      when l.entry_type='reversal' and original.metadata->>'rule_id'=$3 then l.points_delta else 0 end),0)::bigint points_earned,
+     coalesce(sum(case when l.entry_type='earn' and l.metadata->>'rule_id'=$3
+       then coalesce(nullif(l.metadata->>'metric','')::numeric,0)
+      when l.entry_type='reversal' and original.metadata->>'rule_id'=$3
+       then -coalesce(nullif(original.metadata->>'metric','')::numeric,0) else 0 end),0) metric_achieved
+     from public.reward_points_ledger l left join public.reward_points_ledger original on original.id=l.reversal_of
+     where l.organization_id=$1 and l.participant_user_id=$2
+      and l.occurred_at>=now()-make_interval(days=>$4)
+      and (l.metadata->>'rule_id'=$3 or original.metadata->>'rule_id'=$3)""",org,user,str(rule["rule_id"]),period_days)
+    points=int(totals["points_earned"] or 0);metric=Decimal(str(totals["metric_achieved"] or 0))
+    points_limit=cfg.get("max_per_user_per_period")
+    target_metric=cfg.get("minimum_metric",cfg.get("target_metric"))
+    progress=None
+    if target_metric is not None and Decimal(str(target_metric))>0:
+     progress=min(Decimal(100),metric/Decimal(str(target_metric))*Decimal(100))
+    elif points_limit is not None and int(points_limit)>0:
+     progress=min(Decimal(100),Decimal(points)/Decimal(int(points_limit))*Decimal(100))
+    items.append({
+     "program_id":str(rule["program_id"]),"program_name":rule["program_name"],
+     "rule_id":str(rule["rule_id"]),"rule_name":rule["rule_name"],"event_key":rule["event_key"],
+     "period_days":period_days,"points_earned":points,
+     "points_limit":int(points_limit) if points_limit is not None else None,
+     "points_remaining":max(0,int(points_limit)-points) if points_limit is not None else None,
+     "metric_achieved":metric,"target_metric":Decimal(str(target_metric)) if target_metric is not None else None,
+     "progress_percent":progress,"requires_approval":rule["requires_approval"]
+    })
+   return {"organization_id":str(org),"participant_user_id":str(user),"items":items}
+
  async def ledger(self,db:SmartRewardRepository,org,user,page,size):
   a=await db.fetchrow("select id from public.reward_accounts where organization_id=$1 and participant_user_id=$2",org,user)
   if not a:return {"items":[],"page":page,"page_size":size,"total":0}
