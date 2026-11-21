@@ -37,6 +37,16 @@ async function retryRows(db:SQLiteDatabase,rows:QueuedPoint[]){
   await db.runAsync("UPDATE location_outbox SET attempts=?,next_attempt_at=?,sync_state='retrying' WHERE id=?",attempts,Date.now()+delay,row.id);
  }
 }
+function isPermanentLocationSyncError(error:unknown){
+ const status=typeof error==="object"&&error!==null&&"status" in error?Number((error as {status?:unknown}).status):0;
+ return status>=400&&status<500&&![408,425,429].includes(status);
+}
+async function blockRows(db:SQLiteDatabase,rows:QueuedPoint[]){
+ for(const row of rows)await db.runAsync(
+  "UPDATE location_outbox SET attempts=attempts+1,next_attempt_at=0,sync_state='blocked' WHERE id=?",
+  row.id
+ );
+}
 async function pruneOutbox(db:SQLite.SQLiteDatabase){
  await db.runAsync("DELETE FROM location_outbox WHERE sync_state='synced' AND created_at<?",new Date(Date.now()-7*86400000).toISOString());
 }
@@ -71,10 +81,10 @@ async function flushBackgroundOutbox(){
    method:"POST",headers:{"Authorization":"Bearer "+token,"Content-Type":"application/json","X-Organization-ID":orgId,"X-Device-ID":deviceId},
    body:JSON.stringify({points:rows.map(row=>JSON.parse(row.payload))})
   });
-  if(!response.ok)throw new Error("Location sync returned HTTP "+response.status);
+  if(!response.ok){const failure=Object.assign(new Error("Location sync returned HTTP "+response.status),{status:response.status});throw failure;}
   for(const row of rows)await db.runAsync("UPDATE location_outbox SET sync_state='synced',next_attempt_at=0 WHERE id=?",row.id);
   await pruneOutbox(db);
- }catch{await retryRows(db,rows);}
+ }catch(error){if(isPermanentLocationSyncError(error))await blockRows(db,rows);else await retryRows(db,rows);}
 }
 export async function flushLocationOutbox(api:SalesXApiClient,organizationId:string,deviceId:string){
  const sessionId=await SecureStore.getItemAsync(SESSION_KEY),actorId=await SecureStore.getItemAsync(ACTOR_KEY);
@@ -87,7 +97,7 @@ export async function flushLocationOutbox(api:SalesXApiClient,organizationId:str
   await createLocationApi(api,organizationId).ingest(sessionId,deviceId,{points:rows.map(row=>JSON.parse(row.payload))});
   for(const row of rows)await db.runAsync("UPDATE location_outbox SET sync_state='synced',next_attempt_at=0 WHERE id=?",row.id);
   await pruneOutbox(db);
- }catch{await retryRows(db,rows);}
+ }catch(error){if(isPermanentLocationSyncError(error))await blockRows(db,rows);else await retryRows(db,rows);}
 }
 TaskManager.defineTask(LOCATION_TASK_NAME,async({data,error})=>{
  if(error)throw error;
