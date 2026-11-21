@@ -1,5 +1,7 @@
 # SalesX-Ai Railway container builds
 
+**Railway configuration:** the existing `salesx-website`, `salesx-customer`, and `salesx-company` services are configured to use the Dockerfile builder with the paths below. Their build context remains the monorepo root; no additional service is created.
+
 All three Dockerfiles are built with the **repository root as the Docker build context**. Do not set a portal subdirectory as the Railway Root Directory: the applications consume the shared Bun lockfile, workspace packages, canonical design tokens and root App Router presentation source.
 
 | Existing Railway service | Dockerfile path | Runtime |
