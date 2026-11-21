@@ -29,6 +29,7 @@ class SmartOrderRepositoryContractTests(unittest.TestCase):
         self.assertIn("invalid_product_variant", self.source)
         self.assertIn("id=any($3::uuid[])", self.source)
         self.assertIn("archived_product_variant", self.source)
+        self.assertIn("v.status<>'archived'", self.source)
 
     def test_fulfillment_allocations_are_item_and_warehouse_scoped(self):
         self.assertIn("order_item_fulfillment_allocations", self.source)
