@@ -135,7 +135,7 @@ async function readiness() {
     const jsAsset = firstStaticAsset(app, ".js");
     const cssAsset = firstStaticAsset(app, ".css");
     const [rootStatus, deepLinkStatus, jsStatus, cssStatus, manifestStatus, serviceWorkerStatus] = await Promise.all([
-      requestStatus(app, prefix + "/"),
+      requestStatus(app, prefix || "/"),
       requestStatus(app, prefix + "/portal"),
       jsAsset ? requestStatus(app, prefix + "/_next/static/" + jsAsset) : Promise.resolve(0),
       cssAsset ? requestStatus(app, prefix + "/_next/static/" + cssAsset) : Promise.resolve(0),
