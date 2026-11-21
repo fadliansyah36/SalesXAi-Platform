@@ -1081,6 +1081,7 @@ API_ACTION_MATRIX: tuple[ApiActionContract, ...] = (
     ApiActionContract("location.events.read","GET","/api/v1/organizations/{organization_id}/location/events","location","events_read","location_event","tenant_permission:location.live.read","location.live.read","tenant","tenant_permission_and_profile_scope"),
     ApiActionContract("maps.config.read","GET","/api/v1/maps/config","maps","config_read","maps_config","tenant_permission:location.history.read","location.history.read","tenant","tenant_permission_and_tenant_match"),
     ApiActionContract("maps.routes.compute","POST","/api/v1/organizations/{organization_id}/maps/routes/compute","maps","routes_compute","map_route","tenant_permission:location.history.read","location.history.read","tenant","tenant_permission_and_tenant_match"),
+    ApiActionContract("maps.places.search","POST","/api/v1/maps/places/search","maps","places_search","map_places","tenant_permission:location.history.read","location.history.read","tenant","tenant_permission_and_tenant_match"),
 )
 
 
