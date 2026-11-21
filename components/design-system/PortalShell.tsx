@@ -139,6 +139,7 @@ export function PortalShell<T extends string>({
             </div>
           ))}
           {auth.canPerformApiAction("smartorder.catalog.products.read") && <Link href={currentPortalPath + "/smart-order"} className="mt-3 flex items-center gap-2.5 rounded-xl border border-[var(--color-border)] px-3 py-2.5 text-xs font-semibold text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-muted)]"><ShoppingCart className="h-4 w-4"/>SmartOrder</Link>}
+          {auth.canPerformApiAction("smartreward.catalog.read") && <Link href={currentPortalPath + "/smart-reward"} className="mt-2 flex items-center gap-2.5 rounded-xl border border-[var(--color-border)] px-3 py-2.5 text-xs font-semibold text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-muted)]">SmartReward</Link>}
         </div>
 
         {/* Cross-portal switcher & Logout */}
