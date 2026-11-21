@@ -14,6 +14,7 @@ import { NativeInline, NativePageShell, NativeStack, NativeSurface, NativeText, 
 import { useMobileSalesAuth } from "./src/auth/useMobileSalesAuth";
 import { SmartTeamHome } from "./src/smart-team/SmartTeamHome";
 import { SmartOrderHome } from "./src/smart-order/SmartOrderHome";
+import { SmartRewardHome } from "./src/smart-reward/SmartRewardHome";
 
 type AuthState=ReturnType<typeof useMobileSalesAuth>;
 type AuthMode="login"|"signup"|"recovery"|"otp";
@@ -172,6 +173,7 @@ function SalesHome({auth}:{auth:AuthState}){
        {auth.activeOrganizationId&&<>
          <SmartTeamHome auth={auth} salesProfileId={typeof assignmentContext?.sales_profile?.id==="string"?String(assignmentContext.sales_profile.id):null}/>
        <SmartOrderHome auth={auth}/>
+       <SmartRewardHome auth={auth}/>
         </>}
 
        {canReadAssignmentContext&&assignmentContext&&<NativeStack gap="2">
