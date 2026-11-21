@@ -1,0 +1,50 @@
+name: Phase 06 Railway Container and CSS Runtime Validation
+on:
+  push:
+    branches: [main]
+    paths:
+      - "infrastructure/docker/**"
+      - "infrastructure/scripts/portal-gateway.mjs"
+      - "infrastructure/scripts/prepare-next-standalone.mjs"
+      - "infrastructure/scripts/verify-portal-static-runtime.mjs"
+      - "apps/website/**"
+      - "apps/sales-portal/**"
+      - "apps/customer-portal/**"
+      - "apps/company-portal/**"
+      - "apps/distributor-portal/**"
+      - "apps/principal-portal/**"
+      - "apps/supervisor-portal/**"
+      - "apps/super-admin/**"
+      - "app/**"
+      - "components/**"
+      - "packages/**"
+      - "bun.lock"
+      - "package.json"
+      - "postcss.config.mjs"
+      - ".dockerignore"
+      - ".github/workflows/phase-06-railway-container-builds.yml"
+  workflow_dispatch:
+concurrency:
+  group: phase-06-railway-container-validation-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  container:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [website, customer, company]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build production container from monorepo root
+        run: docker build --pull -f infrastructure/docker/Dockerfile.${{ matrix.service }} -t salesx-${{ matrix.service }}:ci .
+      - name: Start production container
+        run: docker run -d --name salesx-${{ matrix.service }} -e PORT=3000 -p 127.0.0.1:3000:3000 salesx-${{ matrix.service }}:ci
+      - name: Verify portal HTML and CSS delivery through production runtime
+        run: docker exec salesx-${{ matrix.service }} node infrastructure/scripts/verify-portal-static-runtime.mjs ${{ matrix.service }}
+      - name: Print container logs on failure
+        if: failure()
+        run: docker logs salesx-${{ matrix.service }}
+      - name: Remove container
+        if: always()
+        run: docker rm -f salesx-${{ matrix.service }} || true
