@@ -72,6 +72,7 @@ async def _refresh(connection:asyncpg.Connection,organization_id,lookback:int)->
     end=await connection.fetchval("select (now() at time zone $1)::date",tz)
     start=end-timedelta(days=lookback-1)
     async with connection.transaction():
+        await connection.execute("select set_config('TimeZone',$1,true)",tz)
         await connection.fetchval("select public.analytics_refresh_daily_metrics($1,$2,$3)",organization_id,start,end)
         await connection.fetchval("select public.analytics_refresh_scoped_daily_metrics($1,$2,$3)",organization_id,start,end)
         await connection.fetchval("select public.analytics_refresh_period_rollups($1,$2,$3)",organization_id,start,end)
