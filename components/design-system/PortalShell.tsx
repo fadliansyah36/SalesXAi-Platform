@@ -94,6 +94,7 @@ export function PortalShell<T extends string>({
   const auth = useSalesXAuth();
   const availablePortals = PORTAL_SWITCHER.filter(item => auth.canAccessPortal(PORTAL_KEY_BY_PATH[item.href]));
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [handoffBusy, setHandoffBusy] = useState<string | null>(null);
 
   const currentTabLabel =
     navGroups.flatMap((g) => g.items).find((i) => i.id === activeTab)?.label ||
@@ -149,17 +150,27 @@ export function PortalShell<T extends string>({
           </p>
           <div className="grid grid-cols-3 gap-1.5 text-[11px] font-semibold">
             {availablePortals.map((item) => (
-              <Link
+              <button
                 key={item.href}
-                href={item.href}
-                className={`rounded-lg border py-1.5 text-center transition-colors ${
+                type="button"
+                disabled={handoffBusy!==null}
+                onClick={async()=>{
+                  setHandoffBusy(item.href);
+                  try{
+                    const destination=await auth.createPortalHandoff(PORTAL_KEY_BY_PATH[item.href]);
+                    window.location.assign(destination);
+                  }catch{
+                    setHandoffBusy(null);
+                  }
+                }}
+                className={`rounded-lg border py-1.5 text-center transition-colors disabled:opacity-50 ${
                   item.href === currentPortalPath
                     ? 'border-[#348CB2] bg-[#E5F4F8] dark:bg-[#19394B] text-[#123A54] dark:text-[#87CEEB]'
                     : 'border-[var(--color-border)] hover:bg-[var(--color-surface-muted)] text-[var(--color-text-secondary)]'
                 }`}
               >
-                {item.label}
-              </Link>
+                {handoffBusy===item.href?"Mengalihkan…":item.label}
+              </button>
             ))}
           </div>
           <button
