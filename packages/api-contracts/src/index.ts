@@ -405,3 +405,16 @@ export interface RewardCustomerSegmentMember {id:UUID;organization_id:UUID;segme
 export interface RewardCustomerSegmentMemberWrite {participant_user_id:UUID;expires_at?:ISODateTime|null;}
 
 export interface RewardCustomerSegmentReport {active_members:number;inactive_members:number;removed_members:number;ledger_entries:number;earned_points:number;redeemed_points:number;expired_points:number;adjusted_points:number;}
+
+export interface LocationSessionStart {device_id:string;consent_policy_version:string;shift_id?:UUID|null;}
+export interface LocationSessionAction {action:"pause"|"resume"|"stop"|"revoke";reason?:string|null;}
+export interface LocationSession {id:UUID;organization_id:UUID;sales_profile_id:UUID;user_id:UUID;shift_id:UUID|null;device_id:string;consented_at:ISODateTime;consent_policy_version:string;started_at:ISODateTime;ended_at:ISODateTime|null;status:"active"|"paused"|"completed"|"revoked";}
+export interface LocationPointWrite {client_point_id:string;recorded_at:ISODateTime;latitude:number;longitude:number;accuracy_m:number;altitude_m?:number|null;speed_mps?:number|null;heading_deg?:number|null;source:"gps"|"network"|"fused";metadata?:Record<string,unknown>;}
+export interface LocationPointBatch {points:LocationPointWrite[];}
+export interface LocationBatchResult {session_id:UUID;accepted:number;duplicates:number;received:number;}
+export interface LocationLatestPosition {organization_id:UUID;user_id:UUID;sales_profile_id:UUID;branch_id:UUID|null;team_id:UUID|null;territory_id:UUID|null;session_id:UUID;latitude:number;longitude:number;accuracy_m:number;source:"gps"|"network"|"fused";recorded_at:ISODateTime;received_at:ISODateTime;stale:boolean;}
+export interface LocationHistoryPoint {id:UUID;session_id:UUID;user_id:UUID;client_point_id:string;recorded_at:ISODateTime;received_at:ISODateTime;latitude:number;longitude:number;accuracy_m:number;altitude_m:number|null;speed_mps:number|null;heading_deg:number|null;source:"gps"|"network"|"fused";}
+export interface LocationHistoryPage {items:LocationHistoryPoint[];page:number;page_size:number;total:number;from_at:ISODateTime;to_at:ISODateTime;}
+export interface LocationRouteSummary {id:UUID;organization_id:UUID;session_id:UUID;sales_profile_id:UUID;user_id:UUID;route_date:string;started_at:ISODateTime;ended_at:ISODateTime;point_count:number;distance_m:number;route:unknown;computed_at:ISODateTime;}
+export interface LocationGeofence {id:UUID;organization_id:UUID;code:string;name:string;geofence_type:"outlet"|"territory"|"custom";outlet_id:UUID|null;territory_id:UUID|null;event_types:Array<"enter"|"exit"|"dwell">;dwell_seconds:number;accuracy_limit_m:number;status:"active"|"inactive"|"archived";created_at:ISODateTime;updated_at:ISODateTime;}
+export interface LocationGeofenceWrite {code:string;name:string;geofence_type:"outlet"|"territory"|"custom";outlet_id?:UUID|null;territory_id?:UUID|null;boundary_geojson:Record<string,unknown>;event_types:Array<"enter"|"exit"|"dwell">;dwell_seconds:number;accuracy_limit_m:number;}
