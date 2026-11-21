@@ -20,7 +20,7 @@ export function usePortalRouteGuard(portal:PortalKey){
   const target=destination?getSalesXPortalKeyForPath(destination):null;
   if(target&&targetMembership){
    auth.setActiveOrganization(targetMembership.membership.organization_id);
-   void auth.createPortalHandoff(target).then(url=>window.location.replace(url)).catch(()=>window.location.replace(getSalesXPortalUrlForPath(destination!)));
+   void auth.createPortalHandoff(target,targetMembership.membership.organization_id).then(url=>window.location.replace(url)).catch(()=>window.location.replace(getSalesXPortalUrlForPath(destination!)));
   }else window.location.replace(getSalesXPortalUrlForPath("/"));
  },[auth.status,auth.activeMembership,auth.context,auth.canAccessPortal,auth.createPortalHandoff,auth.setActiveOrganization,portal]);
 }
