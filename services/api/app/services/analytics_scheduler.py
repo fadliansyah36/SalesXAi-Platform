@@ -213,24 +213,35 @@ async def _export_iteration(connection:asyncpg.Connection,settings:Settings,work
 
 async def analytics_scheduler_loop(pool:asyncpg.Pool,settings:Settings)->None:
     worker_id=f"api-{uuid4()}"
-    async with pool.acquire() as connection:
-        locked=await connection.fetchval("select pg_try_advisory_lock($1)",LOCK_ID)
-        if not locked:
-            logger.info("analytics_scheduler_lock_owned_elsewhere")
-            return
-        logger.info("analytics_scheduler_started",extra={"worker_id":worker_id})
+    while True:
         try:
-            while True:
+            async with pool.acquire() as connection:
+                locked=await connection.fetchval("select pg_try_advisory_lock($1)",LOCK_ID)
+                if not locked:
+                    await asyncio.sleep(30)
+                    continue
+                logger.info("analytics_scheduler_started",extra={"worker_id":worker_id})
                 try:
-                    await _seed_schedules(connection)
-                    for job in await _claim_schedules(connection,worker_id):
+                    while True:
                         try:
-                            await _run_schedule(connection,job)
+                            await _seed_schedules(connection)
+                            for job in await _claim_schedules(connection,worker_id):
+                                try:
+                                    await _run_schedule(connection,job)
+                                except Exception:
+                                    logger.exception("analytics_schedule_failed",extra={"job_id":str(job["id"])})
+                            await _export_iteration(connection,settings,worker_id)
+                        except (asyncpg.PostgresConnectionError,asyncpg.InterfaceError):
+                            logger.exception("analytics_scheduler_connection_lost")
+                            break
                         except Exception:
-                            logger.exception("analytics_schedule_failed",extra={"job_id":str(job["id"])})
-                    await _export_iteration(connection,settings,worker_id)
-                except Exception:
-                    logger.exception("analytics_scheduler_iteration_failed")
-                await asyncio.sleep(30)
-        finally:
-            await connection.execute("select pg_advisory_unlock($1)",LOCK_ID)
+                            logger.exception("analytics_scheduler_iteration_failed")
+                        await asyncio.sleep(30)
+                finally:
+                    if not connection.is_closed():
+                        await connection.execute("select pg_advisory_unlock($1)",LOCK_ID)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("analytics_scheduler_reconnect_failed")
+        await asyncio.sleep(10)
