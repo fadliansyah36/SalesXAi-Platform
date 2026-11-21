@@ -72,21 +72,16 @@ export function PortalLoginView({ onCompleteLogin }: PortalLoginViewProps) {
     const context = await auth.apiClient?.getAuthContext();
     if (!context) throw new Error('Konteks akses portal tidak dapat dimuat dari FastAPI.');
     const memberships = context.memberships.filter((membership) => membership.status === 'active');
-    const salesMembership = memberships.find((membership) => membership.permissions.includes('portal:sales:access'));
-    if (salesMembership) {
-      auth.setActiveOrganization(salesMembership.organization_id);
-      return false;
-    }
     for (const membership of memberships) {
       const destination = getPreferredPortalPath([...context.platform_permissions, ...membership.permissions]);
-      if (destination) {
-        auth.setActiveOrganization(membership.organization_id);
-        const targetPortal=getSalesXPortalKeyForPath(destination);
-        if(!targetPortal)throw new Error('Portal tujuan tidak dikenali.');
-        const handoffUrl=await auth.createPortalHandoff(targetPortal,membership.organization_id);
-        window.location.replace(handoffUrl);
-        return true;
-      }
+      if (!destination) continue;
+      auth.setActiveOrganization(membership.organization_id);
+      const targetPortal = getSalesXPortalKeyForPath(destination);
+      if (!targetPortal) continue;
+      if (targetPortal === "sales") return false;
+      const handoffUrl = await auth.createPortalHandoff(targetPortal,membership.organization_id);
+      window.location.replace(handoffUrl);
+      return true;
     }
     throw new Error('Akun ini belum memiliki akses ke portal SalesX-Ai. Hubungi administrator organisasi.');
   };
