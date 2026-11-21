@@ -39,9 +39,11 @@ export function SmartRewardHome({auth}:{auth:Auth}){
   if(!client||!org||auth.status!=="authenticated"||!canRealtime)return;
   const url=process.env.EXPO_PUBLIC_SUPABASE_URL??"",key=process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY??"";
   const needsScopedStream=can("smartreward.redemptions.decide")||can("smartreward.approvals.decide")||can("smartreward.reports.read");
-  if(url&&key&&!needsScopedStream)return client.subscribeSmartRewardBroadcast(org,auth.context!.user.id,url,key,()=>void refresh(),()=>void refresh());
-  // Manager roles consume the server-authorized tenant/branch SSE stream so
-  // events for other participants in their permitted scope are not missed.
+  // Supabase private user-topic Broadcast stays disabled until the owner policy is applied and verified.
+  const privateBroadcastReady=process.env.EXPO_PUBLIC_SMARTREWARD_PRIVATE_BROADCAST_ENABLED==="true";
+  if(url&&key&&privateBroadcastReady&&!needsScopedStream)return client.subscribeSmartRewardBroadcast(org,auth.context!.user.id,url,key,()=>void refresh(),()=>void refresh());
+  // Default to the server-authorized tenant/branch/participant SSE stream until
+  // the owner-level Supabase private-channel policy is active and verified.
   return client.subscribeSmartRewardEvents(org,()=>void refresh(),()=>void refresh());
  },[client,org,auth.status,canRealtime,refresh]);
  const mutate=async(action:()=>Promise<unknown>,success:string):Promise<boolean>=>{
