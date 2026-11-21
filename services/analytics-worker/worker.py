@@ -169,36 +169,39 @@ async def seed_schedules(connection: asyncpg.Connection):
     )
 
 
-async def claim_due_schedules(connection: asyncpg.Connection, worker_id: str, limit: int = 20):
-    async with connection.transaction():
-        return await connection.fetch(
-            """with due as (
-                 select id,coalesce(retry_at,next_run_at) scheduled_for,(retry_at is not null) retrying
-                 from public.analytics_scheduled_jobs
-                 where enabled and coalesce(retry_at,next_run_at)<=now()
-                 order by coalesce(retry_at,next_run_at) for update skip locked limit $1
-               ), advanced as (
-                 update public.analytics_scheduled_jobs j
-                 set last_run_at=now(),updated_at=now(),
-                     attempt_count=case when due.retrying then j.attempt_count+1 else 1 end,
-                     retry_at=null,
-                     next_run_at=case when due.retrying then j.next_run_at else
-                       case j.schedule_kind
-                         when 'interval' then now()+make_interval(mins=>j.interval_minutes)
-                         when 'daily' then ((now() at time zone j.timezone)::date+1+j.local_time) at time zone j.timezone
-                         when 'weekly' then (((now() at time zone j.timezone)::date
-                           + ((j.day_of_week-extract(dow from (now() at time zone j.timezone)::date)::int+7)%7)
-                           + case when ((now() at time zone j.timezone)::date
-                             + ((j.day_of_week-extract(dow from (now() at time zone j.timezone)::date)::int+7)%7))
-                             <= (now() at time zone j.timezone)::date then 7 else 0 end+j.local_time) at time zone j.timezone
-                         when 'monthly' then (((date_trunc('month',now() at time zone j.timezone)::date
-                           + interval '1 month'+(j.day_of_month-1)*interval '1 day')::date+j.local_time) at time zone j.timezone)
-                       end
-                     end
-                 from due where j.id=due.id returning j.*,due.scheduled_for
-               ) select * from advanced""",
-            limit,
-        )
+async def claim_due_schedules(connection:asyncpg.Connection,worker_id: str, limit: int = 20):
+    return await connection.fetch(
+        """with due as (
+             select id,coalesce(retry_at,last_run_at,next_run_at) scheduled_for,
+                    (retry_at is not null or lease_expires_at is not null) retrying
+             from public.analytics_scheduled_jobs
+             where enabled
+               and (coalesce(retry_at,next_run_at)<=now() or lease_expires_at<now())
+               and (lease_owner is null or lease_expires_at<now())
+             order by coalesce(retry_at,last_run_at,next_run_at)
+             for update skip locked limit 20
+           ), advanced as (
+             update public.analytics_scheduled_jobs j
+             set last_run_at=now(),updated_at=now(),
+                 attempt_count=case when due.retrying then j.attempt_count+1 else 1 end,
+                 retry_at=null,lease_owner=$1,lease_expires_at=now()+interval '5 minutes',
+                 next_run_at=case when due.retrying then j.next_run_at else
+                   case j.schedule_kind
+                     when 'interval' then now()+make_interval(mins=>j.interval_minutes)
+                     when 'daily' then ((now() at time zone j.timezone)::date+1+j.local_time) at time zone j.timezone
+                     when 'weekly' then (((now() at time zone j.timezone)::date
+                       + ((j.day_of_week-extract(dow from (now() at time zone j.timezone)::date)::int+7)%7)
+                       + case when ((now() at time zone j.timezone)::date
+                         + ((j.day_of_week-extract(dow from (now() at time zone j.timezone)::date)::int+7)%7))
+                         <= (now() at time zone j.timezone)::date then 7 else 0 end+j.local_time) at time zone j.timezone
+                     when 'monthly' then (((date_trunc('month',now() at time zone j.timezone)::date
+                       + interval '1 month'+(j.day_of_month-1)*interval '1 day')::date+j.local_time) at time zone j.timezone)
+                   end
+                 end
+             from due where j.id=due.id returning j.*,due.scheduled_for
+           ) select * from advanced""",
+        worker_id,
+    )
 
 async def execute_schedule(connection: asyncpg.Connection, job: asyncpg.Record, worker_id: str):
     due_key = f"{job['id']}:{job['scheduled_for'].isoformat()}:{job['attempt_count']}"
@@ -226,7 +229,7 @@ async def execute_schedule(connection: asyncpg.Connection, job: asyncpg.Record, 
             inserted, json.dumps(metadata),
         )
         await connection.execute(
-            """update public.analytics_scheduled_jobs set last_status='completed',last_error=null,attempt_count=0,retry_at=null where id=$1""",
+            """update public.analytics_scheduled_jobs set last_status='completed',last_error=null,attempt_count=0,retry_at=null,lease_owner=null,lease_expires_at=null where id=$1""",
             job["id"],
         )
     except Exception as exc:
@@ -237,7 +240,7 @@ async def execute_schedule(connection: asyncpg.Connection, job: asyncpg.Record, 
         )
         await connection.execute(
             """update public.analytics_scheduled_jobs set last_status='failed',last_error=$2,
-               retry_at=case when attempt_count<max_attempts then now()+make_interval(secs=>least((power(2,attempt_count))::int,3600)) else null end where id=$1""",
+               retry_at=case when attempt_count<max_attempts then now()+make_interval(secs=>least((power(2,attempt_count))::int,3600)) else null end,lease_owner=null,lease_expires_at=null where id=$1""",
             job["id"], str(exc)[:1000],
         )
         raise
