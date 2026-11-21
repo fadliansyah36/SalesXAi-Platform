@@ -91,3 +91,19 @@
 4. Final Google Maps credential/billing activation (not required for code foundation readiness).
 
 **Phase 07 remains IN_PROGRESS.** Database lifecycle, API, portal build, Expo bundle and provider-neutral Maps foundation are implemented; owner authorization, physical-device evidence and production release remain open.
+
+
+## Latest integration and production checkpoint — 2026-11-21
+
+- The API/typed-client route replay integration includes GET /api/v1/organizations/{organization_id}/location/routes/{route_id}/replay, bounded time-window validation, tenant/profile scope checks, audit logging, and a time-scrubbable map replay control in the shared LocationWorkspace.
+- Geofence listing is scoped by active tenant/branch/territory/team assignments. The applied chronological-state migration keeps older offline points in history without rewinding live geofence state.
+- GitHub API/Expo workflow 44899483509 passed on code snapshot 27dc32b5984fac315a4027aecfe3ca3f8e3217d6; API static suite passed 164 tests and the Expo mobile build passed.
+- All four designated Railway services subsequently deployed successfully from branch main at source 27dc32b5984fac315a4027aecfe3ca3f8e3217d6. Production health checks verified API readiness and all eight portal groups' root/deep-link, JavaScript, CSS, manifest and service-worker responses as HTTP 200.
+- Google Maps remains provider-neutral and keyless: Web/Expo renderers, FastAPI config/route/Places adapters, feature flags and fallbacks are ready; Google map tiles, Routes and Places calls remain disabled until restricted credentials and billing are supplied.
+
+## Remaining Definition-of-Done gates
+
+1. Official owner-level application and authenticated tenant/branch/team/territory allow/deny validation for the Location private Realtime policy.
+2. Physical Expo device lifecycle evidence for background execution, OS suspension, permission revocation and offline resume/sync.
+
+**Phase 07 remains IN_PROGRESS.** The code, migrations, API, Expo build and portal integration are implemented; owner policy authorization and physical-device runtime evidence remain open.

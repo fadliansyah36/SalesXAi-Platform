@@ -59,3 +59,14 @@
 3. Only after those checks pass, apply the separate tenant Broadcast reactivation SQL and enable direct Native/Web private Broadcast subscriptions.
 
 **Phase 06 remains IN_PROGRESS.** The rollback-only ledger fixture and code-level guards do not substitute for the three remaining runtime gates.
+
+
+## Latest execution checkpoint — 2026-11-21
+
+- GitHub API workflow 44899483509 on source 27dc32b5984fac315a4027aecfe3ca3f8e3217d6 completed successfully.
+- Isolated Phase 06 database integration job passed **7/7**: two independent-connection concurrent redemption cases (same-key idempotency and distinct-key no-overdraw) plus five authenticated tenant-isolation cases covering membership, read, write, resource read and redemption mutation.
+- The same workflow's API static job passed **164 tests**, Python compileall and Ruff. The Expo mobile-sales-build job passed.
+- The live realtime.messages policy is still not the prepared participant/branch/resource-scoped policy. Direct SmartReward private Broadcast remains disabled; permission-checked FastAPI SSE remains the active fallback.
+- Owner-pending policy SQL remains unapplied because the live table owner is supabase_realtime_admin and the connected SQL principal cannot assume that role.
+
+**Current status remains IN_PROGRESS:** concurrency, ledger and authenticated cross-tenant validation pass; authenticated private Supabase Realtime allow/deny validation remains an external owner-level gate.

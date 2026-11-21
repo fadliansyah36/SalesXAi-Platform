@@ -1435,3 +1435,36 @@ This checkpoint supersedes earlier status notes above wherever their test/deploy
 **Production Release: IN_PROGRESS** — all four services must be confirmed on the final main SHA with healthy runtime and live UI assets.
 
 Next phase after Phase 07 closure: **Phase 08 — Analytics & KPI Aggregation**.
+
+
+---
+
+## Latest verified execution checkpoint — 2026-11-21
+
+**Implementation source snapshot:** 27dc32b5984fac315a4027aecfe3ca3f8e3217d6 on main.
+
+### CI and engineering evidence
+
+- API workflow 44899483509: SUCCESS. Phase 06 isolated database integration: 7/7 cases passed. API static suite: 164 tests passed; compileall and Ruff passed; Expo mobile-sales-build passed.
+- Independent portal build workflow 44899182990: SUCCESS for the eight portal apps on the immediately preceding code-equivalent snapshot 1cf969802c4043d0390ad203144e7c40c6293cab.
+- Railway production Docker builds on 27dc32b subsequently built all eight portal apps inside the four designated service boundaries.
+
+### Production release evidence
+
+| Service | Deployment | Source SHA | Status |
+|---|---|---|---|
+| salesx-api | 4137e021-a9b4-4353-a381-999329145086 | 27dc32b | SUCCESS |
+| salesx-website | 6180c517-d014-4623-876b-ed1cd80d8996 | 27dc32b | SUCCESS |
+| salesx-customer | 024c12cb-0f89-4949-8ab4-983c344a8f5f | 27dc32b | SUCCESS |
+| salesx-company | adadd312-f1a6-4f00-9406-6762fb1bb453 | 27dc32b | SUCCESS |
+
+Live API GET /readyz returned status=ready, database=connected, and source SHA 27dc32b. The three portal-group GET /api/health endpoints returned status=ok, api=ready; all eight portal apps reported root, deep link, JS, CSS, manifest and service worker HTTP 200. Public website, customer and company UI HTML also rendered successfully without a wireframe fallback. No real-user login/register was performed.
+
+### Current phase status
+
+- **Phase 06 — IN_PROGRESS:** concurrent redemption, ledger and authenticated cross-tenant validation pass. Direct private Supabase Realtime remains blocked on owner-level policy application and authenticated subscription authorization.
+- **Phase 07 — IN_PROGRESS:** database lifecycle, API, typed client, Expo bundle, route replay, geofence, Supervisor/Company map surfaces and portal builds are implemented. Owner-level Location Realtime policy and physical-device background lifecycle evidence remain open.
+- **Google Maps Foundation — READY FOR FINAL CREDENTIAL ACTIVATION:** provider abstraction, Web/Native components, config, typed contracts, FastAPI adapters and fallback are implemented. No API key or billing is configured.
+- **Production Release — COMPLETED for the verified 27dc32b source snapshot:** all four named Railway services report SUCCESS and live runtime/UI health checks passed.
+
+Next phase after Phase 07 closure: **Phase 08 — Analytics & KPI Aggregation**.

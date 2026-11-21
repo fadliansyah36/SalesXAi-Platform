@@ -67,3 +67,8 @@ The connected SQL principal cannot assume the owner of `realtime.messages` (`sup
 ## Ledger integrity rule
 
 The latest applied migration filename `20261121110006_p07_location_tracking_sessions_require_shift.sql` is aligned to the exact version returned by `supabase_migrations.schema_migrations`. The rollback-only Phase 07 database lifecycle fixture is documented at `supabase/tests/phase07_location_lifecycle.sql` and is not a migration. Do not add owner-pending SQL to the applied migration ledger or mark it applied before the project owner confirms execution.
+
+
+## Latest live reconciliation — 2026-11-21
+
+The connected Supabase project was re-queried after the final applied migration. Counts remain unchanged and aligned: **93 applied migrations**, latest 20261121110006, **19 Phase 06** migrations, **7 Phase 07** migrations, **80/80 public tables with RLS**, **0 Security Advisor lints**, and **0 unindexed foreign-key lints**. The owner-pending Realtime policy files remain intentionally outside the applied ledger.
