@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import os
 from typing import Literal
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -12,6 +11,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from app.errors import APIError
+from app.config import get_settings
 from app.security.dependencies import TenantContext, require_api_action
 
 router = APIRouter(tags=["maps"])
@@ -76,11 +76,12 @@ def _google_route(payload: MapRouteComputeRequest, api_key: str) -> dict:
 @router.get("/maps/config")
 async def maps_config(tenant: TenantContext = Depends(require_api_action("maps.config.read"))):
     del tenant
+    settings = get_settings()
     return {
-        "provider": "google" if os.getenv("MAPS_PROVIDER", "google").strip().lower() == "google" else "none",
-        "server_routes_enabled": bool(os.getenv("GOOGLE_MAPS_SERVER_API_KEY")),
-        "language": os.getenv("GOOGLE_MAPS_LANGUAGE", "id"),
-        "region": os.getenv("GOOGLE_MAPS_REGION", "ID"),
+        "provider": settings.maps_provider,
+        "server_routes_enabled": settings.google_maps_routes_enabled,
+        "language": settings.google_maps_language,
+        "region": settings.google_maps_region,
     }
 
 
@@ -92,7 +93,12 @@ async def compute_route(
 ):
     if tenant.organization_id != organization_id:
         raise APIError(403, "tenant_scope_mismatch", "Map route access is restricted to the active organization.")
-    api_key = os.getenv("GOOGLE_MAPS_SERVER_API_KEY", "").strip()
+    settings = get_settings()
+    api_key = (
+        settings.google_maps_server_api_key.get_secret_value()
+        if settings.google_maps_routes_enabled and settings.google_maps_server_api_key
+        else ""
+    )
     if not api_key:
         raise APIError(503, "maps_provider_not_configured", "Google Maps server route credentials are not configured.")
     return await asyncio.to_thread(_google_route, payload, api_key)
