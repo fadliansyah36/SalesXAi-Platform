@@ -90,8 +90,12 @@ export function LocationWorkspace(){
   </div>
   <div className="overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]">
    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--color-border)] px-4 py-3"><h2 className="font-semibold">Live map</h2><span className="text-xs text-[var(--color-text-secondary)]">Updated {updatedAt||"—"}</span></div>
-   {center?<GoogleMapsCanvas config={mapsConfig} center={center} markers={visibleMarkers} routes={visibleRoutes} polygons={mapPolygons} height={420} onMapEvent={handleMapEvent}/>
-  {mapMessage&&<p className="text-xs text-[var(--color-text-secondary)]" role="status">{mapMessage}</p>}:<div className="p-5"><p className="text-sm text-[var(--color-text-secondary)]">No authorized live location has been received yet. Location is collected only after a Sales user explicitly starts a consented tracking session.</p></div>}
+   {center?(
+    <>
+     <GoogleMapsCanvas config={mapsConfig} center={center} markers={visibleMarkers} routes={visibleRoutes} polygons={mapPolygons} height={420} onMapEvent={handleMapEvent}/>
+     {mapMessage&&<p className="px-4 py-2 text-xs text-[var(--color-text-secondary)]" role="status">{mapMessage}</p>}
+    </>
+   ):<div className="p-5"><p className="text-sm text-[var(--color-text-secondary)]">No authorized live location has been received yet. Location is collected only after a Sales user explicitly starts a consented tracking session.</p></div>}
    {live.length>0&&<div className="divide-y divide-[var(--color-border)]">{live.slice(0,20).map(item=><div key={item.user_id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm"><div><p className="font-medium">{item.user_id}</p><p className="text-xs text-[var(--color-text-secondary)]">{item.team_id?"Team "+item.team_id:"No team"} · Accuracy ±{Math.round(item.accuracy_m)} m</p></div><div className="text-right"><p className="font-mono text-xs tabular-nums">{item.latitude.toFixed(6)}, {item.longitude.toFixed(6)}</p><p className="text-xs text-[var(--color-text-secondary)]">{new Date(item.recorded_at).toLocaleString("id-ID")} · {item.stale?"Stale":"Current"}</p></div><a className="text-xs font-semibold text-[var(--color-primary)]" href={`https://www.google.com/maps/search/?api=1&query=${item.latitude},${item.longitude}`} target="_blank" rel="noreferrer">Open map</a></div>)}</div>}
   </div>
   {selectedReplay&&<div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 space-y-3">
