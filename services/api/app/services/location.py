@@ -147,6 +147,49 @@ class LocationService:
         return [dict(r) for r in rows]
 
 
+    async def geofences(self, db, org, tenant, actor):
+        self._tenant(org, tenant)
+        rows = await location_repository.list_geofences(db, org, actor)
+        await location_repository.audit_access(db, org, actor, "geofence", "read")
+        return [dict(row) for row in rows]
+
+    async def create_geofence(self, db, org, tenant, actor, payload):
+        self._tenant(org, tenant)
+        row = await location_repository.create_geofence(db, org, actor, payload)
+        await location_repository.audit_access(
+            db, org, actor, "geofence", "create", {"geofence_id": str(row["id"])}
+        )
+        return dict(row)
+
+    async def route_replay(self, db, org, tenant, actor, route_id, from_at, to_at, page, size):
+        self._tenant(org, tenant)
+        visible_ids = await self.visible_profiles(db, org, actor)
+        route = await location_repository.get_route_replay_context(db, org, route_id, visible_ids)
+        if not route:
+            raise APIError(404, "location_route_not_found", "Route was not found in your authorized scope.")
+        start = from_at or route["started_at"]
+        end = to_at or route["ended_at"]
+        now = datetime.now(UTC)
+        if (start.tzinfo is None or end.tzinfo is None or end < start
+                or end-start > timedelta(days=31) or start < route["started_at"]
+                or end > route["ended_at"] or end > now+timedelta(minutes=5)):
+            raise APIError(422, "location_route_replay_window_invalid",
+                           "Route replay requires a timezone-aware window inside the selected route and no longer than 31 days.")
+        total = await location_repository.count_route_replay_points(db, org, route["session_id"], start, end)
+        points = await location_repository.list_route_replay_points(
+            db, org, route["session_id"], start, end, page, size
+        )
+        await location_repository.audit_access(
+            db, org, actor, "route_history", "replay",
+            {"route_id": str(route_id), "from": start.isoformat(), "to": end.isoformat()}
+        )
+        return {
+            "route_id": route_id, "session_id": route["session_id"],
+            "sales_profile_id": route["sales_profile_id"], "user_id": route["user_id"],
+            "from_at": start, "to_at": end, "items": [dict(point) for point in points],
+            "page": page, "page_size": size, "total": int(total or 0),
+        }
+
     async def geofence_events(self, db, org, tenant, actor, page=1, size=100):
         self._tenant(org, tenant)
         ids = await self.visible_profiles(db, org, actor)
