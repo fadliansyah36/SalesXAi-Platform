@@ -7,8 +7,8 @@ Supabase project ref: `eyofuiyxalbehbqoaeny`
 
 ## Applied foundation
 
-Migration: `20261121120000_p07_location_intelligence_foundation`  
-Migration source commit: `ba05833092cec0aaf964bcd033760a7472d60b56`  
+Migration: `20261121082433_p07_location_intelligence_foundation`  
+Migration source commit: `8958af8e7be464f2b2642ea07866905fb5937aa7`  
 Migration application: SUCCESS, confirmed by Supabase SQL readback.
 
 Objects:
