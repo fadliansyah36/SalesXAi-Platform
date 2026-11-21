@@ -10,7 +10,7 @@ class RewardProgramWrite(BaseModel):
  description:str|None=None; program_type:Literal["loyalty","incentive","campaign"]="loyalty"
  reward_type:Literal["points","tier","voucher"]="points"; starts_at:str; ends_at:str
  status:Literal["draft","active","paused","completed","archived"]="draft"
- audience:dict[str,Any]=Field(default_factory=dict); configuration:dict[str,Any]=Field(default_factory=dict)
+ audience:dict[str,Any]=Field(default_factory=dict); configuration:dict[str,Any]=Field(default_factory=dict); customer_segment_id:UUID|None=None
  @model_validator(mode="after")
  def validate_period(self):
   from datetime import datetime
@@ -25,14 +25,14 @@ class RewardRuleWrite(BaseModel):
  priority:int=Field(default=100,ge=0,le=10000); rule_config:dict[str,Any]=Field(default_factory=dict)
  points_per_unit:Decimal=Field(default=Decimal(0),ge=0,max_digits=18,decimal_places=4)
  fixed_points:int=Field(default=0,ge=0,le=1000000000); max_points:int|None=Field(default=None,ge=0)
- requires_approval:bool=False; status:Literal["active","inactive","archived"]="active"
+ requires_approval:bool=False; status:Literal["active","inactive","archived"]="active"; customer_segment_id:UUID|None=None
 
 class RewardCatalogWrite(BaseModel):
  model_config=ConfigDict(extra="forbid")
  program_id:UUID|None=None; code:str=Field(min_length=2,max_length=60); name:str=Field(min_length=2,max_length=180)
  description:str|None=None; category:str=Field(min_length=2,max_length=80); points_cost:int=Field(gt=0,le=1000000000)
  quantity_total:int|None=Field(default=None,ge=0); starts_at:str|None=None; ends_at:str|None=None
- eligibility:dict[str,Any]=Field(default_factory=dict); metadata:dict[str,Any]=Field(default_factory=dict)
+ eligibility:dict[str,Any]=Field(default_factory=dict); metadata:dict[str,Any]=Field(default_factory=dict); customer_segment_id:UUID|None=None
  status:Literal["draft","active","paused","out_of_stock","archived"]="draft"
 
 class RewardEarnWrite(BaseModel):
