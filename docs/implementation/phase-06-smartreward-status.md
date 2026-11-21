@@ -262,3 +262,16 @@ Validation evidence:
 No new Supabase migration was needed for these API/client integration fixes; the existing Phase 06 migration set remains applied. Do not interpret this code-level checkpoint as populated-ledger, real-account concurrency, or authenticated cross-tenant runtime test evidence.
 
 **Phase 06 remains IN_PROGRESS while current CI/build and latest-source Railway deployments complete. Phase 07 remains LOCKED.** Final real-account transaction and tenant authorization validation is deferred per the user's instruction.
+
+
+## Latest API and portal build evidence — 2026-11-21
+
+- Latest successful API source: `8bb17e30a94a1435da17a27383a14e52993643af`; Railway deployment `e3a20eb8-9dea-464d-b341-a53079fb2627` is SUCCESS, `/readyz` returned 200, and application startup completed.
+- Live `/api/v1/openapi.json` returned 200 and exposes 28 SmartReward paths. Live PATCH request schemas are `RewardProgramPatch`, `RewardRulePatch`, and `RewardCatalogPatch`; Segment report/evaluation responses are explicitly typed.
+- API CI on the latest API code: 122 tests PASS, compileall PASS, Ruff PASS, Docker API image build PASS. Web/Auth static workflow PASS. Expo typecheck and Android bundle export PASS.
+- Portal build matrix on commit `3da8b210cbab1fe4ba8882757ef995b86a14ea18`: all 8 portal builds PASS (Website, Customer, Sales, Company, Distributor, Principal, Supervisor, Super Admin). Railway container/CSS runtime validation: Customer, Website and Company all PASS.
+- Live route inspection found Next.js basePath prefixes duplicated in role-specific SmartReward page paths. Added basePath-aligned route aliases for Distributor, Principal, Supervisor and Super Admin. Sales route resolves at `/sales/portal/smart-reward`; existing prefixed routes remain compatible.
+- Railway `salesx-company` deployment for route-alias source `3da8b210` is still QUEUED while earlier builds finish. The last live Company source is still `8c4b7119`; do not claim latest route aliases are live until deployment succeeds and the new single-prefix routes return 200 with CSS/JS assets.
+- Website and Customer latest relevant deployments remain SUCCESS at source `c26f67ce`; API latest relevant deployment remains SUCCESS at source `8bb17e30`. No stale build or additional Railway service was created.
+
+**Phase 06 remains IN_PROGRESS until the Company route-alias deployment and live route/static-asset verification finish. No Supabase staging branch or production fixture data was created; populated transaction/concurrency and real-account authorization validation remain deferred to final integrated testing per the user's direction.**
