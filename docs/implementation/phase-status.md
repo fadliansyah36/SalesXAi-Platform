@@ -5,7 +5,7 @@
 - Phase 06 — SmartReward: remains IN_PROGRESS; the previously recorded owner-authorized private Realtime policy and authenticated subscription evidence remain pending.
 - Phase 07 — Location Intelligence: remains IN_PROGRESS; the previously recorded owner-authorized private Realtime policy remains pending.
 - Phase 08 — Analytics & Operational Reporting: **IN_PROGRESS, not COMPLETED**. KPI aggregation, scoped API filters, private CSV export lifecycle, signed download, scheduler retry/lease logic, Web/Expo integration and portal routing code have been implemented on `main`; live business-runtime validation is blocked by an empty project tenant/auth dataset.
-- Live Supabase project `eyofuiyxalbehbqoaeny`: **115 migrations**, latest `20261121143047`; 89/89 public tables have RLS. Security Advisor: 0 lints. Performance Advisor: 0 unindexed-FK lints; 274 unused-index notices are informational.
+- Live Supabase project `eyofuiyxalbehbqoaeny`: **116 migrations**, latest `20261121143716`; 89/89 public tables have RLS. Security Advisor: 0 lints. Performance Advisor: 0 unindexed-FK lints; 274 unused-index notices are informational.
 - Live data check: 0 organizations, 0 Auth users, 0 scheduled jobs, 0 job executions, 0 report runs and 0 report exports. No synthetic persistent tenant, user or business records were inserted.
 - `analytics-private` Storage bucket is confirmed private (`public=false`), CSV-only, 50 MiB maximum. API issues 60-second signed URLs after report scope/tenant/retention authorization and records signed-url audit events.
 - Analytics consumers: Web Company, Supervisor, Sales, Distributor and Principal; native Expo Sales. Customer dashboard is not an Analytics consumer because Customer is not assigned the Analytics dashboard/report permissions in the current role model.
@@ -1605,7 +1605,7 @@ The earlier Phase 08 snapshot below was superseded by the current implementation
 - Super Admin is omitted from public landing, Sales login and ordinary portal switchers. The route guard is UX-only; FastAPI permissions remain authoritative.
 
 ### Migration and validation
-- Phase 08 migration set: 22 applied migrations, versions `20261121130029` through `20261121143047`; full list is in `docs/implementation/supabase-migration-ledger.md`.
+- Phase 08 migration set: 23 applied migrations, versions `20261121130029` through `20261121143716`; full list is in `docs/implementation/supabase-migration-ledger.md`.
 - Security Advisor: 0 lints. Performance Advisor: 0 unindexed foreign keys.
 - GitHub build checks: API, Website, Customer, Company and Expo Sales all SUCCESS at the latest checked source commit.
 - KPI calculation, real authorization, report export/download and scheduled execution could not be exercised against tenant-owned records because the bound project has zero organizations/users/jobs/reports. No synthetic records were retained. This remains a runtime-evidence gap; Phase 08 is therefore not marked complete.
