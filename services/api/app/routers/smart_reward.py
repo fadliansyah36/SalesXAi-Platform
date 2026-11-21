@@ -86,8 +86,19 @@ async def decide_approval(organization_id:UUID,approval_id:UUID,payload:RewardAp
  smart_reward_service._tenant(organization_id,tenant); return await smart_reward_approval_service.decide(db,organization_id,principal.user_id,approval_id,payload)
 
 @router.get("/{organization_id}/smart-reward/events")
-async def reward_events(organization_id:UUID,after:str|None=None,tenant:TenantContext=Depends(require_api_action("smartreward.events.read")),db:asyncpg.Connection=Depends(get_connection)):
+async def reward_events(organization_id:UUID,after:str|None=None,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartreward.events.read")),db:asyncpg.Connection=Depends(get_connection)):
  smart_reward_service._tenant(organization_id,tenant)
+ scopes=await db.fetch("""select r.key role_key,ura.scope_type,ura.scope_id from public.organization_memberships m
+  join public.user_role_assignments ura on ura.membership_id=m.id join public.roles r on r.id=ura.role_id
+  join public.role_permissions rp on rp.role_id=ura.role_id
+  where m.organization_id=$1 and m.user_id=$2 and m.status='active' and ura.revoked_at is null
+   and ura.starts_at<=now() and (ura.expires_at is null or ura.expires_at>now())
+   and rp.permission_key in ('smartreward:ledger:read','smartreward:redemption:read','smartreward:approval:read')""",organization_id,principal.user_id)
+ if not scopes: raise APIError(403,"reward_event_scope_forbidden","Reward event subscription is not authorized.")
+ role_keys={x["role_key"] for x in scopes}
+ tenant_scope=bool(role_keys.intersection({"tenant_owner","company_admin","principal_user","distributor_user"}))
+ branch_ids=[str(x["scope_id"]) for x in scopes if x["role_key"]=="supervisor" and x["scope_type"]=="branch"]
+ actor_id=str(principal.user_id)
  cursor_time=await db.fetchval("select now()");cursor_id=UUID(int=0)
  if after:
   try:
@@ -98,13 +109,15 @@ async def reward_events(organization_id:UUID,after:str|None=None,tenant:TenantCo
   while True:
    rows=await db.fetch("""select id,occurred_at,payload from public.reward_event_outbox where organization_id=$1
     and event_type='smartreward.changed' and (occurred_at>$2 or (occurred_at=$2 and id>$3))
-    order by occurred_at,id limit 100""",organization_id,cursor_time,cursor_id)
+    and ($4::boolean or payload->>'participant_user_id'=$5 or payload->>'requested_by'=$5 or payload->>'branch_id'=any($6::text[]))
+    order by occurred_at,id limit 100""",organization_id,cursor_time,cursor_id,tenant_scope,actor_id,branch_ids)
    if not rows:
     yield ": keepalive\n\n";await asyncio.sleep(3);continue
    for row in rows:
     cursor_time=row["occurred_at"];cursor_id=row["id"]
     payload=row["payload"]
     if isinstance(payload,str): payload=json.loads(payload)
+    payload={k:v for k,v in payload.items() if k not in ("participant_user_id","requested_by","branch_id")}
     event_id=cursor_time.isoformat()+"|"+str(cursor_id)
     yield "id: "+event_id+"\nevent: smartreward.changed\ndata: "+json.dumps(payload,default=str)+"\n\n"
  return StreamingResponse(stream(),media_type="text/event-stream",headers={"Cache-Control":"no-cache, no-transform","X-Accel-Buffering":"no","Connection":"keep-alive"})
