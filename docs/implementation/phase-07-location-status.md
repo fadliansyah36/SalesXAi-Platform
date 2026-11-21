@@ -1,106 +1,84 @@
-# PHASE 07 CURRENT EXECUTION SNAPSHOT — 2026-11-21
+# PHASE 07 — REALTIME LOCATION & ROUTE HISTORY STATUS
 
-**Status: IN_PROGRESS — implementation is open; not complete.**
+**Status: IN_PROGRESS — implementation is substantially integrated; owner authorization and runtime validation remain open.**
 
-## Google Maps foundation — 2026-11-21 continuation
+## Applied migration ledger — 6/6 Phase 07 migrations
 
-- Shared provider-neutral contracts: `packages/maps/src/index.ts` (coordinates, markers, polylines, polygons, runtime config, GeoJSON conversion and Haversine distance).
-- Web adapter: `components/location/GoogleMapsCanvas.tsx`, using existing `@vis.gl/react-google-maps`; `LocationWorkspace` now renders through the adapter.
-- Native Expo adapter: `apps/mobile-sales/src/location/LocationMap.tsx`, using `react-native-maps@1.29.11` and `PROVIDER_GOOGLE`. Expo config injects separately restricted Android/iOS keys only when configured. The tracking control renders current device coordinates after the consented tracking session is active.
-- FastAPI provider boundary: `GET /api/v1/maps/config` and `POST /api/v1/organizations/{organization_id}/maps/routes/compute`. Route computation uses only `GOOGLE_MAPS_SERVER_API_KEY` and fails closed when absent. Shared API contracts/client include route request/response.
-- Geofence list responses now include boundary GeoJSON; Web map overlays render authorized geofences and reconstructed route polylines.
-- Credential contract and activation sequence are documented in `docs/architecture/google-maps.md`. No fake key or map ID is used; no map tiles are claimed active.
-- Owner-gated Location Realtime SQL is prepared at `supabase/owner-pending/20261121100000_location_realtime_messages_owner_policy.sql` and is not applied. It filters private Broadcast subscriptions by organization, authenticated membership, location permission and branch/team/territory assignment.
-- Google Maps Foundation is code-ready for final credential activation. Latest CI confirms the Web/Native build path; keys and map tiles remain intentionally inactive until credentials are supplied.
-## Applied database changes
-- 20261121082433_p07_location_intelligence_foundation: tracking sessions, points, geofences, geofence events and route summaries.
-- 20261121083536_p07_location_live_projection_geofence_realtime: latest-position projection, geofence presence state, access audit, PostGIS route/geofence processing, private Broadcast and server notification.
-- 20261121084148_p07_location_role_permission_bindings: Sales, Supervisor, Company Admin and Tenant Owner location permissions.
-- 20261121084817_p07_location_and_segment_fk_indexes: indexes for Phase 06/07 foreign keys flagged by Performance Advisor.
-- 20261121085755_p07_location_assignment_and_device_integrity: composite session/user/device ownership constraints, branch/team/territory/shift assignment foreign keys and supporting indexes.
+| Version | Migration |
+|---|---|
+| 20261121082433 | p07_location_intelligence_foundation |
+| 20261121083536 | p07_location_live_projection_geofence_realtime |
+| 20261121084148 | p07_location_role_permission_bindings |
+| 20261121084817 | p07_location_and_segment_fk_indexes |
+| 20261121085755 | p07_location_assignment_and_device_integrity |
+| 20261121100848 | p07_location_geofence_ordering_route_replay |
 
-## Implemented code and integration
-- FastAPI router: services/api/app/routers/location.py.
-- Application service: services/api/app/services/location.py.
-- Persistence boundary: services/api/app/repositories/location.py.
-- Request schemas: services/api/app/schemas/location.py.
-- Endpoints: session start/update; GPS batch ingestion; live positions; time-bounded paginated history; route summaries; geofence create/list; geofence event history; private SSE location events.
-- Device ownership: session start requires the device ID registered to the current authenticated session. Points are accepted only for the session owner and matching device. Composite database foreign keys now enforce the organization/session/user/device relationship for points and latest-position projection.
-- GPS points are coordinate/accuracy/source/time validated, idempotent by session + client point ID, and written by FastAPI.
-- Latest position is maintained by a database trigger. Route summaries are reconstructed by PostGIS. Geofence enter/exit/dwell events are evaluated from accepted points.
-- Location reads are tenant- and Sales-profile-scope checked; privileged map/history reads are audited. Latest-position assignments are constrained to the same organization’s branch, team and territory; tracking shifts are constrained to the same organization.
-- Shared contracts and typed API client include session, ingestion, live, history, route, geofence and event APIs.
-- Expo uses a visible consent control, OS foreground/background permissions, authenticated device identity, background location task, SQLite offline outbox, schema version, actor/device/tenant/session context, deduplication, retry/backoff and sync-state tracking.
-- Supervisor live_map and route_replay tabs and Company gps_live and gps_history tabs use the shared LocationWorkspace and FastAPI.
-- Four named Railway services are preserved. An additional @salesx-ai/mobile-sales Railway service already exists in the connected Railway project; it was not created or removed by this change.
+## Database and security
 
-## Realtime authorization limitation
-The trigger emits a private Broadcast to location:{organization_id}:live and a PostgreSQL notification. The owner-gated policy source is prepared, but the current database connector principal cannot create a policy on realtime.messages because that table is owned by supabase_realtime_admin. The permission-checked FastAPI SSE endpoint remains the available live-event delivery path until the project owner applies the policy.
+- Tracking sessions, GPS points, latest-position projection, geofences, geofence presence/events, route summaries and access audit are in the existing Supabase project.
+- RLS is enabled for the location tables; client table grants are denied. API operations use the FastAPI service connection.
+- Composite tenant/device/session/profile/assignment foreign keys and route replay/time-series indexes are applied.
+- Latest-position projection is monotonic. Applied migration `20261121100848` prevents late offline points from rewinding geofence presence or generating out-of-order transitions. All points remain in history and route reconstruction remains timestamp ordered.
+- Geofence listing is scoped to active tenant, branch, territory or team assignments. Geofence reads, writes and live stream subscriptions are audited.
+- Security Advisor: 0 security lints. Performance Advisor: 0 unindexed-FK lints; 270 unused-index notices are informational on the low-traffic/new schema.
 
-## Remaining implementation/verification gates
-1. Add the owner-authorized realtime.messages policy for location channels and verify subscription isolation.
-2. Complete native Android/iOS build and background/foreground lifecycle verification on an isolated test device with explicit consent.
-3. Verify geofence enter/exit/dwell edge cases, out-of-order offline batches, and route reconstruction under batch ingestion.
-4. Verify live-map and route-history UI builds for Supervisor and Company; configure/confirm the existing Maps key in deployment environment if map tiles are required.
-5. Verify the latest Railway API and mobile deployment builds. No production success is claimed while deployments remain queued or build evidence is unavailable.
+## FastAPI and typed API integration
 
-Phase 07 must remain IN_PROGRESS until all lifecycle, authorization, offline-sync, portal and deployment gates are evidenced.
+- Router: `services/api/app/routers/location.py`.
+- Application service: `services/api/app/services/location.py`.
+- Repository: `services/api/app/repositories/location.py`.
+- Schemas: `services/api/app/schemas/location.py`.
+- Typed contracts/client and Python/TypeScript action matrices include session lifecycle, point ingestion, live projection, time-bounded history, route summaries, route replay, geofence CRUD/events and private SSE.
+- Key endpoints:
+  - `POST /api/v1/organizations/{organization_id}/location/sessions`
+  - `PATCH /api/v1/organizations/{organization_id}/location/sessions/{session_id}`
+  - `POST /api/v1/organizations/{organization_id}/location/sessions/{session_id}/points`
+  - `GET /api/v1/organizations/{organization_id}/location/live`
+  - `GET /api/v1/organizations/{organization_id}/location/history`
+  - `GET /api/v1/organizations/{organization_id}/location/routes`
+  - `GET /api/v1/organizations/{organization_id}/location/routes/{route_id}/replay`
+  - `GET/POST /api/v1/organizations/{organization_id}/location/geofences`
+  - `GET /api/v1/organizations/{organization_id}/location/geofence-events`
+  - `GET /api/v1/organizations/{organization_id}/location/events` (permission-checked SSE with replay/reconnect)
+- Route replay is paginated, time-window bounded, profile-scope checked and audit logged. Supervisor/Company map workspace supports route selection and time scrubbing.
 
----
+## Native Expo tracking
 
-# Phase 07 — Realtime Location & Route History
+- Expo TaskManager background task and Location APIs capture only after explicit in-app consent plus OS foreground/background permission.
+- Tracking binds to verified user, organization, registered device and session. Stop/pause and revocation are explicit lifecycle states.
+- SQLite outbox stores actor/org/session/device/schema context, deduplicates client point IDs, retries with backoff and syncs through the typed FastAPI client.
+- Native map shows current location and the local captured route; offline capture does not depend on Google map tiles.
+- Android foreground notification and OS permission configuration are present. Physical-device background suspension, battery optimization, permission revocation and offline resume have not been runtime-verified.
 
-Status: IN_PROGRESS — schema foundation applied; API/native/portal slices remain open.
-
-Target repository: `fadliansyah36/SalesXAi-Platform` (`main`)  
-Supabase project ref: `eyofuiyxalbehbqoaeny`
-
-## Applied foundation
-
-Migration: `20261121082433_p07_location_intelligence_foundation`  
-Migration source commit: `8958af8e7be464f2b2642ea07866905fb5937aa7`  
-Migration application: SUCCESS, confirmed by Supabase SQL readback.
-
-Objects:
-- `location_tracking_sessions`: consent-bound lifecycle, user, device, sales profile and optional shift.
-- `location_points`: GPS/network/fused points, coordinate and accuracy constraints, recorded/received timestamps, device attribution and client idempotency key.
-- `location_geofences`: tenant-owned outlet/territory/custom Polygon boundaries and accuracy/dwell settings.
-- `location_geofence_events`: deduplicated enter/exit/dwell events linked to point/session/geofence.
-- `location_route_summaries`: per-session/day route geometry, point count and distance projection.
-
-PostGIS geography/geometry types and GiST indexes are installed. All five tables have RLS enabled and explicit deny policies for anon/authenticated. Table privileges are granted only to server-side service_role. Seven location permission catalog keys are present.
-
-## Required next vertical slices
-
-1. FastAPI session lifecycle, consent verification, device ownership, batch ingestion and idempotent point repository.
-2. Route reconstruction and time-window history queries with tenant/role checks.
-3. Geofence evaluation worker/service, event deduplication and audit.
-4. Private Realtime Broadcast topic authorization and minimal event payloads.
-5. Shared API contracts/client for Web and Expo.
-6. Native Expo Location + TaskManager capture, visible consent/status, shift/session-bound tracking, offline outbox, retry/backoff and deduplication.
-7. Existing Supervisor/Company map and route-history UI connected to FastAPI; preserve existing design system and route layout.
-8. Role/territory/team/outlet-scoped reporting, pagination and retention controls.
-
-## Security and privacy invariants
-
-- Tracking starts only after explicit device permission and a visible user consent record tied to a policy version.
-- Tracking is bound to an authenticated user, registered device, organization, sales profile and optional active shift.
-- Stop/pause/revoke ends collection according to the session lifecycle; no hidden background tracking.
-- Never trust client-supplied organization/user identity; derive from verified FastAPI principal and server-side assignment lookup.
-- Realtime carries minimal identifiers/status only; clients fetch authorized detail through FastAPI.
-- Do not expose direct client table grants or service-role credentials.
-
-## Not yet implemented / not claimed
-
-The earlier initial checkpoint below is historical and is superseded by the current execution snapshot and Google Maps continuation above. Remaining gates are owner-level Realtime policy application and subscription isolation, device-level background lifecycle verification, offline/out-of-order batch verification, geofence and route reconstruction edge-case validation, and production deployment evidence.
-
-Phase 06 SmartReward remains IN_PROGRESS. Its populated ledger fixture/reconciliation, concurrency/idempotency and authenticated cross-tenant/private-Realtime gates remain separate open work. Phase 07 is authorized to proceed in parallel by the latest execution decision.
-
-## Role surfaces and latest build evidence — 2026-11-21
+## Portal surfaces and role boundaries
 
 - Sales: consented own-device capture and local route preview in Native Expo.
-- Supervisor: live location and route history restricted to assigned branch/team/territory.
-- Company Admin/Tenant Owner: tenant-level operational map and reporting.
-- Distributor and Principal: no raw employee GPS permission in the current role matrix. Super Admin has governance/configuration, not raw employee GPS by default.
-- GitHub API checks `44891786436` passed 134 tests (2 local-DB concurrency tests skipped); Native Expo build and Web Auth static checks passed. Portal build `44891786366` passed 8/8. Foundation build `44891783078` passed Expo config, Metro, Android/iOS bundle exports and workspace build.
-- Current Railway snapshot: API `/readyz` and the three portal `/api/health` checks are healthy. The final source-refresh commit is required to bring website/customer/company deployment SHAs to the same `main` commit as API.
+- Supervisor: assigned branch/team/territory live map, geofence events and route history/replay.
+- Company Admin/Tenant Owner: tenant-scoped operational map and reporting.
+- Distributor and Principal do not receive raw employee GPS under the current permission matrix. Super Admin receives governance/configuration, not raw tenant employee GPS by default.
+- Existing portal UI, design tokens and route structure are preserved.
+
+## Realtime authorization gate
+
+- Database triggers emit minimal location Broadcast and PostgreSQL notification payloads.
+- FastAPI SSE remains the active permission-checked and audited delivery path.
+- Owner policy is prepared at `supabase/owner-pending/20261121100000_location_realtime_messages_owner_policy.sql`, but is **not active**. `realtime.messages` is owned by `supabase_realtime_admin`; the connected database principal cannot assume that owner role.
+- Do not claim private Supabase Location subscriptions until the project owner applies the policy and authenticated tenant/branch/team/territory allow/deny tests pass.
+
+## Google Maps foundation
+
+- Shared provider-neutral contracts in `packages/maps/src/index.ts`: coordinate/location, markers, viewport/bounds, polylines, geofence polygons, map events, feature flags, GeoJSON conversion, encoded-polyline decoding, distance and provider adapters.
+- Web renderer: `components/location/GoogleMapsCanvas.tsx` using existing `@vis.gl/react-google-maps`.
+- Native renderer: `apps/mobile-sales/src/location/LocationMap.tsx` using `react-native-maps` with `PROVIDER_GOOGLE`.
+- FastAPI provider config and Routes adapter: `GET /api/v1/maps/config`, `POST /api/v1/organizations/{organization_id}/maps/routes/compute`.
+- Environment schema validates `MAPS_PROVIDER`, locale and server-only `GOOGLE_MAPS_SERVER_API_KEY`; client browser/Android/iOS keys are separate.
+- No API key, map ID, billing credential or fake placeholder is committed. Map tiles and server route calculation remain inactive until restricted credentials are supplied.
+
+## Remaining Definition-of-Done gates
+
+1. Owner-level Location Realtime policy application and isolated subscription authorization.
+2. Physical Expo device lifecycle verification for foreground/background, OS suspension, permission revocation and offline sync.
+3. Focused offline replay/geofence enter-exit-dwell and route history/replay validation on out-of-order batches.
+4. Latest-source CI and four-service Railway production release verification.
+
+**Phase 07 remains IN_PROGRESS.** The API/database/Expo/portal code path is implemented; the remaining gates require owner authorization, disposable integration runtime and production evidence.
