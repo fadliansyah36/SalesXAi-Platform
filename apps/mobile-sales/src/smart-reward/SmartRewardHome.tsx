@@ -10,6 +10,7 @@ export function SmartRewardHome({auth}:{auth:Auth}){
  const api=useMemo(()=>client&&org?createSmartRewardApi(client,org):null,[client,org]);
  const [balance,setBalance]=useState<RewardBalance|null>(null),[catalog,setCatalog]=useState<RewardCatalogItem[]>([]),[ledger,setLedger]=useState<RewardLedgerEntry[]>([]),[redemptions,setRedemptions]=useState<RewardRedemption[]>([]);
  const [busy,setBusy]=useState(false),[notice,setNotice]=useState(""),[error,setError]=useState("");
+ const canRealtime=can("smartreward.ledger.read")||can("smartreward.redemptions.read");
  const can=(id:string)=>auth.canPerformApiAction(id as never);
  const refresh=useCallback(async()=>{
   if(!api||auth.status!=="authenticated")return;
@@ -22,6 +23,7 @@ export function SmartRewardHome({auth}:{auth:Auth}){
   if(failed&&failed.status==="rejected")setError(failed.reason instanceof Error?failed.reason.message:"Data reward gagal dimuat.");
  },[api,auth.status,auth.contextEpoch,org]);
  useEffect(()=>{void refresh();},[refresh]);
+ useEffect(()=>{\n  if(!client||!org||auth.status!=="authenticated"||!canRealtime)return;\n  const url=process.env.EXPO_PUBLIC_SUPABASE_URL??"",key=process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY??"";\n  if(!url||!key)return;\n  return client.subscribeSmartRewardBroadcast(org,url,key,()=>void refresh(),()=>void refresh());\n },[client,org,auth.status,canRealtime,refresh]);
  const redeem=async(item:RewardCatalogItem)=>{
   if(!api)return;setBusy(true);setError("");setNotice("");
   try{await api.redeem({catalog_item_id:item.id,quantity:1,idempotency_key:"expo-reward-"+Date.now()+"-"+Math.random().toString(36).slice(2)});setNotice("Permintaan penukaran dikirim.");await refresh();}
