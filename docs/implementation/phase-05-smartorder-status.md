@@ -7,7 +7,7 @@ Supabase project: `eyofuiyxalbehbqoaeny`
 
 ## Status
 
-**IN_PROGRESS — NOT COMPLETED.** Phase 05 remains the active phase. Phase 06 stays locked. The implementation already contains the SmartOrder domain and a broad same-tenant workflow, but cross-tenant commerce relationships and several lifecycle management operations still prevent a full end-to-end completion claim.
+**IN_PROGRESS — NOT COMPLETED.** Phase 05 remains the active phase and Phase 06 stays locked. The latest continuation has implemented the cross-tenant commerce model, promotion ownership/redemption, partner approvals, product/SKU and price/promotion management workflows, multi-warehouse fulfillment, authorized Realtime fan-out, and Web/Expo integration. The remaining completion gate is the final latest-commit engineering workflow and confirmation that the four required Railway services finish their automatic rollout. Historical blocker lists below describe the earlier state and are superseded by the 2026-11-21 continuation record at the end of this file.
 
 ## Implemented domain
 
@@ -125,3 +125,43 @@ Continue Phase 05 with the cross-tenant catalog/cart/inventory/fulfillment data 
 - API workflow: `44768553662` — success, 89 tests.
 - Portal matrix: `44768148073` — success, 8/8 portal builds.
 - Foundation/Expo workflow: `44768148161` — success, 20/20 steps.
+
+
+## Authoritative continuation — 2026-11-21
+
+### Implemented in the latest continuation
+
+- **Cross-tenant promotion:** promotion ownership is preserved separately from buyer organization; active Principal/Distributor/Company/Customer partner relationships and organization-audience rules are evaluated. Promotion evaluation serializes competing redemption attempts with transaction advisory locks and checks total/per-customer redemption limits. Draft creation is idempotent; redemption rows store promotion owner, buyer, customer, order and discount amount. Order price and promotion snapshots are protected by immutable database triggers. Approval marks redemptions redeemed; rejection, revision, expiry and cancellation reverse reserved/redemption state. Redemption audit events are append-only traceable commerce audit records.
+- **Partner approval:** partner inbox/detail/decision APIs are available to the active partner tenant. Principal/Distributor acceptance, rejection and revision decisions require an idempotency key; rejection/revision requires a reason. The buyer approval path is blocked until every active product-owner and inventory-owner partner has accepted. Rejection/revision releases reserved stock and reverses promotion redemption state; decision history is returned to the UI.
+- **Product/SKU management:** full product master fields, category/brand/unit, tax, specifications, image metadata and all SKU attributes are editable. SKU update now carries stable variant IDs, so renaming a SKU updates the same variant rather than inserting a replacement that breaks price references. Removed variants are archived, archived variants are not silently reactivated, and archived SKUs are excluded from the active product editor projection.
+- **Price-list management:** the editor handles every price line, add/edit/remove, product/SKU selection, quantity bands, validity dates, priority, currency and organization scope. The API closes superseded lines through price history instead of physically deleting immutable commercial history; status supports inactive/archive.
+- **Promotion management:** the editor handles all typed common rules and additional advanced eligibility rules through validated JSON rule objects, including audience, voucher, stacking, discount, limits, period and lifecycle status. Update/archive keeps prior order redemption snapshots intact.
+- **Multi-warehouse / multi-partner fulfillment:** order-item allocations identify buyer order item, inventory owner, warehouse and fulfillment. Fulfillments can be created for multiple partner warehouses; available inventory is recommitted with row-level conflict checks when replacement fulfillment is needed. Cancellation and pre-handover carrier failure release net committed quantities; order completion waits until all fulfillment groups are delivered. Fulfillment and partner-decision audit history is exposed in the Web and Expo detail views.
+- **Realtime:** private tenant topics are permission-scoped by current active membership and role permissions. Database fan-out sends minimal order/stock/fulfillment/promotion notifications to the buyer and active partner tenants with a relevant grant. FastAPI SSE consumes database notifications and filters events by current tenant/resource permissions. Clients refresh authorized API state rather than treating event payloads as business truth; duplicate/reconnect paths refresh state. The RLS initplan warning was fixed by evaluating `auth.uid()` once per policy statement.
+- **Cross-platform:** shared Web SmartOrder workspace is consumed by Customer, Sales, Distributor, Principal, Company and Super Admin surfaces under their action permissions. Native Expo Sales uses the shared typed API client for catalog, price/promotion view, cart, order lifecycle, cancellation, tracking and authorized Realtime refresh. Business mutations remain FastAPI-only; Expo local persistence is not an alternate business database.
+
+### Current source, migration and database evidence
+
+- Latest SmartOrder implementation/test source commit before this documentation update: `2848e2778a8fbc340fe18fa7676885cd0ae81fd0` on `main`.
+- Phase 05 migration ledger: **31 local / 31 remote applied**; total repository ledger: **67 / 67 exact version/name matches**.
+- Latest Phase 05 migration: `20261121005322_p05_realtime_auth_rls_initplan`, applied to Supabase project `eyofuiyxalbehbqoaeny`.
+- Live database inventory: **57 public tables, 57 RLS-enabled tables, 57 public policies, 306 public indexes**; **27 SmartOrder broadcast triggers** and **3 private Realtime message policies**.
+- Supabase Security Advisor: **0 lints**. Performance Advisor: **0 WARN findings** (including unindexed-FK and auth-RLS-initplan warnings); 172 unused-index INFO notices remain and are not treated as a schema blocker on the new low-volume domain.
+- FastAPI and TypeScript action registries: **130/130 matching action IDs**, no missing or extra IDs. SmartOrder router exposes **52 routes**.
+
+### Engineering validation evidence and current rollout state
+
+- API workflow `44846960218` passed: **100 Python tests**, Python compileall, Ruff, FastAPI container build, Web auth typecheck/lint, and Expo Sales typecheck/build.
+- Portal workflow `44846605135` passed **8/8**: Customer, Principal, Supervisor, Super Admin, Company, Distributor, Sales and Website.
+- Expo foundation workflow `44846605092` completed Expo config resolution, Metro startup and Android/iOS bundle exports; its final Turborepo workspace step was still running at the last observation. The separate API workflow's Expo typecheck/build already passed.
+- The final latest-code run for commit `b53aa5e937e624975e8dbed642b8eed3787acb85` and the subsequent repository-contract test update are queued/running; do not report those as passed until the run completes.
+- The four required Railway services remain the existing `salesx-api`, `salesx-website`, `salesx-customer` and `salesx-company`. Their automatic deployments were queued/building at the last observation; no manual deployment or new service was created. Do not claim the latest source is live until the four deployments report SUCCESS.
+- No staging, Product Owner Acceptance, real-world test, demo data, or fabricated credentials were introduced. SMTP and Google OAuth provider secrets remain deferred to deployment as instructed.
+
+### Remaining gate — Phase 05 stays IN_PROGRESS
+
+1. Let the latest API workflow finish on the latest `main` commit and repair any newly surfaced implementation error.
+2. Confirm the latest automatic Railway deployments for the four required services reach SUCCESS and API readiness is healthy.
+3. Reconcile the phase tracker with the final workflow/deployment evidence.
+
+No Phase 06 work is authorized by this status. Phase 06 — SmartReward remains LOCKED until Phase 05 meets its Definition of Done.
