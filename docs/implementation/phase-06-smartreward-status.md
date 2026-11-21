@@ -38,9 +38,10 @@
 
 - `supabase/tests/phase06_smartreward_ledger.sql` ran in a rollback-only transaction. Earn, redemption, expiration, reversal linkage and adjustment entries reconciled to a ledger sum of **850**. Duplicate idempotency and cross-tenant account-reference rejection passed. Fixture rows were rolled back.
 - Existing service paths retain account locking and idempotency constraints.
-- Two-connection concurrency harness: `services/api/tests/test_smart_reward_concurrency_integration.py`. It is intentionally restricted to a disposable local Supabase DB (`SALESX_TEST_DATABASE_URL`) and has **not** run in this environment. The CI skip is not concurrency evidence.
-- Authenticated tenant-isolation harness: `services/api/tests/test_smart_reward_tenant_isolation_integration.py`. It creates disposable Auth/profile/session/device/membership/role fixtures and exercises the principal/session resolver, tenant permission resolver and route guards. It is restricted to a disposable local database and has **not** run here. It signs a short-lived HS256 fixture JWT and exercises the real SupabaseJWTVerifier signature/issuer/audience/expiry checks plus registered Auth session/device lookup. Route handlers are invoked after the real tenant permission dependency; a full ASGI HTTP round-trip and production JWKS key path remain unverified.
-- SmartReward SSE audience logic now separates tenant, branch and participant scopes and filters events by resource permission. Branch-scoped catalog permissions cannot widen to tenant-wide catalog events.
+- **Parallel redemption — PASS:** CI run `44899182981`, job `phase06-isolated-db-integration`, executed two independent PostgreSQL connections concurrently. `test_same_idempotency_key_has_one_atomic_redemption` and `test_distinct_concurrent_keys_cannot_overdraw_balance` both passed. The same key produced one atomic redemption; distinct keys serialized against the locked account balance without overdraw. Fixtures ran only in a disposable local Supabase stack, which was stopped after the run.
+- **Authenticated cross-tenant — PASS:** the same isolated CI job passed membership, read endpoint, write endpoint, resource read and redemption mutation denial tests (5/5). Synthetic Auth users/sessions/devices and short-lived fixture JWTs exercised the actual JWT verifier, registered-session/device lookup, tenant permission dependency and route handlers. No real account login/register or production user data was used. The tests do not claim a full browser/production JWKS HTTP round-trip.
+- **Ledger — PASS:** the rollback-only SQL fixture reconciled earn, redemption, expiration, reversal linkage and adjustment to a net ledger sum of **850**; duplicate idempotency and cross-tenant account-reference rejection passed. Fixture rows were rolled back.
+- **Private event filtering — code/test PASS, owner policy PENDING:** SSE audience construction now derives participant, branch and tenant resource lists from exact read permissions, keeps branch-to-resource mappings separate, and prevents a branch/catalog permission from widening to tenant events. API unit/contract suite passed 164 tests at source `1cf969802c4043d0390ad203144e7c40c6293cab`. This does not substitute for authenticated Supabase Broadcast subscription authorization.
 - Applied migration `20261121101601` suppresses the legacy tenant-wide Broadcast topic while the existing `realtime.messages` policy is too broad. Web and Native use the permission-checked FastAPI SSE fallback; Native direct Supabase Broadcast remains disabled by default.
 
 ## Private Realtime owner gate
@@ -53,9 +54,8 @@
 
 ## Remaining Definition-of-Done gates
 
-1. Run concurrent redemption with two independent connections against a disposable local Supabase DB; verify same-key idempotency, distinct-key balance serialization, atomic ledger/balance state and rollback cleanup.
-2. Run the isolated authenticated tenant tests using the complete supported auth/session path and HTTP route requests; verify read, write, resource and mutation denial across tenants.
-3. Obtain project-owner authorization, apply the owner Realtime policy, then validate participant/branch/tenant allow cases and cross-tenant/cross-branch/wrong-role denials.
-4. Keep direct Supabase subscriptions disabled until those owner-policy tests pass.
+1. Obtain project-owner authorization to apply `supabase/owner-pending/20261121101500_smartreward_realtime_role_scope_policy.sql` through the official owner-level path.
+2. Validate authenticated participant, branch and tenant private subscription allow cases plus cross-tenant, cross-branch and wrong-role denials against the live owner-applied policy.
+3. Only after those checks pass, apply the separate tenant Broadcast reactivation SQL and enable direct Native/Web private Broadcast subscriptions.
 
 **Phase 06 remains IN_PROGRESS.** The rollback-only ledger fixture and code-level guards do not substitute for the three remaining runtime gates.
