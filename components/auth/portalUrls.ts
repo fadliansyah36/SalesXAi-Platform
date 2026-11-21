@@ -8,13 +8,13 @@ const company=()=>origin(process.env.NEXT_PUBLIC_SALESX_COMPANY_URL,"https://sal
 
 export function getSalesXPortalUrl(portal:SalesXPortal):string{
  switch(portal){
-  case "sales":return website()+"/sales/portal";
+  case "sales":return website()+"/portal";
   case "customer":return customer()+"/";
   case "company":return company()+"/";
-  case "distributor":return company()+"/distributor/portal";
-  case "principal":return company()+"/principal/portal";
-  case "supervisor":return company()+"/supervisor/portal";
-  case "super_admin":return company()+"/admin/portal";
+  case "distributor":return company()+"/distributor";
+  case "principal":return company()+"/principal";
+  case "supervisor":return company()+"/supervisor";
+  case "super_admin":return company()+"/super-admin";
  }
 }
 
