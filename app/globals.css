@@ -2,6 +2,12 @@
 @import "../packages/design-tokens/generated/web.css";
 @import "../packages/design-system/src/styles.css";
 @import "tailwindcss";
+@source "../app";
+@source "../apps/website";
+@source "../apps/sales-portal";
+@source "../components";
+@source "../packages/design-system/src";
+@source "../packages/design-tokens";
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
