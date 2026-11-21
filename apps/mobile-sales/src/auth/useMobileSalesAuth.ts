@@ -84,6 +84,7 @@ export function useMobileSalesAuth(){
   const transport=apiClientRef.current;
   if(!transport)throw new Error("FastAPI client belum dikonfigurasi.");
   await transport.registerCurrentSession({
+   device_id:await getOrCreateMobileDeviceId(),
    platform:Platform.OS==="ios"?"ios":"android",
    device_name:"SalesX-Ai Mobile Sales",
   });
