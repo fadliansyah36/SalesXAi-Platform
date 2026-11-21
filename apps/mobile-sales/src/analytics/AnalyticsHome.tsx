@@ -1,4 +1,5 @@
 import React,{useCallback,useEffect,useMemo,useState} from "react";
+import {Pressable} from "react-native";
 import {createAnalyticsApi} from "@salesx-ai/api-client";
 import type {AnalyticsDashboardResponse} from "@salesx-ai/api-contracts";
 import {NativeInline,NativeStack,NativeSurface,NativeText,useNativeTheme} from "@salesx-ai/design-system/native";
@@ -31,7 +32,7 @@ export function AnalyticsHome({auth}:{auth:{status:string;apiClient:any;activeOr
     <NativeText variant="title" weight="bold">Kinerja 7 Hari</NativeText>
     <NativeText variant="caption" color={colors.textSecondary}>{busy?"Memuat…":data?.data_as_of?new Date(data.data_as_of).toLocaleDateString("id-ID"):"Belum tersedia"}</NativeText>
    </NativeInline>
-   {error&&<NativeText color={colors.danger}>{error}</NativeText>}
+   {error&&<NativeText color="#B91C1C">{error}</NativeText>}
    {metrics.length===0&&!busy&&<NativeText color={colors.textSecondary}>Snapshot KPI salesperson belum tersedia pada periode ini.</NativeText>}
    {metrics.map(([key,value])=><NativeInline key={key} style={{justifyContent:"space-between",paddingVertical:8,borderBottomWidth:1,borderBottomColor:colors.border}}>
     <NativeText color={colors.textSecondary}>{key}</NativeText>
@@ -39,7 +40,7 @@ export function AnalyticsHome({auth}:{auth:{status:string;apiClient:any;activeOr
    </NativeInline>)}
    <NativeInline style={{justifyContent:"space-between",alignItems:"center"}}>
     <NativeText variant="caption" color={colors.textMuted}>Sumber: Analytics API · {start} s.d. {end}</NativeText>
-    <NativeText variant="caption" color={colors.primary} onPress={()=>void refresh()}>Perbarui</NativeText>
+    <Pressable onPress={()=>void refresh()} accessibilityRole="button"><NativeText variant="caption" color={colors.primary}>Perbarui</NativeText></Pressable>
    </NativeInline>
   </NativeStack>
  </NativeSurface>;
