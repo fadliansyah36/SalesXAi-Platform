@@ -42,15 +42,25 @@ class LocationService:
                 raise APIError(403, "sales_profile_required", "An active Sales profile is required to start location tracking.")
             if payload.shift_id:
                 shift = await db.fetchval("""select exists(select 1 from public.smartteam_shifts where organization_id=$1
-                  and id=$2 and user_id=$3 and sales_profile_id=$4 and clock_out_at is null)""", org, payload.shift_id, actor, profile["id"])
+                  and id=$2 and user_id=$3 and sales_profile_id=$4 and clock_in_at is not null and clock_out_at is null)""", org, payload.shift_id, actor, profile["id"])
                 if not shift:
                     raise APIError(409, "location_shift_not_active", "The selected shift is not active for this Sales user.")
+            active = await db.fetchrow("""select * from public.location_tracking_sessions
+              where organization_id=$1 and user_id=$2 and status='active' for update""", org, actor)
+            if active:
+                if active["device_id"] == payload.device_id and active["consent_policy_version"] == payload.consent_policy_version:
+                    return dict(active)
+                raise APIError(409, "location_session_already_active", "Another active location session is already bound to this user.")
             try:
                 row = await db.fetchrow("""insert into public.location_tracking_sessions
                   (organization_id,sales_profile_id,user_id,shift_id,device_id,consented_at,consent_policy_version)
                   values($1,$2,$3,$4,$5,now(),$6) returning *""",
                   org, profile["id"], actor, payload.shift_id, payload.device_id, payload.consent_policy_version)
             except asyncpg.UniqueViolationError as exc:
+                active = await db.fetchrow("""select * from public.location_tracking_sessions
+                  where organization_id=$1 and user_id=$2 and status='active'""", org, actor)
+                if active and active["device_id"] == payload.device_id and active["consent_policy_version"] == payload.consent_policy_version:
+                    return dict(active)
                 raise APIError(409, "location_session_already_active", "A location session is already active for this user.") from exc
             await db.execute("""insert into public.admin_audit_logs(actor_user_id,organization_id,action,resource_type,resource_id,metadata)
               values($1,$2,'location.session.started','location_session',$3::text,$4::jsonb)""",
