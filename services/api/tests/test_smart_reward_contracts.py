@@ -17,6 +17,9 @@ from app.schemas.smart_reward import (
     RewardRedemptionWrite,
     RewardReportResponse,
     RewardRuleWrite,
+    RewardCustomerSegmentCriteria,
+    RewardCustomerSegmentWrite,
+    RewardCustomerSegmentMemberWrite,
 )
 
 
@@ -147,6 +150,44 @@ class SmartRewardSchemaTests(unittest.TestCase):
         )
         self.assertEqual(progress.items[0].points_remaining, 380)
         self.assertEqual(progress.items[0].progress_percent, 60)
+
+
+    def test_customer_segment_schema_enforces_tenant_safe_bounded_criteria(self):
+        valid = RewardCustomerSegmentWrite(
+            code="VIP-CUSTOMERS",
+            name="VIP Customers",
+            status="active",
+            membership_mode="hybrid",
+            criteria={
+                "roles": ["sales"],
+                "branch_ids": [uuid4()],
+                "user_ids": [uuid4()],
+                "minimum_points_balance": 500,
+            },
+        )
+        self.assertEqual(valid.criteria.minimum_points_balance, 500)
+        with self.assertRaises(ValidationError):
+            RewardCustomerSegmentWrite(
+                code="V",
+                name="Invalid",
+                criteria={"minimum_points_balance": -1},
+            )
+        with self.assertRaises(ValidationError):
+            RewardCustomerSegmentCriteria(
+                roles=["sales"],
+                untrusted_tenant_id=str(uuid4()),
+            )
+
+    def test_customer_segment_period_and_member_identity_are_validated(self):
+        with self.assertRaises(ValidationError):
+            RewardCustomerSegmentWrite(
+                code="VIP-1",
+                name="VIP",
+                starts_at="2026-12-20T00:00:00Z",
+                ends_at="2026-12-19T00:00:00Z",
+            )
+        member = RewardCustomerSegmentMemberWrite(participant_user_id=uuid4())
+        self.assertIsNotNone(member.participant_user_id)
 
     def test_company_and_platform_report_schemas_include_lifecycle_metrics(self):
         report = RewardReportResponse(
