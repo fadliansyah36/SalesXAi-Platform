@@ -97,13 +97,13 @@ export function AnalyticsHome({auth}:{auth:AuthProps}){
     <Pressable onPress={()=>void refresh()} accessibilityRole="button"><NativeText color={colors.primary}>{busy?"Memuat…":"Refresh"}</NativeText></Pressable>
    </NativeInline>
    <NativeInline gap="2">
-    {[7,30].map(value=><Pressable key={value} onPress={()=>setDays(value as 7|30)} accessibilityRole="button" style={{paddingVertical:7,paddingHorizontal:12,borderRadius:10,backgroundColor:days===value?colors.primary:colors.surfaceMuted}}>
+    {[7,30].map(value=><Pressable key={value} onPress={()=>setDays(value as 7|30)} accessibilityRole="button" style={{paddingVertical:7,paddingHorizontal:12,borderRadius:10,backgroundColor:days===value?colors.primary:"transparent",borderWidth:1,borderColor:colors.border}}>
      <NativeText color={days===value?"#FFFFFF":colors.textSecondary} weight="semibold">{value} Hari</NativeText>
     </Pressable>)}
    </NativeInline>
    {error&&<NativeText color="#B91C1C">{error}</NativeText>}
    <View style={{flexDirection:"row",flexWrap:"wrap",gap:8}}>
-    {metrics.map(item=><View key={item.key} style={{width:"48%",padding:12,borderRadius:12,backgroundColor:colors.surfaceMuted}}>
+    {metrics.map(item=><View key={item.key} style={{width:"48%",padding:12,borderRadius:12,borderWidth:1,borderColor:colors.border}}>
      <NativeText variant="caption" color={colors.textSecondary}>{item.key}</NativeText>
      <NativeText variant="title" weight="bold">{formatValue(item.value)}</NativeText>
     </View>)}
