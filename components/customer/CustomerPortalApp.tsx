@@ -58,22 +58,16 @@ import {
   CUSTOMER_CONTRACT_PRICES,
   CUSTOMER_INITIAL_CART,
   CUSTOMER_INITIAL_ORDERS,
-  CUSTOMER_INITIAL_VOUCHERS,
-  CUSTOMER_REWARD_CATALOG,
-  CUSTOMER_REWARD_LEDGER,
   CUSTOMER_NOTIFICATIONS,
   INITIAL_PRODUCTS,
   INITIAL_PROMOTIONS,
   formatRupiah,
   type Product,
   type PromotionItem,
-  type RewardItem,
-  type RewardLedgerEntry,
   type NotificationItem,
   type CustomerCartItem,
   type CustomerOrderRecord,
   type CustomerContractPrice,
-  type CustomerVoucherItem,
   type Outlet,
 } from '@/lib/salesx-data';
 import {
@@ -82,12 +76,9 @@ import {
   CustomerPromoDetailModal,
   DeliveryAddressModal,
   CustomerOrderDetailModal,
-  RewardRedeemModal,
-  RewardLedgerModal,
   CustomerSupportModal,
   CustomerWorkspaceModal,
   CustomerNotificationsModal,
-  CollectPointsInfoModal,
   OrderSuccessModal,
   CancelCustomerOrderModal,
   CustomerAccountSettingsModal,
@@ -210,17 +201,6 @@ export function CustomerPortalApp() {
     useState<CustomerOrderRecord | null>(null);
   const [cancelOrderModal, setCancelOrderModal] =
     useState<CustomerOrderRecord | null>(null);
-
-  // Reward & Loyalty
-  const [pointsBalance, setPointsBalance] = useState(
-    CUSTOMER_OUTLET_PROFILE.pointsBalance
-  );
-  const [rewardLedger, setRewardLedger] = useState<RewardLedgerEntry[]>(
-    CUSTOMER_REWARD_LEDGER
-  );
-  const [selectedReward, setSelectedReward] = useState<RewardItem | null>(null);
-  const [ledgerModalOpen, setLedgerModalOpen] = useState(false);
-  const [collectPointsOpen, setCollectPointsOpen] = useState(false);
 
   // More / Support / Profile / Workspace / Settings
   const [notifications, setNotifications] = useState<NotificationItem[]>(
@@ -1018,7 +998,7 @@ export function CustomerPortalApp() {
                   },
                   {
                     label: 'Poin',
-                    val: pointsBalance.toLocaleString('id-ID'),
+                    val: 'Buka',
                     icon: Star,
                     color: 'text-[#F97316]',
                     action: () => setActiveTab('reward'),
@@ -2501,43 +2481,6 @@ export function CustomerPortalApp() {
         onClose={() => setOrderDetailModal(null)}
         onOpenWorkspace={() => setWorkspaceModalOpen(true)}
       />
-      <RewardRedeemModal
-        reward={selectedReward}
-        balance={pointsBalance}
-        onClose={() => setSelectedReward(null)}
-        onConfirmRedeem={(rw) => {
-          setPointsBalance((b) => Math.max(0, b - rw.pointsCost));
-          setRewardLedger((prev) => [
-            {
-              id: `cled-${Date.now()}`,
-              title: `Tukar Reward: ${rw.title}`,
-              dateLabel: 'Baru saja',
-              pointsDelta: -rw.pointsCost,
-              type: 'Penukaran',
-            },
-            ...prev,
-          ]);
-          if (rw.category === 'Voucher') {
-            const discountVal =
-              rw.id === 'crew-1' ? 25_000 : rw.id === 'crew-3' ? 10_000 : 15_000;
-            const newVoucher: CustomerVoucherItem = {
-              id: `cv-${Date.now()}`,
-              code: `REWARD-${String(vouchers.length + 1).padStart(2, '0')}`,
-              title: rw.title,
-              discountAmount: discountVal,
-              minSpend: discountVal * 4,
-              validUntil: '31 Des 2026',
-              used: false,
-            };
-            setVouchers((prev) => [newVoucher, ...prev]);
-            triggerToast(
-              `Berhasil menukar ${rw.title}! Voucher ${newVoucher.code} masuk ke Voucher Saya.`
-            );
-          } else {
-            triggerToast(`Berhasil menukar ${rw.title}!`);
-          }
-        }}
-      />
       <OrderSuccessModal
         result={orderSuccessResult}
         onClose={() => setOrderSuccessResult(null)}
@@ -2576,16 +2519,6 @@ export function CustomerPortalApp() {
           );
           triggerToast(`Pesanan ${orderId} telah dibatalkan.`);
         }}
-      />
-      <RewardLedgerModal
-        open={ledgerModalOpen}
-        ledger={rewardLedger}
-        balance={pointsBalance}
-        onClose={() => setLedgerModalOpen(false)}
-      />
-      <CollectPointsInfoModal
-        open={collectPointsOpen}
-        onClose={() => setCollectPointsOpen(false)}
       />
       <CustomerNotificationsModal
         open={notificationsOpen}
