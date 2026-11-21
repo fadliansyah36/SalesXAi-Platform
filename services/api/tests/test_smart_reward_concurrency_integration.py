@@ -16,6 +16,7 @@ from uuid import uuid4
 import asyncpg
 
 from app.errors import APIError
+from app.repositories.smart_reward import SmartRewardRepository
 from app.services.smart_reward import smart_reward_service
 
 
@@ -107,6 +108,7 @@ class SmartRewardConcurrentRedemptionTests(unittest.IsolatedAsyncioTestCase):
     async def asyncTearDown(self):
         if getattr(self, "db", None):
             if getattr(self, "organization_id", None):
+                await self.db.execute("ALTER TABLE public.reward_points_ledger DISABLE TRIGGER reward_ledger_immutable")
                 for table in (
                     "reward_event_outbox",
                     "reward_audit_events",
@@ -144,10 +146,12 @@ class SmartRewardConcurrentRedemptionTests(unittest.IsolatedAsyncioTestCase):
             return await asyncio.wait_for(
                 asyncio.gather(
                     smart_reward_service.redeem(
-                        _BarrierConnection(first, barrier), self.organization_id, self.user_id, payloads[0]
+                        SmartRewardRepository(_BarrierConnection(first, barrier)),
+                        self.organization_id, self.user_id, payloads[0]
                     ),
                     smart_reward_service.redeem(
-                        _BarrierConnection(second, barrier), self.organization_id, self.user_id, payloads[1]
+                        SmartRewardRepository(_BarrierConnection(second, barrier)),
+                        self.organization_id, self.user_id, payloads[1]
                     ),
                     return_exceptions=True,
                 ),
