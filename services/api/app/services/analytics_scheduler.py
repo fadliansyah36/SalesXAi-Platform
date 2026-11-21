@@ -58,13 +58,13 @@ async def _seed_schedules(connection:asyncpg.Connection)->None:
 async def _claim_schedules(connection:asyncpg.Connection,worker_id:str):
     return await connection.fetch(
         """with due as (
-             select id,coalesce(retry_at,last_run_at,next_run_at) scheduled_for,
+             select id,coalesce(retry_at,next_run_at) scheduled_for,
                     (retry_at is not null or lease_expires_at is not null) retrying
              from public.analytics_scheduled_jobs
              where enabled
                and (coalesce(retry_at,next_run_at)<=now() or lease_expires_at<now())
                and (lease_owner is null or lease_expires_at<now())
-             order by coalesce(retry_at,last_run_at,next_run_at)
+             order by coalesce(retry_at,next_run_at)
              for update skip locked limit 20
            ), advanced as (
              update public.analytics_scheduled_jobs j
@@ -86,8 +86,13 @@ async def _claim_schedules(connection:asyncpg.Connection,worker_id:str):
                          + j.local_time
                        ) at time zone j.timezone
                      )
-                     when 'monthly' then (((date_trunc('month',now() at time zone j.timezone)::date
-                       + interval '1 month'+(j.day_of_month-1)*interval '1 day')::date+j.local_time) at time zone j.timezone)
+                     when 'monthly' then (
+                       ((date_trunc('month',now() at time zone j.timezone)::date
+                         + interval '1 month'
+                         + (least(j.day_of_month,extract(day from (date_trunc('month',now() at time zone j.timezone)+interval '2 month - 1 day'))::int)-1)*interval '1 day')::date
+                         + j.local_time
+                       ) at time zone j.timezone
+                     )
                    end
                  end
              from due where j.id=due.id returning j.*,due.scheduled_for
