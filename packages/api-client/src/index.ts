@@ -787,7 +787,7 @@ export class SalesXApiClient {
   }
 }
 
-export type {RewardProgram,RewardRule,RewardCatalogItem,RewardLedgerEntry,RewardBalance,RewardRedemption,RewardPage,RewardApprovalRequest,RewardApprovalWrite,RewardApprovalDecision,RewardApprovalHistory,SmartRewardRealtimeEvent,RewardProgressItem,RewardProgressResponse} from "@salesx-ai/api-contracts";
+export type {RewardProgram,RewardRule,RewardCatalogItem,RewardLedgerEntry,RewardBalance,RewardRedemption,RewardPage,RewardApprovalRequest,RewardApprovalWrite,RewardApprovalDecision,RewardApprovalHistory,SmartRewardRealtimeEvent,RewardProgressItem,RewardProgressResponse,RewardCustomerSegment,RewardCustomerSegmentWrite,RewardCustomerSegmentMember,RewardCustomerSegmentMemberWrite,RewardCustomerSegmentCriteria} from "@salesx-ai/api-contracts";
 export function createSmartRewardApi(client:SalesXApiClient,organizationId:string){
  const base="/api/v1/organizations/"+encodeURIComponent(organizationId)+"/smart-reward";
  return {
@@ -815,5 +815,15 @@ export function createSmartRewardApi(client:SalesXApiClient,organizationId:strin
   approvals:(page=1,pageSize=25)=>client.request<import("@salesx-ai/api-contracts").RewardPage<import("@salesx-ai/api-contracts").RewardApprovalRequest>>(base+"/approvals?page="+page+"&page_size="+pageSize),
   requestApproval:(body:import("@salesx-ai/api-contracts").RewardApprovalWrite)=>client.request<import("@salesx-ai/api-contracts").RewardApprovalRequest>(base+"/approvals",{method:"POST",body:JSON.stringify(body)}),
   decideApproval:(id:string,body:import("@salesx-ai/api-contracts").RewardApprovalDecision)=>client.request<import("@salesx-ai/api-contracts").RewardApprovalRequest>(base+"/approvals/"+encodeURIComponent(id),{method:"PATCH",body:JSON.stringify(body)}),
+
+  customerSegments:(page=1,pageSize=25,status?:string)=>client.request<import("@salesx-ai/api-contracts").RewardPage<import("@salesx-ai/api-contracts").RewardCustomerSegment>>(base+"/segments?page="+page+"&page_size="+pageSize+(status?"&status="+encodeURIComponent(status):"")),
+  createCustomerSegment:(body:import("@salesx-ai/api-contracts").RewardCustomerSegmentWrite)=>client.request<import("@salesx-ai/api-contracts").RewardCustomerSegment>(base+"/segments",{method:"POST",body:JSON.stringify(body)}),
+  customerSegment:(id:string)=>client.request<import("@salesx-ai/api-contracts").RewardCustomerSegment>(base+"/segments/"+encodeURIComponent(id)),
+  updateCustomerSegment:(id:string,body:import("@salesx-ai/api-contracts").RewardCustomerSegmentWrite)=>client.request<import("@salesx-ai/api-contracts").RewardCustomerSegment>(base+"/segments/"+encodeURIComponent(id),{method:"PATCH",body:JSON.stringify(body)}),
+  customerSegmentMembers:(id:string,page=1,pageSize=25)=>client.request<import("@salesx-ai/api-contracts").RewardPage<import("@salesx-ai/api-contracts").RewardCustomerSegmentMember>>(base+"/segments/"+encodeURIComponent(id)+"/members?page="+page+"&page_size="+pageSize),
+  addCustomerSegmentMember:(id:string,body:import("@salesx-ai/api-contracts").RewardCustomerSegmentMemberWrite)=>client.request<import("@salesx-ai/api-contracts").RewardCustomerSegmentMember>(base+"/segments/"+encodeURIComponent(id)+"/members",{method:"POST",body:JSON.stringify(body)}),
+  removeCustomerSegmentMember:(id:string,userId:string)=>client.request<import("@salesx-ai/api-contracts").RewardCustomerSegmentMember>(base+"/segments/"+encodeURIComponent(id)+"/members/"+encodeURIComponent(userId),{method:"DELETE"}),
+  evaluateCustomerSegment:(id:string)=>client.request<{segment_id:string;matched_members:number;evaluated_members:number}>(base+"/segments/"+encodeURIComponent(id)+"/evaluate",{method:"POST"}),
+
  };
 }
