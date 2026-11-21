@@ -427,6 +427,7 @@ export interface LocationGeofenceEventPage {items:LocationGeofenceEvent[];page:n
 export interface MapsRuntimeStatus {
   provider:"google"|"none";
   server_routes_enabled:boolean;
+  server_places_enabled:boolean;
   language:string;
   region:string;
 }
@@ -443,3 +444,26 @@ export interface MapRouteComputeResult {
   duration:string;
   encoded_polyline:string;
 }
+export interface MapPlacesSearchRequest {
+  text_query:string;
+  included_type?:string;
+  strict_type_filtering?:boolean;
+  location_bias?:{lat:number;lng:number;radius_meters?:number};
+  page_size?:number;
+  page_token?:string;
+}
+export interface MapPlaceResult {
+  id:string;
+  displayName?:{text?:string;languageCode?:string};
+  formattedAddress?:string;
+  nationalPhoneNumber?:string;
+  internationalPhoneNumber?:string;
+  location?:{latitude:number;longitude:number};
+  googleMapsUri?:string;
+  websiteUri?:string;
+  businessStatus?:string;
+  rating?:number;
+  userRatingCount?:number;
+  primaryTypeDisplayName?:{text?:string;languageCode?:string};
+}
+export interface MapPlacesSearchResponse {places:MapPlaceResult[];nextPageToken:string|null;}
