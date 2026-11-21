@@ -108,9 +108,10 @@ class SmartRewardService:
   if not r: raise APIError(404,"reward_catalog_item_not_found","Item not found or committed stock would be violated.")
   await self._audit(db,org,actor,"catalog.updated","reward_catalog_item",iid); return dict(r)
  async def balance(self,db:SmartRewardRepository,org,user):
-  a,b=await self._account(db,org,user)
-  expiry=await db.fetchrow("select min(expires_at) next_expiration_at,coalesce(sum(points_remaining) filter(where expires_at<=now()+interval '30 days'),0)::bigint expiring_points_30d from public.reward_point_lots where organization_id=$1 and account_id=$2 and points_remaining>0",org,a["id"])
-  return {"account_id":str(a["id"]),"organization_id":str(org),"participant_user_id":str(user),"points_balance":b,"next_expiration_at":expiry["next_expiration_at"],"expiring_points_30d":int(expiry["expiring_points_30d"])}
+  async with db.transaction():
+   a,b=await self._account(db,org,user)
+   expiry=await db.fetchrow("select min(expires_at) next_expiration_at,coalesce(sum(points_remaining) filter(where expires_at<=now()+interval '30 days'),0)::bigint expiring_points_30d from public.reward_point_lots where organization_id=$1 and account_id=$2 and points_remaining>0",org,a["id"])
+   return {"account_id":str(a["id"]),"organization_id":str(org),"participant_user_id":str(user),"points_balance":b,"next_expiration_at":expiry["next_expiration_at"],"expiring_points_30d":int(expiry["expiring_points_30d"])}
  async def progress(self,db:SmartRewardRepository,org,user):
   async with db.transaction():
    await self._account(db,org,user)

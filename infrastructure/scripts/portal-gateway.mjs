@@ -200,10 +200,11 @@ const server = http.createServer((request, response) => {
         group: groupName,
         api: state.api,
         portals: state.apps,
+        source_commit: process.env.RAILWAY_GIT_COMMIT_SHA || "unknown",
       }));
     }).catch(() => {
       response.writeHead(503, { "content-type": "application/json", "cache-control": "no-store" });
-      response.end(JSON.stringify({ status: "degraded", group: groupName }));
+      response.end(JSON.stringify({ status: "degraded", group: groupName, source_commit: process.env.RAILWAY_GIT_COMMIT_SHA || "unknown" }));
     });
     return;
   }
