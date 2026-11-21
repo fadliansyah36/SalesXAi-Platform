@@ -795,7 +795,7 @@ export function OrderSuccessModal({
   result: {
     orderId: string;
     total: number;
-    earnedPoints: number;
+    earnedPoints?: number;
     deliveryDate: string;
   } | null;
   onClose: () => void;
@@ -836,14 +836,12 @@ export function OrderSuccessModal({
               {formatRupiah(result.total)}
             </span>
           </div>
-          <div className="flex justify-between pt-2 border-t border-[var(--color-border)]">
-            <span className="font-semibold text-[#F97316]">
-              Bonus SmartReward
-            </span>
-            <span className="font-bold text-[#F97316] tabular-nums">
-              +{result.earnedPoints.toLocaleString('id-ID')} Poin
-            </span>
-          </div>
+          {result.earnedPoints != null && (
+            <div className="flex justify-between pt-2 border-t border-[var(--color-border)]">
+              <span className="font-semibold text-[#F97316]">Bonus SmartReward</span>
+              <span className="font-bold text-[#F97316] tabular-nums">+{result.earnedPoints.toLocaleString('id-ID')} Poin</span>
+            </div>
+          )}
         </div>
         <div className="space-y-2">
           <button
