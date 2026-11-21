@@ -238,3 +238,27 @@ The latest main commit 823072c is a test-only follow-up in `services/api/tests/t
 - Page-specific Next.js JavaScript chunks were fetched for Website, Sales, Customer, Company, Distributor, Principal, Supervisor and Super Admin: all returned HTTP 200 with `application/javascript; charset=UTF-8`.
 - The Company gateway uses `/admin` for Super Admin; `/super-admin` returns 404 and is not the deployed route. Distributor, Principal and Supervisor use their respective gateway path prefixes.
 - This verifies production HTML and referenced static asset delivery. It does not claim a signed-in interaction/browser hydration test; no real user credentials were used.
+ 
+
+## Execution continuation — no Supabase staging — 2026-11-21
+
+The user explicitly directed that no Supabase staging/development branch or staging database tests be created. No staging branch was created and no test fixtures were inserted into production. Populated transaction verification with real accounts is deferred to the user's final integrated validation phase; this supersedes the earlier note requesting approval for a temporary Supabase branch.
+
+Code integration continued on `main`:
+- Added typed write contracts for Reward Program, Incentive Rule, Catalog, earning, adjustment and reversal; the shared API client now uses these instead of untyped `unknown` mutation bodies.
+- Corrected PATCH semantics for Program, Rule and Catalog. The portal's status controls send partial bodies; FastAPI now merges them against tenant-owned persisted rows, validates the complete write schema, and serializes the read/merge/update under a row lock and transaction. Persisted timestamp values are normalized before schema validation.
+- Customer Segment period validation now rejects timezone-naive timestamps. Segment report and evaluation endpoints have explicit response schemas. Segment status query values are constrained.
+- Mirrored all nine Customer Segment action IDs in the shared TypeScript permission registry; the API action-matrix parity test had exposed the missing client entries.
+- Native Expo SmartReward now supports participant cancellation of pending redemption and retains the same idempotency key when retrying a redemption after a network failure.
+- Web SmartReward also retains redemption idempotency keys across retries.
+- Super Admin SmartReward page now includes the cross-organization `PlatformSmartRewardOverview` as well as its tenant workspace. Customer, Sales, Supervisor, Company, Principal and Distributor pages already mount the shared SmartReward workspace.
+
+Validation evidence:
+- The API static workflow previously completed the full Python suite with **119 tests passing**, Python compileall passing, and Docker API image build succeeding. Ruff found two unused imports in the segment service; both were removed. A new API run on the final API changes is pending/in progress and includes additional partial-update merge tests.
+- An earlier portal typecheck caught an incentive-event form state typed as generic string. It was corrected to the RewardRule event union and the select handler now narrows to that union. The final portal build matrix is running against the current source.
+- Native Expo typecheck and Android bundle export passed in the earlier run; the current workflow is rerunning applicable mobile checks.
+- Latest API code commit: `3c28491de66fd3fae80ca47dd808d7eb679306bd`. Latest Super Admin portal page commit: `8c4b711955427d29aed5bd55eeef9594f47fe9b0`. Subsequent CI runs are tracked against these current sources.
+
+No new Supabase migration was needed for these API/client integration fixes; the existing Phase 06 migration set remains applied. Do not interpret this code-level checkpoint as populated-ledger, real-account concurrency, or authenticated cross-tenant runtime test evidence.
+
+**Phase 06 remains IN_PROGRESS while current CI/build and latest-source Railway deployments complete. Phase 07 remains LOCKED.** Final real-account transaction and tenant authorization validation is deferred per the user's instruction.
