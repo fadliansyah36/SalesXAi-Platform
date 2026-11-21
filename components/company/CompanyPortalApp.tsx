@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
+import { usePortalRouteGuard } from '@/components/auth/usePortalRouteGuard';
 import { SmartTeamConsole } from '@/components/smart-team/SmartTeamConsole';
 import { AnalyticsWorkspace } from '@/components/analytics/AnalyticsWorkspace';
 import { LocationWorkspace } from '@/components/location/LocationWorkspace';
@@ -206,6 +207,7 @@ const LEGACY_SMARTTEAM_UI_ENABLED = false;
 
 export function CompanyPortalApp() {
   const auth = useSalesXAuth();
+  usePortalRouteGuard("company");
   const visiblePortalSwitchLinks = [
     {href:"/portal",label:"Sales Portal",portal:"sales"},
     {href:"/distributor",label:"Distributor",portal:"distributor"},
