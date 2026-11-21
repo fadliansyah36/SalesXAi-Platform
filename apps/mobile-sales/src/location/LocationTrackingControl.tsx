@@ -4,10 +4,20 @@ import * as Location from "expo-location";
 import type {SalesXApiClient} from "@salesx-ai/api-client";
 import {NativeInline,NativeStack,NativeSurface,NativeText,useNativeTheme} from "@salesx-ai/design-system/native";
 import {ensureLocationDeviceId,flushLocationOutbox,startLocationTracking,stopLocationTracking,syncLocationAccessToken,syncPendingLocationStop,LOCATION_TASK_NAME} from "./locationTracking";
+import {LocationMap} from "./LocationMap";
+import type {MapCoordinate} from "../../../../packages/maps/src";
 
 export function LocationTrackingControl({api,organizationId,accessToken,actorUserId,shiftId}:{api:SalesXApiClient|null;organizationId:string|null;accessToken:string|null;actorUserId:string|null;shiftId?:string|null}){
- const {colors}=useNativeTheme();const [consent,setConsent]=useState(false);const [active,setActive]=useState(false);const [busy,setBusy]=useState(false);const [notice,setNotice]=useState("");
+ const {colors}=useNativeTheme();const [consent,setConsent]=useState(false);const [active,setActive]=useState(false);const [busy,setBusy]=useState(false);const [notice,setNotice]=useState("");const [currentCoordinate,setCurrentCoordinate]=useState<MapCoordinate|null>(null);
  useEffect(()=>{void (async()=>{setActive(await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK_NAME));})();},[]);
+ useEffect(()=>{
+  if(!active){setCurrentCoordinate(null);return;}
+  let mounted=true;
+  void Location.getCurrentPositionAsync({accuracy:Location.Accuracy.Balanced}).then(position=>{
+   if(mounted)setCurrentCoordinate({lat:position.coords.latitude,lng:position.coords.longitude});
+  }).catch(()=>undefined);
+  return ()=>{mounted=false;};
+ },[active]);
  useEffect(()=>{void syncLocationAccessToken(accessToken);},[accessToken]);
  useEffect(()=>{
   if(!api||!organizationId)return;
@@ -35,6 +45,7 @@ export function LocationTrackingControl({api,organizationId,accessToken,actorUse
     <NativeText variant="caption" color={active?colors.success:colors.textSecondary}>{active?"AKTIF":"NONAKTIF"}</NativeText>
    </NativeInline>
    <NativeText color={colors.textSecondary}>Lokasi GPS hanya dikumpulkan setelah Anda menyetujui dan memberikan izin perangkat. Data disimpan sementara secara lokal ketika offline dan dikirim ke FastAPI saat koneksi tersedia.</NativeText>
+   <LocationMap center={currentCoordinate} />
    {!active&&<Pressable onPress={()=>setConsent(v=>!v)} style={{padding:12,borderRadius:12,borderWidth:1,borderColor:consent?colors.primary:colors.border}}>
     <NativeText color={consent?colors.primary:colors.textPrimary}> {consent?"✓ ":"□ "}Saya menyetujui pelacakan lokasi selama sesi kerja dan memahami bahwa saya dapat menghentikannya.</NativeText>
    </Pressable>}
