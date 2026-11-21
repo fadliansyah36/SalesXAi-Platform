@@ -30,11 +30,15 @@ export function AnalyticsWorkspace({compact=false}:{compact?:boolean}){
   if(!api)return;
   setLoading(true);setError(null);
   try{
-   const [result,history]=await Promise.all([api.dashboard(periodStart,periodEnd,grain,scopeType??undefined,scopeId||null),api.reports()]);
+   const canReadReports=auth.canPerformApiAction("analytics.reports.read");
+   const [result,history]=await Promise.all([
+    api.dashboard(periodStart,periodEnd,grain,scopeType??undefined,scopeId||null),
+    canReadReports?api.reports():Promise.resolve([]),
+   ]);
    setDashboard(result);setReports(history);
   }catch(cause){setError(cause instanceof Error?cause.message:"Data analytics tidak dapat dimuat.");}
   finally{setLoading(false);}
- },[api,periodStart,periodEnd,grain,scopeType,scopeId]);
+ },[api,auth.canPerformApiAction,periodStart,periodEnd,grain,scopeType,scopeId]);
  useEffect(()=>{void refresh();},[refresh]);
  useEffect(()=>{
   if(!dashboard?.scopes.length)return;
@@ -50,10 +54,10 @@ export function AnalyticsWorkspace({compact=false}:{compact?:boolean}){
   if(!available.some(scope=>scope.scope_id===scopeId))setScopeId(available[0].scope_id??"");
  },[dashboard,scopeType,scopeId]);
  useEffect(()=>{
-  if(!api||!reports.some(report=>report.status==="queued"||report.status==="running"))return;
+  if(!api||!auth.canPerformApiAction("analytics.reports.read")||!reports.some(report=>report.status==="queued"||report.status==="running"))return;
   const timer=setInterval(()=>{void api.reports().then(setReports).catch(()=>undefined);},5000);
   return()=>clearInterval(timer);
- },[api,reports]);
+ },[api,reports,auth.canPerformApiAction]);
 
  const visibleMetrics=useMemo(()=>{
   const values=dashboard?.metrics??[];
