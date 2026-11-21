@@ -87,6 +87,20 @@ async def unlink_own_identity(
     await identity_mutation_service.unlink_own_identity(connection,request,principal,identity_id)
 
 
+class PortalHandoffExchange(BaseModel):
+    token:str=Field(min_length=32,max_length=128)
+    target_origin:str=Field(min_length=8,max_length=300)
+
+
+class PortalHandoffCreated(BaseModel):
+    accepted:bool
+    expires_at:datetime
+
+
+class PortalHandoffExchanged(BaseModel):
+    encrypted_session:str
+
+
 class PortalHandoffCreate(BaseModel):
     token:str=Field(min_length=32,max_length=128)
     encrypted_session:str=Field(min_length=80,max_length=8192)
@@ -109,7 +123,7 @@ def bff_api_action(action_id:str):
     return decorate
 
 
-@router.post("/portal-handoffs",status_code=201)
+@router.post("/portal-handoffs",status_code=201,response_model=PortalHandoffCreated)
 async def create_portal_handoff(
     payload:PortalHandoffCreate,
     request:Request,
@@ -173,20 +187,18 @@ async def create_portal_handoff(
     return {"accepted":True,"expires_at":expiry}
 
 
-@router.post("/portal-handoffs/exchange")
+@router.post("/portal-handoffs/exchange",response_model=PortalHandoffExchanged)
 @bff_api_action("identity.portal.handoff.exchange")
 async def exchange_portal_handoff(
-    payload:dict,
+    payload:PortalHandoffExchange,
     request:Request,
     connection:asyncpg.Connection=Depends(get_connection),
 )->dict:
     from app.errors import APIError
     if not _bff_secret_valid(request):
         raise APIError(403,"bff_handoff_forbidden","A trusted Web authentication BFF is required.")
-    token=payload.get("token")
-    target_origin=payload.get("target_origin")
-    if not isinstance(token,str) or len(token)<32 or not isinstance(target_origin,str):
-        raise APIError(400,"invalid_handoff_ticket","A valid one-time handoff ticket is required.")
+    token=payload.token
+    target_origin=payload.target_origin
     settings=get_settings()
     allowed_origins=set(settings.allowed_origins)
     if settings.app_public_url:
