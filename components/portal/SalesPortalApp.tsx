@@ -628,7 +628,6 @@ export function SalesPortalApp() {
     { href: "/supervisor", label: "Supervisor", portal: "supervisor" },
     { href: "/company", label: "Company", portal: "company" },
     { href: "/customer", label: "Customer", portal: "customer" },
-    { href: "/super-admin", label: "Super Admin", portal: "super_admin" },
   ] as const;
   const visiblePortalSwitchLinks = portalSwitchLinks.filter(item => auth.canAccessPortal(item.portal));
 
