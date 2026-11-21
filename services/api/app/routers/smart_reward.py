@@ -173,6 +173,11 @@ async def remove_customer_segment_member(organization_id:UUID,segment_id:UUID,pa
  smart_reward_service._tenant(organization_id,tenant)
  return await smart_reward_segment_service.remove_member(db,organization_id,principal.user_id,segment_id,participant_user_id)
 
+@router.get("/{organization_id}/smart-reward/segments/{segment_id}/report")
+async def customer_segment_report(organization_id:UUID,segment_id:UUID,tenant:TenantContext=Depends(require_api_action("smartreward.segments.report")),db:SmartRewardRepository=Depends(get_smart_reward_repository)):
+ smart_reward_service._tenant(organization_id,tenant)
+ return await smart_reward_segment_service.report(db,organization_id,segment_id)
+
 @router.post("/{organization_id}/smart-reward/segments/{segment_id}/evaluate")
 async def evaluate_customer_segment(organization_id:UUID,segment_id:UUID,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartreward.segments.manage")),db:SmartRewardRepository=Depends(get_smart_reward_repository)):
  smart_reward_service._tenant(organization_id,tenant)
