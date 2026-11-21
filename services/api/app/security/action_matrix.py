@@ -1076,6 +1076,7 @@ API_ACTION_MATRIX: tuple[ApiActionContract, ...] = (
     ApiActionContract("location.routes.read","GET","/api/v1/organizations/{organization_id}/location/routes","location","routes_read","location_route_summary","tenant_permission:location.history.read","location.history.read","tenant","tenant_permission_and_profile_scope"),
     ApiActionContract("location.geofences.read","GET","/api/v1/organizations/{organization_id}/location/geofences","location","geofences_read","location_geofence","tenant_permission:location.geofences.read","location.geofences.read","tenant","tenant_permission_and_tenant_match"),
     ApiActionContract("location.geofences.manage","POST","/api/v1/organizations/{organization_id}/location/geofences","location","geofences_manage","location_geofence","tenant_permission:location.geofences.manage","location.geofences.manage","tenant","tenant_permission_and_tenant_match"),
+    ApiActionContract("location.geofence_events.read","GET","/api/v1/organizations/{organization_id}/location/geofence-events","location","geofence_events_read","location_geofence_event","tenant_permission:location.history.read","location.history.read","tenant","tenant_permission_and_profile_scope"),
     ApiActionContract("location.events.read","GET","/api/v1/organizations/{organization_id}/location/events","location","events_read","location_event","tenant_permission:location.live.read","location.live.read","tenant","tenant_permission_and_profile_scope"),
 )
 
