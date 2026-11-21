@@ -134,6 +134,7 @@ class Settings(BaseSettings):
         "salesx_bff_shared_secret",
         "smtp_password",
         "google_maps_server_api_key",
+        "google_maps_places_api_key",
         mode="before",
     )
     @classmethod
@@ -180,6 +181,10 @@ class Settings(BaseSettings):
     @property
     def google_maps_routes_enabled(self) -> bool:
         return self.maps_provider == "google" and self.google_maps_server_api_key is not None
+
+    @property
+    def google_maps_places_enabled(self) -> bool:
+        return self.maps_provider == "google" and self.google_maps_places_api_key is not None
 
     @field_validator("smtp_port")
     @classmethod
