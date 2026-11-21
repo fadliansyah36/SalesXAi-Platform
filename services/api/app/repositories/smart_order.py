@@ -58,15 +58,25 @@ class SmartOrderRepository:
     org,pid,p.product_code.strip(),p.name.strip(),p.description,p.category_id,p.brand_id,p.unit_id,p.tax_rate,json.dumps(p.specifications),p.status,actor)
    sku_keys=[v.sku.strip() for v in p.variants]
    if len(sku_keys)!=len(set(sku_keys)):raise APIError(422,"duplicate_product_sku","A product update cannot contain duplicate SKU codes.")
+   kept_variant_ids=[]
    for v in p.variants:
-    existing=await db.fetchrow("select id from public.product_variants where organization_id=$1 and product_id=$2 and sku=$3 for update",org,pid,v.sku.strip())
-    if existing:
-     await db.execute("""update public.product_variants set name=$4,barcode=$5,attributes=$6::jsonb,specifications=$7::jsonb,weight_grams=$8,updated_at=now()
-      where organization_id=$1 and product_id=$2 and id=$3""",org,pid,existing["id"],v.name.strip(),v.barcode,json.dumps(v.attributes),json.dumps(v.specifications),v.weight_grams)
+    existing=None
+    if v.id:
+     existing=await db.fetchrow("select id,status from public.product_variants where organization_id=$1 and product_id=$2 and id=$3 for update",org,pid,v.id)
+     if not existing:raise APIError(422,"invalid_product_variant","Variant ID does not belong to this product.")
+     if existing["status"]=="archived":raise APIError(409,"archived_product_variant","Archived SKU variants cannot be reactivated; create a new SKU instead.")
     else:
-     await db.execute("""insert into public.product_variants(organization_id,product_id,sku,name,barcode,attributes,specifications,weight_grams)
-      values($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8)""",org,pid,v.sku.strip(),v.name.strip(),v.barcode,json.dumps(v.attributes),json.dumps(v.specifications),v.weight_grams)
-   await db.execute("update public.product_variants set status='archived',updated_at=now() where organization_id=$1 and product_id=$2 and not (sku=any($3::text[])) and status<>'archived'",org,pid,sku_keys)
+     existing=await db.fetchrow("select id,status from public.product_variants where organization_id=$1 and product_id=$2 and sku=$3 for update",org,pid,v.sku.strip())
+     if existing and existing["status"]=="archived":raise APIError(409,"archived_product_variant","Archived SKU variants cannot be reactivated; create a new SKU instead.")
+    if existing:
+     await db.execute("""update public.product_variants set sku=$4,name=$5,barcode=$6,attributes=$7::jsonb,specifications=$8::jsonb,weight_grams=$9,updated_at=now()
+      where organization_id=$1 and product_id=$2 and id=$3""",org,pid,existing["id"],v.sku.strip(),v.name.strip(),v.barcode,json.dumps(v.attributes),json.dumps(v.specifications),v.weight_grams)
+     kept_variant_ids.append(existing["id"])
+    else:
+     created=await db.fetchrow("""insert into public.product_variants(organization_id,product_id,sku,name,barcode,attributes,specifications,weight_grams)
+      values($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8) returning id""",org,pid,v.sku.strip(),v.name.strip(),v.barcode,json.dumps(v.attributes),json.dumps(v.specifications),v.weight_grams)
+     kept_variant_ids.append(created["id"])
+   await db.execute("update public.product_variants set status='archived',updated_at=now() where organization_id=$1 and product_id=$2 and not (id=any($3::uuid[])) and status<>'archived'",org,pid,kept_variant_ids)
    await self.audit(db,org,actor,"product.updated","product",pid,{"variants":len(p.variants),"status":p.status})
   return await self.get_product(db,org,pid)
 
