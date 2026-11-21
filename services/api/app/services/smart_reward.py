@@ -27,22 +27,22 @@ class SmartRewardService:
   return {"items":[dict(r) for r in rows],"page":page,"page_size":size,"total":total}
  async def create_program(self,db:SmartRewardRepository,org,actor,p):
   try:
-   r=await db.fetchrow("""insert into public.reward_programs(organization_id,code,name,description,program_type,reward_type,starts_at,ends_at,status,audience,configuration,created_by,updated_by)
-    values($1,$2,$3,$4,$5,$6,$7::timestamptz,$8::timestamptz,$9,$10::jsonb,$11::jsonb,$12,$12) returning *""",org,p.code.upper(),p.name,p.description,p.program_type,p.reward_type,p.starts_at,p.ends_at,p.status,json.dumps(p.audience),json.dumps(p.configuration),actor)
+   r=await db.fetchrow("""insert into public.reward_programs(organization_id,code,name,description,program_type,reward_type,starts_at,ends_at,status,audience,configuration,customer_segment_id,created_by,updated_by)
+    values($1,$2,$3,$4,$5,$6,$7::timestamptz,$8::timestamptz,$9,$10::jsonb,$11::jsonb,$12,$13,$13) returning *""",org,p.code.upper(),p.name,p.description,p.program_type,p.reward_type,p.starts_at,p.ends_at,p.status,json.dumps(p.audience),json.dumps(p.configuration),p.customer_segment_id,actor)
   except asyncpg.UniqueViolationError as e: raise APIError(409,"reward_program_code_conflict","Program code already exists.") from e
   await self._audit(db,org,actor,"program.created","reward_program",r["id"]); return dict(r)
  async def update_program(self,db:SmartRewardRepository,org,actor,pid,p):
-  r=await db.fetchrow("""update public.reward_programs set code=$3,name=$4,description=$5,program_type=$6,reward_type=$7,starts_at=$8::timestamptz,ends_at=$9::timestamptz,status=$10,audience=$11::jsonb,configuration=$12::jsonb,updated_by=$13,updated_at=now() where organization_id=$1 and id=$2 returning *""",org,pid,p.code.upper(),p.name,p.description,p.program_type,p.reward_type,p.starts_at,p.ends_at,p.status,json.dumps(p.audience),json.dumps(p.configuration),actor)
+  r=await db.fetchrow("""update public.reward_programs set code=$3,name=$4,description=$5,program_type=$6,reward_type=$7,starts_at=$8::timestamptz,ends_at=$9::timestamptz,status=$10,audience=$11::jsonb,configuration=$12::jsonb,customer_segment_id=$13,updated_by=$14,updated_at=now() where organization_id=$1 and id=$2 returning *""",org,pid,p.code.upper(),p.name,p.description,p.program_type,p.reward_type,p.starts_at,p.ends_at,p.status,json.dumps(p.audience),json.dumps(p.configuration),p.customer_segment_id,actor)
   if not r: raise APIError(404,"reward_program_not_found","Program not found.")
   await self._audit(db,org,actor,"program.updated","reward_program",pid); return dict(r)
  async def rules(self,db:SmartRewardRepository,org,pid):
   return [dict(r) for r in await db.fetch("select * from public.reward_incentive_rules where organization_id=$1 and ($2::uuid is null or program_id=$2) order by priority,created_at",org,pid)]
  async def create_rule(self,db:SmartRewardRepository,org,actor,p,pid):
-  r=await db.fetchrow("""insert into public.reward_incentive_rules(organization_id,program_id,code,name,event_key,priority,rule_config,points_per_unit,fixed_points,max_points,requires_approval,status,created_by,updated_by)
-   values($1,$2,$3,$4,$5,$6,$7::jsonb,$8,$9,$10,$11,$12,$13,$13) returning *""",org,pid,p.code.upper(),p.name,p.event_key,p.priority,json.dumps(p.rule_config),p.points_per_unit,p.fixed_points,p.max_points,p.requires_approval,p.status,actor)
+  r=await db.fetchrow("""insert into public.reward_incentive_rules(organization_id,program_id,code,name,event_key,priority,rule_config,points_per_unit,fixed_points,max_points,requires_approval,status,customer_segment_id,created_by,updated_by)
+   values($1,$2,$3,$4,$5,$6,$7::jsonb,$8,$9,$10,$11,$12,$13,$14,$14) returning *""",org,pid,p.code.upper(),p.name,p.event_key,p.priority,json.dumps(p.rule_config),p.points_per_unit,p.fixed_points,p.max_points,p.requires_approval,p.status,p.customer_segment_id,actor)
   await self._audit(db,org,actor,"rule.created","reward_incentive_rule",r["id"]); return dict(r)
  async def update_rule(self,db:SmartRewardRepository,org,actor,rid,p):
-  r=await db.fetchrow("""update public.reward_incentive_rules set code=$3,name=$4,event_key=$5,priority=$6,rule_config=$7::jsonb,points_per_unit=$8,fixed_points=$9,max_points=$10,requires_approval=$11,status=$12,updated_by=$13,updated_at=now() where organization_id=$1 and id=$2 returning *""",org,rid,p.code.upper(),p.name,p.event_key,p.priority,json.dumps(p.rule_config),p.points_per_unit,p.fixed_points,p.max_points,p.requires_approval,p.status,actor)
+  r=await db.fetchrow("""update public.reward_incentive_rules set code=$3,name=$4,event_key=$5,priority=$6,rule_config=$7::jsonb,points_per_unit=$8,fixed_points=$9,max_points=$10,requires_approval=$11,status=$12,customer_segment_id=$13,updated_by=$14,updated_at=now() where organization_id=$1 and id=$2 returning *""",org,rid,p.code.upper(),p.name,p.event_key,p.priority,json.dumps(p.rule_config),p.points_per_unit,p.fixed_points,p.max_points,p.requires_approval,p.status,p.customer_segment_id,actor)
   if not r: raise APIError(404,"reward_rule_not_found","Rule not found.")
   await self._audit(db,org,actor,"rule.updated","reward_incentive_rule",rid); return dict(r)
  async def catalog(self,db:SmartRewardRepository,org,page,size,category,actor):
@@ -100,11 +100,11 @@ class SmartRewardService:
     items.append(item)
    return {"items":items,"page":page,"page_size":size,"total":total}
  async def create_catalog_item(self,db:SmartRewardRepository,org,actor,p):
-  r=await db.fetchrow("""insert into public.reward_catalog_items(organization_id,program_id,code,name,description,category,points_cost,quantity_total,starts_at,ends_at,eligibility,metadata,status,created_by,updated_by)
-   values($1,$2,$3,$4,$5,$6,$7,$8,$9::timestamptz,$10::timestamptz,$11::jsonb,$12::jsonb,$13,$14,$14) returning *""",org,p.program_id,p.code.upper(),p.name,p.description,p.category,p.points_cost,p.quantity_total,p.starts_at,p.ends_at,json.dumps(p.eligibility),json.dumps(p.metadata),p.status,actor)
+  r=await db.fetchrow("""insert into public.reward_catalog_items(organization_id,program_id,code,name,description,category,points_cost,quantity_total,starts_at,ends_at,eligibility,metadata,status,customer_segment_id,created_by,updated_by)
+   values($1,$2,$3,$4,$5,$6,$7,$8,$9::timestamptz,$10::timestamptz,$11::jsonb,$12::jsonb,$13,$14,$15,$15) returning *""",org,p.program_id,p.code.upper(),p.name,p.description,p.category,p.points_cost,p.quantity_total,p.starts_at,p.ends_at,json.dumps(p.eligibility),json.dumps(p.metadata),p.status,p.customer_segment_id,actor)
   await self._audit(db,org,actor,"catalog.created","reward_catalog_item",r["id"]); return dict(r)
  async def update_catalog_item(self,db:SmartRewardRepository,org,actor,iid,p):
-  r=await db.fetchrow("""update public.reward_catalog_items set program_id=$3,code=$4,name=$5,description=$6,category=$7,points_cost=$8,quantity_total=$9,starts_at=$10::timestamptz,ends_at=$11::timestamptz,eligibility=$12::jsonb,metadata=$13::jsonb,status=$14,updated_by=$15,updated_at=now() where organization_id=$1 and id=$2 and (quantity_total is null or quantity_total>=quantity_reserved+quantity_fulfilled) returning *""",org,iid,p.program_id,p.code.upper(),p.name,p.description,p.category,p.points_cost,p.quantity_total,p.starts_at,p.ends_at,json.dumps(p.eligibility),json.dumps(p.metadata),p.status,actor)
+  r=await db.fetchrow("""update public.reward_catalog_items set program_id=$3,code=$4,name=$5,description=$6,category=$7,points_cost=$8,quantity_total=$9,starts_at=$10::timestamptz,ends_at=$11::timestamptz,eligibility=$12::jsonb,metadata=$13::jsonb,status=$14,customer_segment_id=$15,updated_by=$16,updated_at=now() where organization_id=$1 and id=$2 and (quantity_total is null or quantity_total>=quantity_reserved+quantity_fulfilled) returning *""",org,iid,p.program_id,p.code.upper(),p.name,p.description,p.category,p.points_cost,p.quantity_total,p.starts_at,p.ends_at,json.dumps(p.eligibility),json.dumps(p.metadata),p.status,p.customer_segment_id,actor)
   if not r: raise APIError(404,"reward_catalog_item_not_found","Item not found or committed stock would be violated.")
   await self._audit(db,org,actor,"catalog.updated","reward_catalog_item",iid); return dict(r)
  async def balance(self,db:SmartRewardRepository,org,user):
