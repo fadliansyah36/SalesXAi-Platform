@@ -8,7 +8,7 @@ from urllib.request import Request, urlopen
 from uuid import UUID
 
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.errors import APIError
 from app.config import get_settings
@@ -28,6 +28,93 @@ class MapRouteComputeRequest(BaseModel):
     intermediates: list[MapCoordinate] = Field(default_factory=list, max_length=25)
     travel_mode: Literal["DRIVE", "BICYCLE", "WALK", "TWO_WHEELER"] = "DRIVE"
 
+class MapPlacesLocationBias(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+    lat: float = Field(ge=-90, le=90)
+    lng: float = Field(ge=-180, le=180)
+    radius_meters: int = Field(default=10000, ge=500, le=50000, alias="radiusMeters")
+
+
+class MapPlacesSearchRequest(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+    text_query: str = Field(min_length=1, max_length=200, alias="textQuery")
+    included_type: str | None = Field(default=None, pattern=r"^[a-z0-9_]{1,64}$", alias="includedType")
+    strict_type_filtering: bool = Field(default=False, alias="strictTypeFiltering")
+    location_bias: MapPlacesLocationBias | None = Field(default=None, alias="locationBias")
+    page_size: int = Field(default=10, ge=1, le=20, alias="pageSize")
+    page_token: str | None = Field(default=None, min_length=1, max_length=2048, alias="pageToken")
+
+    @field_validator("text_query")
+    @classmethod
+    def validate_text_query(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("textQuery must not be blank")
+        return normalized
+
+
+
+def _google_places_search(payload: MapPlacesSearchRequest, api_key: str, language: str, region: str) -> dict:
+    body: dict = {
+        "textQuery": payload.text_query,
+        "languageCode": language,
+        "regionCode": region,
+        "pageSize": payload.page_size,
+    }
+    if payload.included_type:
+        body["includedType"] = payload.included_type
+        if payload.strict_type_filtering:
+            body["strictTypeFiltering"] = True
+    if payload.location_bias:
+        body["locationBias"] = {
+            "circle": {
+                "center": {
+                    "latitude": payload.location_bias.lat,
+                    "longitude": payload.location_bias.lng,
+                },
+                "radius": payload.location_bias.radius_meters,
+            }
+        }
+    if payload.page_token:
+        body["pageToken"] = payload.page_token
+
+    request = Request(
+        "https://places.googleapis.com/v1/places:searchText",
+        data=json.dumps(body).encode("utf-8"),
+        headers={
+            "Content-Type": "application/json",
+            "X-Goog-Api-Key": api_key,
+            "X-Goog-FieldMask": ",".join([
+                "places.id", "places.displayName", "places.formattedAddress",
+                "places.nationalPhoneNumber", "places.internationalPhoneNumber",
+                "places.location", "places.googleMapsUri", "places.websiteUri",
+                "places.businessStatus", "places.rating", "places.userRatingCount",
+                "places.primaryTypeDisplayName", "nextPageToken",
+            ]),
+        },
+        method="POST",
+    )
+    try:
+        with urlopen(request, timeout=10) as response:
+            result = json.loads(response.read().decode("utf-8"))
+    except HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")
+        try:
+            provider_error = json.loads(detail).get("error", {})
+        except (TypeError, ValueError):
+            provider_error = {}
+        status_text = str(provider_error.get("status") or "")
+        if exc.code == 429 or status_text == "RESOURCE_EXHAUSTED":
+            raise APIError(429, "maps_places_quota_exceeded", "Google Maps Places quota is temporarily exhausted.") from exc
+        raise APIError(502, "maps_places_provider_error", "Google Places API rejected the search request.") from exc
+    except (URLError, TimeoutError, OSError, ValueError) as exc:
+        raise APIError(502, "maps_places_provider_unavailable", "Google Places API is temporarily unavailable.") from exc
+
+    places = result.get("places")
+    return {
+        "places": places if isinstance(places, list) else [],
+        "nextPageToken": result.get("nextPageToken"),
+    }
 
 def _google_route(payload: MapRouteComputeRequest, api_key: str) -> dict:
     body: dict = {
@@ -84,6 +171,26 @@ async def maps_config(tenant: TenantContext = Depends(require_api_action("maps.c
         "language": settings.google_maps_language,
         "region": settings.google_maps_region,
     }
+
+
+@router.post("/maps/places/search")
+async def search_places(
+    payload: MapPlacesSearchRequest,
+    tenant: TenantContext = Depends(require_api_action("maps.places.search")),
+):
+    del tenant
+    settings = get_settings()
+    api_key = (
+        settings.google_maps_places_api_key.get_secret_value()
+        if settings.google_maps_places_enabled and settings.google_maps_places_api_key
+        else ""
+    )
+    if not api_key:
+        raise APIError(503, "maps_provider_not_configured", "Google Places credentials are not configured.")
+    return await asyncio.to_thread(
+        _google_places_search, payload, api_key,
+        settings.google_maps_language, settings.google_maps_region,
+    )
 
 
 @router.post("/organizations/{organization_id}/maps/routes/compute")
