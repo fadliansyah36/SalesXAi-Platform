@@ -17,9 +17,9 @@ Supabase project ref: eyofuiyxalbehbqoaeny
 | Phase 06 — SmartReward & Incentive | IN_PROGRESS — four-service production release and portal runtime validation passed; populated-ledger, live concurrency, authenticated cross-tenant and PRD submodule gaps remain |
 | Phase 07 — Realtime Location & Route History | LOCKED — do not start until Phase 06 Definition of Done is evidenced |
 
-**Latest main code/test SHA:** `823072c098dcbee285d5a0157e33fa47b6371075` (the last commit only corrected the SmartReward transaction-boundary test). **Latest portal runtime source SHA:** `a7066dfcd842fc1497eb75497508c0eb08be0b6d`.
+**Latest main source SHA:** `627ce255e770e2712a479cff9ce3d6b5c08f17c7` (explicit Tailwind v4 monorepo source scanning fix). **Latest API runtime source SHA:** `823072c098dcbee285d5a0157e33fa47b6371075` (portal-only CSS commit does not require API redeploy). **Latest portal runtime source SHA:** `627ce255e770e2712a479cff9ce3d6b5c08f17c7`.
 
-**Railway production:** all four required services are ONLINE, 1/1 replicas, deployment SUCCESS. `salesx-api` runs source `823072c`; `salesx-website`, `salesx-customer`, and `salesx-company` run source `a7066df`. Portal source paths were unchanged in the later API test-only commit, so their watch patterns correctly skipped unnecessary redeploys. Customer Start Command override is corrected and the customer gateway is active.
+**Railway production:** all four required services are ONLINE, 1/1 replicas, deployment SUCCESS. `salesx-api` runs source `823072c`; `salesx-website`, `salesx-customer`, and `salesx-company` run latest source `627ce255`. The latest portal deployment IDs are `041b40bf-9a86-4813-beab-68a331c42bd8`, `a0610b6f-8642-4a04-b2a1-c88ad1a1ee57`, and `b98a72dc-6902-4d14-91cf-de91751dc021` respectively. The API was correctly not redeployed for a CSS-only commit.
 
 **Release validation:** 8/8 portal build matrix SUCCESS; 3/3 production-container CSS/JS runtime checks SUCCESS; 115 API tests PASS, compileall/Ruff/FastAPI image PASS; Web Auth typecheck PASS and lint 0 errors (2 image optimization warnings); Expo typecheck and Android bundle export PASS. All eight served portal routes returned CSS and JavaScript bundles with expected MIME types and canonical token CSS.
 
@@ -27,7 +27,7 @@ Supabase project ref: eyofuiyxalbehbqoaeny
 
 **Remaining scope:** the Master PRD 5.3 includes Campaign and Customer Segment submodules; reward program periods/audience cover campaign-like behavior, but no first-class customer-segment entity is present. This mapping/implementation gap, plus any additional required activity/KPI adapters, must be resolved before closure. Phase 06 remains IN_PROGRESS; Phase 07 remains LOCKED. See `docs/implementation/phase-06-smartreward-status.md` for deployment IDs and detailed evidence.
 
-The dated Phase 02 PARTIAL / Phase 03 LOCKED and earlier Phase 04 IN_PROGRESS entries below are historical snapshots. The Phase 04 closure addendum and the latest Phase 05 continuation record are authoritative. Phase 06 — SmartReward remains LOCKED.
+The dated Phase 02 PARTIAL / Phase 03 LOCKED and earlier Phase 04 IN_PROGRESS entries below are historical snapshots. The Phase 04 closure addendum, latest Phase 05 continuation record and Phase 06 addendum above are authoritative. Phase 06 remains IN_PROGRESS; Phase 07 remains LOCKED.
 
 ## Phase 00 — Repository Bootstrap & Governance
 
