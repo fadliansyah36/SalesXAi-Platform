@@ -14,10 +14,12 @@ export function usePortalRouteGuard(portal:PortalKey){
   if(auth.status!=="authenticated"||auth.canAccessPortal(portal)||redirecting.current)return;
   redirecting.current=true;
   const memberships=(auth.context?.memberships??[]).filter(membership=>membership.status==="active");
+  const priority:Record<string,number>={"/company":0,"/supervisor":1,"/distributor":2,"/principal":3,"/portal":4,"/customer":5};
   const targetMembership=memberships.map(membership=>({
     membership,
     destination:getPreferredPortalPath([...(auth.context?.platform_permissions??[]),...membership.permissions]),
-  })).find(candidate=>candidate.destination!==null);
+  })).filter((candidate):candidate is {membership:typeof memberships[number];destination:string}=>Boolean(candidate.destination))
+    .sort((a,b)=>(priority[a.destination]??99)-(priority[b.destination]??99))[0]??null;
   const destination=targetMembership?.destination??null;
   const target=destination?getSalesXPortalKeyForPath(destination):null;
   if(target&&targetMembership){
