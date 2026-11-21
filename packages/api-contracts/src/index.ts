@@ -338,7 +338,15 @@ export interface RewardRule {id:UUID;organization_id:UUID;program_id:UUID;code:s
 export interface RewardCatalogItem {id:UUID;organization_id:UUID;program_id:UUID|null;code:string;name:string;description:string|null;category:string;points_cost:number;quantity_total:number|null;quantity_reserved:number;quantity_fulfilled:number;eligibility:Record<string,unknown>;metadata:Record<string,unknown>;eligible?:boolean;eligibility_reason?:string|null;available_stock?:number|null;points_balance?:number;period_remaining?:number|null;catalog_period_remaining?:number|null;status:"draft"|"active"|"paused"|"out_of_stock"|"archived";}
 export interface RewardLedgerEntry {id:UUID;expires_at?:ISODateTime|null;entry_type:"earn"|"debit"|"redemption"|"reversal"|"adjustment"|"expiration";points_delta:number;balance_before:number;balance_after:number;source_type:string;source_id:UUID;reference_type:string|null;reference_id:UUID|null;actor_user_id:UUID;reason:string;occurred_at:ISODateTime;metadata:Record<string,unknown>;}
 export interface RewardBalance {account_id:UUID;organization_id:UUID;participant_user_id:UUID;points_balance:number;next_expiration_at?:ISODateTime|null;expiring_points_30d?:number;}
-export interface RewardRedemption {id:UUID;organization_id:UUID;catalog_item_id:UUID;participant_user_id:UUID;quantity:number;points_reserved:number;status:"requested"|"approved"|"rejected"|"cancelled"|"fulfilling"|"fulfilled";idempotency_key:string;requested_at:ISODateTime;fulfillment_reference:string|null;}
+export interface RewardRedemption {
+ id:UUID;organization_id:UUID;account_id:UUID;catalog_item_id:UUID;participant_user_id:UUID;
+ quantity:number;points_reserved:number;status:"requested"|"approved"|"rejected"|"cancelled"|"fulfilling"|"fulfilled";
+ idempotency_key:string;requested_by:UUID;decided_by:UUID|null;fulfilled_by:UUID|null;
+ fulfillment_reference:string|null;reason:string|null;requested_at:ISODateTime;decided_at:ISODateTime|null;
+ fulfilled_at:ISODateTime|null;updated_at:ISODateTime;catalog_code?:string;catalog_name?:string;category?:string;
+}
+export interface RewardRedemptionDecision {decision:"approved"|"rejected";reason:string;}
+export interface RewardFulfillmentWrite {fulfillment_reference:string;reason?:string|null;}
 export interface RewardPage<T>{items:T[];page:number;page_size:number;total:number;}
 
 export interface RewardApprovalRequest {
