@@ -15,6 +15,7 @@ import { useMobileSalesAuth } from "./src/auth/useMobileSalesAuth";
 import { SmartTeamHome } from "./src/smart-team/SmartTeamHome";
 import { SmartOrderHome } from "./src/smart-order/SmartOrderHome";
 import { SmartRewardHome } from "./src/smart-reward/SmartRewardHome";
+import { AnalyticsHome } from "./src/analytics/AnalyticsHome";
 import { LocationTrackingControl } from "./src/location/LocationTrackingControl";
 import "./src/location/locationTracking";
 
@@ -179,6 +180,7 @@ function SalesHome({auth}:{auth:AuthState}){
          <SmartTeamHome auth={auth} salesProfileId={typeof assignmentContext?.sales_profile?.id==="string"?String(assignmentContext.sales_profile.id):null} onShiftContextChange={onShiftContextChange}/>
        <SmartOrderHome auth={auth}/>
        <SmartRewardHome auth={auth}/>
+       <AnalyticsHome auth={auth}/>
          <LocationTrackingControl api={auth.apiClient} organizationId={auth.activeOrganizationId} accessToken={auth.session?.access_token??null} actorUserId={auth.context?.user.id??null} shiftId={activeShiftId} shiftContextReady={shiftContextReady}/>
         </>}
 
