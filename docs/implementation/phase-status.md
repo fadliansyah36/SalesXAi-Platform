@@ -1463,7 +1463,7 @@ Live API GET /readyz returned status=ready, database=connected, and source SHA 2
 ### Current phase status
 
 - **Phase 06 — IN_PROGRESS:** concurrent redemption, ledger and authenticated cross-tenant validation pass. Direct private Supabase Realtime remains blocked on owner-level policy application and authenticated subscription authorization.
-- **Phase 07 — IN_PROGRESS:** database lifecycle, API, typed client, Expo bundle, route replay, geofence, Supervisor/Company map surfaces and portal builds are implemented. Owner-level Location Realtime policy and physical-device background lifecycle evidence remain open.
+- **Phase 07 — IN_PROGRESS:** database lifecycle, API, typed client, Expo bundle, route replay, geofence, Supervisor/Company map surfaces and portal builds are implemented. The only Phase 07 Definition-of-Done blocker is owner-level Location Realtime policy application and authenticated subscription authorization. The Engineering Execution Master Plan explicitly does not require real-world physical-device testing as a phase prerequisite; OS lifecycle caveats remain documented.
 - **Google Maps Foundation — READY FOR FINAL CREDENTIAL ACTIVATION:** provider abstraction, Web/Native components, config, typed contracts, FastAPI adapters and fallback are implemented. No API key or billing is configured.
 - **Production Release — COMPLETED for the verified 27dc32b source snapshot:** all four named Railway services report SUCCESS and live runtime/UI health checks passed.
 

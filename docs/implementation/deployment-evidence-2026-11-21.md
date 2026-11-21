@@ -37,5 +37,5 @@ The portal gateway readiness checks validate static JavaScript/CSS delivery and 
 
 - The pre-existing extra Railway service @salesx-ai/mobile-sales is FAILED on an older source snapshot and is not one of the four designated production services. The Expo application build in GitHub CI passed. This extra service was not created or removed.
 - SmartReward and Location private realtime.messages owner policies remain prepared but unapplied; the live table owner is supabase_realtime_admin. No privilege escalation or ownership bypass was attempted.
-- Physical-device Expo background lifecycle verification remains outstanding.
+- Physical-device Expo background lifecycle testing is not a phase prerequisite under the Engineering Execution Master Plan. The implementation and Expo build are evidenced; OS vendor scheduling, suspension and battery optimization remain platform limitations, not guaranteed tracking intervals.
 - Google Maps keys and billing are intentionally absent. Provider-neutral adapters and fallback are active; Google map tiles/Routes/Places remain disabled until restricted credentials are supplied.
