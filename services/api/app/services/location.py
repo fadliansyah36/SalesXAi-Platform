@@ -1,7 +1,5 @@
 from __future__ import annotations
-import json
 from datetime import UTC, datetime, timedelta
-from uuid import UUID
 import asyncpg
 from app.errors import APIError
 from app.repositories.location import location_repository
