@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class VariantWrite(BaseModel):
+    id: UUID | None = None
     sku: str = Field(min_length=1, max_length=100)
     name: str = Field(min_length=1, max_length=180)
     barcode: str | None = Field(default=None, max_length=100)
