@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from os import getenv
 import asyncpg
@@ -14,6 +15,7 @@ from app.security.jwt import SupabaseJWTVerifier
 from app.services.supabase_auth import SupabaseAuthService
 from app.services.invitation_email import SMTPInvitationDelivery
 from app.services.rate_limit import enforce_request_rate_limit
+from app.services.analytics_scheduler import analytics_scheduler_loop
 from app.security.action_matrix import validate_api_action_matrix
 
 logging.basicConfig(level=logging.INFO)
@@ -30,12 +32,20 @@ async def lifespan(app: FastAPI):
     app.state.supabase_auth = SupabaseAuthService(settings)
     app.state.invitation_delivery = SMTPInvitationDelivery(settings)
     pool = None
+    analytics_task = None
     if settings.database_configured:
         pool = await create_database_pool(settings)
         app.state.db_pool = pool
+        analytics_task = asyncio.create_task(analytics_scheduler_loop(pool, settings), name='salesx-analytics-scheduler')
     try:
         yield
     finally:
+        if analytics_task is not None:
+            analytics_task.cancel()
+            try:
+                await analytics_task
+            except asyncio.CancelledError:
+                pass
         if pool is not None:
             await pool.close()
 
