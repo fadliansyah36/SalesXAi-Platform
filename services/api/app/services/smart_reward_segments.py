@@ -93,6 +93,7 @@ class SmartRewardSegmentService:
    allowed_users={str(x) for x in criteria.get("user_ids") or []}
    minimum=int(criteria.get("minimum_points_balance") or 0)
    matched=0
+   matched_user_ids=[]
    for member in rows:
     uid=member["participant_user_id"]
     if allowed_roles and not roles.get(uid,set()).intersection(allowed_roles): continue
@@ -108,11 +109,10 @@ class SmartRewardSegmentService:
       "branch_id":str(member["branch_id"]) if member["branch_id"] else None,
       "points_balance":int(member["points_balance"])}))
     matched+=1
+    matched_user_ids.append(uid)
    await db.execute("""update public.reward_customer_segment_members set status='inactive',updated_at=now()
     where organization_id=$1 and segment_id=$2 and membership_source='rule' and status='active'
-    and participant_user_id not in (select participant_user_id from public.reward_customer_segment_members
-     where organization_id=$1 and segment_id=$2 and membership_source='rule' and status='active'
-     and updated_at>=now()-interval '1 minute')""",org,sid)
+    and not (participant_user_id=any($3::uuid[]))""",org,sid,matched_user_ids)
    await self._audit(db,org,actor,"customer_segment.evaluated","reward_customer_segment",sid,
     meta={"matched_members":matched})
    return {"segment_id":sid,"matched_members":matched,"evaluated_members":len(rows)}
