@@ -5,6 +5,8 @@ from app.db import get_connection
 from app.security.dependencies import Principal,TenantContext,get_current_principal,require_api_action
 from app.schemas.smart_reward import RewardProgramWrite,RewardRuleWrite,RewardCatalogWrite,RewardEarnWrite,RewardRedemptionWrite,RewardRedemptionDecision,RewardFulfillmentWrite,RewardAdjustmentWrite,RewardReverseWrite
 from app.services.smart_reward import smart_reward_service
+from app.services.smart_reward_approval import smart_reward_approval_service
+from app.schemas.smart_reward import RewardApprovalWrite,RewardApprovalDecision
 router=APIRouter(prefix="/organizations",tags=["smart-reward"])
 
 @router.get("/{organization_id}/smart-reward/programs")
@@ -67,3 +69,13 @@ async def reverse(organization_id:UUID,entry_id:UUID,payload:RewardReverseWrite,
 @router.get("/{organization_id}/smart-reward/reports")
 async def report(organization_id:UUID,page:int=Query(1,ge=1),page_size:int=Query(25,ge=1,le=100),tenant:TenantContext=Depends(require_api_action("smartreward.reports.read")),db:asyncpg.Connection=Depends(get_connection)):
  smart_reward_service._tenant(organization_id,tenant); return await smart_reward_service.report(db,organization_id,page,page_size)
+
+@router.get("/{organization_id}/smart-reward/approvals")
+async def approvals(organization_id:UUID,page:int=Query(1,ge=1),page_size:int=Query(25,ge=1,le=100),principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartreward.approvals.read")),db:asyncpg.Connection=Depends(get_connection)):
+ smart_reward_service._tenant(organization_id,tenant); return await smart_reward_approval_service.list(db,organization_id,principal.user_id,page,page_size)
+@router.post("/{organization_id}/smart-reward/approvals",status_code=201)
+async def request_approval(organization_id:UUID,payload:RewardApprovalWrite,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartreward.approvals.create")),db:asyncpg.Connection=Depends(get_connection)):
+ smart_reward_service._tenant(organization_id,tenant); return await smart_reward_approval_service.request(db,organization_id,principal.user_id,payload)
+@router.patch("/{organization_id}/smart-reward/approvals/{approval_id}")
+async def decide_approval(organization_id:UUID,approval_id:UUID,payload:RewardApprovalDecision,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartreward.approvals.decide")),db:asyncpg.Connection=Depends(get_connection)):
+ smart_reward_service._tenant(organization_id,tenant); return await smart_reward_approval_service.decide(db,organization_id,principal.user_id,approval_id,payload)
