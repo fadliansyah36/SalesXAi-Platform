@@ -7,10 +7,10 @@ class LocationRepository:
           values($1,$2,$3,$4,$5,now(),$6) returning *""",
           org,profile_id,actor,shift_id,device_id,consent_policy_version)
 
-    async def update_session(self, db, org, session_id, status, ended):
+    async def update_session(self, db, org, session_id, status, ended, ended_at=None):
         return await db.fetchrow("""update public.location_tracking_sessions set status=$3,
-          ended_at=case when $4 then now() else null end,updated_at=now()
-          where organization_id=$1 and id=$2 returning *""",org,session_id,status,ended)
+          ended_at=case when $4 then coalesce($5,now()) else null end,updated_at=now()
+          where organization_id=$1 and id=$2 returning *""",org,session_id,status,ended,ended_at)
 
     async def insert_point(self, db, org, session_id, actor, device_id, point):
         return await db.fetchval("""insert into public.location_points
