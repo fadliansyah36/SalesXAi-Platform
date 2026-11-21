@@ -1336,3 +1336,12 @@ SmartReward integration was extended: typed mutation contracts, tenant-scoped lo
 Python unit suite had 119 passing tests in the prior run; two Ruff unused-import findings were fixed. New partial-update merge tests and final-source CI/build are running. Railway's latest API deployment is queued, Company portal has a queued Super Admin page deployment, and earlier portal deployments are building. This is not yet a latest-source release confirmation.
 
 **Phase 06: IN_PROGRESS. Phase 07: LOCKED.**
+
+
+## Latest Phase 06 build checkpoint — 2026-11-21
+
+API release on source `8bb17e30a94a1435da17a27383a14e52993643af` is SUCCESS with `/readyz` 200 and 28 live SmartReward OpenAPI paths. API CI: 122 tests, compileall, Ruff and Docker build PASS. Expo typecheck and Android bundle PASS. All 8 portal build jobs and all 3 Railway container/CSS validation jobs PASS on source `3da8b210cbab1fe4ba8882757ef995b86a14ea18`.
+
+Added correct basePath-aligned SmartReward route aliases for Distributor, Principal, Supervisor and Super Admin after production route inspection found the old paths returned 404. The new Company deployment for source `3da8b210` is still QUEUED; Company route aliases are not considered live until Railway succeeds and HTTP/CSS/JS are verified. Website/Customer and API latest relevant deployments are already SUCCESS.
+
+Phase 06 remains IN_PROGRESS; Phase 07 remains LOCKED. Supabase staging and real-account tests are deferred to final integrated validation per the user's instruction.
