@@ -1,6 +1,7 @@
 import unittest
 from datetime import datetime, timezone
 from pathlib import Path
+from types import SimpleNamespace
 from uuid import uuid4
 
 from pydantic import ValidationError
@@ -303,6 +304,12 @@ class SmartRewardRepositoryContractTests(unittest.TestCase):
         cls.expiry_migration = (migrations / "20261121025010_p06_reward_expiration_reconcile_ledger_first.sql").read_text(encoding="utf-8")
         cls.realtime_migration = (migrations / "20261121024447_p06_reward_private_realtime_all_lifecycle_events.sql").read_text(encoding="utf-8")
         cls.outbox_migration = (migrations / "20261121025805_p06_reward_outbox_owner_scope.sql").read_text(encoding="utf-8")
+
+    def test_smartreward_tenant_guard_rejects_cross_organization_scope(self):
+        from app.services.smart_reward import smart_reward_service
+        with self.assertRaises(Exception) as caught:
+            smart_reward_service._tenant(uuid4(), SimpleNamespace(organization_id=uuid4()))
+        self.assertEqual(getattr(caught.exception, "code", None), "tenant_scope_mismatch")
 
     def test_application_services_use_repository_boundary_and_transactions(self):
         self.assertIn("class SmartRewardRepository", self.repository)
