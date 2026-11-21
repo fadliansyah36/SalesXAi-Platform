@@ -1,5 +1,5 @@
 'use client';
-import { getSalesXPortalUrlForPath } from '@/components/auth/portalUrls';
+import { getSalesXPortalKeyForPath, getSalesXPortalUrlForPath } from '@/components/auth/portalUrls';
 
 import React, { useState } from 'react';
 import { getPreferredPortalPath } from '@salesx-ai/permissions';
@@ -81,7 +81,10 @@ export function PortalLoginView({ onCompleteLogin }: PortalLoginViewProps) {
       const destination = getPreferredPortalPath([...context.platform_permissions, ...membership.permissions]);
       if (destination) {
         auth.setActiveOrganization(membership.organization_id);
-        window.location.replace(getSalesXPortalUrlForPath(destination));
+        const targetPortal=getSalesXPortalKeyForPath(destination);
+        if(!targetPortal)throw new Error('Portal tujuan tidak dikenali.');
+        const handoffUrl=await auth.createPortalHandoff(targetPortal);
+        window.location.replace(handoffUrl);
         return true;
       }
     }
