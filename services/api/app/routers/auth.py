@@ -8,7 +8,7 @@ import asyncpg
 from fastapi import APIRouter, Depends, Request
 from app.db import get_connection
 from app.schemas.identity import AuthContextResponse, SessionRegistration, SignOutRequest
-from app.security.dependencies import Principal, get_current_principal, require_api_action
+from app.security.dependencies import Principal, require_api_action
 from app.config import get_settings
 from app.services.session_mutations import session_mutation_service
 from app.services.identity_mutations import identity_mutation_service
@@ -112,7 +112,7 @@ def bff_api_action(action_id:str):
 async def create_portal_handoff(
     payload:PortalHandoffCreate,
     request:Request,
-    principal:Principal=Depends(get_current_principal),
+    principal:Principal=Depends(require_api_action("identity.portal.handoff.create")),
     connection:asyncpg.Connection=Depends(get_connection),
 )->dict:
     settings=get_settings()
