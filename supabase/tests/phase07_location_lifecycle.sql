@@ -94,58 +94,53 @@ begin
 
   insert into public.location_points(
     organization_id,session_id,user_id,device_id,client_point_id,recorded_at,
-    latitude,longitude,accuracy_m,source,location,metadata
+    latitude,longitude,accuracy_m,source,metadata
   )
   values(
     v_org,v_tracking,v_user,v_device,'p1',v_t0,
     -6.200000,106.800000,5,'gps',
-    extensions.st_setsrid(extensions.st_makepoint(106.800000,-6.200000),4326)::extensions.geography,
     '{}'::jsonb
   ) returning id into v_p1;
 
   insert into public.location_points(
     organization_id,session_id,user_id,device_id,client_point_id,recorded_at,
-    latitude,longitude,accuracy_m,source,location,metadata
+    latitude,longitude,accuracy_m,source,metadata
   )
   values(
     v_org,v_tracking,v_user,v_device,'p2',v_t0+interval '10 seconds',
     -6.200100,106.800100,5,'gps',
-    extensions.st_setsrid(extensions.st_makepoint(106.800100,-6.200100),4326)::extensions.geography,
     '{}'::jsonb
   ) returning id into v_p2;
 
   insert into public.location_points(
     organization_id,session_id,user_id,device_id,client_point_id,recorded_at,
-    latitude,longitude,accuracy_m,source,location,metadata
+    latitude,longitude,accuracy_m,source,metadata
   )
   values(
     v_org,v_tracking,v_user,v_device,'p3',v_t0+interval '20 seconds',
     -6.220000,106.820000,5,'gps',
-    extensions.st_setsrid(extensions.st_makepoint(106.820000,-6.220000),4326)::extensions.geography,
     '{}'::jsonb
   ) returning id into v_p3;
 
   -- Delayed offline point: older than p3 and must not rewind current state.
   insert into public.location_points(
     organization_id,session_id,user_id,device_id,client_point_id,recorded_at,
-    latitude,longitude,accuracy_m,source,location,metadata
+    latitude,longitude,accuracy_m,source,metadata
   )
   values(
     v_org,v_tracking,v_user,v_device,'p4-delayed',v_t0+interval '5 seconds',
     -6.200000,106.800000,5,'gps',
-    extensions.st_setsrid(extensions.st_makepoint(106.800000,-6.200000),4326)::extensions.geography,
     '{"offline_batch":true}'::jsonb
   ) returning id into v_p4;
 
   -- Duplicate client point ID is a no-op under the same idempotency key.
   insert into public.location_points(
     organization_id,session_id,user_id,device_id,client_point_id,recorded_at,
-    latitude,longitude,accuracy_m,source,location,metadata
+    latitude,longitude,accuracy_m,source,metadata
   )
   values(
     v_org,v_tracking,v_user,v_device,'p1',v_t0,
     -6.200000,106.800000,5,'gps',
-    extensions.st_setsrid(extensions.st_makepoint(106.800000,-6.200000),4326)::extensions.geography,
     '{}'::jsonb
   )
   on conflict(organization_id,session_id,client_point_id) do nothing;
