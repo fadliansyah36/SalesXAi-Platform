@@ -1,6 +1,6 @@
 from functools import lru_cache
 from urllib.parse import unquote, urlsplit
-from pydantic import AnyHttpUrl, SecretStr, field_validator, model_validator
+from pydantic import AnyHttpUrl, Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     supabase_publishable_key: SecretStr | None = None
     supabase_secret_key: SecretStr | None = None
     salesx_bff_shared_secret: SecretStr | None = None
+    salesx_website_origin: str | None = Field(default=None, validation_alias="NEXT_PUBLIC_SALESX_WEBSITE_URL")
+    salesx_customer_origin: str | None = Field(default=None, validation_alias="NEXT_PUBLIC_SALESX_CUSTOMER_URL")
+    salesx_company_origin: str | None = Field(default=None, validation_alias="NEXT_PUBLIC_SALESX_COMPANY_URL")
     app_public_url: str | None = None
     auth_admin_timeout_seconds: float = 8.0
     db_pool_min_size: int = 1
@@ -52,6 +55,18 @@ class Settings(BaseSettings):
                 "SUPABASE_URL must reference the bound SalesX-Ai project eyofuiyxalbehbqoaeny"
             )
         return value
+
+    @field_validator("salesx_website_origin","salesx_customer_origin","salesx_company_origin")
+    @classmethod
+    def validate_portal_origins(cls,value:str|None)->str|None:
+        if value is None or not value.strip():
+            return None
+        parsed=urlsplit(value.strip().rstrip("/"))
+        if parsed.scheme not in {"http","https"} or not parsed.netloc or parsed.path or parsed.query or parsed.fragment or parsed.username or parsed.password:
+            raise ValueError("SalesX portal origins must be exact HTTP(S) origins without path, query or credentials")
+        if parsed.scheme!="https" and parsed.hostname not in {"localhost","127.0.0.1","::1"}:
+            raise ValueError("SalesX portal origins must use HTTPS outside local development")
+        return f"{parsed.scheme}://{parsed.netloc}"
 
     @field_validator("app_public_url")
     @classmethod
