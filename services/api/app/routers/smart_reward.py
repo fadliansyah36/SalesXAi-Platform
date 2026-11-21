@@ -56,7 +56,8 @@ async def create_rule(organization_id:UUID,program_id:UUID,payload:RewardRuleWri
  smart_reward_service._tenant(organization_id,tenant); return await smart_reward_service.create_rule(db,organization_id,principal.user_id,payload,program_id)
 @router.patch("/{organization_id}/smart-reward/rules/{rule_id}",response_model=RewardRuleResponse)
 async def update_rule(organization_id:UUID,rule_id:UUID,payload:RewardRulePatch,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartreward.rules.update")),db:SmartRewardRepository=Depends(get_smart_reward_repository)):
- smart_reward_service._tenant(organization_id,tenant); async with db.transaction():
+ smart_reward_service._tenant(organization_id,tenant)
+ async with db.transaction():
   existing=await db.fetchrow("select * from public.reward_incentive_rules where organization_id=$1 and id=$2 for update",organization_id,rule_id)
   if not existing: raise APIError(404,"reward_rule_not_found","Rule not found.")
   merged=_merge_smart_reward_patch(existing,payload,RewardRuleWrite)
@@ -69,7 +70,8 @@ async def create_catalog(organization_id:UUID,payload:RewardCatalogWrite,princip
  smart_reward_service._tenant(organization_id,tenant); return await smart_reward_service.create_catalog_item(db,organization_id,principal.user_id,payload)
 @router.patch("/{organization_id}/smart-reward/catalog/{item_id}",response_model=RewardCatalogItemResponse)
 async def update_catalog(organization_id:UUID,item_id:UUID,payload:RewardCatalogPatch,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartreward.catalog.update")),db:SmartRewardRepository=Depends(get_smart_reward_repository)):
- smart_reward_service._tenant(organization_id,tenant); async with db.transaction():
+ smart_reward_service._tenant(organization_id,tenant)
+ async with db.transaction():
   existing=await db.fetchrow("select * from public.reward_catalog_items where organization_id=$1 and id=$2 for update",organization_id,item_id)
   if not existing: raise APIError(404,"reward_catalog_item_not_found","Item not found.")
   merged=_merge_smart_reward_patch(existing,payload,RewardCatalogWrite)
