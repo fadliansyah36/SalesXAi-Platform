@@ -182,7 +182,6 @@ export function CustomerPortalApp() {
   const [orderSuccessResult, setOrderSuccessResult] = useState<{
     orderId: string;
     total: number;
-    earnedPoints: number;
     deliveryDate: string;
   } | null>(null);
 
@@ -352,36 +351,14 @@ export function CustomerPortalApp() {
       ],
     };
 
-    if (activeVoucher && cartVoucherDiscount > 0) {
-      setVouchers((prev) =>
-        prev.map((v) =>
-          v.id === activeVoucher.id ? { ...v, used: true } : v
-        )
-      );
-      setSelectedVoucherId(null);
-    }
-
     setOrders((prev) => [createdOrder, ...prev]);
     setActiveOrderId(newId);
     setCart((prev) => prev.filter((item) => !item.selected));
-    const earnedPoints = Math.max(50, Math.round(cartGrandTotal / 1000));
-    setPointsBalance((p) => p + earnedPoints);
-    setRewardLedger((prev) => [
-      {
-        id: `cled-${Date.now()}`,
-        title: `Poin Order Baru ${newId}`,
-        dateLabel: 'Baru saja',
-        pointsDelta: earnedPoints,
-        type: 'Perolehan',
-      },
-      ...prev,
-    ]);
     setOrderNotes('');
     setSubmittingOrder(false);
     setOrderSuccessResult({
       orderId: newId,
       total: cartGrandTotal,
-      earnedPoints,
       deliveryDate,
     });
   };
@@ -1982,15 +1959,6 @@ export function CustomerPortalApp() {
                   </span>
                   <span className="font-bold text-[#10B981] tabular-nums">
                     - {formatRupiah(cartPromoDiscount)}
-                  </span>
-                </div>
-                <div className="flex justify-between text-xs">
-                  <span className="text-[var(--color-text-secondary)]">
-                    Voucher SmartReward{' '}
-                    {activeVoucher ? `(${activeVoucher.code})` : ''}
-                  </span>
-                  <span className="font-bold text-[#F97316] tabular-nums">
-                    - {formatRupiah(cartVoucherDiscount)}
                   </span>
                 </div>
                 <div className="flex justify-between pt-2.5 border-t border-[var(--color-border)] font-bold">
