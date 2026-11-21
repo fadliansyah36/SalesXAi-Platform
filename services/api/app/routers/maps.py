@@ -74,7 +74,7 @@ def _google_route(payload: MapRouteComputeRequest, api_key: str) -> dict:
 
 
 @router.get("/maps/config")
-async def maps_config(tenant: TenantContext = Depends(require_api_action("maps.config.read")):
+async def maps_config(tenant: TenantContext = Depends(require_api_action("maps.config.read"))):
     del tenant
     return {
         "provider": "google" if os.getenv("MAPS_PROVIDER", "google").strip().lower() == "google" else "none",
@@ -90,7 +90,6 @@ async def compute_route(
     payload: MapRouteComputeRequest,
     tenant: TenantContext = Depends(require_api_action("maps.routes.compute")),
 ):
-    del principal
     if tenant.organization_id != organization_id:
         raise APIError(403, "tenant_scope_mismatch", "Map route access is restricted to the active organization.")
     api_key = os.getenv("GOOGLE_MAPS_SERVER_API_KEY", "").strip()
