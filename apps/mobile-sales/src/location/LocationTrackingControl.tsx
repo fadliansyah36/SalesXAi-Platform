@@ -45,7 +45,7 @@ export function LocationTrackingControl({api,organizationId,accessToken,actorUse
  useEffect(()=>{void syncLocationAccessToken(accessToken);},[accessToken]);
  useEffect(()=>{
   if(!api||!organizationId)return;
-  const subscription=AppState.addEventListener("change",state=>{if(state==="active")void ensureLocationDeviceId().then(async id=>{await flushLocationOutbox(api,organizationId,id);await syncPendingLocationStop(api,organizationId);});});
+  const subscription=AppState.addEventListener("change",state=>{if(state==="active")void ensureLocationDeviceId().then(async id=>{const context=await getStoredLocationContext();const owningOrganizationId=context.organizationId??organizationId;await flushLocationOutbox(api,owningOrganizationId,id);await syncPendingLocationStop(api,owningOrganizationId);});});
   return ()=>subscription.remove();
  },[api,organizationId]);
  const toggle=async()=>{
