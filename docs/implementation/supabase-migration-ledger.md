@@ -8,11 +8,11 @@
 
 ## Live ledger reconciliation
 
-- Total applied migrations: **115**
-- Latest applied version: **20261121143047**
+- Total applied migrations: **116**
+- Latest applied version: **20261121143716**
 - Phase 06 applied migrations: **19**
 - Phase 07 applied migrations: **7**
-- Phase 08 applied migrations: **22**
+- Phase 08 applied migrations: **23**
 - Public base tables: **89**
 - Public tables with RLS enabled: **89**
 - Security Advisor: **0 lints**
@@ -77,8 +77,8 @@ The connected Supabase project was re-queried after the final applied migration.
 
 ## Phase 08 live ledger reconciliation — 2026-11-21 (latest)
 
-- Live project: **115 applied migrations**, latest **20261121143047**, PostgreSQL 17.12, `ACTIVE_HEALTHY`.
-- Phase 08 migrations: **22 applied**, all versioned files are present under `supabase/migrations/` with filenames matching the live migration versions.
+- Live project: **115 applied migrations**, latest **20261121143716**, PostgreSQL 17.12, `ACTIVE_HEALTHY`.
+- Phase 08 migrations: **23 applied**, all versioned files are present under `supabase/migrations/` with filenames matching the live migration versions.
 - Public base tables: **89/89 have RLS enabled**. Security Advisor: **0 lints**. Performance Advisor: **0 unindexed-FK lints**; 274 unused-index notices are informational and expected while there are no organizations/users.
 - Analytics private Storage bucket `analytics-private` is confirmed `public=false`, 50 MiB maximum, CSV MIME types only.
 - Live data state: **0 organizations, 0 Auth users, 0 scheduled jobs, 0 job executions, 0 report runs, 0 report exports**. No fixture or mock business data was inserted.
@@ -108,6 +108,7 @@ The connected Supabase project was re-queried after the final applied migration.
 | 20261121142225 | p08_portal_handoff_explicit_client_deny |
 | 20261121142813 | p08_portal_handoff_required_identity_constraints |
 | 20261121143047 | p08_analytics_portal_fk_indexes |
+| 20261121143716 | p08_event_date_sales_profile_attribution |
 
 - KPI refresh functions, RLS policies, indexes, private Storage, export lifecycle, audit trail, scheduler retry/lease controls and portal handoff constraints are applied to project `eyofuiyxalbehbqoaeny`.
 - Phase 08 remains **IN_PROGRESS** until runtime data is provisioned by normal product onboarding and the full KPI/export/download/scheduler flow can be verified without synthetic persistent data; Web/Expo and routing CI checks are tracked separately.
