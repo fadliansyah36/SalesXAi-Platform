@@ -105,7 +105,6 @@ export function CustomerPortalApp() {
     {href:"/distributor",label:"Distributor",portal:"distributor"},
     {href:"/principal",label:"Principal",portal:"principal"},
     {href:"/supervisor",label:"Supervisor",portal:"supervisor"},
-    {href:"/super-admin",label:"Super Admin",portal:"super_admin"},
   ] as const;
   // Screen 1 (Splash) -> Screen 2 (Login) -> Authenticated
   const [authStage, setAuthStage] = useState<'splash' | 'login' | 'app'>(
