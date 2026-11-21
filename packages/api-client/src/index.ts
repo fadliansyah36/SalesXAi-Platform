@@ -1,4 +1,4 @@
-export type { LocationSessionStart, LocationSessionAction, LocationSession, LocationPointWrite, LocationPointBatch, LocationBatchResult, LocationLatestPosition, LocationHistoryPoint, LocationHistoryPage, LocationRouteSummary, LocationGeofence, LocationGeofenceWrite, LocationGeofenceEvent, LocationGeofenceEventPage } from "@salesx-ai/api-contracts";
+export type { LocationSessionStart, LocationSessionAction, LocationSession, LocationPointWrite, LocationPointBatch, LocationBatchResult, LocationLatestPosition, LocationHistoryPoint, LocationHistoryPage, LocationRouteSummary, LocationGeofence, LocationGeofenceWrite, LocationGeofenceEvent, LocationGeofenceEventPage, MapsRuntimeStatus, MapRouteComputeRequest, MapRouteComputeResult } from "@salesx-ai/api-contracts";
 export type { SmartOrderProduct, SmartOrderBrand, SmartOrderUnit, SmartOrderProductImage, SmartOrderStockMovement, SmartOrderStockMovementPage, SmartOrderProductPage, SmartOrderProductWrite, SmartOrderVariant, SmartOrderPriceQuote, SmartOrderInventoryBalance, SmartOrderStockMovementWrite, SmartOrderPromotion, SmartOrderPromotionWrite, SmartOrderPromotionUpdate, SmartOrderCart, SmartOrderCartItemWrite, SmartOrderOrderCreate, SmartOrderOrder, SmartOrderOrderPage, SmartOrderFulfillmentWrite, SmartOrderFulfillmentUpdate, SmartOrderPriceListWrite, SmartOrderPriceList, SmartOrderWarehouse, SmartOrderWarehouseWrite, SmartOrderCategory, SmartOrderCategoryWrite, SmartOrderBrandWrite, SmartOrderUnitWrite, SmartOrderCatalogAccessWrite, SmartOrderStockTransferWrite, SmartOrderProductImageWrite, SmartOrderOrderCancel, SmartOrderPartnerOrderSummary, SmartOrderPartnerOrderPage, SmartOrderPartnerOrder, SmartOrderPartnerDecision, SmartOrderPartnerDecisionWrite, SmartOrderPartnerOrganization, SmartOrderPartnerLinkWrite, SmartOrderAssistedCartWrite, SmartOrderPriceHistoryPage, SmartOrderApprovalPolicy, SmartOrderApprovalPolicyWrite, SmartOrderRealtimeEvent } from "@salesx-ai/api-contracts";
 export type { MasterDataChangedEvent, MasterDataResource, PlatformAuditLog, PlatformRole, PlatformUserSummary, SmartTeamActivity, SmartTeamAttendance, SmartTeamDashboard, SmartTeamLocationCapture, SmartTeamTarget, SmartTeamTargetUpdate, SmartTeamTargetWrite, SmartTeamVisit, SmartTeamVisitCreate, PlatformSmartTeamOverviewRow, PlatformSmartRewardOverviewRow, SmartTeamVisitEvidence, SmartTeamVisitAssign } from "@salesx-ai/api-contracts";
 import type {
@@ -875,5 +875,16 @@ export function createLocationApi(client:SalesXApiClient,organizationId:string){
    void connect();
    return ()=>controller.abort();
   },
+ };
+}
+
+
+export function createMapsApi(client:SalesXApiClient,organizationId:string){
+ return {
+  config:()=>client.request<import("@salesx-ai/api-contracts").MapsRuntimeStatus>("/api/v1/maps/config"),
+  computeRoute:(body:import("@salesx-ai/api-contracts").MapRouteComputeRequest)=>client.request<import("@salesx-ai/api-contracts").MapRouteComputeResult>(
+   "/api/v1/organizations/"+encodeURIComponent(organizationId)+"/maps/routes/compute",
+   {method:"POST",body:JSON.stringify(body)}
+  ),
  };
 }
