@@ -229,3 +229,12 @@ The latest main commit 823072c is a test-only follow-up in `services/api/tests/t
 - A temporary Supabase development branch is the safe available path for isolated populated fixtures. Branch creation requires explicit cost confirmation at **US$0.01344 per hour**; no branch has been created pending that approval. No production data has been written.
 - No fresh API pytest/Ruff, portal typecheck/lint/build matrix or Expo typecheck/bundle export has been run on the current segment source. Historical CI baseline is not counted as current-source validation.
 - **Phase 06 remains IN_PROGRESS; Phase 07 remains LOCKED.** Remaining DoD: isolated fixture branch approval and execution; earning/redemption/expiration/reversal/adjustment reconciliation and concurrency/idempotency; authenticated cross-tenant/private Realtime tests; fresh current-source CI/build/Expo checks; portal asset HTTP verification beyond build/gateway readiness.
+
+
+## Live portal asset verification — 2026-11-21
+
+- Live HTML was fetched for Website, Sales (`/portal`), Customer, Company, Distributor, Principal, Supervisor and Super Admin (`/admin`): all returned HTTP 200.
+- CSS was fetched from the Website, Customer and Company portal roots, plus the nested Super Admin asset path: all returned HTTP 200 with `text/css; charset=UTF-8`.
+- Page-specific Next.js JavaScript chunks were fetched for Website, Sales, Customer, Company, Distributor, Principal, Supervisor and Super Admin: all returned HTTP 200 with `application/javascript; charset=UTF-8`.
+- The Company gateway uses `/admin` for Super Admin; `/super-admin` returns 404 and is not the deployed route. Distributor, Principal and Supervisor use their respective gateway path prefixes.
+- This verifies production HTML and referenced static asset delivery. It does not claim a signed-in interaction/browser hydration test; no real user credentials were used.
