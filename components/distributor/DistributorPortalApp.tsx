@@ -38,6 +38,7 @@ import {
   Moon,
   Sparkles,
   Puzzle,
+  Award,
 } from 'lucide-react';
 import { BrandLogo } from '@/components/common/BrandLogo';
 import { useTheme } from '@/components/providers/AppProviders';
@@ -48,6 +49,7 @@ import { StatusTag } from '@/components/design-system/StatusTag';
 import { PluginActivationModal } from '@/components/design-system/PluginActivationModal';
 import { PortalAiCoachModal } from '@/components/design-system/PortalAiCoachModal';
 import { useSalesXAuth } from '@/components/providers/AppProviders';
+import { SmartRewardWorkspace } from '@/components/smart-reward/SmartRewardWorkspace';
 import { PortalSignupAction } from '@/components/auth/PortalSignupAction';
 import {
   formatRupiah,
@@ -110,7 +112,8 @@ export type DistributorTab =
   | 'coverage'
   | 'reports'
   | 'promotions'
-  | 'settings';
+  | 'settings'
+  | 'smartreward';
 
 export function DistributorPortalApp() {
   const auth = useSalesXAuth();
@@ -268,6 +271,7 @@ export function DistributorPortalApp() {
         { id: 'coverage', label: 'Cakupan Outlet', icon: MapPin },
         { id: 'reports', label: 'Laporan', icon: BarChart3 },
         { id: 'promotions', label: 'Promosi & Campaign', icon: Megaphone },
+        ...(auth.canPerformApiAction('smartreward.catalog.read') ? [{ id: 'smartreward' as DistributorTab, label: 'SmartReward & Incentive', icon: Award }] : []),
       ],
     },
     {
@@ -2460,6 +2464,7 @@ export function DistributorPortalApp() {
           'Strategi menjangkau 60 outlet yang belum tercakup di Bogor & Depok.',
         ]}
       />
-    </PortalShell>
+          {activeTab === 'smartreward' && <SmartRewardWorkspace />}
+</PortalShell>
   );
 }
