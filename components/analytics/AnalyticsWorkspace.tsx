@@ -5,9 +5,9 @@ import {createAnalyticsApi} from "@salesx-ai/api-client";
 import type {AnalyticsDashboardResponse,AnalyticsReportExportResponse,AnalyticsReportRun} from "@salesx-ai/api-contracts";
 import {useSalesXAuth} from "@/components/providers/AppProviders";
 
-const dateValue=(value:Date)=>value.toISOString().slice(0,10);
+const dateValue=(value:Date)=>`${value.getFullYear()}-${String(value.getMonth()+1).padStart(2,"0")}-${String(value.getDate()).padStart(2,"0")}`;
 const initialEnd=dateValue(new Date());
-const initialStart=dateValue(new Date(Date.now()-29*86400000));
+const initialStart=(()=>{const value=new Date();value.setDate(value.getDate()-29);return dateValue(value);})();
 const numberValue=(value:number)=>new Intl.NumberFormat("id-ID",{maximumFractionDigits:2}).format(value);
 
 export function AnalyticsWorkspace({compact=false}:{compact?:boolean}){
@@ -15,7 +15,7 @@ export function AnalyticsWorkspace({compact=false}:{compact?:boolean}){
  const [periodStart,setPeriodStart]=useState(initialStart);
  const [periodEnd,setPeriodEnd]=useState(initialEnd);
  const [grain,setGrain]=useState<"day"|"week"|"month">("day");
- const [scopeType,setScopeType]=useState<"tenant"|"branch"|"team"|"territory"|"user">("tenant");
+ const [scopeType,setScopeType]=useState<"tenant"|"branch"|"team"|"territory"|"user"|null>(null);
  const [scopeId,setScopeId]=useState("");
  const [dashboard,setDashboard]=useState<AnalyticsDashboardResponse|null>(null);
  const [reports,setReports]=useState<AnalyticsReportRun[]>([]);
@@ -30,7 +30,7 @@ export function AnalyticsWorkspace({compact=false}:{compact?:boolean}){
   if(!api)return;
   setLoading(true);setError(null);
   try{
-   const [result,history]=await Promise.all([api.dashboard(periodStart,periodEnd,grain,scopeType,scopeId||null),api.reports()]);
+   const [result,history]=await Promise.all([api.dashboard(periodStart,periodEnd,grain,scopeType??undefined,scopeId||null),api.reports()]);
    setDashboard(result);setReports(history);
   }catch(cause){setError(cause instanceof Error?cause.message:"Data analytics tidak dapat dimuat.");}
   finally{setLoading(false);}
@@ -38,8 +38,14 @@ export function AnalyticsWorkspace({compact=false}:{compact?:boolean}){
  useEffect(()=>{void refresh();},[refresh]);
  useEffect(()=>{
   if(!dashboard?.scopes.length)return;
+  if(scopeType===null){
+   const preferred=dashboard.scopes.find(scope=>scope.scope_type==="tenant")??dashboard.scopes[0];
+   setScopeType(preferred.scope_type);
+   setScopeId(preferred.scope_id??"");
+   return;
+  }
   const available=dashboard.scopes.filter(scope=>scope.scope_type===scopeType);
-  if(!available.length){setScopeType(dashboard.scopes[0].scope_type);return;}
+  if(!available.length){setScopeType(dashboard.scopes[0].scope_type);setScopeId(dashboard.scopes[0].scope_id??"");return;}
   if(scopeType==="tenant"){setScopeId("");return;}
   if(!available.some(scope=>scope.scope_id===scopeId))setScopeId(available[0].scope_id??"");
  },[dashboard,scopeType,scopeId]);
@@ -51,6 +57,7 @@ export function AnalyticsWorkspace({compact=false}:{compact?:boolean}){
 
  const visibleMetrics=useMemo(()=>{
   const values=dashboard?.metrics??[];
+  if(scopeType===null)return values;
   if(scopeType==="tenant")return values.filter(item=>item.scope_type==="tenant");
   return values.filter(item=>item.scope_type===scopeType&&(!scopeId||item.scope_id===scopeId));
  },[dashboard,scopeType,scopeId]);
@@ -70,6 +77,7 @@ export function AnalyticsWorkspace({compact=false}:{compact?:boolean}){
   if(!api)return;
   setBusy(true);setNotice(null);setError(null);
   try{
+   if(!scopeType)throw new Error("Cakupan analytics belum dimuat.");
    const selectedScope=dashboard?.scopes.find(scope=>scope.scope_type===scopeType&&(scopeType==="tenant"||scope.scope_id===scopeId));
    if(scopeType!=="tenant"&&!selectedScope?.scope_id)throw new Error("Scope laporan belum tersedia untuk cakupan ini.");
    const result:AnalyticsReportExportResponse=await api.createReport({
@@ -101,15 +109,15 @@ export function AnalyticsWorkspace({compact=false}:{compact?:boolean}){
     <p className="text-xs text-[var(--color-text-muted)]">Data aktual dari FastAPI dan snapshot KPI terjadwal.</p></div>
    <div className="flex flex-wrap gap-2">
     <button type="button" onClick={()=>void refresh()} disabled={loading} className="rounded-lg border border-[var(--color-border)] px-3 py-2 text-xs font-semibold disabled:opacity-50">{loading?"Memuat…":"Refresh"}</button>
-    <button type="button" onClick={()=>void requestExport()} disabled={busy||!auth.canPerformApiAction("analytics.reports.create")} className="rounded-lg bg-[#348CB2] px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">{busy?"Memproses…":"Ekspor CSV"}</button>
+    <button type="button" onClick={()=>void requestExport()} disabled={busy||!scopeType||!auth.canPerformApiAction("analytics.reports.create")} className="rounded-lg bg-[#348CB2] px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">{busy?"Memproses…":"Ekspor CSV"}</button>
    </div>
   </div>
   <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
    <label className="text-xs text-[var(--color-text-secondary)]">Dari<input type="date" value={periodStart} max={periodEnd} onChange={e=>setPeriodStart(e.target.value)} className="mt-1 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-2 text-sm text-[var(--color-text-primary)]"/></label>
    <label className="text-xs text-[var(--color-text-secondary)]">Sampai<input type="date" value={periodEnd} min={periodStart} onChange={e=>setPeriodEnd(e.target.value)} className="mt-1 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-2 text-sm text-[var(--color-text-primary)]"/></label>
    <label className="text-xs text-[var(--color-text-secondary)]">Periode<select value={grain} onChange={e=>setGrain(e.target.value as typeof grain)} className="mt-1 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-2 text-sm text-[var(--color-text-primary)]"><option value="day">Harian</option><option value="week">Mingguan</option><option value="month">Bulanan</option></select></label>
-   <label className="text-xs text-[var(--color-text-secondary)]">Cakupan<select value={scopeType} onChange={e=>setScopeType(e.target.value as typeof scopeType)} className="mt-1 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-2 text-sm text-[var(--color-text-primary)]"><option value="tenant">Organisasi</option><option value="branch">Cabang</option><option value="team">Tim</option><option value="territory">Teritori</option><option value="user">Salesperson</option></select></label>
-   {scopeType!=="tenant"&&<label className="text-xs text-[var(--color-text-secondary)]">ID Scope<select value={scopeId} onChange={e=>setScopeId(e.target.value)} className="mt-1 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-2 text-xs text-[var(--color-text-primary)]">{(dashboard?.scopes??[]).filter(scope=>scope.scope_type===scopeType).map(scope=><option key={scope.scope_id??"tenant"} value={scope.scope_id??""}>{scope.scope_id}</option>)}</select></label>}
+   <label className="text-xs text-[var(--color-text-secondary)]">Cakupan<select value={scopeType??""} onChange={e=>setScopeType(e.target.value as NonNullable<typeof scopeType>)} className="mt-1 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-2 text-sm text-[var(--color-text-primary)]"><option value="" disabled>Menentukan otomatis…</option><option value="tenant">Organisasi</option><option value="branch">Cabang</option><option value="team">Tim</option><option value="territory">Teritori</option><option value="user">Salesperson</option></select></label>
+   {scopeType!==null&&scopeType!=="tenant"&&<label className="text-xs text-[var(--color-text-secondary)]">ID Scope<select value={scopeId} onChange={e=>setScopeId(e.target.value)} className="mt-1 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-2 text-xs text-[var(--color-text-primary)]">{(dashboard?.scopes??[]).filter(scope=>scope.scope_type===scopeType).map(scope=><option key={scope.scope_id??"tenant"} value={scope.scope_id??""}>{scope.scope_id}</option>)}</select></label>}
   </div>
   {error&&<p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700">{error}</p>}
   {notice&&<p role="status" className="rounded-lg border border-[var(--color-border)] p-3 text-xs text-[var(--color-text-secondary)]">{notice}</p>}
