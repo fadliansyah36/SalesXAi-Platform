@@ -60,9 +60,12 @@ export function AnalyticsWorkspace({compact=false}:{compact?:boolean}){
   if(!api)return;
   setBusy(true);setNotice(null);setError(null);
   try{
+   const selectedScope=dashboard?.scopes.find(scope=>scope.scope_type===scopeType);
+   if(scopeType!=="tenant"&&!selectedScope?.scope_id)throw new Error("Scope laporan belum tersedia untuk cakupan ini.");
    const result:AnalyticsReportExportResponse=await api.createReport({
     report_key:"operational-kpi",period_start:periodStart,period_end:periodEnd,
-    period_grain:grain,scope_type:"tenant",idempotency_key:"analytics-"+periodStart+"-"+periodEnd+"-"+grain+"-"+Date.now(),
+    period_grain:grain,scope_type:scopeType,scope_id:selectedScope?.scope_id??null,
+    idempotency_key:"analytics-"+scopeType+"-"+(selectedScope?.scope_id??"tenant")+"-"+periodStart+"-"+periodEnd+"-"+grain+"-"+Date.now(),
    });
    setNotice("Ekspor CSV masuk antrean. Status akan diperbarui otomatis.");
    setReports(current=>[result,...current.filter(item=>item.id!==result.id)]);
