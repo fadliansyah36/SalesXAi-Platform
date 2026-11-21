@@ -11,6 +11,9 @@ on:
       - "apps/principal-portal/**"
       - "apps/supervisor-portal/**"
       - "apps/super-admin/**"
+      - "apps/mobile-sales/**"
+      - "services/api/**"
+      - "supabase/migrations/**"
       - "app/**"
       - "components/**"
       - "hooks/**"
@@ -39,9 +42,36 @@ jobs:
         with:
           node-version: 22.16.0
       - run: bun install --frozen-lockfile
+      - run: bun run --filter "@salesx-ai/${{ matrix.workspace }}" typecheck
+      - run: bun run --filter "@salesx-ai/${{ matrix.workspace }}" lint
       - run: bun run --filter "@salesx-ai/${{ matrix.workspace }}" build
       - name: Verify standalone runtime and static assets
         run: |
           test -f "apps/${{ matrix.workspace }}/.next/standalone/apps/${{ matrix.workspace }}/server.js"
           test -d "apps/${{ matrix.workspace }}/.next/standalone/apps/${{ matrix.workspace }}/.next/static"
           test -d "apps/${{ matrix.workspace }}/.next/standalone/apps/${{ matrix.workspace }}/public"
+
+  mobile-expo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.16.0
+      - run: bun install --frozen-lockfile
+      - run: bun run --filter "@salesx-ai/mobile-sales" typecheck
+      - run: bun run --filter "@salesx-ai/mobile-sales" build
+  fastapi:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -e "services/api[dev]" pytest
+      - run: python -m compileall -q services/api/app
+      - run: ruff check services/api/app services/api/tests
+      - run: pytest -q services/api/tests
