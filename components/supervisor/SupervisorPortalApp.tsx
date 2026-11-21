@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { usePortalRouteGuard } from '@/components/auth/usePortalRouteGuard';
+import { AnalyticsWorkspace } from '@/components/analytics/AnalyticsWorkspace';
 import { SmartTeamConsole } from '@/components/smart-team/SmartTeamConsole';
 import { LocationWorkspace } from '@/components/location/LocationWorkspace';
 import Link from 'next/link';
@@ -694,6 +695,7 @@ export function SupervisorPortalApp() {
               </div>
             </div>
           </div>
+        <AnalyticsWorkspace compact />
         </div>
       )}
 
