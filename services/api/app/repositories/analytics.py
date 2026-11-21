@@ -166,7 +166,7 @@ class AnalyticsRepository:
                join public.analytics_report_exports e on e.report_run_id=r.id
                     and e.organization_id=r.organization_id
                where r.id=$1 and r.organization_id=$2 and e.status='completed'
-                 and e.artifact_path is not null
+                 and e.artifact_path is not null and e.expires_at>now()
                  and exists (
                    select 1 from public.organization_memberships m
                    join public.user_role_assignments ura on ura.membership_id=m.id
