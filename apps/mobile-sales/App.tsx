@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { AppState } from "react-native";
 import * as SecureStore from "expo-secure-store";
 import { ActivityIndicator, Pressable, ScrollView, StatusBar, TextInput } from "react-native";
@@ -44,6 +44,9 @@ function Action({label,onPress,disabled=false,secondary=false}:{label:string;onP
 function SalesHome({auth}:{auth:AuthState}){
  const {colors,theme}=useNativeTheme();
  const [mode,setMode]=useState<AuthMode>("login");
+ const [activeShiftId,setActiveShiftId]=useState<string|null>(null);
+ const [shiftContextReady,setShiftContextReady]=useState(false);
+ const onShiftContextChange=useCallback((shiftId:string|null,ready:boolean)=>{setActiveShiftId(shiftId);setShiftContextReady(ready);},[]);
  const [email,setEmail]=useState("");
  const [phone,setPhone]=useState("");
  const [password,setPassword]=useState("");
@@ -173,10 +176,10 @@ function SalesHome({auth}:{auth:AuthState}){
        </NativeStack>}
 
        {auth.activeOrganizationId&&<>
-         <SmartTeamHome auth={auth} salesProfileId={typeof assignmentContext?.sales_profile?.id==="string"?String(assignmentContext.sales_profile.id):null}/>
+         <SmartTeamHome auth={auth} salesProfileId={typeof assignmentContext?.sales_profile?.id==="string"?String(assignmentContext.sales_profile.id):null} onShiftContextChange={onShiftContextChange}/>
        <SmartOrderHome auth={auth}/>
        <SmartRewardHome auth={auth}/>
-         <LocationTrackingControl api={auth.apiClient} organizationId={auth.activeOrganizationId} accessToken={auth.session?.access_token??null} actorUserId={auth.context?.user.id??null}/>
+         <LocationTrackingControl api={auth.apiClient} organizationId={auth.activeOrganizationId} accessToken={auth.session?.access_token??null} actorUserId={auth.context?.user.id??null} shiftId={activeShiftId} shiftContextReady={shiftContextReady}/>
         </>}
 
        {canReadAssignmentContext&&assignmentContext&&<NativeStack gap="2">
