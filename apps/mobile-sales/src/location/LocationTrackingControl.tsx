@@ -7,7 +7,7 @@ import type {SalesXApiClient} from "@salesx-ai/api-client";
 import {NativeInline,NativeStack,NativeSurface,NativeText,useNativeTheme} from "@salesx-ai/design-system/native";
 import {ensureLocationDeviceId,flushLocationOutbox,startLocationTracking,stopLocationTracking,syncLocationAccessToken,syncPendingLocationStop,LOCATION_TASK_NAME} from "./locationTracking";
 
-export function LocationTrackingControl({api,organizationId,accessToken,shiftId}:{api:SalesXApiClient|null;organizationId:string|null;accessToken:string|null;shiftId?:string|null}){
+export function LocationTrackingControl({api,organizationId,accessToken,actorUserId,shiftId}:{api:SalesXApiClient|null;organizationId:string|null;accessToken:string|null;actorUserId:string|null;shiftId?:string|null}){
  const {colors}=useNativeTheme();const [consent,setConsent]=useState(false);const [active,setActive]=useState(false);const [busy,setBusy]=useState(false);const [notice,setNotice]=useState("");
  useEffect(()=>{void (async()=>{setActive(await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK_NAME));})();},[]);
  useEffect(()=>{void syncLocationAccessToken(accessToken);},[accessToken]);
@@ -17,14 +17,14 @@ export function LocationTrackingControl({api,organizationId,accessToken,shiftId}
   return ()=>subscription.remove();
  },[api,organizationId]);
  const toggle=async()=>{
-  if(!api||!organizationId||!accessToken)return;
+  if(!api||!organizationId||!accessToken||!actorUserId)return;
   setBusy(true);setNotice("");
   try{
    if(active){await stopLocationTracking(api,organizationId);setActive(false);setConsent(false);setNotice("Pelacakan dihentikan. Data tertunda akan disinkronkan saat jaringan tersedia.");}
    else{
     if(!consent)throw new Error("Persetujuan pelacakan harus diberikan terlebih dahulu.");
     const device=await ensureLocationDeviceId();
-    await startLocationTracking(api,organizationId,accessToken,device,shiftId);
+    await startLocationTracking(api,organizationId,accessToken,device,actorUserId,shiftId);
     setActive(true);setNotice("Pelacakan lokasi aktif. Anda dapat menghentikannya kapan saja.");
    }
   }catch(error){setNotice(error instanceof Error?error.message:"Tidak dapat mengubah status pelacakan.");}
@@ -40,7 +40,7 @@ export function LocationTrackingControl({api,organizationId,accessToken,shiftId}
    {!active&&<Pressable onPress={()=>setConsent(v=>!v)} style={{padding:12,borderRadius:12,borderWidth:1,borderColor:consent?colors.primary:colors.border}}>
     <NativeText color={consent?colors.primary:colors.textPrimary}> {consent?"✓ ":"□ "}Saya menyetujui pelacakan lokasi selama sesi kerja dan memahami bahwa saya dapat menghentikannya.</NativeText>
    </Pressable>}
-   <Pressable disabled={busy||!api||!organizationId||!accessToken||(!active&&!consent)} onPress={()=>void toggle()} style={{padding:14,borderRadius:12,backgroundColor:active?colors.surfaceMuted:colors.primarySubtle,borderWidth:active?1:0,borderColor:colors.border,opacity:busy?0.6:1}}>
+   <Pressable disabled={busy||!api||!organizationId||!accessToken||!actorUserId||(!active&&!consent)} onPress={()=>void toggle()} style={{padding:14,borderRadius:12,backgroundColor:active?colors.surfaceMuted:colors.primarySubtle,borderWidth:active?1:0,borderColor:colors.border,opacity:busy?0.6:1}}>
     <NativeText weight="semibold" color={colors.textPrimary}>{busy?"Memproses…":active?"Hentikan pelacakan":"Mulai pelacakan lokasi"}</NativeText>
    </Pressable>
    {!!notice&&<NativeText variant="caption" color={colors.textSecondary}>{notice}</NativeText>}
