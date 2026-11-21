@@ -8,26 +8,16 @@ import {LocationMap} from "./LocationMap";
 import type {MapCoordinate,MapPolyline} from "../../../../packages/maps/src";
 
 export function LocationTrackingControl({api,organizationId,accessToken,actorUserId,shiftId}:{api:SalesXApiClient|null;organizationId:string|null;accessToken:string|null;actorUserId:string|null;shiftId?:string|null}){
- const {colors}=useNativeTheme();const previousShiftId=useRef<string|null>(null);const [consent,setConsent]=useState(false);const [active,setActive]=useState(false);const [busy,setBusy]=useState(false);const [notice,setNotice]=useState("");const [currentCoordinate,setCurrentCoordinate]=useState<MapCoordinate|null>(null);const [currentRoute,setCurrentRoute]=useState<MapPolyline[]>([]);
+ const {colors}=useNativeTheme();const stopRequested=useRef(false);const [consent,setConsent]=useState(false);const [active,setActive]=useState(false);const [busy,setBusy]=useState(false);const [notice,setNotice]=useState("");const [currentCoordinate,setCurrentCoordinate]=useState<MapCoordinate|null>(null);const [currentRoute,setCurrentRoute]=useState<MapPolyline[]>([]);
  useEffect(()=>{void (async()=>{setActive(await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK_NAME));})();},[]);
  useEffect(()=>{
-  const previous=previousShiftId.current;
-  previousShiftId.current=shiftId;
-  if(previous&&!shiftId&&active&&api&&organizationId){
-   setBusy(true);
-   void stopLocationTracking(api,organizationId).catch(error=>{
-    setNotice(error instanceof Error?error.message:"Shift berakhir; penghentian tracking menunggu sinkronisasi.");
-   }).finally(()=>{setActive(false);setConsent(false);setBusy(false);});
-  }
- },[active,api,organizationId,shiftId]);
- useEffect(()=>{
-  if(!shiftContextReady||!active||!api||!organizationId||!shiftId)return;
+  if(!shiftContextReady||!active||!api||!organizationId||stopRequested.current)return;
   void getStoredLocationShiftId().then(stored=>{
-   if(stored&&stored!==shiftId){
-    setBusy(true);
+   if(!shiftId||(stored&&stored!==shiftId)){
+    stopRequested.current=true;setBusy(true);
     return stopLocationTracking(api,organizationId).catch(error=>{
-     setNotice(error instanceof Error?error.message:"Sesi lokasi tidak cocok dengan shift aktif dan menunggu sinkronisasi.");
-    }).finally(()=>{setActive(false);setConsent(false);setBusy(false);});
+     setNotice(error instanceof Error?error.message:"Shift berakhir; penghentian tracking menunggu sinkronisasi.");
+    }).finally(()=>{setActive(false);setConsent(false);setBusy(false);stopRequested.current=false;});
    }
   });
  },[active,api,organizationId,shiftContextReady,shiftId]);
