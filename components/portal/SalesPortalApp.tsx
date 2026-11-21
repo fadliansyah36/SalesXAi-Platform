@@ -680,7 +680,7 @@ export function SalesPortalApp() {
                   const target=getSalesXPortalKeyForPath(item.href);
                   if(!target)return;
                   setPortalSwitchBusy(true);
-                  try{const destination=await auth.createPortalHandoff(target);window.location.assign(destination);}
+                  try{const destination=await auth.createPortalHandoff(target,auth.activeOrganizationId??"");window.location.assign(destination);}
                   catch{setPortalSwitchBusy(false);}
                 }}
                 className="rounded-lg border border-[var(--color-border)] py-1.5 text-center hover:bg-[var(--color-surface-muted)] disabled:opacity-50">
