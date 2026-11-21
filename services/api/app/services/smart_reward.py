@@ -1,7 +1,6 @@
 from __future__ import annotations
 import json
 from decimal import Decimal, ROUND_FLOOR
-from uuid import UUID
 import asyncpg
 from app.errors import APIError
 
