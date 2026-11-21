@@ -20,7 +20,7 @@ export function getSalesXPortalUrl(portal:SalesXPortal):string{
 export function getSalesXPortalUrlForPath(path:string):string{
  const normalized=path.replace(/\/$/,"")||"/";
  if(normalized==="/portal"||normalized.startsWith("/sales"))return getSalesXPortalUrl("sales");
- if(normalized==="/customer"||normalized==="/")return getSalesXPortalUrl("customer");
+ if(normalized==="/customer")return getSalesXPortalUrl("customer");
  if(normalized==="/company")return getSalesXPortalUrl("company");
  if(normalized==="/distributor"||normalized.startsWith("/distributor/"))return getSalesXPortalUrl("distributor");
  if(normalized==="/principal"||normalized.startsWith("/principal/"))return getSalesXPortalUrl("principal");
