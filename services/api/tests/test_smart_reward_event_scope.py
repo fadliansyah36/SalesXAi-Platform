@@ -11,7 +11,7 @@ class SmartRewardEventAudienceTests(unittest.TestCase):
         repo_root = root.parent.parent
         cls.broadcast_migration = (
             repo_root / "supabase" / "migrations"
-            / "20261121104000_p06_reward_broadcast_disable_unsafe_tenant_topic.sql"
+            / "20261121101601_p06_reward_broadcast_disable_unsafe_tenant_topic.sql"
         ).read_text(encoding="utf-8")
         cls.owner_policy = (
             repo_root / "supabase" / "owner-pending"
