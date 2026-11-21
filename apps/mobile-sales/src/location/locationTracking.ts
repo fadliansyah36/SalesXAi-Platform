@@ -34,7 +34,7 @@ async function storeLocations(locations:Location.LocationObject[]){
    latitude:location.coords.latitude,longitude:location.coords.longitude,
    accuracy_m:Math.max(0,location.coords.accuracy??10000),
    altitude_m:location.coords.altitude,speed_mps:location.coords.speed,
-   heading_deg:location.coords.heading,source:"gps",metadata:{provider:location.mocked?"mocked":"device"}
+   heading_deg:location.coords.heading,source:"gps",metadata:{provider:"native_location"}
   };
   await db.runAsync("INSERT OR IGNORE INTO location_outbox(id,payload,created_at) VALUES(?,?,?)",payload.client_point_id,JSON.stringify(payload),new Date().toISOString());
  }
@@ -120,6 +120,13 @@ export async function startLocationTracking(api:SalesXApiClient,organizationId:s
   throw error;
  }
  return session;
+}
+
+export async function syncPendingLocationStop(api:SalesXApiClient,organizationId:string){
+ const pending=await SecureStore.getItemAsync(STOP_PENDING_KEY),sessionId=await SecureStore.getItemAsync(SESSION_KEY);
+ if(pending!=="true"||!sessionId)return;
+ await createLocationApi(api,organizationId).updateSession(sessionId,{action:"stop",reason:"offline_stop_synchronized"});
+ await SecureStore.deleteItemAsync(SESSION_KEY);await SecureStore.deleteItemAsync(ORG_KEY);await SecureStore.deleteItemAsync(STOP_PENDING_KEY);
 }
 
 export async function stopLocationTracking(api:SalesXApiClient,organizationId:string){
