@@ -78,7 +78,7 @@ const deadline = Date.now() + 60000;
 for (const app of apps) {
   const css = cssFiles(app.directory);
   if (!css.length) throw new Error(app.name + " build emitted no CSS files");
-  const page = await retryGet((app.prefix || "") + "/", deadline);
+  const page = await retryGet(app.prefix || "/", deadline);
   const linkedStylesheets = [...page.body.matchAll(/href=["']([^"']+\.css(?:\?[^"']*)?)["']/g)].map((match) => match[1]);
   if (!linkedStylesheets.length) {
     throw new Error(app.name + " HTML does not reference a stylesheet; check App Router layout/CSS import");
