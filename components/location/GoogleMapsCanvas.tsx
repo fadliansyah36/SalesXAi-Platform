@@ -26,11 +26,12 @@ function MapOverlays({ routes, polygons }: { routes: MapPolyline[]; polygons: Ma
   return null;
 }
 
-export function GoogleMapsCanvas({ config, center, markers, routes, polygons, height = 420 }: {
+export function GoogleMapsCanvas({ config, center, markers, routes, polygons, height = 420, onMapEvent }: {
   config: MapsRuntimeConfig; center: MapCoordinate; markers: MapMarker[];
   routes: MapPolyline[]; polygons: MapPolygon[]; height?: number;
+  onMapEvent?: (event: MapEvent) => void;
 }) {
-  if (!config.enabled || !config.apiKey) return (
+  if (!resolveMapsAdapter("web", config) || !config.apiKey) return (
     <div className="flex items-center justify-between gap-4 border-y border-[var(--color-border)] bg-[var(--color-surface-muted)] px-5 py-6"
       style={{ minHeight: height }} role="status">
       <div>
