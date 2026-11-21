@@ -192,3 +192,16 @@ The latest main commit 823072c is a test-only follow-up in `services/api/tests/t
 - Remaining validation: no populated reward accounts or transaction fixtures exist; no populated ledger reconciliation, concurrent DB transaction test, isolated authenticated cross-tenant session, or Realtime denial session has been executed. These remain release blockers. Native Expo continues to use the shared SmartReward typed API for eligible catalog, balance, ledger and redemption; segment eligibility is enforced server-side. Native customer-segment authoring is not a Mobile Sales workflow.
 
 **Phase 06 remains IN_PROGRESS. Phase 07 remains LOCKED.**
+
+
+## Segment CRUD, membership and analytics UI completion — 2026-11-21
+
+- Added tenant-scoped Customer Segment analytics endpoint `GET /api/v1/organizations/{organization_id}/smart-reward/segments/{segment_id}/report`, returning active/inactive/removed membership counts and segment-scoped earned, redeemed, expired, adjusted points and ledger entry totals.
+- Added API action `smartreward.segments.report`, reusing the existing organization reward-report permission. Shared TypeScript response contract and typed API client method are present.
+- Existing shared SmartReward workspace now supports segment create, active/paused/archive state changes, rule evaluation, member add/remove, member listing, segment analytics, and linking a segment to a program, incentive rule and catalog item. All actions use the shared typed FastAPI client.
+- Rule evaluation preserves manually managed memberships in hybrid segments; only rule-origin memberships are updated/deactivated by evaluation.
+- Latest repository main HEAD: `b2dd365e930c8c5216402bbda0ef36484e9e7889`. Latest API source commit containing segment routes/action matrix: `90770cd1fa7e151b9e16861d700a99c2d23f2cf2`; latest shared portal UI source: `b2dd365e930c8c5216402bbda0ef36484e9e7889`.
+- Railway current latest deployments are still QUEUED (not live): API `fe707dc3-4569-41fa-9d59-fda4f6420e47` (source 90770cd1), Website `e790cd63-0959-436e-bad1-b7c3fc7b8e3b`, Customer `64cf1a75-4f25-4cc6-801a-b1e1d6a6afcf`, Company `bb8eb2ee-1540-49bd-8562-4cacbfba104d` (portal source b2dd365e). Latest-source release is therefore not marked deployed.
+- Supabase confirms 17 Phase 06 migrations including customer segments; Security Advisor returned zero lints. Customer segment tables and permission keys exist. Production reward and segment row counts remain zero.
+
+**Phase 06 remains IN_PROGRESS; Phase 07 remains LOCKED.**
