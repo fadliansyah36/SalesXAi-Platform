@@ -1254,3 +1254,34 @@ See `docs/implementation/phase-05-smartorder-status.md` for the current implemen
 - Migration ledger: 51 local files / 51 remote applied versions, exact version/name parity. Phase 05 migration count: 15.
 - Live public schema: 56 tables, 56 RLS-enabled, 56 policies, 299 indexes. Security Advisor: zero lints. Performance Advisor: zero unindexed foreign keys; 167 unused-index notices are informational on the low-volume/new commerce schema.
 - Phase 05 remains IN_PROGRESS. Cross-tenant API, seller-side portal actions, CRUD update workflows, complete mobile parity and focused validation are still being finalized. Phase 06 remains LOCKED.
+
+
+## Phase 06 — SmartReward & Incentive execution status (2026-11-21)
+
+**Status: IN_PROGRESS — NOT COMPLETED.** Execution began on branch `main` after the Phase 05 closure. This entry supersedes the earlier Phase 06 LOCKED snapshots. Do not unlock Phase 07 until the outstanding Phase 06 scope and cross-platform integration are completed.
+
+### Implemented foundation
+- Added FastAPI SmartReward router, schemas and service for reward program CRUD, incentive rule CRUD, catalog CRUD, participant balance and ledger reads, source-checked points earning, redemption request/read/decision/cancellation/fulfillment, authorized adjustments/reversals, and organization-level summary reporting.
+- Added shared TypeScript API contracts, a typed SmartReward API client factory, and matching Python/TypeScript API action matrix entries for 20 endpoints. FastAPI startup includes action-matrix route/wiring validation.
+- Added Supabase migrations: `20261121012020_p06_reward_core`, `20261121012025_p06_reward_ledger_compensation_signs`, and `20261121012115_p06_reward_fk_indexes`.
+- Added nine reward domain tables: programs, incentive rules, catalog items, accounts, append-only points ledger, redemptions, redemption history, audit events, and event outbox. All nine have RLS enabled with explicit deny-client policies; business access is through the server-side FastAPI database connection.
+- Ledger rows have immutable update/delete triggers, per-account row locking, unique idempotency keys, compensating reversal entries, balance-before/after constraints, and account projection reconciliation from `sum(points_delta)`. Redemption reserves stock and points in one database transaction; rejection/cancellation writes a compensating ledger entry.
+- Added scoped role-permission grants for tenant owner, company admin, supervisor, sales rep, customer, distributor and principal roles. Private Broadcast read policy and database event triggers are installed.
+
+### Database and deployment evidence
+- Supabase project `eyofuiyxalbehbqoaeny`: all three Phase 06 migrations are applied. The nine new reward tables are visible in the live public schema and RLS-enabled.
+- Security Advisor: 0 lints. Performance Advisor: no unindexed-FK warning remains after the Phase 06 FK index migration; unused-index notices are INFO only on the newly created/low-traffic schema.
+- Railway `salesx-api` deployed commit `c9e5bd3910212ca9ddcf133c293576038cbe6dad` with SUCCESS; runtime startup completed and `GET /readyz` returned HTTP 200. The later migration-name/index-only commit `0231396da6ef77010b4f8f53edd7da1571cfe0df` was skipped by Railway because it contained no application code changes.
+
+### Explicit remaining blockers — do not mark COMPLETED
+- Existing Customer, Sales, Supervisor, Company, Principal, Distributor, Super Admin and Expo screens are not yet wired to the new SmartReward client; no UI action or portal navigation integration is claimed.
+- Expo SmartReward screens and native lifecycle integration are not implemented.
+- Manager/team redemption inbox and resource/branch/supervisor-scoped reporting are not complete; current redemption read path is participant-owned and report is a tenant summary, not a full dimensional report.
+- Incentive rules currently support completed orders, completed visits and visit-based achieved targets. Full activity/KPI/role/organization rule evaluation, manual earning approval workflow, and rule-level approval resolution remain incomplete. Manual earning now fails closed pending an independently approved source record.
+- Reward eligibility currently checks active membership, program/catalog active period, balance, stock and minimum-balance configuration; role/audience/target/limit combinations are not fully evaluated.
+- Expiration scheduling and expiration ledger issuance are not implemented. The ledger supports the entry type, but no expiry job/workflow is wired.
+- Realtime database triggers/private topic policy exist, but portal/Expo subscription and refresh handling are not yet integrated.
+- API tests, concurrency/idempotency tests, Web/Expo typecheck, lint and all-portal build matrix on the latest commit have not been run or evidenced. Railway API build and readiness alone do not satisfy the engineering validation gate.
+- Super Admin platform-scope governance and cross-organization principal program management remain incomplete.
+
+**Next execution:** finish SmartReward authorization and manager workflows, implement the missing expiry/approval/eligibility/reporting lifecycle, wire the shared typed client into all existing portal screens and Expo, add private Realtime consumers, then run the focused engineering validation matrix. Phase 07 remains LOCKED.

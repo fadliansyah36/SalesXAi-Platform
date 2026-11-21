@@ -82,7 +82,7 @@ class SmartRewardService:
    value=await db.fetchval("""select count(*) from public.smartteam_visits where organization_id=$1 and sales_profile_id=$2 and status='completed' and scheduled_at::date between $3 and $4 and ($5::boolean=false or outcome in ('productive','order_taken'))""",org,r["sales_profile_id"],r["period_start"],r["period_end"],r["metric_key"]=="productive_visits")
    if Decimal(value)<Decimal(str(r["target_value"])): raise APIError(409,"reward_target_not_achieved","Target is not achieved.")
    return Decimal(value)
-  if t=="manual": return Decimal(str(metric))
+  if t=="manual": raise APIError(409,"manual_earning_requires_approval_record","Manual earning is disabled until an independently approved source record exists.")
   raise APIError(422,"reward_source_invalid","Unsupported source type.")
  async def issue_points(self,db,org,actor,p):
   async with db.transaction():
