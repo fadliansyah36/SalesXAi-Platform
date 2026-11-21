@@ -4,9 +4,31 @@ export interface MapCoordinate { lat: number; lng: number; }
 export interface MapMarker { id: string; position: MapCoordinate; title: string; tone?: "active" | "stale" | "neutral"; }
 export interface MapPolyline { id: string; coordinates: MapCoordinate[]; }
 export interface MapPolygon { id: string; label?: string; coordinates: MapCoordinate[]; }
+export interface MapViewport {
+  center: MapCoordinate;
+  zoom?: number;
+  bounds?: { north: number; south: number; east: number; west: number };
+}
+export type MapEvent =
+  | { type: "marker_press"; markerId: string; coordinate: MapCoordinate }
+  | { type: "viewport_change"; viewport: MapViewport }
+  | { type: "geofence_press"; geofenceId: string }
+  | { type: "route_press"; routeId: string };
+export interface MapsFeatureFlags {
+  mapTiles: boolean;
+  liveLocation: boolean;
+  routeHistory: boolean;
+  geofenceOverlay: boolean;
+  routeCalculation: boolean;
+}
+export interface MapsProviderAdapter {
+  id: "google";
+  platform: MapsPlatform;
+  isConfigured(config: MapsRuntimeConfig): boolean;
+}
 export interface MapsRuntimeConfig {
   platform: MapsPlatform; provider: MapsProvider; enabled: boolean; apiKey?: string;
-  mapId?: string; language: string; region: string; fallbackReason: string | null;
+  mapId?: string; language: string; region: string; features: MapsFeatureFlags; fallbackReason: string | null;
 }
 export type MapsEnvironment = Record<string, string | undefined>;
 
@@ -22,6 +44,7 @@ export function resolveMapsRuntimeConfig(platform: MapsPlatform, environment: Ma
     ...(environment.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID?.trim() ? { mapId: environment.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID.trim() } : {}),
     language: environment.GOOGLE_MAPS_LANGUAGE?.trim() || "id",
     region: environment.GOOGLE_MAPS_REGION?.trim() || "ID",
+    features: { mapTiles: enabled, liveLocation: true, routeHistory: true, geofenceOverlay: true, routeCalculation: false },
     fallbackReason: enabled ? null : platform === "web"
       ? "NEXT_PUBLIC_GOOGLE_MAPS_API_KEY is not configured."
       : "Native Google Maps keys and EXPO_PUBLIC_GOOGLE_MAPS_ENABLED are not configured.",
@@ -68,4 +91,57 @@ export function geoJsonPolygonRings(value: unknown): MapCoordinate[][] {
     return geometry.coordinates.flatMap(polygon => Array.isArray(polygon)
       ? polygon.map(coordinatesFromPairs).filter(ring => ring.length >= 3) : []);
   return [];
+}
+
+
+export const googleMapsWebAdapter: MapsProviderAdapter = {
+  id: "google",
+  platform: "web",
+  isConfigured: (config) => config.platform === "web" && config.provider === "google" && Boolean(config.apiKey),
+};
+export const googleMapsNativeAdapter: MapsProviderAdapter = {
+  id: "google",
+  platform: "native",
+  isConfigured: (config) => config.platform === "native" && config.provider === "google" && config.enabled,
+};
+export function resolveMapsAdapter(
+  platform: MapsPlatform,
+  config: MapsRuntimeConfig,
+): MapsProviderAdapter | null {
+  const adapter = platform === "web" ? googleMapsWebAdapter : googleMapsNativeAdapter;
+  return adapter.isConfigured(config) ? adapter : null;
+}
+
+/** Decode Google's encoded polyline into the canonical lat/lng contract. */
+export function decodeEncodedPolyline(encoded: string): MapCoordinate[] {
+  const points: MapCoordinate[] = [];
+  let index = 0;
+  let latitude = 0;
+  let longitude = 0;
+  while (index < encoded.length) {
+    let result = 0;
+    let shift = 0;
+    let byte: number;
+    do {
+      if (index >= encoded.length) return points;
+      byte = encoded.charCodeAt(index++) - 63;
+      result |= (byte & 0x1f) << shift;
+      shift += 5;
+    } while (byte >= 0x20);
+    latitude += result & 1 ? ~(result >> 1) : result >> 1;
+
+    result = 0;
+    shift = 0;
+    do {
+      if (index >= encoded.length) return points;
+      byte = encoded.charCodeAt(index++) - 63;
+      result |= (byte & 0x1f) << shift;
+      shift += 5;
+    } while (byte >= 0x20);
+    longitude += result & 1 ? ~(result >> 1) : result >> 1;
+
+    const point = { lat: latitude / 1e5, lng: longitude / 1e5 };
+    if (isValidMapCoordinate(point)) points.push(point);
+  }
+  return points;
 }
