@@ -103,11 +103,9 @@ jobs:
           site_url = "http://127.0.0.1:3000"
           jwt_expiry = 3600
           [auth.email]
-          enable_signup = true
+          enabled = true
           enable_confirmations = false
           [analytics]
-          enabled = false
-          [functions]
           enabled = false
           EOF
       - name: Start ephemeral Supabase services
@@ -115,7 +113,7 @@ jobs:
         run: |
           set -o pipefail
           docker info
-          supabase start --debug 2>&1 | tee /tmp/supabase-start.log || {
+          supabase start --debug --exclude studio,logflare,vector,edge-runtime,analytics,inbucket 2>&1 | tee /tmp/supabase-start.log || {
             tail -n 160 /tmp/supabase-start.log
             exit 1
           }
