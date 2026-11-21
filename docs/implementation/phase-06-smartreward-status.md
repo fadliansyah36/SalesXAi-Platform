@@ -106,12 +106,12 @@ Live verification:
 
 The four existing services are preserved; no new service or database was created.
 
-| Existing service | Current build configuration | Latest deployment at this update |
-|---|---|---|
-| `salesx-api` | Dockerfile builder; `services/api/Dockerfile`; root `/services/api` | **SUCCESS** — `2e75c3f6-370b-4ecb-9381-12c499fa840e`, source commit `ad6ef56e66ea69759f6b3daa41c298dfa2dca3d3`; deploy log confirms `GET /readyz 200 OK` |
-| `salesx-website` | Dockerfile builder; `infrastructure/docker/Dockerfile.website`; monorepo root | QUEUED — `5eb62c98-fcf7-4dde-8b0a-1d4a4d427d61` |
-| `salesx-customer` | Dockerfile builder; `infrastructure/docker/Dockerfile.customer`; monorepo root | QUEUED — `1bf7b603-740c-4bb9-ab15-4d5f940608a4` |
-| `salesx-company` | Dockerfile builder; `infrastructure/docker/Dockerfile.company`; monorepo root | QUEUED — `5fef1b26-c3a6-4792-856a-700f8a7a5645` |
+| Existing service | Build configuration | Current live successful deployment | Latest source deployment |
+|---|---|---|---|
+| `salesx-api` | Dockerfile builder; `services/api/Dockerfile`; root `/services/api` | **SUCCESS** — `2e75c3f6-370b-4ecb-9381-12c499fa840e`, source `ad6ef56e66ea69759f6b3daa41c298dfa2dca3d3`; deploy log confirms `GET /readyz 200 OK` | Same deployment — SUCCESS |
+| `salesx-website` | Dockerfile builder; `infrastructure/docker/Dockerfile.website`; monorepo root | **SUCCESS** — `43a74cb4-2e67-467e-a277-3bea64765871`, source `683d371af1a0c87d5f959616092ebf516abb1f05`; gateway routes `/` and `/sales`, both Next processes Ready | QUEUED — `5eb62c98-fcf7-4dde-8b0a-1d4a4d427d61`, source `a5f73c7f` |
+| `salesx-customer` | Dockerfile builder; `infrastructure/docker/Dockerfile.customer`; monorepo root | **SUCCESS** — `aaff5a51-46d6-471f-a8dc-0dac8d56c376`, source `683d371af1a0c87d5f959616092ebf516abb1f05`; Next server Ready | QUEUED — `1bf7b603-740c-4bb9-ab15-4d5f940608a4`, source `a5f73c7f` |
+| `salesx-company` | Dockerfile builder; `infrastructure/docker/Dockerfile.company`; monorepo root | **SUCCESS** — `c2bed96f-fec0-43a9-a046-2bf35e2cc631`, source `683d371af1a0c87d5f959616092ebf516abb1f05`; gateway routes `/`, `/distributor`, `/principal`, `/supervisor`, `/admin`; all five Next processes Ready | QUEUED — `5fef1b26-c3a6-4792-856a-700f8a7a5645`, source `a5f73c7f` |
 
 The three portal services now use the explicit production Dockerfiles, Node 22/Bun 1.4.5 build stages, complete Next standalone trees and CSS-aware gateway health checks. Website and Company gateways check every child app's canonical root/deep route, JavaScript asset, CSS asset, manifest and scoped service worker. Railway deployments are not claimed successful until the queued deployment IDs above report SUCCESS and health checks pass.
 
@@ -121,7 +121,7 @@ Historical Railway failures were diagnosed:
 
 ## Remaining blockers — Phase 06 is not COMPLETED
 
-1. `salesx-api` is deployed and ready. The latest `salesx-website`, `salesx-customer` and `salesx-company` Dockerfile deployments remain queued; their current live deployments still run earlier successful source commits.
+1. `salesx-api` is deployed and ready; Website/Sales, Customer and Company-group have successful intermediate releases with CSS assets and route processes ready. The newer portal source deployments remain queued, so the exact latest source is not yet live.
 2. The linked production Supabase project has no reward accounts/ledger rows, so reconciliation is verified structurally but not against populated reward activity.
 3. The supported incentive source set is completed orders, completed visits and visit-target achievement; additional activity/KPI source adapters must be added if required by the full business catalog.
 4. No real populated-data concurrency/load exercise or authenticated cross-tenant browser session was performed; do not describe static locks/constraints as load-test evidence.
