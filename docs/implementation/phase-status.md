@@ -15,7 +15,7 @@
 
 ---
 Source branch: main
-Source code commit at snapshot: bcb15b2cbca7d994902162d89bbdbd6aff4f1baf
+Source code commit at snapshot: be4df89f23fee83fb6f1c57dd94e75e5a4abca02
 Repository binding: fadliansyah36/SalesXAi-Platform (canonical connected repository; the alternate URL spelling SalesX-Ai-Platform does not resolve)
 Supabase project: eyofuiyxalbehbqoaeny
 
@@ -25,9 +25,9 @@ Supabase project: eyofuiyxalbehbqoaeny
 - Phase 08 — Analytics & KPI Aggregation remains next after Phase 07 completion.
 
 ## Verified Supabase state
-- 89 applied migrations; PostgreSQL 17.12; project ACTIVE_HEALTHY.
+- 90 applied migrations; latest version 20261121093654; PostgreSQL 17.12; project ACTIVE_HEALTHY.
 - 80 public tables.
-- Phase 06 has 17 applied migrations.
+- Phase 06 has 18 applied migrations.
 - Phase 07 has 5 applied migrations: foundation, latest-position/geofence/realtime projection, role bindings, and FK indexes.
 - Security Advisor: 0 security lints.
 - Performance Advisor: 0 unindexed foreign-key lints after the latest index migration.
@@ -65,8 +65,8 @@ Supabase project ref: eyofuiyxalbehbqoaeny
 | Phase 03 — Master Data Foundation | COMPLETED |
 | Phase 04 — SmartTeam Operations | COMPLETED |
 | Phase 05 — SmartOrder | COMPLETED |
-| Phase 06 — SmartReward & Incentive | IN_PROGRESS — Customer Segment schema/API/shared Web UI added and migration applied; latest-source deployment and populated-data/security validation remain open |
-| Phase 07 — Realtime Location & Route History | IN_PROGRESS — parallel implementation authorized; owner-level Realtime policy and runtime gates remain open |
+| Phase 06 — SmartReward & Incentive | IN_PROGRESS — Customer Segment is present; concurrent redemption, authenticated cross-tenant API and owner-authorized private Realtime validation remain open |
+| Phase 07 — Realtime Location & Route History | IN_PROGRESS — native lifecycle, offline/geofence edge-case validation, owner-level Realtime policy and release evidence remain open |
 
 **Latest main source SHA:** `627ce255e770e2712a479cff9ce3d6b5c08f17c7` (explicit Tailwind v4 monorepo source scanning fix). **Latest API runtime source SHA:** `823072c098dcbee285d5a0157e33fa47b6371075` (portal-only CSS commit does not require API redeploy). **Latest portal runtime source SHA:** `627ce255e770e2712a479cff9ce3d6b5c08f17c7`.
 
@@ -76,7 +76,7 @@ Supabase project ref: eyofuiyxalbehbqoaeny
 
 **Supabase:** 17 Phase 06 migrations are recorded, including `20261121054216_p06_reward_customer_segments`; the two new segment tables have RLS and deny-client policies; segment permission keys are present. Supabase Security Advisor returned zero lints after the segment migration. Existing baseline checks reported 13/13 original reward tables with RLS and zero direct client business-table grants. However, organizations = 0, profiles = 0, Auth users = 0 and all reward activity tables are empty. No populated ledger reconciliation, live concurrent load, authenticated cross-tenant session or private Realtime denial test can be claimed.
 
-**Remaining scope:** the Master PRD 5.3 includes Campaign and Customer Segment submodules; reward program periods/audience cover campaign-like behavior, but no first-class customer-segment entity is present. This mapping/implementation gap, plus any additional required activity/KPI adapters, must be resolved before closure. Phase 06 remains IN_PROGRESS; Phase 07 remains IN_PROGRESS. See `docs/implementation/phase-06-smartreward-status.md` for deployment IDs and detailed evidence.
+**Remaining scope:** the Customer Segment entity and membership foundation are now present. Reward program periods/audience provide the current campaign-like lifecycle; independent campaign aggregate behavior and any additional activity/KPI adapters must be checked against the Master PRD before closure. Phase 06 remains IN_PROGRESS; Phase 07 remains IN_PROGRESS. See `docs/implementation/phase-06-smartreward-status.md` for deployment IDs and detailed evidence.
 
 The dated Phase 02 PARTIAL / Phase 03 LOCKED and earlier Phase 04 IN_PROGRESS entries below are historical snapshots. The Phase 04 closure addendum, latest Phase 05 continuation record and Phase 06 addendum above are authoritative. Phase 06 remains IN_PROGRESS; Phase 07 remains IN_PROGRESS.
 
