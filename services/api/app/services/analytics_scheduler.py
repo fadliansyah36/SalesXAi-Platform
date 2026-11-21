@@ -42,18 +42,22 @@ async def _seed_schedules(connection:asyncpg.Connection)->None:
     )
 
 
-async def _claim_schedules(connection:asyncpg.Connection):
+async def _claim_schedules(connection:asyncpg.Connection,worker_id:str):
     return await connection.fetch(
         """with due as (
-             select id,coalesce(retry_at,next_run_at) scheduled_for,(retry_at is not null) retrying
+             select id,coalesce(retry_at,last_run_at,next_run_at) scheduled_for,
+                    (retry_at is not null or lease_expires_at is not null) retrying
              from public.analytics_scheduled_jobs
-             where enabled and coalesce(retry_at,next_run_at)<=now()
-             order by coalesce(retry_at,next_run_at) for update skip locked limit 20
+             where enabled
+               and (coalesce(retry_at,next_run_at)<=now() or lease_expires_at<now())
+               and (lease_owner is null or lease_expires_at<now())
+             order by coalesce(retry_at,last_run_at,next_run_at)
+             for update skip locked limit 20
            ), advanced as (
              update public.analytics_scheduled_jobs j
              set last_run_at=now(),updated_at=now(),
                  attempt_count=case when due.retrying then j.attempt_count+1 else 1 end,
-                 retry_at=null,
+                 retry_at=null,lease_owner=$1,lease_expires_at=now()+interval '5 minutes',
                  next_run_at=case when due.retrying then j.next_run_at else
                    case j.schedule_kind
                      when 'interval' then now()+make_interval(mins=>j.interval_minutes)
@@ -68,7 +72,8 @@ async def _claim_schedules(connection:asyncpg.Connection):
                    end
                  end
              from due where j.id=due.id returning j.*,due.scheduled_for
-           ) select * from advanced"""
+           ) select * from advanced""",
+        worker_id,
     )
 
 async def _refresh(connection:asyncpg.Connection,organization_id,lookback:int)->dict:
@@ -107,7 +112,7 @@ async def _run_schedule(connection:asyncpg.Connection,job:asyncpg.Record)->None:
             execution,json.dumps(metadata),
         )
         await connection.execute(
-            "update public.analytics_scheduled_jobs set last_status='completed',last_error=null,attempt_count=0,retry_at=null where id=$1",job["id"]
+            "update public.analytics_scheduled_jobs set last_status='completed',last_error=null,attempt_count=0,retry_at=null,lease_owner=null,lease_expires_at=null where id=$1",job["id"]
         )
     except Exception as exc:
         await connection.execute(
@@ -116,7 +121,7 @@ async def _run_schedule(connection:asyncpg.Connection,job:asyncpg.Record)->None:
         )
         await connection.execute(
             "update public.analytics_scheduled_jobs set last_status='failed',last_error=$2,
-               retry_at=case when attempt_count<max_attempts then now()+make_interval(secs=>least((power(2,attempt_count))::int,3600)) else null end where id=$1",
+               retry_at=case when attempt_count<max_attempts then now()+make_interval(secs=>least((power(2,attempt_count))::int,3600)) else null end,lease_owner=null,lease_expires_at=null where id=$1",
             job["id"],str(exc)[:1000],
         )
         raise
@@ -212,7 +217,7 @@ async def analytics_scheduler_loop(pool:asyncpg.Pool,settings:Settings)->None:
             while True:
                 try:
                     await _seed_schedules(connection)
-                    for job in await _claim_schedules(connection):
+                    for job in await _claim_schedules(connection,worker_id):
                         try:
                             await _run_schedule(connection,job)
                         except Exception:
