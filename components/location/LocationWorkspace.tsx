@@ -11,7 +11,11 @@ export function LocationWorkspace(){
  const [live,setLive]=useState<LocationLatestPosition[]>([]);
  const [routes,setRoutes]=useState<LocationRouteSummary[]>([]);
  const [geofences,setGeofences]=useState<LocationGeofence[]>([]);
- const [events,setEvents]=useState<LocationGeofenceEvent[]>([]);\n const [selectedReplay,setSelectedReplay]=useState<LocationRouteSummary|null>(null);\n const [replayPoints,setReplayPoints]=useState<LocationHistoryPoint[]>([]);\n const [replayIndex,setReplayIndex]=useState(0);\n const [replayBusy,setReplayBusy]=useState(false);
+ const [events,setEvents]=useState<LocationGeofenceEvent[]>([]);
+ const [selectedReplay,setSelectedReplay]=useState<LocationRouteSummary|null>(null);
+ const [replayPoints,setReplayPoints]=useState<LocationHistoryPoint[]>([]);
+ const [replayIndex,setReplayIndex]=useState(0);
+ const [replayBusy,setReplayBusy]=useState(false);
  const [busy,setBusy]=useState(false),[error,setError]=useState(""),[updatedAt,setUpdatedAt]=useState("");
  const can=(id:string)=>auth.canPerformApiAction(id as never);
  const canLive=can("location.live.read"),canHistory=can("location.history.read"),canGeofences=can("location.geofences.read");
