@@ -4,14 +4,14 @@ Date: 2026-11-21
 Repository: fadliansyah36/SalesXAi-Platform
 Branch: main
 Supabase: eyofuiyxalbehbqoaeny
-Latest implementation source SHA at this update: c95d558a81c5a9058cde0daa351de555328b69e4
-Latest main SHA (tracker/documentation commit): 5ec0a35f32dc19ab18b46f64f5d52662fed28cbf
+Latest runtime implementation SHA: a7066dfcd842fc1497eb75497508c0eb08be0b6d
+Latest main SHA before this tracker update: 823072c098dcbee285d5a0157e33fa47b6371075
 
 ## Status
 
-**IN_PROGRESS — IMPLEMENTATION AND CI VALIDATION PASS; PRODUCTION RELEASE NOT YET VERIFIED.**
+**IN_PROGRESS — FOUR-SERVICE RELEASE AND PORTAL RUNTIME VALIDATION PASS; POPULATED-DATA AND AUTHENTICATED SECURITY GATES REMAIN OPEN.**
 
-Phase 06 is not marked COMPLETED because the latest Railway deployments are still QUEUED. The four-service production release gate remains open until the latest FastAPI and portal deployments report SUCCESS and health checks pass. Phase 07 remains LOCKED.
+The four required Railway services are now ONLINE with successful latest deployments and health checks. Phase 06 remains IN_PROGRESS because the linked Supabase project has no organizations, Auth users, reward accounts or reward transactions; populated-ledger reconciliation and authenticated concurrency/cross-tenant tests therefore cannot be truthfully completed. Phase 07 remains LOCKED.
 
 ## Implemented backend and lifecycle
 
@@ -120,12 +120,45 @@ Historical Railway failures were diagnosed:
 - An older Sales Portal build failed because `filteredOutlets` was not defined; the current source restores the filter derivation and the independent portal build passes.
 - An older API deployment failed at startup because `get_smart_reward_repository` was missing; the dependency is now present, FastAPI route/action-matrix import validation passes, and a later API deployment succeeded. The latest API code is still queued for release.
 
-## Remaining blockers — Phase 06 is not COMPLETED
+## Latest verified release and evidence — 2026-11-21
 
-1. `salesx-api` is deployed and ready; Website/Sales, Customer and Company-group have successful intermediate releases with CSS assets and route processes ready. The newer portal source deployments remain queued, so the exact latest source is not yet live.
-2. The linked production Supabase project has no reward accounts/ledger rows, so reconciliation is verified structurally but not against populated reward activity.
-3. The supported incentive source set is completed orders, completed visits and visit-target achievement; additional activity/KPI source adapters must be added if required by the full business catalog.
-4. No real populated-data concurrency/load exercise or authenticated cross-tenant browser session was performed; do not describe static locks/constraints as load-test evidence.
-5. SMTP and Google OAuth credentials remain intentionally deferred until the corresponding deployment configuration is supplied; no placeholder secret is used.
+### Railway production release
 
-**Closure rule:** keep Phase 06 IN_PROGRESS and Phase 07 LOCKED until the latest API and all three portal Dockerfile deployments succeed, their health checks pass, and the remaining evidence gaps are explicitly closed. The next phase after closure is **Phase 07 — Realtime Location & Route History**.
+All four required services are ONLINE with one running replica and SUCCESS deployment:
+
+| Service | Deployment | Source SHA | Runtime verification |
+|---|---|---|---|
+| salesx-api | 9da9cb24-196d-41ca-b093-f11066e78dd2 | 823072c098dcbee285d5a0157e33fa47b6371075 | /readyz healthcheck succeeded |
+| salesx-website | 283bdd58-7e86-4b0f-a129-6a0a0f2d54fb | a7066dfcd842fc1497eb75497508c0eb08be0b6d | gateway website + sales routes; healthcheck succeeded |
+| salesx-customer | 5970d381-b17b-491d-8ec4-55ae9cd618e3 | a7066dfcd842fc1497eb75497508c0eb08be0b6d | gateway customer route; healthcheck succeeded |
+| salesx-company | 9f89b114-6fc5-4cd2-a40e-0e0468ff5538 | a7066dfcd842fc1497eb75497508c0eb08be0b6d | company/distributor/principal/supervisor/admin child apps ready; healthcheck succeeded |
+
+The latest main commit 823072c is a test-only follow-up in `services/api/tests/test_smart_reward_contracts.py`; portal source paths were unchanged, so Railway correctly skipped unnecessary portal redeploys. Their latest runtime source remains a7066df. The Customer Railway Start Command override was corrected to `node infrastructure/scripts/portal-gateway.mjs customer`, and watch patterns now include the gateway and runtime-verifier scripts. The new Customer deployment log confirms the customer gateway is active.
+
+### Portal, API and Expo validation
+
+- Portal build matrix: 8/8 SUCCESS (Customer, Sales, Supervisor, Company, Principal, Distributor, Super Admin, Website).
+- Production container runtime validation: 3/3 SUCCESS (customer, website, company).
+- CSS/JS checks served actual HTML, stylesheet and JavaScript assets with expected MIME types. Verified pages: customer (1 CSS/12 JS), website (1/10), sales (1/11), company (1/11), distributor (1/12), principal (1/12), supervisor (1/12), admin (1/11). Canonical token CSS was present for every portal.
+- API CI: 115 tests PASS; compileall, Ruff and FastAPI container build PASS. SmartReward contracts include append-only ledger, tenant-aware private events, approval reasons, idempotency/serialization contracts and transactional balance projection.
+- Web auth: typecheck PASS; lint has 0 errors and 2 existing `@next/next/no-img-element` warnings.
+- Native Expo Mobile Sales: typecheck PASS and Android bundle export PASS.
+- API and portal release metadata now expose source commit identifiers for runtime verification.
+
+### Supabase production state
+
+- Phase 06 migrations applied: 16/16.
+- Reward tables: 13; RLS enabled: 13/13; direct client table grants: 0.
+- Supabase Security Advisor: 0 lints.
+- Production rows: organizations 0, profiles 0, auth.users 0, reward_accounts 0, reward_points_ledger 0, reward_redemptions 0, reward_point_lots 0, reward_approval_requests 0 and reward_audit_events 0.
+- A zero-row reconciliation is not populated-ledger evidence and is not counted as a successful ledger reconciliation.
+
+### Remaining blockers — Phase 06 is not COMPLETED
+
+1. **Populated transaction evidence:** no tenant, Auth user, reward account or reward transaction exists. Do not create fake production activity or bypass the application workflow. A controlled isolated test tenant and authenticated test identity must be provisioned through Supabase Auth and the application workflow before earning, redemption, expiration, reversal and adjustment can be reconciled with real row counts and references.
+2. **Concurrency and authorization:** the CI contract suite verifies implementation contracts, row-lock/idempotency structure and transaction boundaries; it is not a live concurrent load test. No authenticated cross-tenant session or private Realtime subscription denial test has been run because there are zero Auth users and organizations.
+3. **PRD submodule mapping:** Master PRD 5.3 lists Reward Campaign and Customer Segment alongside program, ledger, rules, catalog, eligibility, redemption and analytics. Current schema has reward programs/rules/catalog/reporting but no first-class customer-segment entity; program periods/audience cover campaign-like behavior only. This mapping/implementation gap must be closed or explicitly scoped before Phase 06 can be called complete.
+4. **Incentive source coverage:** implemented verified sources are completed orders, completed visits and visit-target achievement. Additional activity/KPI adapters remain a gap if required by the full business catalog.
+5. SMTP and Google OAuth secrets remain intentionally deferred; no placeholder credentials were added.
+
+**Closure rule:** Phase 06 stays IN_PROGRESS and Phase 07 stays LOCKED until populated ledger evidence, reconciliation, live concurrency, authenticated cross-tenant/private-Realtime validation and remaining PRD submodule gaps are closed. Next phase after closure: **Phase 07 — Realtime Location & Route History**.

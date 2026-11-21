@@ -4,7 +4,7 @@ Target repository: fadliansyah36/SalesXAi-Platform
 Branch: main
 Supabase project ref: eyofuiyxalbehbqoaeny
 
-## Current authoritative status — 2026-11-21 (Phase 05 cross-tenant and lifecycle continuation)
+## Current authoritative status — 2026-11-21 (Phase 06 release continuation)
 
 | Phase | Current status |
 |---|---|
@@ -12,14 +12,20 @@ Supabase project ref: eyofuiyxalbehbqoaeny
 | Phase 01 — Canonical Design System & Design Tokens | COMPLETED |
 | Phase 02 — Identity, Tenant & Authorization Foundation | COMPLETED |
 | Phase 03 — Master Data Foundation | COMPLETED |
-| Phase 04 — SmartTeam Operations | COMPLETED — closure addendum supersedes historical entries below |
-| Phase 05 — SmartOrder | COMPLETED — closure evidence recorded 2026-11-21; Phase 06 remains LOCKED pending explicit next-phase instruction |
+| Phase 04 — SmartTeam Operations | COMPLETED |
+| Phase 05 — SmartOrder | COMPLETED |
+| Phase 06 — SmartReward & Incentive | IN_PROGRESS — four-service production release and portal runtime validation passed; populated-ledger, live concurrency, authenticated cross-tenant and PRD submodule gaps remain |
+| Phase 07 — Realtime Location & Route History | LOCKED — do not start until Phase 06 Definition of Done is evidenced |
 
-**Migration ledger:** 67 remote applied versions and 67 local migration files, all exact version/name pairs matching: Phase 00 = 2, Phase 02 = 14, Phase 03 = 10, Phase 04 = 10, Phase 05 = 31. Latest Phase 05 migration: `20261121005322_p05_realtime_auth_rls_initplan`. No historical migration was edited or replayed.
+**Latest main code/test SHA:** `823072c098dcbee285d5a0157e33fa47b6371075` (the last commit only corrected the SmartReward transaction-boundary test). **Latest portal runtime source SHA:** `a7066dfcd842fc1497eb75497508c0eb08be0b6d`.
 
-**Live database:** 57/57 public tables have RLS enabled, 57 public policies are present, and 306 public indexes exist. SmartOrder has 27 broadcast triggers and 3 private `realtime.messages` policies. Supabase Security Advisor: 0 lints. Performance Advisor: 0 WARN findings, including 0 unindexed-FK and 0 auth-RLS-initplan warnings; 172 unused-index INFO notices remain informational for the new low-volume schema. The private SmartTeam evidence bucket remains private.
+**Railway production:** all four required services are ONLINE, 1/1 replicas, deployment SUCCESS. `salesx-api` runs source `823072c`; `salesx-website`, `salesx-customer`, and `salesx-company` run source `a7066df`. Portal source paths were unchanged in the later API test-only commit, so their watch patterns correctly skipped unnecessary redeploys. Customer Start Command override is corrected and the customer gateway is active.
 
-**Current code/contract evidence:** Python API and TypeScript client action registries are aligned at 130/130 actions (no missing or extra IDs); SmartOrder router exposes 52 routes. Latest code commit `2848e2778a8fbc340fe18fa7676885cd0ae81fd0` passed 100 API tests, compileall, Ruff, Web typecheck/lint and Expo typecheck/build. The eight-portal build matrix and Expo foundation/workspace workflow passed. All four required Railway services now report SUCCESS: `salesx-api` on `2848e2778a8fbc340fe18fa7676885cd0ae81fd0` with `/readyz` HTTP 200, and `salesx-customer`, `salesx-company`, `salesx-website` on UI commit `0286cfe3b179d94c3e7767c4794c17ced94de1f5`. Phase 05 is COMPLETED; Phase 06 — SmartReward remains LOCKED and has not been started.
+**Release validation:** 8/8 portal build matrix SUCCESS; 3/3 production-container CSS/JS runtime checks SUCCESS; 115 API tests PASS, compileall/Ruff/FastAPI image PASS; Web Auth typecheck PASS and lint 0 errors (2 image optimization warnings); Expo typecheck and Android bundle export PASS. All eight served portal routes returned CSS and JavaScript bundles with expected MIME types and canonical token CSS.
+
+**Supabase:** 16/16 Phase 06 migrations applied; 13/13 reward tables have RLS; direct anon/authenticated business-table grants = 0; Security Advisor = 0 lints. However, organizations = 0, profiles = 0, Auth users = 0 and all reward activity tables are empty. No populated ledger reconciliation, live concurrent load, authenticated cross-tenant session or private Realtime denial test can be claimed.
+
+**Remaining scope:** the Master PRD 5.3 includes Campaign and Customer Segment submodules; reward program periods/audience cover campaign-like behavior, but no first-class customer-segment entity is present. This mapping/implementation gap, plus any additional required activity/KPI adapters, must be resolved before closure. Phase 06 remains IN_PROGRESS; Phase 07 remains LOCKED. See `docs/implementation/phase-06-smartreward-status.md` for deployment IDs and detailed evidence.
 
 The dated Phase 02 PARTIAL / Phase 03 LOCKED and earlier Phase 04 IN_PROGRESS entries below are historical snapshots. The Phase 04 closure addendum and the latest Phase 05 continuation record are authoritative. Phase 06 — SmartReward remains LOCKED.
 
