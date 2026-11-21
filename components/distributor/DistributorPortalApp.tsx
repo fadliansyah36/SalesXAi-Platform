@@ -1913,74 +1913,10 @@ export function DistributorPortalApp() {
       {/* -------------------- SCREEN 13: LAPORAN -------------------- */}
       {activeTab === 'reports' && (
         <div className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h2 className="text-lg sm:text-xl font-bold text-[#123A54] dark:text-white">
-                Laporan Distributor
-              </h2>
-              <p className="text-xs text-[var(--color-text-secondary)]">
-                Rekapitulasi penjualan, order, distribusi, stok, outlet, dan kinerja tim sales
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setActiveReportModal(DISTRIBUTOR_REPORTS_LIST[0])}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#194F70] hover:bg-[#123A54] px-4 py-2.5 text-xs font-bold text-white cursor-pointer"
-            >
-              <Download className="h-4 w-4" />
-              <span>Unduh Laporan</span>
-            </button>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-1 rounded-xl bg-[var(--color-surface-muted)] p-1 w-full max-w-md text-xs font-semibold">
-            {(['Penjualan', 'Distribusi', 'Stok', 'Tim'] as const).map((t) => (
-              <button
-                key={t}
-                type="button"
-                onClick={() => setReportSubTab(t)}
-                className={`rounded-lg py-2 cursor-pointer ${
-                  reportSubTab === t
-                    ? 'bg-[#194F70] text-white'
-                    : 'text-[var(--color-text-secondary)]'
-                }`}
-              >
-                {t}
-              </button>
-            ))}
-          </div>
-
-          <div className="space-y-2.5">
-            {DISTRIBUTOR_REPORTS_LIST.filter(
-              (r) => reportSubTab === 'Penjualan' || r.tab === reportSubTab
-            ).map((rep) => (
-              <button
-                key={rep.id}
-                type="button"
-                onClick={() => setActiveReportModal(rep)}
-                className="w-full text-left rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 flex items-center justify-between gap-3 hover:border-[#348CB2] transition-colors cursor-pointer"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#E5F4F8] dark:bg-[#19394B] text-[#348CB2]">
-                    <BarChart3 className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold">{rep.title}</p>
-                    <p className="text-xs text-[var(--color-text-muted)]">{rep.subtitle}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold font-mono text-[#194F70] dark:text-[#87CEEB]">
-                    {rep.metric}
-                  </span>
-                  <ChevronRight className="h-4 w-4 text-[var(--color-text-muted)]" />
-                </div>
-              </button>
-            ))}
-          </div>
+          <AnalyticsWorkspace />
         </div>
       )}
 
-      {/* -------------------- SCREEN 14: PROMOSI & CAMPAIGN -------------------- */}
       {activeTab === 'promotions' && (
         <div className="space-y-4">
           <div className="rounded-2xl bg-gradient-to-r from-[#194F70] via-[#348CB2] to-[#5BAFD0] p-5 text-white flex flex-wrap items-center justify-between gap-4">
