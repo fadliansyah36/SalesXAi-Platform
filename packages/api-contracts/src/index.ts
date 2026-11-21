@@ -487,6 +487,8 @@ export interface AnalyticsReportRunCreate {
 export interface AnalyticsReportRun {
   id:UUID; report_key:string; status:"queued"|"running"|"completed"|"failed"|"cancelled";
   period_start:string; period_end:string; period_grain:AnalyticsPeriodGrain; requested_at:ISODateTime;
+  download_available?:boolean; export_status?:"queued"|"running"|"completed"|"failed"|"cancelled";
+  expires_at?:ISODateTime|null;
 }
 
 export interface AnalyticsReportExportResponse extends AnalyticsReportRun {
