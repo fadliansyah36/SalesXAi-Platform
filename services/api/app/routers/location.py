@@ -57,7 +57,7 @@ async def geofences(organization_id:UUID,principal:Principal=Depends(get_current
  tenant:TenantContext=Depends(require_api_action("location.geofences.read")),db:asyncpg.Connection=Depends(get_connection)):
  if tenant.organization_id!=organization_id: raise APIError(403,"tenant_scope_mismatch","Location access is restricted to the active organization.")
  rows=await db.fetch("""select id,organization_id,code,name,geofence_type,outlet_id,territory_id,event_types,dwell_seconds,
- accuracy_limit_m,status,created_at,updated_at from public.location_geofences where organization_id=$1 order by created_at desc""",organization_id)
+ accuracy_limit_m,status,created_at,updated_at,extensions.st_asgeojson(boundary)::jsonb as boundary_geojson from public.location_geofences where organization_id=$1 order by created_at desc""",organization_id)
  return {"items":[dict(r) for r in rows]}
 
 @router.post("/{organization_id}/location/geofences",status_code=201)
