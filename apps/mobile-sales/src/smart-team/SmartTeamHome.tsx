@@ -38,11 +38,12 @@ async function captureForegroundLocation():Promise<SmartTeamLocationCapture>{
  return {latitude:position.coords.latitude,longitude:position.coords.longitude,accuracy_m:position.coords.accuracy??0,source:"gps",captured_at:new Date().toISOString()};
 }
 
-export function SmartTeamHome({auth,salesProfileId}:{auth:AuthState;salesProfileId:string|null}){
+export function SmartTeamHome({auth,salesProfileId,onShiftContextChange}:{auth:AuthState;salesProfileId:string|null;onShiftContextChange?:(shiftId:string|null,ready:boolean)=>void}){
  const {colors}=useNativeTheme();
  const dbRef=useRef<Awaited<ReturnType<typeof getQueueDatabase>>|null>(null);
  const [visits,setVisits]=useState<SmartTeamVisit[]>([]);
  const [attendance,setAttendance]=useState<SmartTeamAttendance[]>([]);
+ const [attendanceLoaded,setAttendanceLoaded]=useState(false);
  const [activities,setActivities]=useState<SmartTeamActivity[]>([]);
  const [targets,setTargets]=useState<SmartTeamTarget[]>([]);
  const [expandedVisitId,setExpandedVisitId]=useState<string|null>(null);
@@ -71,7 +72,11 @@ export function SmartTeamHome({auth,salesProfileId}:{auth:AuthState;salesProfile
  const canReadActivities=auth.canPerformApiAction("smartteam.activities.read");
  const canManageActivities=auth.canPerformApiAction("smartteam.activities.create");
  const canReadTargets=auth.canPerformApiAction("smartteam.targets.read");
- const activeShift=useMemo(()=>attendance.find(row=>row.user_id===auth.context?.user.id&&row.status==="active"),[attendance,auth.context?.user.id]);
+ const activeShift=useMemo(()=>{
+  if(outbox.some(row=>row.kind==="clock_out"&&row.status==="pending"))return undefined;
+  return attendance.find(row=>row.user_id===auth.context?.user.id&&row.status==="active");
+ },[attendance,auth.context?.user.id,outbox]);
+ useEffect(()=>{onShiftContextChange?.(activeShift?.id??null,attendanceLoaded);},[activeShift?.id,attendanceLoaded,onShiftContextChange]);
 
  const refreshQueue=useCallback(async()=>{
   const db=dbRef.current;if(!db||!organizationId)return;
@@ -94,6 +99,7 @@ export function SmartTeamHome({auth,salesProfileId}:{auth:AuthState;salesProfile
    if(canReadActivities)jobs.push(api.listSmartTeamActivities(organizationId,200,0).then(async rows=>{setActivities(rows);await persist("activities",rows);}));
    if(canReadTargets)jobs.push(api.listSmartTeamTargets(organizationId,200,0).then(async rows=>{setTargets(rows);await persist("targets",rows);}));
    await Promise.all(jobs);
+   if(canReadAttendance)setAttendanceLoaded(true);
   }catch(cause){
    const loadCache=async<T,>(key:string,setter:(value:T)=>void)=>{
     if(!db)return false;
@@ -108,6 +114,7 @@ export function SmartTeamHome({auth,salesProfileId}:{auth:AuthState;salesProfile
     canReadActivities?loadCache<SmartTeamActivity[]>("activities",setActivities):Promise.resolve(false),
     canReadTargets?loadCache<SmartTeamTarget[]>("targets",setTargets):Promise.resolve(false),
    ]);
+   if(canReadAttendance)setAttendanceLoaded(true);
    if(cached.some(Boolean))setNotice("Koneksi API terputus. Data terakhir ditampilkan dari cache perangkat; aksi baru masuk ke outbox sampai tersambung.");
    setError(cause instanceof Error?cause.message:"Data SmartTeam tidak dapat dimuat dari FastAPI.");
   }
@@ -291,7 +298,7 @@ export function SmartTeamHome({auth,salesProfileId}:{auth:AuthState;salesProfile
      <NativeText variant="title" weight="semibold">SmartTeam · Operasional Harian</NativeText>
      <Pressable onPress={()=>void refresh()}><NativeText color={colors.primary} weight="semibold">Refresh</NativeText></Pressable>
     </NativeInline>
-    <NativeText color={colors.textSecondary}>GPS hanya diminta saat Anda menekan Clock-in, Clock-out, Check-in atau Check-out. Lokasi dicatat untuk aktivitas kerja dan tidak berjalan diam-diam di latar belakang.</NativeText>
+    <NativeText color={colors.textSecondary}>GPS untuk kehadiran dan kunjungan hanya diminta saat aksi terkait. Pelacakan latar belakang adalah fitur terpisah, memerlukan persetujuan eksplisit dan hanya aktif selama shift kerja.</NativeText>
     {error!==""&&<NativeText color={colors.textSecondary}>{error}</NativeText>}
     {notice!==""&&<NativeText color={colors.textSecondary}>{notice}</NativeText>}
     <NativeInline gap="2" style={{flexWrap:"wrap"}}>
