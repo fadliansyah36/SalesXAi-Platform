@@ -75,7 +75,7 @@ function callbackNextPath(request: NextRequest, origin: string): string | null {
     const source = new URL(referer);
     if (source.origin !== origin) return null;
     const pathname = source.pathname;
-    const prefixes = ["/sales", "/distributor", "/principal", "/supervisor", "/super-admin", "/admin"];
+    const prefixes = ["/sales", "/customer", "/company", "/distributor", "/principal", "/supervisor", "/super-admin", "/admin"];
     const portalPrefix = prefixes.find((prefix) => pathname === prefix || pathname.startsWith(prefix + "/"));
     if (portalPrefix) return portalPrefix;
     if (pathname === "/") return "/";
