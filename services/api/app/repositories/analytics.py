@@ -22,13 +22,14 @@ class AnalyticsRepository:
             organization_id,user_id,
         )
 
-    async def dashboard_metrics(self,connection,organization_id,user_id,start,end,grain):
+    async def dashboard_metrics(self,connection,organization_id,user_id,start,end,grain,scope_type=None,scope_id=None):
         return await connection.fetch(
             """select s.metric_key,s.period_start,s.period_end,s.scope_type,s.scope_id,
                       s.metric_value,s.dimensions,s.source_watermark,s.calculated_at
                from public.analytics_metric_snapshots s
                where s.organization_id=$1 and s.period_grain=$2
                  and s.period_end >= $3 and s.period_start <= $4
+                 and ($6::text is null or (s.scope_type=$6 and (($7::uuid is null and s.scope_type='tenant') or s.scope_id=$7)))
                  and exists (
                    select 1 from public.organization_memberships m
                    join public.user_role_assignments ura on ura.membership_id=m.id
@@ -48,7 +49,7 @@ class AnalyticsRepository:
                      )
                  )
                order by s.period_start,s.metric_key,s.scope_type,s.scope_id""",
-            organization_id,grain,start,end,user_id,
+            organization_id,grain,start,end,user_id,scope_type,scope_id,
         )
 
     async def dashboard_freshness(self,connection,organization_id,start,end,grain):
