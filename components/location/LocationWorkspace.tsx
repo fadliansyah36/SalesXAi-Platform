@@ -2,6 +2,7 @@
 import {useCallback,useEffect,useMemo,useState} from "react";
 import {GoogleMapsCanvas} from "@/components/location/GoogleMapsCanvas";
 import {geoJsonLineCoordinates,geoJsonPolygonRings,resolveMapsRuntimeConfig} from "@/packages/maps/src";
+import type {MapEvent} from "@/packages/maps/src";
 import {createLocationApi,type LocationLatestPosition,type LocationRouteSummary,type LocationHistoryPoint,type LocationGeofence,type LocationGeofenceEvent} from "@salesx-ai/api-client";
 import {useSalesXAuth} from "@/components/providers/AppProviders";
 
@@ -15,7 +16,7 @@ export function LocationWorkspace(){
  const [selectedReplay,setSelectedReplay]=useState<LocationRouteSummary|null>(null);
  const [replayPoints,setReplayPoints]=useState<LocationHistoryPoint[]>([]);
  const [replayIndex,setReplayIndex]=useState(0);
- const [replayBusy,setReplayBusy]=useState(false);
+ const [replayBusy,setReplayBusy]=useState(false),[mapMessage,setMapMessage]=useState("");
  const [busy,setBusy]=useState(false),[error,setError]=useState(""),[updatedAt,setUpdatedAt]=useState("");
  const can=(id:string)=>auth.canPerformApiAction(id as never);
  const canLive=can("location.live.read"),canHistory=can("location.history.read"),canGeofences=can("location.geofences.read"),canReplay=can("location.routes.replay");
@@ -42,6 +43,7 @@ export function LocationWorkspace(){
  },[api,org,canLive,auth.status,refresh]);
  const loadReplay=useCallback(async(route:LocationRouteSummary)=>{
   if(!api||!canReplay)return;
+  setSelectedReplay(route);setReplayPoints([]);setReplayIndex(0);
   setReplayBusy(true);setError("");
   try{
    const result=await api.routeReplay(route.id,{page:1,page_size:500});
@@ -50,6 +52,17 @@ export function LocationWorkspace(){
   }catch(error){setError(error instanceof Error?error.message:"Route replay could not be loaded.");}
   finally{setReplayBusy(false);}
  },[api,canReplay]);
+ const handleMapEvent=useCallback((event:MapEvent)=>{
+  if(event.type==="route_press"){
+   const route=routes.find(item=>item.id===event.routeId);
+   if(route)void loadReplay(route);
+  }else if(event.type==="geofence_press"){
+   const fence=geofences.find(item=>item.id===event.geofenceId);
+   setMapMessage(fence?("Geofence dipilih: "+fence.name):"Geofence dipilih.");
+  }else if(event.type==="marker_press"){
+   setMapMessage("Posisi dipilih: "+event.coordinate.lat.toFixed(5)+", "+event.coordinate.lng.toFixed(5));
+  }
+ },[routes,geofences,loadReplay]);
  const replayPoint=replayPoints[replayIndex]??null;
  const center= replayPoint?{lat:replayPoint.latitude,lng:replayPoint.longitude}:live[0]?{lat:live[0].latitude,lng:live[0].longitude}:null;
  const mapsConfig=resolveMapsRuntimeConfig("web",{
@@ -77,7 +90,8 @@ export function LocationWorkspace(){
   </div>
   <div className="overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]">
    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--color-border)] px-4 py-3"><h2 className="font-semibold">Live map</h2><span className="text-xs text-[var(--color-text-secondary)]">Updated {updatedAt||"—"}</span></div>
-   {center?<GoogleMapsCanvas config={mapsConfig} center={center} markers={visibleMarkers} routes={visibleRoutes} polygons={mapPolygons} height={420}/>:<div className="p-5"><p className="text-sm text-[var(--color-text-secondary)]">No authorized live location has been received yet. Location is collected only after a Sales user explicitly starts a consented tracking session.</p></div>}
+   {center?<GoogleMapsCanvas config={mapsConfig} center={center} markers={visibleMarkers} routes={visibleRoutes} polygons={mapPolygons} height={420} onMapEvent={handleMapEvent}/>
+  {mapMessage&&<p className="text-xs text-[var(--color-text-secondary)]" role="status">{mapMessage}</p>}:<div className="p-5"><p className="text-sm text-[var(--color-text-secondary)]">No authorized live location has been received yet. Location is collected only after a Sales user explicitly starts a consented tracking session.</p></div>}
    {live.length>0&&<div className="divide-y divide-[var(--color-border)]">{live.slice(0,20).map(item=><div key={item.user_id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm"><div><p className="font-medium">{item.user_id}</p><p className="text-xs text-[var(--color-text-secondary)]">{item.team_id?"Team "+item.team_id:"No team"} · Accuracy ±{Math.round(item.accuracy_m)} m</p></div><div className="text-right"><p className="font-mono text-xs tabular-nums">{item.latitude.toFixed(6)}, {item.longitude.toFixed(6)}</p><p className="text-xs text-[var(--color-text-secondary)]">{new Date(item.recorded_at).toLocaleString("id-ID")} · {item.stale?"Stale":"Current"}</p></div><a className="text-xs font-semibold text-[var(--color-primary)]" href={`https://www.google.com/maps/search/?api=1&query=${item.latitude},${item.longitude}`} target="_blank" rel="noreferrer">Open map</a></div>)}</div>}
   </div>
   {selectedReplay&&<div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 space-y-3">
