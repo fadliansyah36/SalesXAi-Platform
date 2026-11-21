@@ -32,7 +32,8 @@ using (
       and actor_permission.permission_key = 'location.live.read'
       and (
         (actor_role.key in ('tenant_owner', 'company_admin')
-          and actor_assignment.scope_type in ('tenant', 'organization'))
+          and actor_assignment.scope_type in ('tenant', 'organization')
+          and actor_assignment.scope_id = actor_membership.organization_id)
         or (actor_assignment.scope_type = 'team' and actor_assignment.scope_id = target_profile.team_id)
         or (actor_assignment.scope_type = 'territory' and actor_assignment.scope_id = target_profile.territory_id)
         or (actor_assignment.scope_type = 'branch' and actor_assignment.scope_id = target_membership.branch_id)
