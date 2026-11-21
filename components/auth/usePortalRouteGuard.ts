@@ -1,6 +1,6 @@
 'use client';
 
-import {useEffect} from "react";
+import {useEffect,useRef} from "react";
 import {getSalesXPortalUrlForPath,getSalesXPortalKeyForPath} from "@/components/auth/portalUrls";
 import {getPreferredPortalPath} from "@salesx-ai/permissions";
 import type {PortalKey} from "@salesx-ai/shared-types";
@@ -9,8 +9,10 @@ import {useSalesXAuth} from "@/components/providers/AppProviders";
 /** UX routing guard only. FastAPI remains the authorization authority for every API action. */
 export function usePortalRouteGuard(portal:PortalKey){
  const auth=useSalesXAuth();
+ const redirecting=useRef(false);
  useEffect(()=>{
-  if(auth.status!=="authenticated"||auth.canAccessPortal(portal))return;
+  if(auth.status!=="authenticated"||auth.canAccessPortal(portal)||redirecting.current)return;
+  redirecting.current=true;
   const memberships=(auth.context?.memberships??[]).filter(membership=>membership.status==="active");
   const targetMembership=memberships.map(membership=>({
     membership,
