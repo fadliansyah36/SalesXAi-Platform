@@ -10,17 +10,29 @@ password login, SMTP, OAuth or production data is used.
 from __future__ import annotations
 
 import os
+import time
 import unittest
 from types import SimpleNamespace
 from uuid import uuid4
 
 import asyncpg
+from fastapi.security import HTTPAuthorizationCredentials
 from starlette.requests import Request
 
 from app.errors import APIError
 from app.routers import smart_reward
 from app.schemas.smart_reward import RewardProgramWrite, RewardRedemptionWrite
-from app.security.dependencies import Principal, require_permission
+from app.security.dependencies import Principal, get_current_principal, require_permission
+
+
+class _FixtureJWTVerifier:
+    def __init__(self, claims):
+        self.claims = claims
+
+    async def verify(self, token):
+        if token != "isolated-phase06-fixture-token":
+            raise APIError(401, "invalid_token", "Invalid isolated fixture token.")
+        return self.claims
 
 
 class SmartRewardAuthenticatedTenantIsolationTests(unittest.IsolatedAsyncioTestCase):
@@ -39,6 +51,16 @@ class SmartRewardAuthenticatedTenantIsolationTests(unittest.IsolatedAsyncioTestC
         self.organization_id = uuid4()
         self.other_organization_id = uuid4()
         self.email = f"phase06-tenant-{self.user_id}@salesx.invalid"
+        self.device_id = f"phase06-device-{self.user_id}"
+        now_epoch = int(time.time())
+        self.claims = {
+            "sub": str(self.user_id),
+            "session_id": str(self.session_id),
+            "iat": now_epoch,
+            "exp": now_epoch + 3600,
+            "iss": "http://127.0.0.1:54321/auth/v1",
+            "aud": "authenticated",
+        }
 
         await self.db.execute(
             """insert into auth.users
@@ -54,6 +76,19 @@ class SmartRewardAuthenticatedTenantIsolationTests(unittest.IsolatedAsyncioTestC
             "insert into public.profiles(id,email,display_name,status) values($1,$2,'Phase 06 tenant fixture','active')",
             self.user_id,
             self.email,
+        )
+        await self.db.execute(
+            """insert into auth.sessions(id,user_id,created_at,updated_at,not_after)
+               values($1,$2,now(),now(),now()+interval '1 hour')""",
+            self.session_id,
+            self.user_id,
+        )
+        await self.db.execute(
+            """insert into public.session_devices(auth_session_id,user_id,device_id,platform)
+               values($1,$2,$3,'android')""",
+            self.session_id,
+            self.user_id,
+            self.device_id,
         )
         await self.db.execute(
             """insert into public.organizations(id,slug,name,status,created_by)
@@ -85,19 +120,15 @@ class SmartRewardAuthenticatedTenantIsolationTests(unittest.IsolatedAsyncioTestC
             role_id,
             self.organization_id,
         )
-        self.principal = Principal(
-            user_id=self.user_id,
-            email=self.email,
-            display_name="Phase 06 tenant fixture",
-            session_id=self.session_id,
-            claims={"sub": str(self.user_id), "session_id": str(self.session_id), "fixture": True},
-        )
+        self.verifier = _FixtureJWTVerifier(self.claims)
 
     async def asyncTearDown(self):
         if getattr(self, "db", None):
             await self.db.execute("delete from public.organizations where id = any($1::uuid[])", [
                 self.organization_id, self.other_organization_id
             ])
+            await self.db.execute("delete from public.session_devices where auth_session_id=$1", self.session_id)
+            await self.db.execute("delete from auth.sessions where id=$1", self.session_id)
             await self.db.execute("delete from public.profiles where id=$1", self.user_id)
             await self.db.execute("delete from auth.users where id=$1", self.user_id)
             await self.db.close()
@@ -113,12 +144,22 @@ class SmartRewardAuthenticatedTenantIsolationTests(unittest.IsolatedAsyncioTestC
             "query_string": b"",
             "headers": [(b"x-organization-id", str(organization_id).encode())],
             "state": {},
+            "app": SimpleNamespace(state=SimpleNamespace(jwt_verifier=self.verifier)),
         })
+
+    async def _authenticated_principal(self, request):
+        return await get_current_principal(
+            request,
+            HTTPAuthorizationCredentials(scheme="Bearer", credentials="isolated-phase06-fixture-token"),
+            self.db,
+        )
 
     async def _tenant(self, permission_key, organization_id=None):
         request = self._request(organization_id or self.organization_id)
+        principal = await self._authenticated_principal(request)
         dependency = require_permission(permission_key)
-        return await dependency(request, self.principal, self.db)
+        tenant = await dependency(request, principal, self.db)
+        return principal, tenant
 
     async def _assert_cross_tenant_denied(self, operation):
         with self.assertRaises(APIError) as caught:
@@ -127,7 +168,7 @@ class SmartRewardAuthenticatedTenantIsolationTests(unittest.IsolatedAsyncioTestC
         self.assertEqual(caught.exception.code, "tenant_scope_mismatch")
 
     async def test_read_endpoint_rejects_other_organization_path(self):
-        tenant = await self._tenant("smartreward:program:read")
+        principal, tenant = await self._tenant("smartreward:program:read")
         await self._assert_cross_tenant_denied(
             smart_reward.programs(
                 organization_id=self.other_organization_id,
@@ -137,7 +178,7 @@ class SmartRewardAuthenticatedTenantIsolationTests(unittest.IsolatedAsyncioTestC
         )
 
     async def test_write_endpoint_rejects_other_organization_path(self):
-        tenant = await self._tenant("smartreward:program:manage")
+        principal, tenant = await self._tenant("smartreward:program:manage")
         payload = RewardProgramWrite(
             code="FIXTURE-REWARD",
             name="Isolated fixture reward",
@@ -148,14 +189,14 @@ class SmartRewardAuthenticatedTenantIsolationTests(unittest.IsolatedAsyncioTestC
             smart_reward.create_program(
                 organization_id=self.other_organization_id,
                 payload=payload,
-                principal=self.principal,
+                principal=principal,
                 tenant=tenant,
                 db=SimpleNamespace(),
             )
         )
 
     async def test_resource_read_rejects_other_organization_path(self):
-        tenant = await self._tenant("smartreward:segment:read")
+        _principal, tenant = await self._tenant("smartreward:segment:read")
         await self._assert_cross_tenant_denied(
             smart_reward.customer_segment_detail(
                 organization_id=self.other_organization_id,
@@ -166,7 +207,7 @@ class SmartRewardAuthenticatedTenantIsolationTests(unittest.IsolatedAsyncioTestC
         )
 
     async def test_redemption_mutation_rejects_other_organization_path(self):
-        tenant = await self._tenant("smartreward:redemption:create")
+        principal, tenant = await self._tenant("smartreward:redemption:create")
         payload = RewardRedemptionWrite(
             catalog_item_id=uuid4(),
             quantity=1,
@@ -176,7 +217,7 @@ class SmartRewardAuthenticatedTenantIsolationTests(unittest.IsolatedAsyncioTestC
             smart_reward.redeem(
                 organization_id=self.other_organization_id,
                 payload=payload,
-                principal=self.principal,
+                principal=principal,
                 tenant=tenant,
                 db=SimpleNamespace(),
             )
