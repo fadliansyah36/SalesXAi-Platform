@@ -91,6 +91,7 @@ class PortalHandoffCreate(BaseModel):
     token:str=Field(min_length=32,max_length=128)
     encrypted_session:str=Field(min_length=80,max_length=8192)
     target_portal:Literal["sales","customer","company","distributor","principal","supervisor"]
+    organization_id:UUID
     target_origin:str=Field(min_length=8,max_length=300)
     expires_at:datetime
 
@@ -130,13 +131,33 @@ async def create_portal_handoff(
     if expiry.tzinfo is None or expiry<=now or expiry>now.replace(microsecond=0)+timedelta(seconds=120):
         from app.errors import APIError
         raise APIError(422,"invalid_handoff_expiry","Portal handoff tickets must expire within 120 seconds.")
+    permission_key=f"portal:{payload.target_portal}:access"
+    authorized=await connection.fetchval(
+        """with recursive role_tree(role_id,parent_role_id) as (
+             select r.id,r.parent_role_id from public.organization_memberships m
+             join public.user_role_assignments ura on ura.membership_id=m.id and ura.user_id=m.user_id
+             join public.roles r on r.id=ura.role_id
+             where m.organization_id=$1 and m.user_id=$2 and m.status='active'
+               and ura.revoked_at is null and ura.starts_at<=now()
+               and (ura.expires_at is null or ura.expires_at>now())
+             union
+             select parent.id,parent.parent_role_id from role_tree child
+             join public.roles parent on parent.id=child.parent_role_id
+           )
+           select exists(select 1 from role_tree rt join public.role_permissions rp on rp.role_id=rt.role_id
+             where rp.permission_key=$3)""",
+        payload.organization_id,principal.user_id,permission_key,
+    )
+    if not authorized:
+        from app.errors import APIError
+        raise APIError(403,"portal_access_denied","The authenticated user is not assigned to the requested portal in this organization.")
     token_hash=sha256(payload.token.encode()).hexdigest()
     await connection.execute("delete from public.auth_portal_handoffs where expires_at<now()-interval '1 day' or consumed_at<now()-interval '1 day'")
     await connection.execute(
         """insert into public.auth_portal_handoffs
-           (token_hash,target_portal,target_origin,encrypted_session,expires_at)
-           values($1,$2,$3,$4,$5)""",
-        token_hash,payload.target_portal,payload.target_origin,payload.encrypted_session,expiry,
+           (token_hash,actor_user_id,organization_id,target_portal,target_origin,encrypted_session,expires_at)
+           values($1,$2,$3,$4,$5,$6,$7)""",
+        token_hash,principal.user_id,payload.organization_id,payload.target_portal,payload.target_origin,payload.encrypted_session,expiry,
     )
     return {"accepted":True,"expires_at":expiry}
 
@@ -163,9 +184,23 @@ async def exchange_portal_handoff(
         raise APIError(400,"portal_origin_not_allowed","The target portal origin is not registered.")
     token_hash=sha256(token.encode()).hexdigest()
     row=await connection.fetchrow(
-        """update public.auth_portal_handoffs set consumed_at=now()
-           where token_hash=$1 and target_origin=$2 and expires_at>now() and consumed_at is null
-           returning encrypted_session""",
+        """update public.auth_portal_handoffs h set consumed_at=now()
+           where h.token_hash=$1 and h.target_origin=$2 and h.expires_at>now() and h.consumed_at is null
+             and exists (
+               with recursive role_tree(role_id,parent_role_id) as (
+                 select r.id,r.parent_role_id from public.organization_memberships m
+                 join public.user_role_assignments ura on ura.membership_id=m.id and ura.user_id=m.user_id
+                 join public.roles r on r.id=ura.role_id
+                 where m.organization_id=h.organization_id and m.user_id=h.actor_user_id and m.status='active'
+                   and ura.revoked_at is null and ura.starts_at<=now()
+                   and (ura.expires_at is null or ura.expires_at>now())
+                 union select parent.id,parent.parent_role_id from role_tree child
+                   join public.roles parent on parent.id=child.parent_role_id
+               )
+               select 1 from role_tree rt join public.role_permissions rp on rp.role_id=rt.role_id
+               where rp.permission_key='portal:'||h.target_portal||':access'
+             )
+           returning h.encrypted_session""",
         token_hash,target_origin,
     )
     if not row:
