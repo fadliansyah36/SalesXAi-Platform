@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
+import { usePortalRouteGuard } from '@/components/auth/usePortalRouteGuard';
 import { SmartTeamConsole } from '@/components/smart-team/SmartTeamConsole';
 import { LocationWorkspace } from '@/components/location/LocationWorkspace';
 import Link from 'next/link';
@@ -117,6 +118,7 @@ const LEGACY_SMARTTEAM_UI_ENABLED = false;
 
 export function SupervisorPortalApp() {
   const auth = useSalesXAuth();
+  usePortalRouteGuard("supervisor");
   const { theme, toggleTheme } = useTheme();
 
   // Auth
