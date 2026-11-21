@@ -72,3 +72,13 @@ The latest applied migration filename `20261121110006_p07_location_tracking_sess
 ## Latest live reconciliation — 2026-11-21
 
 The connected Supabase project was re-queried after the final applied migration. Counts remain unchanged and aligned: **93 applied migrations**, latest 20261121110006, **19 Phase 06** migrations, **7 Phase 07** migrations, **80/80 public tables with RLS**, **0 Security Advisor lints**, and **0 unindexed foreign-key lints**. The owner-pending Realtime policy files remain intentionally outside the applied ledger.
+
+
+## Phase 08 live ledger reconciliation — 2026-11-21
+
+- Live project now has 96 applied migrations, latest 20261121130429.
+- Phase 08 applied migrations: 20261121130029 p08_analytics_reporting_foundation; 20261121130209 p08_analytics_daily_refresh_function; 20261121130429 p08_analytics_export_jobs_and_metric_catalog_policy.
+- Corresponding version-controlled files use those exact filenames under supabase/migrations.
+- Analytics tables: analytics_metric_definitions, analytics_metric_snapshots, analytics_report_definitions, analytics_report_runs, analytics_report_exports.
+- Read policies are live for metric catalog, scoped metric snapshots, report definitions, report runs and export jobs. Refresh function execute is service_role-only. Security Advisor after latest Phase 08 migration: 0 lints.
+- The Phase 08 daily refresh function currently covers tenant daily order, visit, outlet coverage, inventory and reward metrics. Weekly/monthly rollups, branch/team/territory scope refresh and export artifact delivery are not yet complete; Phase 08 remains IN_PROGRESS.
