@@ -5,7 +5,7 @@ import * as Location from "expo-location";
 import * as TaskManager from "expo-task-manager";
 import type {SalesXApiClient} from "@salesx-ai/api-client";
 import {NativeInline,NativeStack,NativeSurface,NativeText,useNativeTheme} from "@salesx-ai/design-system/native";
-import {ensureLocationDeviceId,flushLocationOutbox,startLocationTracking,stopLocationTracking,syncLocationAccessToken,LOCATION_TASK_NAME} from "./locationTracking";
+import {ensureLocationDeviceId,flushLocationOutbox,startLocationTracking,stopLocationTracking,syncLocationAccessToken,syncPendingLocationStop,LOCATION_TASK_NAME} from "./locationTracking";
 
 export function LocationTrackingControl({api,organizationId,accessToken,shiftId}:{api:SalesXApiClient|null;organizationId:string|null;accessToken:string|null;shiftId?:string|null}){
  const {colors}=useNativeTheme();const [consent,setConsent]=useState(false);const [active,setActive]=useState(false);const [busy,setBusy]=useState(false);const [notice,setNotice]=useState("");
@@ -13,7 +13,7 @@ export function LocationTrackingControl({api,organizationId,accessToken,shiftId}
  useEffect(()=>{void syncLocationAccessToken(accessToken);},[accessToken]);
  useEffect(()=>{
   if(!api||!organizationId)return;
-  const subscription=AppState.addEventListener("change",state=>{if(state==="active")void ensureLocationDeviceId().then(id=>flushLocationOutbox(api,organizationId,id));});
+  const subscription=AppState.addEventListener("change",state=>{if(state==="active")void ensureLocationDeviceId().then(async id=>{await flushLocationOutbox(api,organizationId,id);await syncPendingLocationStop(api,organizationId);});});
   return ()=>subscription.remove();
  },[api,organizationId]);
  const toggle=async()=>{
@@ -38,10 +38,10 @@ export function LocationTrackingControl({api,organizationId,accessToken,shiftId}
    </NativeInline>
    <NativeText color={colors.textSecondary}>Lokasi GPS hanya dikumpulkan setelah Anda menyetujui dan memberikan izin perangkat. Data disimpan sementara secara lokal ketika offline dan dikirim ke FastAPI saat koneksi tersedia.</NativeText>
    {!active&&<Pressable onPress={()=>setConsent(v=>!v)} style={{padding:12,borderRadius:12,borderWidth:1,borderColor:consent?colors.primary:colors.border}}>
-    <NativeText color={consent?colors.primary:colors.text}> {consent?"✓ ":"□ "}Saya menyetujui pelacakan lokasi selama sesi kerja dan memahami bahwa saya dapat menghentikannya.</NativeText>
+    <NativeText color={consent?colors.primary:colors.textPrimary}> {consent?"✓ ":"□ "}Saya menyetujui pelacakan lokasi selama sesi kerja dan memahami bahwa saya dapat menghentikannya.</NativeText>
    </Pressable>}
-   <Pressable disabled={busy||!api||!organizationId||!accessToken||(!active&&!consent)} onPress={()=>void toggle()} style={{padding:14,borderRadius:12,backgroundColor:active?colors.surface:colors.primary,borderWidth:active?1:0,borderColor:colors.border,opacity:busy?0.6:1}}>
-    <NativeText weight="semibold" color={active?colors.text:colors.onPrimary}>{busy?"Memproses…":active?"Hentikan pelacakan":"Mulai pelacakan lokasi"}</NativeText>
+   <Pressable disabled={busy||!api||!organizationId||!accessToken||(!active&&!consent)} onPress={()=>void toggle()} style={{padding:14,borderRadius:12,backgroundColor:active?colors.surfaceMuted:colors.primarySubtle,borderWidth:active?1:0,borderColor:colors.border,opacity:busy?0.6:1}}>
+    <NativeText weight="semibold" color={colors.textPrimary}>{busy?"Memproses…":active?"Hentikan pelacakan":"Mulai pelacakan lokasi"}</NativeText>
    </Pressable>
    {!!notice&&<NativeText variant="caption" color={colors.textSecondary}>{notice}</NativeText>}
   </NativeStack>
