@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, Query
 from fastapi.responses import StreamingResponse
 import asyncpg
 from app.db import get_connection
+from app.errors import APIError
 from app.security.dependencies import Principal,TenantContext,get_current_principal,require_api_action
 from app.schemas.smart_reward import RewardProgramWrite,RewardRuleWrite,RewardCatalogWrite,RewardEarnWrite,RewardRedemptionWrite,RewardRedemptionDecision,RewardFulfillmentWrite,RewardAdjustmentWrite,RewardReverseWrite
 from app.services.smart_reward import smart_reward_service
