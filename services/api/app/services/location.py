@@ -28,9 +28,14 @@ class LocationService:
     async def profile_allowed(self, db, org, actor, profile):
         return profile in await self.visible_profiles(db, org, actor)
 
-    async def start(self, db, org, tenant, actor, payload):
+    async def start(self, db, org, tenant, actor, auth_session_id, payload):
         self._tenant(org, tenant)
         async with db.transaction():
+            registered_device = await db.fetchval("""select exists(select 1 from public.session_devices
+              where auth_session_id=$1 and user_id=$2 and device_id=$3 and revoked_at is null
+              and (expires_at is null or expires_at>now()))""", auth_session_id, actor, payload.device_id)
+            if not registered_device:
+                raise APIError(403, "location_device_not_registered", "The native device must be registered to the current authenticated session.")
             profile = await db.fetchrow("""select id from public.sales_profiles where organization_id=$1 and user_id=$2
               and status='active' and effective_from<=current_date and (effective_until is null or effective_until>=current_date) for update""", org, actor)
             if not profile:
