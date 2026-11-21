@@ -77,7 +77,7 @@ def _google_route(payload: MapRouteComputeRequest, api_key: str) -> dict:
 async def maps_config(principal: Principal = Depends(get_current_principal)):
     del principal
     return {
-        "provider": os.getenv("MAPS_PROVIDER", "google"),
+        "provider": "google" if os.getenv("MAPS_PROVIDER", "google").strip().lower() == "google" else "none",
         "server_routes_enabled": bool(os.getenv("GOOGLE_MAPS_SERVER_API_KEY")),
         "language": os.getenv("GOOGLE_MAPS_LANGUAGE", "id"),
         "region": os.getenv("GOOGLE_MAPS_REGION", "ID"),
