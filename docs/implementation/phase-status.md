@@ -1481,3 +1481,37 @@ Current successful deployment IDs:
 - salesx-company: 42af78b1-8aaa-4c5b-b3d1-8232708b0822
 
 Live API /readyz reports ready/database connected; website, customer and company /api/health probes report all eight portals healthy with root/deep-link/JS/CSS/manifest/service-worker HTTP 200.
+
+
+
+## User execution prompt reconciliation — Phase 06 / Phase 07 / Google Maps — 2026-11-21
+
+### Phase 06 — SmartReward
+- Existing implementation is retained; no Reward lifecycle was re-created.
+- Isolated PostgreSQL concurrency evidence: same-key atomic idempotency and distinct-key no-overdraw passed on workflow 44899483509.
+- Authenticated synthetic-session cross-tenant membership/read/write/resource/redemption mutation denials passed 5/5. Ledger fixture reconciliation and compensation checks passed with rollback-only fixtures.
+- FastAPI SSE permission filtering is active. The live realtime.messages table owner is supabase_realtime_admin; live policies still include the legacy smartreward_private_read tenant-wide policy. The prepared resource-scoped owner policy at supabase/owner-pending/20261121101500_smartreward_realtime_role_scope_policy.sql is not applied. Unsafe tenant-wide reward Broadcast remains suppressed by applied migration 20261121101601_p06_reward_broadcast_disable_unsafe_tenant_topic.
+- Phase 06 remains IN_PROGRESS until the authorized project owner applies the policy through the official owner-level path and isolated authenticated subscription allow/deny cases pass. No ownership or privilege bypass was attempted.
+
+### Phase 07 — Location Intelligence
+- Seven Phase 07 migrations are applied to eyofuiyxalbehbqoaeny through 20261121110006_p07_location_tracking_sessions_require_shift.
+- Existing FastAPI location router/service/repository, typed API contracts, Expo Location/TaskManager capture, SQLite offline outbox, idempotent point ingestion, route history/replay, PostGIS geofence lifecycle and role-scoped Supervisor/Company map workspace are retained.
+- Rollback-only database lifecycle fixture passed four unique GPS points, duplicate suppression, late offline point handling, enter/dwell/exit geofence sequence and chronological route reconstruction. Fixture data was rolled back.
+- FastAPI permission-checked SSE is the active live event path. Owner policy supabase/owner-pending/20261121100000_location_realtime_messages_owner_policy.sql remains unapplied. Phase 07 remains IN_PROGRESS until official owner application and authenticated scope allow/deny validation.
+- Per the canonical Engineering Execution Master Plan and AGENTS.md, no real-world/field test is a phase prerequisite. Physical-device OS behavior remains an operational caveat, not an additional phase acceptance gate; do not claim device-specific behavior beyond the implemented permission/task/outbox controls and available Expo CI evidence.
+
+### Google Maps Foundation
+- Provider-neutral shared contracts/adapters, Web and Expo renderers, FastAPI Maps config/Places/Routes adapters, BFF bridge, environment separation and keyless fallback are implemented in the existing repository.
+- Maps Foundation is READY FOR FINAL CREDENTIAL ACTIVATION. Google map tiles, Places and Routes are intentionally inactive until restricted browser/Android/iOS/server credentials, map ID where applicable and billing are configured. No placeholder or hardcoded API key is used.
+
+### Supabase and production release evidence
+- Supabase project eyofuiyxalbehbqoaeny is ACTIVE_HEALTHY with 93 applied migrations. Security Advisor returned zero lints. Performance Advisor returned 262 INFO unused-index observations; these are not security findings and no index was removed.
+- The four designated Railway production services are online, each with one running replica and no pending deployment work. Successful deployment IDs/source:
+  - salesx-api — bb101799-8d7c-46bd-bf4b-ac1d864da8af, source 833235184befbc2ed7ac41d161d07ab0d6fc188e.
+  - salesx-website — 491a7417-3825-418e-b319-1cfdd850405a, same source.
+  - salesx-customer — 760c94dc-9890-452c-ac1b-a14397bc6852, same source.
+  - salesx-company — 42af78b1-8aaa-4c5b-b3d1-8232708b0822, same source.
+- Railway environment health reports these four services Online; no staged or in-flight deployment remains. The separate pre-existing @salesx-ai/mobile-sales Railway service is outside the four-service release topology and currently Offline; native app validation is through the Expo workflow/EAS build path, not that unrelated Railway service.
+- Current main HEAD at this reconciliation was f6e558aeb818c0e5f63b3b6599e504686826d57d; it is documentation-only relative to the deployed application-code snapshot. Railway service watch patterns correctly skip documentation-only changes.
+
+**Current decision:** Phase 06 IN_PROGRESS (owner SmartReward Realtime gate); Phase 07 IN_PROGRESS (owner Location Realtime gate); Google Maps Foundation READY FOR FINAL CREDENTIAL ACTIVATION; four-service Production Release COMPLETED for the verified deployed code snapshot. No claim is made that owner policies are active or Google map tiles are enabled.
