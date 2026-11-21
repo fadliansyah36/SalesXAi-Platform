@@ -35,11 +35,15 @@ export function AnalyticsHome({auth}:{auth:AuthProps}){
   if(!api)return;
   setBusy(true);setError(null);
   try{
-   const [result,history]=await Promise.all([api.dashboard(start,end,"day",scopeType??undefined,scopeId),api.reports()]);
+   const canReadReports=auth.canPerformApiAction("analytics.reports.read");
+   const [result,history]=await Promise.all([
+    api.dashboard(start,end,"day",scopeType??undefined,scopeId),
+    canReadReports?api.reports():Promise.resolve([]),
+   ]);
    setData(result);setReports(history);
   }catch(cause){setError(cause instanceof Error?cause.message:"Ringkasan KPI tidak dapat dimuat.");}
   finally{setBusy(false);}
- },[api,start,end,scopeType,scopeId]);
+ },[api,start,end,scopeType,scopeId,auth.canPerformApiAction]);
  useEffect(()=>{if(auth.status==="authenticated")void refresh();},[auth.status,refresh]);
  useEffect(()=>{
   const available=(data?.scopes??[]).filter(scope=>scope.scope_type===scopeType);
@@ -51,10 +55,10 @@ export function AnalyticsHome({auth}:{auth:AuthProps}){
   }
  },[data,scopeType,scopeId]);
  useEffect(()=>{
-  if(!api||!reports.some(report=>report.status==="queued"||report.status==="running"))return;
+  if(!api||!auth.canPerformApiAction("analytics.reports.read")||!reports.some(report=>report.status==="queued"||report.status==="running"))return;
   const timer=setInterval(()=>{void api.reports().then(setReports).catch(()=>undefined);},5000);
   return()=>clearInterval(timer);
- },[api,reports]);
+ },[api,reports,auth.canPerformApiAction]);
 
  const visibleMetrics=useMemo(()=>{
   if(!scopeType)return [];
@@ -146,7 +150,7 @@ export function AnalyticsHome({auth}:{auth:AuthProps}){
    {auth.canPerformApiAction("analytics.reports.create")&&<Pressable onPress={()=>void requestExport()} disabled={exportBusy} accessibilityRole="button" style={{padding:12,borderRadius:12,backgroundColor:colors.primary,opacity:exportBusy?0.6:1}}>
     <NativeText color="#FFFFFF" weight="semibold">{exportBusy?"Memproses…":"Ekspor CSV"}</NativeText>
    </Pressable>}
-   {reports.length>0&&<NativeStack gap="2">
+   {auth.canPerformApiAction("analytics.reports.read")&&reports.length>0&&<NativeStack gap="2">
     <NativeText weight="semibold">Riwayat Laporan</NativeText>
     {reports.slice(0,5).map(report=><NativeInline key={report.id} style={{justifyContent:"space-between",alignItems:"center",paddingVertical:8,borderBottomWidth:1,borderBottomColor:colors.border}}>
      <NativeStack gap="1"><NativeText>{report.report_key}</NativeText><NativeText variant="caption" color={colors.textMuted}>{report.status} · {report.period_start} – {report.period_end}</NativeText></NativeStack>
