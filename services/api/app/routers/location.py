@@ -55,17 +55,20 @@ async def routes(organization_id:UUID,from_date:date|None=None,to_date:date|None
 @router.get("/{organization_id}/location/geofences")
 async def geofences(organization_id:UUID,principal:Principal=Depends(get_current_principal),
  tenant:TenantContext=Depends(require_api_action("location.geofences.read")),db:asyncpg.Connection=Depends(get_connection)):
- if tenant.organization_id!=organization_id: raise APIError(403,"tenant_scope_mismatch","Location access is restricted to the active organization.")
- rows=await db.fetch("""select id,organization_id,code,name,geofence_type,outlet_id,territory_id,event_types,dwell_seconds,
- accuracy_limit_m,status,created_at,updated_at,extensions.st_asgeojson(boundary)::jsonb as boundary_geojson from public.location_geofences where organization_id=$1 order by created_at desc""",organization_id)
- return {"items":[dict(r) for r in rows]}
+ return {"items":await location_service.geofences(db,organization_id,tenant,principal.user_id)}
 
 @router.post("/{organization_id}/location/geofences",status_code=201)
 async def create_geofence(organization_id:UUID,payload:LocationGeofenceWrite,principal:Principal=Depends(get_current_principal),
  tenant:TenantContext=Depends(require_api_action("location.geofences.manage")),db:asyncpg.Connection=Depends(get_connection)):
- if tenant.organization_id!=organization_id: raise APIError(403,"tenant_scope_mismatch","Location access is restricted to the active organization.")
- row=await location_repository.create_geofence(db,organization_id,principal.user_id,payload)
- return dict(row)
+ return await location_service.create_geofence(db,organization_id,tenant,principal.user_id,payload)
+
+
+@router.get("/{organization_id}/location/routes/{route_id}/replay")
+async def route_replay(organization_id:UUID,route_id:UUID,from_at:datetime|None=None,to_at:datetime|None=None,
+ page:int=Query(1,ge=1),page_size:int=Query(500,ge=1,le=500),
+ principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("location.routes.replay")),
+ db:asyncpg.Connection=Depends(get_connection)):
+ return await location_service.route_replay(db,organization_id,tenant,principal.user_id,route_id,from_at,to_at,page,page_size)
 
 
 @router.get("/{organization_id}/location/geofence-events")
