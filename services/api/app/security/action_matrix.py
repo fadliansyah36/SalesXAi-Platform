@@ -626,6 +626,18 @@ API_ACTION_MATRIX: tuple[ApiActionContract, ...] = (
         "tenant_permission_and_resource_tenant_match",
     ),
     ApiActionContract(
+        "platform.smartreward.overview.read",
+        "GET",
+        "/api/v1/admin/smart-reward/overview",
+        "platform_smartreward",
+        "read_global_reward_overview",
+        "smartreward_operational_summary",
+        "platform_permission:smartreward:platform:read",
+        "smartreward:platform:read",
+        "platform",
+        "platform_permission",
+    ),
+    ApiActionContract(
         "platform.smartteam.overview.read",
         "GET",
         "/api/v1/admin/smart-team/overview",
