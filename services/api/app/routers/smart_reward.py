@@ -24,6 +24,9 @@ router=APIRouter(prefix="/organizations",tags=["smart-reward"])
 
 def _merge_smart_reward_patch(existing, patch, schema):
     current = {key: value for key, value in dict(existing).items() if key in schema.model_fields}
+    for key, value in tuple(current.items()):
+        if isinstance(value, datetime) and key in {"starts_at", "ends_at"}:
+            current[key] = value.isoformat()
     current.update(patch.model_dump(exclude_unset=True))
     return schema.model_validate(current)
 
