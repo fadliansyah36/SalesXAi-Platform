@@ -70,7 +70,7 @@ class SmartRewardEventAudienceTests(unittest.TestCase):
     def test_legacy_tenant_broadcast_is_suppressed_until_owner_policy_is_active(self):
         self.assertIn("no tenant-wide Broadcast topic", self.broadcast_migration)
         self.assertNotIn("||':smartreward'", self.broadcast_migration)
-        self.assertIn("resource-specific", self.owner_policy)
+        self.assertIn("corresponding read permission", self.owner_policy)
         self.assertIn("smartreward:ledger:read", self.owner_policy)
         self.assertIn("smartreward:catalog:read", self.owner_policy)
 
