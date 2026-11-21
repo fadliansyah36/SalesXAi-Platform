@@ -271,7 +271,7 @@ async def analytics_scheduler_loop(pool:asyncpg.Pool,settings:Settings)->None:
                                 except Exception:
                                     logger.exception("analytics_schedule_failed",extra={"job_id":str(job["id"])})
                             await _export_iteration(connection,settings,worker_id)
-                    await _cleanup_expired_exports(connection,settings)
+                            await _cleanup_expired_exports(connection,settings)
                         except (asyncpg.PostgresConnectionError,asyncpg.InterfaceError):
                             logger.exception("analytics_scheduler_connection_lost")
                             break
