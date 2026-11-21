@@ -9,9 +9,11 @@ import asyncpg
 class AnalyticsRepository:
     async def list_scopes(self, connection: asyncpg.Connection, organization_id: UUID, user_id: UUID):
         return await connection.fetch(
-            """select distinct ura.scope_type,ura.scope_id
+            """select distinct case when r.key='sales_rep' then 'user' else ura.scope_type end scope_type,
+                      case when r.key='sales_rep' then m.user_id else ura.scope_id end scope_id
                from public.organization_memberships m
                join public.user_role_assignments ura on ura.membership_id=m.id
+               join public.roles r on r.id=ura.role_id
                join public.role_permissions rp on rp.role_id=ura.role_id
                where m.organization_id=$1 and m.user_id=$2 and m.status='active'
                  and ura.revoked_at is null and ura.starts_at<=now()
@@ -30,6 +32,7 @@ class AnalyticsRepository:
                  and exists (
                    select 1 from public.organization_memberships m
                    join public.user_role_assignments ura on ura.membership_id=m.id
+                   join public.roles r on r.id=ura.role_id
                    join public.role_permissions rp on rp.role_id=ura.role_id
                    where m.organization_id=s.organization_id and m.user_id=$5 and m.status='active'
                      and ura.revoked_at is null and ura.starts_at<=now()
