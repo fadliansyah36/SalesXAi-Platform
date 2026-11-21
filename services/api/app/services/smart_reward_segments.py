@@ -104,7 +104,8 @@ class SmartRewardSegmentService:
      (organization_id,segment_id,participant_user_id,membership_source,status,matched_criteria)
      values($1,$2,$3,'rule','active',$4::jsonb)
      on conflict(organization_id,segment_id,participant_user_id) do update
-     set membership_source='rule',status='active',matched_criteria=excluded.matched_criteria,updated_at=now()""",
+     set membership_source='rule',status='active',matched_criteria=excluded.matched_criteria,updated_at=now()
+     where public.reward_customer_segment_members.membership_source='rule'""",
      org,sid,uid,json.dumps({"roles":sorted(roles.get(uid,set()).intersection(allowed_roles)) if allowed_roles else [],
       "branch_id":str(member["branch_id"]) if member["branch_id"] else None,
       "points_balance":int(member["points_balance"])}))
