@@ -133,3 +133,10 @@ This addendum reconciles Phase 07 gates against the canonical Engineering Execut
 - Google Maps Foundation is READY FOR FINAL CREDENTIAL ACTIVATION: shared contracts/adapters, Web and Expo renderers, FastAPI config/Places/Routes adapters, environment separation and keyless fallback are implemented. Google tiles/Places/Routes remain disabled until real restricted credentials, map ID where required, and billing are supplied.
 
 **Reconciled Phase 07 status: IN_PROGRESS only because the owner-level private Realtime authorization gate is still pending.** No physical-device field test, staging deployment, manual real-user login, or Product Owner Acceptance is required by canonical execution governance.
+
+
+## Latest live gate recheck — 2026-11-21
+
+- Live realtime.messages owner is still supabase_realtime_admin; connected SQL principal cannot assume that role. The prepared Location policy is not active.
+- Existing database lifecycle fixture proves SQL-level point deduplication, monotonic latest position, geofence enter/dwell/exit, and chronological route replay in a rollback-only transaction. It does not prove authenticated private Realtime subscription authorization.
+- Phase 07 remains IN_PROGRESS solely for the owner-authorized private Realtime policy and authenticated tenant/team/branch/territory allow/deny evidence. FastAPI permission-checked SSE remains active.
