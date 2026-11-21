@@ -4,7 +4,7 @@ Target repository: fadliansyah36/SalesXAi-Platform
 Branch: main
 Supabase project ref: eyofuiyxalbehbqoaeny
 
-## Current authoritative status — 2026-11-20 (cross-tenant schema foundation applied)
+## Current authoritative status — 2026-11-21 (Phase 05 cross-tenant and lifecycle continuation)
 
 | Phase | Current status |
 |---|---|
@@ -13,13 +13,15 @@ Supabase project ref: eyofuiyxalbehbqoaeny
 | Phase 02 — Identity, Tenant & Authorization Foundation | COMPLETED |
 | Phase 03 — Master Data Foundation | COMPLETED |
 | Phase 04 — SmartTeam Operations | COMPLETED — closure addendum supersedes historical entries below |
-| Phase 05 — SmartOrder | IN_PROGRESS — NOT COMPLETED; cross-tenant cart/inventory/fulfillment model remains a blocker |
+| Phase 05 — SmartOrder | IN_PROGRESS — implementation substantially integrated; final latest-commit CI and Railway rollout verification remain |
 
-**Migration ledger:** 51 remote applied versions and 51 local migration files, all version/name pairs matching exactly: Phase 00 = 2, Phase 02 = 14, Phase 03 = 10, Phase 04 = 10, Phase 05 = 15. No historical migration was edited or replayed.
+**Migration ledger:** 67 remote applied versions and 67 local migration files, all exact version/name pairs matching: Phase 00 = 2, Phase 02 = 14, Phase 03 = 10, Phase 04 = 10, Phase 05 = 31. Latest Phase 05 migration: `20261121005322_p05_realtime_auth_rls_initplan`. No historical migration was edited or replayed.
 
-**Live database:** 55/55 public tables have RLS enabled and 55 public policies are present, with 281 public indexes. The 30 SmartOrder tables have 30 explicit RLS policies; 27 SmartOrder broadcast triggers and 3 private `realtime.messages` policies are installed. Supabase Security Advisor reports zero lints and Performance Advisor now reports zero unindexed foreign keys; unused-index notices are informational on the newly created low-volume schema. The private SmartTeam evidence bucket remains private. Security Advisor is not re-queried in this Phase 05 continuation.
+**Live database:** 57/57 public tables have RLS enabled, 57 public policies are present, and 306 public indexes exist. SmartOrder has 27 broadcast triggers and 3 private `realtime.messages` policies. Supabase Security Advisor: 0 lints. Performance Advisor: 0 WARN findings, including 0 unindexed-FK and 0 auth-RLS-initplan warnings; 172 unused-index INFO notices remain informational for the new low-volume schema. The private SmartTeam evidence bucket remains private.
 
-The dated Phase 02 PARTIAL / Phase 03 LOCKED and earlier Phase 04 IN_PROGRESS entries below are historical snapshots. The Phase 04 closure addendum and Phase 05 status record are authoritative for the current execution. Latest Phase 05 source commit: `70d964bb6310879d16357581b9e0f89868c32821`. The latest Railway API/Web deployment set for this continuation is queued; do not infer deployment completion from the successful earlier API deployment.
+**Current code/contract evidence:** Python API and TypeScript client action registries are aligned at 130/130 actions (no missing or extra IDs); SmartOrder router exposes 52 routes. The existing eight Web portal build targets, Expo native typecheck/build, API unit suite, Python compileall, Ruff and FastAPI container build are run by the repository workflows. The latest source changes are committed to `main`; do not infer Railway production rollout completion while deployments remain queued/building.
+
+The dated Phase 02 PARTIAL / Phase 03 LOCKED and earlier Phase 04 IN_PROGRESS entries below are historical snapshots. The Phase 04 closure addendum and the latest Phase 05 continuation record are authoritative. Phase 06 — SmartReward remains LOCKED.
 
 ## Phase 00 — Repository Bootstrap & Governance
 
