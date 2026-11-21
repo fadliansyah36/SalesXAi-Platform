@@ -1537,3 +1537,32 @@ Live API /readyz reports ready/database connected; website, customer and company
 - GitHub combined status for API source commit 66a661d9eccd8f9da001666510f98290339c6694: API service check was still pending at last query; the other four Railway service checks reported success. This is not evidence that Analytics is production-active.
 - No portal page has yet been wired to consume createAnalyticsApi, and no Expo Analytics screen has been added. These are open Phase 08 vertical-slice items.
 - Current phase decisions: Phase 06 IN_PROGRESS; Phase 07 IN_PROGRESS; Phase 08 IN_PROGRESS. No Phase 06/07 owner Realtime policy was applied.
+
+
+---
+
+## User-directed phase closure and Phase 08 continuation — 2026-11-21
+
+### Phase 06 — SmartReward & Incentive: CLOSED (runtime subscription test waived)
+
+- User explicitly directed the project to close Phase 06 without running the remaining Realtime subscription allow/deny test.
+- Live Supabase catalog inspection confirms `realtime.messages` contains `smartreward_private_read`; `reward_emit_private_event()` exists, has EXECUTE granted only to `postgres` and `service_role`, and eight SmartReward private-event triggers are installed.
+- The policy SQL is present in the live catalog and resource/permission conditions include ledger, redemption and approval resources.
+- **Evidence boundary:** authenticated JWT subscription allow/deny behavior was not exercised. This is an explicit user-approved validation waiver, not a passing test result.
+
+### Phase 07 — Location Intelligence: CLOSED (runtime subscription test waived)
+
+- User explicitly directed the project to close Phase 07 without running the remaining Realtime subscription allow/deny test.
+- Live Supabase catalog inspection confirms `location_private_read` exists for `authenticated` on `realtime.messages`; its predicate includes tenant binding and branch/team/territory/supervisor scope checks.
+- Existing location point trigger and the Phase 07 backend/Expo/portal implementation remain recorded in the earlier execution entries.
+- **Evidence boundary:** authenticated JWT subscription allow/deny behavior was not exercised. This is an explicit user-approved validation waiver, not a passing test result. No physical-device/field test was performed or required.
+
+### Phase 08 — Analytics, KPI Aggregation & Operational Reporting: IN_PROGRESS
+
+- Applied migration `20261121131321_p08_analytics_weekly_monthly_rollups` to Supabase project `eyofuiyxalbehbqoaeny`.
+- Added `public.analytics_refresh_period_rollups(uuid,date,date)`, service-role-only, to materialize weekly and monthly snapshots from canonical daily snapshots. Additive metrics are summed; `inventory.available` uses the latest daily value in each period.
+- Updated `services/analytics-worker/worker.py` to run daily refresh followed by weekly/monthly rollup for each active organization.
+- Version-controlled migration path: `supabase/migrations/20261121131321_p08_analytics_weekly_monthly_rollups.sql`.
+- Remaining Phase 08 scope: branch/team/territory and salesperson aggregation, report export worker and private artifact delivery, recurring worker scheduling, and integration of analytics API into existing Web portals and native Expo where applicable.
+- No worker deployment or production activation is claimed.
+- Next phase after Phase 08 completion: **Phase 09 — Workflow Engine, Scheduling, Notifications & Durable Jobs**.
