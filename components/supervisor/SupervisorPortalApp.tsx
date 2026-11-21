@@ -955,6 +955,7 @@ export function SupervisorPortalApp() {
       {/* -------------------- SCREEN 5: LIVE LOCATION TIM -------------------- */}
       {activeTab === 'live_map' && <LocationWorkspace/>}
       {activeTab === 'route_replay' && <LocationWorkspace/>}
+      {activeTab === 'smartteam' && <SmartTeamConsole surface="supervisor" initialTab="visits"/>}
       {activeTab === 'coverage' && (
         <div className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
