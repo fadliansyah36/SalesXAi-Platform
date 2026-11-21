@@ -29,6 +29,71 @@ class LocationRepository:
         return await db.execute("""insert into public.location_access_audit(organization_id,actor_user_id,resource_type,action,filters)
           values($1,$2,$3,$4,$5::jsonb)""",org,actor,resource_type,action,json.dumps(filters or {}))
 
+    async def list_geofences(self, db, org, actor):
+        return await db.fetch("""select g.id,g.organization_id,g.code,g.name,g.geofence_type,
+          g.outlet_id,g.territory_id,g.event_types,g.dwell_seconds,g.accuracy_limit_m,
+          g.status,g.created_at,g.updated_at,
+          extensions.st_asgeojson(g.boundary)::jsonb as boundary_geojson
+          from public.location_geofences g
+          left join public.outlets o on o.organization_id=g.organization_id and o.id=g.outlet_id
+          left join public.territories t on t.organization_id=g.organization_id and t.id=g.territory_id
+          where g.organization_id=$1 and (
+            exists(select 1 from public.organization_memberships m
+              join public.user_role_assignments ura on ura.membership_id=m.id
+              join public.roles r on r.id=ura.role_id
+              where m.organization_id=g.organization_id and m.user_id=$2 and m.status='active'
+                and ura.revoked_at is null and ura.starts_at<=now()
+                and (ura.expires_at is null or ura.expires_at>now())
+                and r.key in ('tenant_owner','tenant_admin','company_admin')
+                and ura.scope_type in ('tenant','organization') and ura.scope_id=g.organization_id)
+            or exists(select 1 from public.organization_memberships m
+              join public.user_role_assignments ura on ura.membership_id=m.id
+              where m.organization_id=g.organization_id and m.user_id=$2 and m.status='active'
+                and ura.revoked_at is null and ura.starts_at<=now()
+                and (ura.expires_at is null or ura.expires_at>now())
+                and ura.scope_type='branch' and ura.scope_id=coalesce(o.branch_id,t.branch_id))
+            or exists(select 1 from public.organization_memberships m
+              join public.user_role_assignments ura on ura.membership_id=m.id
+              where m.organization_id=g.organization_id and m.user_id=$2 and m.status='active'
+                and ura.revoked_at is null and ura.starts_at<=now()
+                and (ura.expires_at is null or ura.expires_at>now())
+                and ura.scope_type='territory' and ura.scope_id=coalesce(g.territory_id,o.territory_id))
+            or exists(select 1 from public.organization_memberships m
+              join public.user_role_assignments ura on ura.membership_id=m.id
+              join public.sales_profiles sp on sp.organization_id=g.organization_id
+                and sp.team_id=ura.scope_id and sp.status='active'
+              where m.organization_id=g.organization_id and m.user_id=$2 and m.status='active'
+                and ura.revoked_at is null and ura.starts_at<=now()
+                and (ura.expires_at is null or ura.expires_at>now())
+                and ura.scope_type='team'
+                and sp.territory_id=coalesce(g.territory_id,o.territory_id))
+          )
+          order by g.created_at desc""", org, actor)
+
+    async def get_route_replay_context(self, db, org, route_id, visible_profile_ids):
+        return await db.fetchrow("""select r.id,r.session_id,r.started_at,r.ended_at,
+          r.route_date,r.point_count,s.sales_profile_id,s.user_id
+          from public.location_route_summaries r
+          join public.location_tracking_sessions s
+            on s.organization_id=r.organization_id and s.id=r.session_id
+          where r.organization_id=$1 and r.id=$2
+            and s.sales_profile_id=any($3::uuid[])""", org, route_id, visible_profile_ids)
+
+    async def count_route_replay_points(self, db, org, session_id, from_at, to_at):
+        return await db.fetchval("""select count(*) from public.location_points
+          where organization_id=$1 and session_id=$2
+            and recorded_at >= $3 and recorded_at <= $4""",
+          org, session_id, from_at, to_at)
+
+    async def list_route_replay_points(self, db, org, session_id, from_at, to_at, page, size):
+        return await db.fetch("""select id,session_id,user_id,client_point_id,recorded_at,received_at,
+          latitude,longitude,accuracy_m,altitude_m,speed_mps,heading_deg,source
+          from public.location_points
+          where organization_id=$1 and session_id=$2
+            and recorded_at >= $3 and recorded_at <= $4
+          order by recorded_at asc,id asc limit $5 offset $6""",
+          org, session_id, from_at, to_at, size, (page-1)*size)
+
     async def create_geofence(self, db, org, actor, payload):
         return await db.fetchrow("""insert into public.location_geofences
           (organization_id,code,name,geofence_type,outlet_id,territory_id,boundary,event_types,dwell_seconds,accuracy_limit_m,created_by)
