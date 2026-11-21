@@ -458,10 +458,6 @@ export function CustomerPortalApp() {
             <Link href="/supervisor" className="text-[#348CB2] hover:underline">
               Supervisor
             </Link>
-            <span className="text-[var(--color-text-muted)]">·</span>
-            <Link href="/super-admin" className="text-[#194F70] dark:text-[#87CEEB] hover:underline">
-              Super Admin
-            </Link>
           </div>
         </div>
 
