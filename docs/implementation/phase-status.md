@@ -1,4 +1,19 @@
 # EXECUTION SNAPSHOT — 2026-11-21
+
+## Latest continuation — 2026-11-21 (SmartReward Realtime + Google Maps)
+
+- Canonical `main` now includes provider-neutral Maps contracts, Web renderer, Native Expo Google Maps renderer, Expo native SDK configuration and a server-only Google Routes adapter.
+- Maps endpoints: `GET /api/v1/maps/config` and `POST /api/v1/organizations/{organization_id}/maps/routes/compute`. Route computation fails closed with `maps_provider_not_configured` until the server-only key exists.
+- No Maps key is committed or activated. Browser, Android, iOS and server credentials have separate environment variables and restrictions. Web/Native fallbacks remain active until the matching key is supplied.
+- Expo uses `react-native-maps@1.29.11` with the Bun lockfile updated. Native map rendering is controlled by `EXPO_PUBLIC_GOOGLE_MAPS_ENABLED`.
+- Geofence API responses now include boundary GeoJSON for map overlays. Existing Supervisor and Company LocationWorkspace consumes the shared Web renderer; Sales mobile tracking shows the current device position.
+- Applied Supabase migration `20261121093654_p06_reward_realtime_payload_scope` adds only organization, participant, requester and branch identifiers to private SmartReward Broadcast payloads.
+- A two-connection SmartReward concurrency integration harness exists at `services/api/tests/test_smart_reward_concurrency_integration.py`; it is restricted to a disposable local Supabase database and has not been run because no `SALESX_TEST_DATABASE_URL` is configured.
+- Live `smartreward_private_read` currently authorizes the tenant topic only and permits a branch-scoped assignment to subscribe to that tenant-wide topic. It does not authorize participant/branch topics. A corrected owner-gated replacement is prepared at `supabase/owner-pending/20261121101500_smartreward_realtime_role_scope_policy.sql`.
+- Location private-channel authorization is prepared at `supabase/owner-pending/20261121100000_location_realtime_messages_owner_policy.sql`. Neither owner-pending policy is active; `realtime.messages` is owned by `supabase_realtime_admin` and requires the project owner's authorized role.
+- Phase 06 and Phase 07 remain IN_PROGRESS. No Railway production deployment or map tile activation is claimed.
+
+---
 Source branch: main
 Source code commit at snapshot: bcb15b2cbca7d994902162d89bbdbd6aff4f1baf
 Repository binding: fadliansyah36/SalesXAi-Platform (canonical connected repository; the alternate URL spelling SalesX-Ai-Platform does not resolve)
@@ -51,7 +66,7 @@ Supabase project ref: eyofuiyxalbehbqoaeny
 | Phase 04 — SmartTeam Operations | COMPLETED |
 | Phase 05 — SmartOrder | COMPLETED |
 | Phase 06 — SmartReward & Incentive | IN_PROGRESS — Customer Segment schema/API/shared Web UI added and migration applied; latest-source deployment and populated-data/security validation remain open |
-| Phase 07 — Realtime Location & Route History | LOCKED — do not start until Phase 06 Definition of Done is evidenced |
+| Phase 07 — Realtime Location & Route History | IN_PROGRESS — parallel implementation authorized; owner-level Realtime policy and runtime gates remain open |
 
 **Latest main source SHA:** `627ce255e770e2712a479cff9ce3d6b5c08f17c7` (explicit Tailwind v4 monorepo source scanning fix). **Latest API runtime source SHA:** `823072c098dcbee285d5a0157e33fa47b6371075` (portal-only CSS commit does not require API redeploy). **Latest portal runtime source SHA:** `627ce255e770e2712a479cff9ce3d6b5c08f17c7`.
 
@@ -61,9 +76,9 @@ Supabase project ref: eyofuiyxalbehbqoaeny
 
 **Supabase:** 17 Phase 06 migrations are recorded, including `20261121054216_p06_reward_customer_segments`; the two new segment tables have RLS and deny-client policies; segment permission keys are present. Supabase Security Advisor returned zero lints after the segment migration. Existing baseline checks reported 13/13 original reward tables with RLS and zero direct client business-table grants. However, organizations = 0, profiles = 0, Auth users = 0 and all reward activity tables are empty. No populated ledger reconciliation, live concurrent load, authenticated cross-tenant session or private Realtime denial test can be claimed.
 
-**Remaining scope:** the Master PRD 5.3 includes Campaign and Customer Segment submodules; reward program periods/audience cover campaign-like behavior, but no first-class customer-segment entity is present. This mapping/implementation gap, plus any additional required activity/KPI adapters, must be resolved before closure. Phase 06 remains IN_PROGRESS; Phase 07 remains LOCKED. See `docs/implementation/phase-06-smartreward-status.md` for deployment IDs and detailed evidence.
+**Remaining scope:** the Master PRD 5.3 includes Campaign and Customer Segment submodules; reward program periods/audience cover campaign-like behavior, but no first-class customer-segment entity is present. This mapping/implementation gap, plus any additional required activity/KPI adapters, must be resolved before closure. Phase 06 remains IN_PROGRESS; Phase 07 remains IN_PROGRESS. See `docs/implementation/phase-06-smartreward-status.md` for deployment IDs and detailed evidence.
 
-The dated Phase 02 PARTIAL / Phase 03 LOCKED and earlier Phase 04 IN_PROGRESS entries below are historical snapshots. The Phase 04 closure addendum, latest Phase 05 continuation record and Phase 06 addendum above are authoritative. Phase 06 remains IN_PROGRESS; Phase 07 remains LOCKED.
+The dated Phase 02 PARTIAL / Phase 03 LOCKED and earlier Phase 04 IN_PROGRESS entries below are historical snapshots. The Phase 04 closure addendum, latest Phase 05 continuation record and Phase 06 addendum above are authoritative. Phase 06 remains IN_PROGRESS; Phase 07 remains IN_PROGRESS.
 
 ## Phase 00 — Repository Bootstrap & Governance
 
@@ -1326,7 +1341,7 @@ See `docs/implementation/phase-05-smartorder-status.md` for the current implemen
 - API tests, concurrency/idempotency tests, Web/Expo typecheck, lint and all-portal build matrix on the latest commit have not been run or evidenced. Railway API build and readiness alone do not satisfy the engineering validation gate.
 - Super Admin platform-scope governance and cross-organization principal program management remain incomplete.
 
-**Next execution:** finish SmartReward authorization and manager workflows, implement the missing expiry/approval/eligibility/reporting lifecycle, wire the shared typed client into all existing portal screens and Expo, add private Realtime consumers, then run the focused engineering validation matrix. Phase 07 remains LOCKED.
+**Next execution:** finish SmartReward authorization and manager workflows, implement the missing expiry/approval/eligibility/reporting lifecycle, wire the shared typed client into all existing portal screens and Expo, add private Realtime consumers, then run the focused engineering validation matrix. Phase 07 remains IN_PROGRESS.
 
 
 
@@ -1335,7 +1350,7 @@ See `docs/implementation/phase-05-smartorder-status.md` for the current implemen
 
 This addendum supersedes the older Phase 06 foundation-only blocker list above. The detailed implementation inventory and evidence are maintained in `docs/implementation/phase-06-smartreward-status.md`.
 
-**Current status: IN_PROGRESS — code and focused CI validation are substantially complete; production release is pending. Phase 07 remains LOCKED.**
+**Current status: IN_PROGRESS — code and focused CI validation are substantially complete; production release is pending. Phase 07 remains IN_PROGRESS.**
 
 - Backend now includes server-side program/rule/catalog CRUD, supported-source incentive calculation, role/branch/user/program/period/limit eligibility, approval request/decision/history, manual-earning fail-closed behavior, FIFO point lots and scheduled expiration ledger issuance, redemption reserve/decision/cancel/fulfillment, immutable ledger compensation, and tenant/period/branch/platform reporting.
 - API surface contains 24 tenant SmartReward routes plus the platform overview route; 25 SmartReward action contracts are registered in the API action matrix. Pydantic response schemas and shared TypeScript contracts/client are wired.
@@ -1355,7 +1370,7 @@ This addendum supersedes the older Phase 06 foundation-only blocker list above. 
 - Portal source remains `b2dd365e930c8c5216402bbda0ef36484e9e7889`; Website, Customer and Company deployment/runtime statuses are SUCCESS. No current-source API/portal/Expo CI result or populated ledger test has been claimed.
 - Supabase read-only counts remain empty for organizations, profiles, reward accounts, ledger, redemptions, lots, approvals, audit events and customer segments. No production fixture data was created.
 - Temporary isolated Supabase branch requires explicit cost approval (US$0.01344/hour); not created.
-- Phase 06 remains IN_PROGRESS; Phase 07 remains LOCKED.
+- Phase 06 remains IN_PROGRESS; Phase 07 remains IN_PROGRESS.
 
 
 ## Portal static asset verification — 2026-11-21
@@ -1380,7 +1395,7 @@ API release on source `8bb17e30a94a1435da17a27383a14e52993643af` is SUCCESS with
 
 Added correct basePath-aligned SmartReward route aliases for Distributor, Principal, Supervisor and Super Admin after production route inspection found the old paths returned 404. The new Company deployment for source `3da8b210` is still QUEUED; Company route aliases are not considered live until Railway succeeds and HTTP/CSS/JS are verified. Website/Customer and API latest relevant deployments are already SUCCESS.
 
-Phase 06 remains IN_PROGRESS; Phase 07 remains LOCKED. Supabase staging and real-account tests are deferred to final integrated validation per the user's instruction.
+Phase 06 remains IN_PROGRESS; Phase 07 remains IN_PROGRESS. Supabase staging and real-account tests are deferred to final integrated validation per the user's instruction.
 
 
 ## Phase 07 authorization and implementation opening — 2026-11-21
