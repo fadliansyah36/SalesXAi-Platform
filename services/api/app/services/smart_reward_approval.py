@@ -8,26 +8,34 @@ from app.services.smart_reward import smart_reward_service
 
 class SmartRewardApprovalService:
  async def list(self,db:asyncpg.Connection,org:UUID,actor:UUID,page:int,size:int):
-  scopes=await db.fetch("""select ura.scope_type,ura.scope_id from public.organization_memberships m
+  scopes=await db.fetch("""select ura.scope_type,ura.scope_id,r.key role_key from public.organization_memberships m
    join public.user_role_assignments ura on ura.membership_id=m.id
+   join public.roles r on r.id=ura.role_id
    join public.role_permissions rp on rp.role_id=ura.role_id and rp.permission_key='smartreward:approval:read'
    where m.organization_id=$1 and m.user_id=$2 and m.status='active' and ura.revoked_at is null
     and ura.starts_at<=now() and (ura.expires_at is null or ura.expires_at>now())""",org,actor)
   if not scopes: raise APIError(403,"reward_approval_read_forbidden","Approval inbox permission is required.")
-  tenant_scope=any(x["scope_type"]=="tenant" for x in scopes)
-  branch_ids=[x["scope_id"] for x in scopes if x["scope_type"]=="branch"]
+  role_keys={x["role_key"] for x in scopes}
+  tenant_scope=bool(role_keys.intersection({"tenant_owner","company_admin","principal_user"}))
+  branch_ids=[x["scope_id"] for x in scopes if x["scope_type"]=="branch" and x["role_key"]=="supervisor"]
   if tenant_scope:
    where="organization_id=$1"; args=[org]
-  elif branch_ids:
+  elif branch_ids and "supervisor" in role_keys:
    where="organization_id=$1 and (requested_by=$2 or participant_user_id in (select user_id from public.organization_memberships where organization_id=$1 and branch_id=any($3::uuid[])))"
    args=[org,actor,branch_ids]
   else:
-   where="organization_id=$1 and requested_by=$2";args=[org,actor]
+   where="organization_id=$1 and (requested_by=$2 or participant_user_id=$2)";args=[org,actor]
   total=await db.fetchval("select count(*) from public.reward_approval_requests where "+where,*args)
   rows=await db.fetch("select * from public.reward_approval_requests where "+where+" order by created_at desc limit $"+str(len(args)+1)+" offset $"+str(len(args)+2),*args,size,(page-1)*size)
   return {"items":[dict(x) for x in rows],"page":page,"page_size":size,"total":total}
  async def request(self,db:asyncpg.Connection,org:UUID,actor:UUID,p):
   async with db.transaction():
+   actor_roles=await db.fetch("""select r.key from public.organization_memberships m join public.user_role_assignments ura on ura.membership_id=m.id
+    join public.roles r on r.id=ura.role_id where m.organization_id=$1 and m.user_id=$2 and m.status='active'
+    and ura.revoked_at is null and ura.starts_at<=now() and (ura.expires_at is null or ura.expires_at>now())""",org,actor)
+   actor_keys={x["key"] for x in actor_roles}
+   if not actor_keys.intersection({"tenant_owner","company_admin","supervisor","principal_user"}) and p.participant_user_id!=actor:
+    raise APIError(403,"reward_request_ownership_forbidden","Participants may request points only for their own account.")
    old=await db.fetchrow("select * from public.reward_approval_requests where organization_id=$1 and requested_by=$2 and idempotency_key=$3",org,actor,p.idempotency_key)
    if old:return dict(old)
    membership=await db.fetchrow("select id,branch_id from public.organization_memberships where organization_id=$1 and user_id=$2 and status='active'",org,p.participant_user_id)
@@ -84,6 +92,18 @@ class SmartRewardApprovalService:
    if not row: raise APIError(404,"reward_approval_not_found","Approval request not found.")
    if row["status"]!="pending": raise APIError(409,"reward_approval_transition_invalid","Only pending approval requests can be decided.")
    if row["requested_by"]==actor: raise APIError(403,"reward_self_approval_forbidden","A requester cannot approve their own reward request.")
+   actor_scopes=await db.fetch("""select ura.scope_type,ura.scope_id,r.key role_key from public.organization_memberships m
+    join public.user_role_assignments ura on ura.membership_id=m.id join public.roles r on r.id=ura.role_id
+    join public.role_permissions rp on rp.role_id=ura.role_id and rp.permission_key='smartreward:approval:decide'
+    where m.organization_id=$1 and m.user_id=$2 and m.status='active' and ura.revoked_at is null
+     and ura.starts_at<=now() and (ura.expires_at is null or ura.expires_at>now())""",org,actor)
+   keys={x["role_key"] for x in actor_scopes}
+   if not keys.intersection({"tenant_owner","company_admin","supervisor","principal_user"}):
+    raise APIError(403,"reward_approval_decision_forbidden","Approver role is required.")
+   if "supervisor" in keys and not keys.intersection({"tenant_owner","company_admin","principal_user"}):
+    allowed={x["scope_id"] for x in actor_scopes if x["scope_type"]=="branch"}
+    participant_branch=await db.fetchval("select branch_id from public.organization_memberships where organization_id=$1 and user_id=$2 and status='active'",org,row["participant_user_id"])
+    if participant_branch not in allowed: raise APIError(403,"reward_approval_scope_forbidden","Approval request is outside the supervisor branch scope.")
    if p.decision=="approved":
     a,b=await smart_reward_service._account(db,org,row["participant_user_id"]);after=b+int(row["points_requested"])
     ledger=await db.fetchrow("""insert into public.reward_points_ledger(organization_id,account_id,participant_user_id,entry_type,points_delta,balance_before,balance_after,source_type,source_id,reference_type,reference_id,actor_user_id,idempotency_key,reason,metadata)
