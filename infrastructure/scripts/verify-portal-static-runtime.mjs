@@ -82,9 +82,9 @@ for (const app of apps) {
   if (!js.length) throw new Error(app.name + " build emitted no JavaScript chunks");
 
   const page = await retryGet(app.prefix || "/", deadline);
-  const linkedStylesheets = [...page.body.matchAll(/href=["']([^"']+\\.css(?:\\?[^"']*)?)["']/g)].map((match) => match[1]);
-  const linkedScripts = [...page.body.matchAll(/<script[^>]+src=["']([^"']+\\.js(?:\\?[^"']*)?)["']/g)].map((match) => match[1]);
-  if (!linkedStylesheets.length) throw new Error(app.name + " HTML does not reference a stylesheet; check App Router layout/CSS import");
+  const linkedStylesheets = [...page.body.matchAll(/href=["']([^"']+\.css(?:\?[^"']*)?)["']/g)].map((match) => match[1]);
+  const linkedScripts = [...page.body.matchAll(/<script[^>]+src=["']([^"']+\.js(?:\?[^"']*)?)["']/g)].map((match) => match[1]);
+  if (!linkedStylesheets.length) throw new Error(app.name + " HTML does not reference a stylesheet; check App Router CSS import");
   if (!linkedScripts.length) throw new Error(app.name + " HTML does not reference a JavaScript bundle; hydration cannot be verified");
 
   for (const href of linkedStylesheets) {
@@ -114,6 +114,6 @@ for (const app of apps) {
     " page=" + (app.prefix || "/") +
     " css=" + linkedStylesheets.length +
     " js=" + linkedScripts.length +
-    " tokenCSS=" + tokenStylesheet + "\\n");
+    " tokenCSS=" + tokenStylesheet + "\n");
 }
-process.stdout.write("Portal group CSS/JS static runtime verified: " + group + "\\n");
+process.stdout.write("Portal group CSS/JS static runtime verified: " + group + "\n");
