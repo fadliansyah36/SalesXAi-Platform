@@ -64,11 +64,6 @@ class SmartRewardConcurrentRedemptionTests(unittest.IsolatedAsyncioTestCase):
             f"phase06-{self.user_id}@salesx.invalid",
         )
         await self.db.execute(
-            "insert into public.profiles(id,email,display_name,status) values($1,$2,'Phase 06 concurrency fixture','active')",
-            self.user_id,
-            f"phase06-{self.user_id}@salesx.invalid",
-        )
-        await self.db.execute(
             """insert into public.organizations(id,slug,name,status,created_by)
                values($1,$2,'Phase 06 isolated concurrency fixture','active',$3)""",
             self.organization_id,
