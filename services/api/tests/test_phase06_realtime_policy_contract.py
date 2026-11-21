@@ -24,7 +24,7 @@ class Phase06RealtimePolicyContractTests(unittest.TestCase):
         self.assertIn("extension = 'broadcast'", policy)
 
     def test_location_realtime_policy_is_owner_gated_and_payload_scoped(self):
-        root = Path(__file__).resolve().parents[2]
+        root = Path(__file__).resolve().parents[3]
         policy = (
             root
             / "supabase"
