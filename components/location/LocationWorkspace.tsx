@@ -75,8 +75,8 @@ export function LocationWorkspace(){
   setGeofenceSubmitting(true);setError("");
   try{
    const boundary=JSON.parse(geofenceBoundary) as Record<string,unknown>;
-   if(!["Polygon","MultiPolygon"].includes(String(boundary.type))||!Array.isArray(boundary.coordinates)){
-    throw new Error("Boundary harus berupa GeoJSON Polygon atau MultiPolygon.");
+   if(boundary.type!=="Polygon"||!Array.isArray(boundary.coordinates)){
+    throw new Error("Boundary harus berupa GeoJSON Polygon.");
    }
    if(geofenceType==="outlet"&&!geofenceOutletId.trim())throw new Error("Outlet ID wajib diisi untuk geofence outlet.");
    if(geofenceType==="territory"&&!geofenceTerritoryId.trim())throw new Error("Territory ID wajib diisi untuk geofence territory.");
@@ -136,7 +136,7 @@ export function LocationWorkspace(){
    <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]"><div className="border-b border-[var(--color-border)] px-4 py-3"><h2 className="font-semibold">Geofence activity</h2></div>{events.length===0?<p className="p-4 text-sm text-[var(--color-text-secondary)]">No geofence events for the authorized scope.</p>:<div className="divide-y divide-[var(--color-border)]">{events.slice(0,30).map(event=><div key={event.id} className="flex items-center justify-between gap-3 px-4 py-3"><div><p className="text-sm font-medium">{event.geofence_name} · {event.event_type}</p><p className="text-xs text-[var(--color-text-secondary)]">{event.user_id}</p></div><time className="text-xs text-[var(--color-text-secondary)]">{new Date(event.occurred_at).toLocaleString("id-ID")}</time></div>)}</div>}</div>
   </div>
   {canManageGeofences&&<form onSubmit={event=>{event.preventDefault();void saveGeofence();}} className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 space-y-3">
-   <div><h2 className="font-semibold">Configure custom geofence</h2><p className="mt-1 text-xs text-[var(--color-text-secondary)]">Simpan boundary GeoJSON Polygon atau MultiPolygon. Deteksi enter, exit dan dwell aktif setelah titik GPS diterima.</p></div>
+   <div><h2 className="font-semibold">Configure custom geofence</h2><p className="mt-1 text-xs text-[var(--color-text-secondary)]">Simpan boundary GeoJSON Polygon. Deteksi enter, exit dan dwell aktif setelah titik GPS diterima.</p></div>
    <div className="grid gap-3 sm:grid-cols-2">
     <label className="grid gap-1 text-xs font-medium text-[var(--color-text-secondary)]">Kode geofence<input required maxLength={64} value={geofenceCode} onChange={event=>setGeofenceCode(event.target.value)} placeholder="AREA-JAKARTA-01" className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-text-primary)]"/></label>
     <label className="grid gap-1 text-xs font-medium text-[var(--color-text-secondary)]">Nama geofence<input required maxLength={160} value={geofenceName} onChange={event=>setGeofenceName(event.target.value)} placeholder="Area Operasional" className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-text-primary)]"/></label>
