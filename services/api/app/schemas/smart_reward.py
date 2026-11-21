@@ -172,3 +172,14 @@ class PlatformSmartRewardOverviewRowResponse(BaseModel):
 class PlatformSmartRewardOverviewResponse(BaseModel):
  model_config=ConfigDict(extra="allow")
  items:list[PlatformSmartRewardOverviewRowResponse]; total:int; limit:int; offset:int
+
+class RewardProgressItemResponse(BaseModel):
+ model_config=ConfigDict(extra="allow")
+ program_id:UUID; program_name:str; rule_id:UUID; rule_name:str; event_key:str
+ period_days:int; points_earned:int; points_limit:int|None=None; points_remaining:int|None=None
+ metric_achieved:Decimal=Decimal(0); target_metric:Decimal|None=None
+ progress_percent:Decimal|None=None; requires_approval:bool
+
+class RewardProgressResponse(BaseModel):
+ model_config=ConfigDict(extra="allow")
+ organization_id:UUID; participant_user_id:UUID; items:list[RewardProgressItemResponse]
