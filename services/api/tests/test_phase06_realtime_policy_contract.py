@@ -4,7 +4,7 @@ from pathlib import Path
 
 class Phase06RealtimePolicyContractTests(unittest.TestCase):
     def test_owner_pending_policy_separates_user_branch_and_tenant_channels(self):
-        root = Path(__file__).resolve().parents[2]
+        root = Path(__file__).resolve().parents[3]
         policy = (
             root
             / "supabase"
