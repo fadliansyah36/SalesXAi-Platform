@@ -5,6 +5,7 @@ Repository: fadliansyah36/SalesXAi-Platform
 Branch: main
 Supabase: eyofuiyxalbehbqoaeny
 Latest implementation source SHA at this update: c95d558a81c5a9058cde0daa351de555328b69e4
+Latest main SHA (tracker/documentation commit): 5ec0a35f32dc19ab18b46f64f5d52662fed28cbf
 
 ## Status
 
@@ -109,7 +110,7 @@ The four existing services are preserved; no new service or database was created
 | Existing service | Build configuration | Current live successful deployment | Latest source deployment |
 |---|---|---|---|
 | `salesx-api` | Dockerfile builder; `services/api/Dockerfile`; root `/services/api` | **SUCCESS** — `2e75c3f6-370b-4ecb-9381-12c499fa840e`, source `ad6ef56e66ea69759f6b3daa41c298dfa2dca3d3`; deploy log confirms `GET /readyz 200 OK` | Same deployment — SUCCESS |
-| `salesx-website` | Dockerfile builder; `infrastructure/docker/Dockerfile.website`; monorepo root | **SUCCESS** — `43a74cb4-2e67-467e-a277-3bea64765871`, source `683d371af1a0c87d5f959616092ebf516abb1f05`; gateway routes `/` and `/sales`, both Next processes Ready | QUEUED — `5eb62c98-fcf7-4dde-8b0a-1d4a4d427d61`, source `a5f73c7f` |
+| `salesx-website` | Dockerfile builder; `infrastructure/docker/Dockerfile.website`; monorepo root | **SUCCESS** — `43a74cb4-2e67-467e-a277-3bea64765871`, source `683d371af1a0c87d5f959616092ebf516abb1f05`; gateway routes `/` and `/sales`, both Next processes Ready | QUEUED — `5eb62c98-fcf7-4dde-8b0a-1d4a4d427d61`, source `a5f73c7f45d6703e61122f3436b9174f6c70d134` |
 | `salesx-customer` | Dockerfile builder; `infrastructure/docker/Dockerfile.customer`; monorepo root | **SUCCESS** — `aaff5a51-46d6-471f-a8dc-0dac8d56c376`, source `683d371af1a0c87d5f959616092ebf516abb1f05`; Next server Ready | QUEUED — `1bf7b603-740c-4bb9-ab15-4d5f940608a4`, source `a5f73c7f` |
 | `salesx-company` | Dockerfile builder; `infrastructure/docker/Dockerfile.company`; monorepo root | **SUCCESS** — `c2bed96f-fec0-43a9-a046-2bf35e2cc631`, source `683d371af1a0c87d5f959616092ebf516abb1f05`; gateway routes `/`, `/distributor`, `/principal`, `/supervisor`, `/admin`; all five Next processes Ready | QUEUED — `5fef1b26-c3a6-4792-856a-700f8a7a5645`, source `a5f73c7f` |
 
