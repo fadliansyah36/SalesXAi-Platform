@@ -204,10 +204,10 @@ async def execute_schedule(connection: asyncpg.Connection, job: asyncpg.Record, 
     due_key = f"{job['id']}:{job['scheduled_for'].isoformat()}:{job['attempt_count']}"
     inserted = await connection.fetchval(
         """insert into public.analytics_job_executions
-           (organization_id,scheduled_job_id,job_type,idempotency_key,status)
-           values($1,$2,$3,$4,'running')
+           (organization_id,scheduled_job_id,job_type,idempotency_key,status,attempt_count)
+           values($1,$2,$3,$4,'running',$5)
            on conflict(organization_id,idempotency_key) do nothing returning id""",
-        job["organization_id"], job["id"], job["job_type"], due_key,
+        job["organization_id"], job["id"], job["job_type"], due_key, job["attempt_count"],
     )
     if not inserted:
         return
