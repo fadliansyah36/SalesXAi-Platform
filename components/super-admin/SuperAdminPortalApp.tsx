@@ -54,6 +54,7 @@ import { BrandLogo } from '@/components/common/BrandLogo';
 import { useTheme } from '@/components/providers/AppProviders';
 import { SalesGoogleMap } from '@/components/maps/SalesGoogleMap';
 import { PortalShell, type PortalNavGroup } from '@/components/design-system/PortalShell';
+import { PlatformSmartRewardOverview } from '@/components/smart-reward/PlatformSmartRewardOverview';
 import { KpiMetricCard } from '@/components/design-system/KpiMetricCard';
 import { StatusTag } from '@/components/design-system/StatusTag';
 import { PluginActivationModal } from '@/components/design-system/PluginActivationModal';
@@ -140,6 +141,7 @@ export type SuperAdminTab =
   | 'master_data'
   | 'analytics'
   | 'smartteam'
+  | 'smartreward'
   | 'services'
   | 'roles'
   | 'domains'
@@ -596,6 +598,7 @@ export function SuperAdminPortalApp() {
         { id: 'users', label: 'User Administration', icon: Users },
         { id: 'analytics', label: 'Analitik & Performa', icon: BarChart3 },
         { id: 'smartteam', label: 'SmartTeam Operations', icon: Activity },
+        { id: 'smartreward', label: 'SmartReward Global', icon: CreditCard },
       ],
     },
     {
@@ -638,6 +641,7 @@ export function SuperAdminPortalApp() {
     if(id==="tenants" || id==="organizations")return auth.canPerformApiAction("platform.organizations.list");
     if(id==="users")return auth.canPerformApiAction("platform.users.list");
     if(id==="smartteam")return auth.canPerformApiAction("platform.smartteam.overview.read");
+    if(id==="smartreward")return auth.canPerformApiAction("platform.smartreward.overview.read");
     if(id==="roles")return auth.canPerformApiAction("platform.roles.list");
     if(id==="audit_logs")return auth.canPerformApiAction("platform.audit.read");
     // Other Super Admin modules are owned by later phases and remain closed until
@@ -1486,6 +1490,13 @@ export function SuperAdminPortalApp() {
               </button>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* -------------------- SCREEN: SMARTREWARD GLOBAL OPERATIONS -------------------- */}
+      {activeTab === 'smartreward' && (
+        <div className="space-y-5">
+          <PlatformSmartRewardOverview />
         </div>
       )}
 
