@@ -1,5 +1,6 @@
 from decimal import Decimal
-from typing import Any, Literal
+from datetime import datetime
+from typing import Any, Generic, Literal, TypeVar
 from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -80,3 +81,94 @@ class RewardApprovalDecision(BaseModel):
  model_config=ConfigDict(extra="forbid")
  decision:Literal["approved","rejected"]
  reason:str=Field(min_length=5,max_length=1000)
+
+
+ResponseT = TypeVar("ResponseT")
+
+class RewardPageResponse(BaseModel, Generic[ResponseT]):
+ model_config=ConfigDict(extra="allow")
+ items:list[ResponseT]
+ page:int
+ page_size:int
+ total:int
+
+class RewardProgramResponse(BaseModel):
+ model_config=ConfigDict(extra="allow")
+ id:UUID; organization_id:UUID; code:str; name:str; description:str|None=None
+ program_type:str; reward_type:str; starts_at:datetime; ends_at:datetime; status:str
+ audience:dict[str,Any]; configuration:dict[str,Any]
+ created_by:UUID; updated_by:UUID; created_at:datetime; updated_at:datetime
+
+class RewardRuleResponse(BaseModel):
+ model_config=ConfigDict(extra="allow")
+ id:UUID; organization_id:UUID; program_id:UUID; code:str; name:str; event_key:str
+ priority:int; rule_config:dict[str,Any]; points_per_unit:Decimal; fixed_points:int
+ max_points:int|None=None; requires_approval:bool; status:str
+ created_by:UUID; updated_by:UUID; created_at:datetime; updated_at:datetime
+
+class RewardCatalogItemResponse(BaseModel):
+ model_config=ConfigDict(extra="allow")
+ id:UUID; organization_id:UUID; program_id:UUID|None=None; code:str; name:str
+ description:str|None=None; category:str; points_cost:int; quantity_total:int|None=None
+ quantity_reserved:int=0; quantity_fulfilled:int=0; starts_at:datetime|None=None
+ ends_at:datetime|None=None; eligibility:dict[str,Any]; metadata:dict[str,Any]
+ status:str; created_by:UUID; updated_by:UUID; created_at:datetime; updated_at:datetime
+
+class RewardBalanceResponse(BaseModel):
+ model_config=ConfigDict(extra="allow")
+ account_id:UUID; organization_id:UUID; participant_user_id:UUID
+ points_balance:int; next_expiration_at:datetime|None=None; expiring_points_30d:int=0
+
+class RewardLedgerEntryResponse(BaseModel):
+ model_config=ConfigDict(extra="allow")
+ id:UUID; entry_type:str; points_delta:int; balance_before:int; balance_after:int
+ source_type:str; source_id:UUID; reference_type:str|None=None; reference_id:UUID|None=None
+ actor_user_id:UUID; reason:str; occurred_at:datetime; expires_at:datetime|None=None
+ metadata:dict[str,Any]=Field(default_factory=dict); reversal_of:UUID|None=None
+
+class RewardRedemptionResponse(BaseModel):
+ model_config=ConfigDict(extra="allow")
+ id:UUID; organization_id:UUID; account_id:UUID; catalog_item_id:UUID
+ participant_user_id:UUID; quantity:int; points_reserved:int; status:str
+ idempotency_key:str; requested_by:UUID; decided_by:UUID|None=None; fulfilled_by:UUID|None=None
+ fulfillment_reference:str|None=None; reason:str|None=None; requested_at:datetime
+ decided_at:datetime|None=None; fulfilled_at:datetime|None=None; updated_at:datetime
+ catalog_code:str|None=None; catalog_name:str|None=None; category:str|None=None
+
+class RewardApprovalHistoryResponse(BaseModel):
+ model_config=ConfigDict(extra="allow")
+ id:UUID; from_status:str|None=None; to_status:str; actor_user_id:UUID
+ reason:str; occurred_at:datetime
+
+class RewardApprovalRequestResponse(BaseModel):
+ model_config=ConfigDict(extra="allow")
+ id:UUID; organization_id:UUID; request_type:str; participant_user_id:UUID
+ program_id:UUID|None=None; rule_id:UUID|None=None; source_type:str|None=None
+ source_id:UUID|None=None; points_requested:int; metric_value:Decimal; requested_by:UUID
+ status:str; request_reason:str; decision_reason:str|None=None; decided_by:UUID|None=None
+ decided_at:datetime|None=None; ledger_entry_id:UUID|None=None
+ history:list[RewardApprovalHistoryResponse]=Field(default_factory=list)
+ created_at:datetime; updated_at:datetime
+
+class RewardBranchReportResponse(BaseModel):
+ model_config=ConfigDict(extra="allow")
+ branch_id:UUID|None=None; earned_points:int=0; redeemed_points:int=0
+ expired_points:int=0; participants:int=0
+
+class RewardReportResponse(BaseModel):
+ model_config=ConfigDict(extra="allow")
+ earned_points:int=0; redeemed_points:int=0; expired_points:int=0
+ adjusted_points:int=0; reversed_points:int=0; ledger_entries:int=0; participants:int=0
+ incentive_achievements:int=0; outstanding_points:int=0; pending_redemptions:int=0
+ pending_approvals:int=0; by_branch:list[RewardBranchReportResponse]=Field(default_factory=list)
+ page:int; page_size:int; period_start:datetime|None=None; period_end:datetime|None=None
+
+class PlatformSmartRewardOverviewRowResponse(BaseModel):
+ model_config=ConfigDict(extra="allow")
+ organization_id:UUID; organization_name:str; earned_points:int=0; redeemed_points:int=0
+ outstanding_points:int=0; expired_points:int=0; adjusted_points:int=0; reversed_points:int=0
+ incentive_achievements:int=0; pending_redemptions:int=0; pending_approvals:int=0; participants:int=0
+
+class PlatformSmartRewardOverviewResponse(BaseModel):
+ model_config=ConfigDict(extra="allow")
+ items:list[PlatformSmartRewardOverviewRowResponse]; total:int; limit:int; offset:int
