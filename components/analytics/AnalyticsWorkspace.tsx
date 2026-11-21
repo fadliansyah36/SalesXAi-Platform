@@ -16,6 +16,7 @@ export function AnalyticsWorkspace({compact=false}:{compact?:boolean}){
  const [periodEnd,setPeriodEnd]=useState(initialEnd);
  const [grain,setGrain]=useState<"day"|"week"|"month">("day");
  const [scopeType,setScopeType]=useState<"tenant"|"branch"|"team"|"territory"|"user">("tenant");
+ const [scopeId,setScopeId]=useState("");
  const [dashboard,setDashboard]=useState<AnalyticsDashboardResponse|null>(null);
  const [reports,setReports]=useState<AnalyticsReportRun[]>([]);
  const [loading,setLoading]=useState(false);
@@ -29,16 +30,19 @@ export function AnalyticsWorkspace({compact=false}:{compact?:boolean}){
   if(!api)return;
   setLoading(true);setError(null);
   try{
-   const [result,history]=await Promise.all([api.dashboard(periodStart,periodEnd,grain),api.reports()]);
+   const [result,history]=await Promise.all([api.dashboard(periodStart,periodEnd,grain,scopeType,scopeId||null),api.reports()]);
    setDashboard(result);setReports(history);
   }catch(cause){setError(cause instanceof Error?cause.message:"Data analytics tidak dapat dimuat.");}
   finally{setLoading(false);}
- },[api,periodStart,periodEnd,grain]);
+ },[api,periodStart,periodEnd,grain,scopeType,scopeId]);
  useEffect(()=>{void refresh();},[refresh]);
  useEffect(()=>{
-  if(!dashboard?.scopes.length||dashboard.scopes.some(scope=>scope.scope_type==="tenant"))return;
-  setScopeType(dashboard.scopes[0].scope_type);
- },[dashboard]);
+  if(!dashboard?.scopes.length)return;
+  const available=dashboard.scopes.filter(scope=>scope.scope_type===scopeType);
+  if(!available.length){setScopeType(dashboard.scopes[0].scope_type);return;}
+  if(scopeType==="tenant"){setScopeId("");return;}
+  if(!available.some(scope=>scope.scope_id===scopeId))setScopeId(available[0].scope_id??"");
+ },[dashboard,scopeType,scopeId]);
  useEffect(()=>{
   if(!api||!reports.some(report=>report.status==="queued"||report.status==="running"))return;
   const timer=setInterval(()=>{void api.reports().then(setReports).catch(()=>undefined);},5000);
@@ -48,8 +52,8 @@ export function AnalyticsWorkspace({compact=false}:{compact?:boolean}){
  const visibleMetrics=useMemo(()=>{
   const values=dashboard?.metrics??[];
   if(scopeType==="tenant")return values.filter(item=>item.scope_type==="tenant");
-  return values.filter(item=>item.scope_type===scopeType);
- },[dashboard,scopeType]);
+  return values.filter(item=>item.scope_type===scopeType&&(!scopeId||item.scope_id===scopeId));
+ },[dashboard,scopeType,scopeId]);
  const latestMetrics=useMemo(()=>{
   const latest=new Map<string,number>();
   for(const item of visibleMetrics)latest.set(item.metric_key,(latest.get(item.metric_key)??0)+Number(item.metric_value));
@@ -60,11 +64,11 @@ export function AnalyticsWorkspace({compact=false}:{compact?:boolean}){
   if(!api)return;
   setBusy(true);setNotice(null);setError(null);
   try{
-   const selectedScope=dashboard?.scopes.find(scope=>scope.scope_type===scopeType);
+   const selectedScope=dashboard?.scopes.find(scope=>scope.scope_type===scopeType&&(scopeType==="tenant"||scope.scope_id===scopeId));
    if(scopeType!=="tenant"&&!selectedScope?.scope_id)throw new Error("Scope laporan belum tersedia untuk cakupan ini.");
    const result:AnalyticsReportExportResponse=await api.createReport({
     report_key:"operational-kpi",period_start:periodStart,period_end:periodEnd,
-    period_grain:grain,scope_type:scopeType,scope_id:selectedScope?.scope_id??null,
+    period_grain:grain,scope_type:scopeType,scope_id:scopeType==="tenant"?null:selectedScope?.scope_id??null,
     idempotency_key:"analytics-"+scopeType+"-"+(selectedScope?.scope_id??"tenant")+"-"+periodStart+"-"+periodEnd+"-"+grain+"-"+Date.now(),
    });
    setNotice("Ekspor CSV masuk antrean. Status akan diperbarui otomatis.");
@@ -99,6 +103,7 @@ export function AnalyticsWorkspace({compact=false}:{compact?:boolean}){
    <label className="text-xs text-[var(--color-text-secondary)]">Sampai<input type="date" value={periodEnd} min={periodStart} onChange={e=>setPeriodEnd(e.target.value)} className="mt-1 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-2 text-sm text-[var(--color-text-primary)]"/></label>
    <label className="text-xs text-[var(--color-text-secondary)]">Periode<select value={grain} onChange={e=>setGrain(e.target.value as typeof grain)} className="mt-1 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-2 text-sm text-[var(--color-text-primary)]"><option value="day">Harian</option><option value="week">Mingguan</option><option value="month">Bulanan</option></select></label>
    <label className="text-xs text-[var(--color-text-secondary)]">Cakupan<select value={scopeType} onChange={e=>setScopeType(e.target.value as typeof scopeType)} className="mt-1 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-2 text-sm text-[var(--color-text-primary)]"><option value="tenant">Organisasi</option><option value="branch">Cabang</option><option value="team">Tim</option><option value="territory">Teritori</option><option value="user">Salesperson</option></select></label>
+   {scopeType!=="tenant"&&<label className="text-xs text-[var(--color-text-secondary)]">ID Scope<select value={scopeId} onChange={e=>setScopeId(e.target.value)} className="mt-1 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-2 text-xs text-[var(--color-text-primary)]">{(dashboard?.scopes??[]).filter(scope=>scope.scope_type===scopeType).map(scope=><option key={scope.scope_id??"tenant"} value={scope.scope_id??""}>{scope.scope_id}</option>)}</select></label>}
   </div>
   {error&&<p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700">{error}</p>}
   {notice&&<p role="status" className="rounded-lg border border-[var(--color-border)] p-3 text-xs text-[var(--color-text-secondary)]">{notice}</p>}
