@@ -828,3 +828,23 @@ export function createSmartRewardApi(client:SalesXApiClient,organizationId:strin
 
  };
 }
+
+export function createLocationApi(client:SalesXApiClient,organizationId:string){
+ const base="/api/v1/organizations/"+encodeURIComponent(organizationId)+"/location";
+ return {
+  startSession:(body:import("@salesx-ai/api-contracts").LocationSessionStart)=>client.request<import("@salesx-ai/api-contracts").LocationSession>(base+"/sessions",{method:"POST",body:JSON.stringify(body)}),
+  updateSession:(id:string,body:import("@salesx-ai/api-contracts").LocationSessionAction)=>client.request<import("@salesx-ai/api-contracts").LocationSession>(base+"/sessions/"+encodeURIComponent(id),{method:"PATCH",body:JSON.stringify(body)}),
+  ingest:(sessionId:string,deviceId:string,body:import("@salesx-ai/api-contracts").LocationPointBatch)=>client.request<import("@salesx-ai/api-contracts").LocationBatchResult>(base+"/sessions/"+encodeURIComponent(sessionId)+"/points",{method:"POST",headers:{"X-Device-ID":deviceId},body:JSON.stringify(body)}),
+  live:()=>client.request<{items:import("@salesx-ai/api-contracts").LocationLatestPosition[]}>(base+"/live"),
+  history:(query:{from_at?:string;to_at?:string;sales_profile_id?:string;page?:number;page_size?:number}={})=>{const q=new URLSearchParams();for(const [k,v] of Object.entries(query))if(v!==undefined)q.set(k,String(v));return client.request<import("@salesx-ai/api-contracts").LocationHistoryPage>(base+"/history?"+q.toString());},
+  routes:(query:{from_date?:string;to_date?:string;sales_profile_id?:string}={})=>{const q=new URLSearchParams();for(const [k,v] of Object.entries(query))if(v!==undefined)q.set(k,String(v));return client.request<{items:import("@salesx-ai/api-contracts").LocationRouteSummary[]}>(base+"/routes?"+q.toString());},
+  geofences:()=>client.request<{items:import("@salesx-ai/api-contracts").LocationGeofence[]}>(base+"/geofences"),
+  createGeofence:(body:import("@salesx-ai/api-contracts").LocationGeofenceWrite)=>client.request<import("@salesx-ai/api-contracts").LocationGeofence>(base+"/geofences",{method:"POST",body:JSON.stringify(body)}),
+  subscribeEvents:(onEvent:(event:Record<string,unknown>)=>void,onReconnect?:()=>void):(()=>void)=>{
+   const tokenPromise=client.fetch("/api/v1/auth/me").then(()=>undefined).catch(()=>undefined);
+   let stopped=false;let source:EventSource|null=null;
+   void tokenPromise.then(()=>{if(stopped)return;const url=base+"/events";source=new EventSource(url);source.addEventListener("location.updated",(event)=>{try{onEvent(JSON.parse((event as MessageEvent).data));}catch{}});source.onerror=()=>{onReconnect?.();};});
+   return ()=>{stopped=true;source?.close();};
+  },
+ };
+}
