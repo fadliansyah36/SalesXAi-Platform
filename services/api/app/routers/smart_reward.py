@@ -182,9 +182,11 @@ async def reward_events(organization_id:UUID,after:str|None=None,principal:Princ
    rows=await db.fetch("""select id,occurred_at,payload from public.reward_event_outbox where organization_id=$1
     and event_type='smartreward.changed' and (occurred_at>$2 or (occurred_at=$2 and id>$3))
     and (
-      payload->>'participant_user_id'=$5
-      or payload->>'requested_by'=$5
-      or payload->>'branch_id'=any($6::text[])
+      (
+        (payload->>'participant_user_id'=$5 or payload->>'requested_by'=$5
+          or payload->>'branch_id'=any($6::text[]))
+        and payload->>'resource'=any($7::text[])
+      )
       or ($4::boolean and payload->>'resource'=any($7::text[]))
       or ($8::boolean and payload->>'resource'=any($9::text[]))
     )
