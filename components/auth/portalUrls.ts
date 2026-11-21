@@ -26,6 +26,10 @@ export function getSalesXPortalUrlForPath(path:string):string{
  if(normalized.startsWith("/customer/"))return customer()+normalized;
  if(normalized==="/company")return getSalesXPortalUrl("company");
  if(normalized.startsWith("/company/"))return company()+normalized;
+ if(normalized==="/distributor/portal"||normalized.startsWith("/distributor/portal/"))return company()+"/distributor"+normalized.slice("/distributor/portal".length);
+ if(normalized==="/principal/portal"||normalized.startsWith("/principal/portal/"))return company()+"/principal"+normalized.slice("/principal/portal".length);
+ if(normalized==="/supervisor/portal"||normalized.startsWith("/supervisor/portal/"))return company()+"/supervisor"+normalized.slice("/supervisor/portal".length);
+ if(normalized==="/admin/portal"||normalized.startsWith("/admin/portal/"))return company()+"/super-admin"+normalized.slice("/admin/portal".length);
  if(normalized==="/distributor"||normalized.startsWith("/distributor/"))return company()+normalized;
  if(normalized==="/principal"||normalized.startsWith("/principal/"))return company()+normalized;
  if(normalized==="/supervisor"||normalized.startsWith("/supervisor/"))return company()+normalized;
