@@ -71,6 +71,13 @@ async def create_geofence(organization_id:UUID,payload:LocationGeofenceWrite,pri
  json.dumps(payload.boundary_geojson),payload.event_types,payload.dwell_seconds,payload.accuracy_limit_m,principal.user_id)
  return dict(row)
 
+
+@router.get("/{organization_id}/location/geofence-events")
+async def geofence_events(organization_id:UUID,page:int=Query(1,ge=1),page_size:int=Query(100,ge=1,le=500),
+ principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("location.geofence_events.read")),
+ db:asyncpg.Connection=Depends(get_connection)):
+ return await location_service.geofence_events(db,organization_id,tenant,principal.user_id,page,page_size)
+
 @router.get("/{organization_id}/location/events")
 async def events(organization_id:UUID,request:Request,principal:Principal=Depends(get_current_principal),
  tenant:TenantContext=Depends(require_api_action("location.live.read")),db:asyncpg.Connection=Depends(get_connection)):
