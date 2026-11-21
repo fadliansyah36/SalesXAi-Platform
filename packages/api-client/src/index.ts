@@ -892,3 +892,16 @@ export function createMapsApi(client:SalesXApiClient,organizationId:string){
   ),
  };
 }
+
+export function createAnalyticsApi(client:SalesXApiClient,organizationId:string){
+ const base="/api/v1/organizations/"+encodeURIComponent(organizationId)+"/analytics";
+ return {
+  dashboard:(periodStart:string,periodEnd:string,grain:"day"|"week"|"month"="day")=>
+   client.request<import("@salesx-ai/api-contracts").AnalyticsDashboardResponse>(
+    base+"/dashboard?period_start="+encodeURIComponent(periodStart)+"&period_end="+encodeURIComponent(periodEnd)+"&grain="+grain
+   ),
+  reports:()=>client.request<import("@salesx-ai/api-contracts").AnalyticsReportRun[]>(base+"/reports"),
+  createReport:(payload:import("@salesx-ai/api-contracts").AnalyticsReportRunCreate)=>
+   client.request<import("@salesx-ai/api-contracts").AnalyticsReportRun>(base+"/reports",{method:"POST",body:JSON.stringify(payload)}),
+ };
+}
