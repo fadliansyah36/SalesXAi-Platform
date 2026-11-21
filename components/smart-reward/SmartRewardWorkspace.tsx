@@ -35,7 +35,7 @@ export function SmartRewardWorkspace(){
   const results=await Promise.allSettled(jobs),failed=results.find(x=>x.status==="rejected");
   if(failed&&failed.status==="rejected")setError(failed.reason instanceof Error?failed.reason.message:"Data SmartReward gagal dimuat.");
   setLoading(false);
- },[api,auth.status,auth.contextEpoch,auth.activeOrganizationId,auth.context,reportStart,reportEnd,reportBranch]);
+ },[api,auth.status,auth.activeOrganizationId,auth.context,reportStart,reportEnd,reportBranch]);
  useEffect(()=>{void refresh();},[refresh]);
  useEffect(()=>{
   if(!client||!org||auth.status!=="authenticated"||!canRealtime)return;
