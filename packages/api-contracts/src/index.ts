@@ -467,3 +467,24 @@ export interface MapPlaceResult {
   primaryTypeDisplayName?:{text?:string;languageCode?:string};
 }
 export interface MapPlacesSearchResponse {places:MapPlaceResult[];nextPageToken:string|null;}
+
+export type AnalyticsPeriodGrain = "day" | "week" | "month";
+export type AnalyticsScopeType = "tenant" | "branch" | "team" | "territory" | "user";
+export interface AnalyticsMetricPoint {
+  metric_key:string; period_start:string; period_end:string;
+  scope_type:AnalyticsScopeType; scope_id:UUID|null; metric_value:number;
+  dimensions:Record<string,unknown>; source_watermark:ISODateTime|null; calculated_at:ISODateTime;
+}
+export interface AnalyticsDashboardResponse {
+  organization_id:UUID; period_start:string; period_end:string; period_grain:AnalyticsPeriodGrain;
+  scopes:Array<{scope_type:AnalyticsScopeType;scope_id:UUID|null}>;
+  metrics:AnalyticsMetricPoint[]; data_as_of:ISODateTime|null; is_stale:boolean;
+}
+export interface AnalyticsReportRunCreate {
+  report_key:string; period_start:string; period_end:string; period_grain:AnalyticsPeriodGrain;
+  scope_type:"tenant"; scope_id?:null; idempotency_key:string; parameters?:Record<string,unknown>;
+}
+export interface AnalyticsReportRun {
+  id:UUID; report_key:string; status:"queued"|"running"|"completed"|"failed"|"cancelled";
+  period_start:string; period_end:string; period_grain:AnalyticsPeriodGrain; requested_at:ISODateTime;
+}
