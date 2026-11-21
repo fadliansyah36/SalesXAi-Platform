@@ -10,6 +10,7 @@ from app.errors import APIError
 from app.security.dependencies import Principal, TenantContext, get_current_principal, require_api_action
 from app.schemas.location import LocationSessionStart, LocationSessionAction, LocationPointBatch, LocationGeofenceWrite
 from app.services.location import location_service
+from app.repositories.location import location_repository
 
 router=APIRouter(prefix="/organizations",tags=["location-intelligence"])
 
@@ -63,12 +64,7 @@ async def geofences(organization_id:UUID,principal:Principal=Depends(get_current
 async def create_geofence(organization_id:UUID,payload:LocationGeofenceWrite,principal:Principal=Depends(get_current_principal),
  tenant:TenantContext=Depends(require_api_action("location.geofences.manage")),db:asyncpg.Connection=Depends(get_connection)):
  if tenant.organization_id!=organization_id: raise APIError(403,"tenant_scope_mismatch","Location access is restricted to the active organization.")
- row=await db.fetchrow("""insert into public.location_geofences
- (organization_id,code,name,geofence_type,outlet_id,territory_id,boundary,event_types,dwell_seconds,accuracy_limit_m,created_by)
- values($1,$2,$3,$4,$5,$6,extensions.st_geogfromgeojson($7::json),$8,$9,$10,$11)
- returning id,organization_id,code,name,geofence_type,outlet_id,territory_id,event_types,dwell_seconds,accuracy_limit_m,status,created_at,updated_at""",
- organization_id,payload.code.upper(),payload.name,payload.geofence_type,payload.outlet_id,payload.territory_id,
- json.dumps(payload.boundary_geojson),payload.event_types,payload.dwell_seconds,payload.accuracy_limit_m,principal.user_id)
+ row=await location_repository.create_geofence(db,organization_id,principal.user_id,payload)
  return dict(row)
 
 
