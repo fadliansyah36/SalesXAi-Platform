@@ -176,7 +176,7 @@ function SalesHome({auth}:{auth:AuthState}){
          <SmartTeamHome auth={auth} salesProfileId={typeof assignmentContext?.sales_profile?.id==="string"?String(assignmentContext.sales_profile.id):null}/>
        <SmartOrderHome auth={auth}/>
        <SmartRewardHome auth={auth}/>
-         <LocationTrackingControl api={auth.apiClient} organizationId={auth.activeOrganizationId} accessToken={auth.session?.access_token??null}/>
+         <LocationTrackingControl api={auth.apiClient} organizationId={auth.activeOrganizationId} accessToken={auth.session?.access_token??null} actorUserId={auth.context?.user.id??null}/>
         </>}
 
        {canReadAssignmentContext&&assignmentContext&&<NativeStack gap="2">
