@@ -67,6 +67,7 @@
         "expo-sqlite": "~58.0.18",
         "react": "19.3.0",
         "react-native": "0.88.1",
+        "react-native-maps": "~1.29.11",
         "expo-task-manager": "~58.0.14"
       },
       "devDependencies": {
@@ -15096,6 +15097,30 @@
       "",
       {},
       "sha512-jf84uxzwiuiIVKiOLpfYk7N46TSy8ubTonmneY9vrpHNAnp0QBt2BxWV9dO3/j+BoVAb+a5G6YDPW3M5HOdMWQ=="
+    ],
+    "@types/geojson": [
+      "@types/geojson@7946.0.16",
+      "",
+      {},
+      "sha512-6C8nqWur3j98U6+lXDfTUWIfgvZU+EumvpHKcYjujKH7woYyLj2sUmff0tRhrqM7BohUw7Pz3ZB1jj2gW9Fvmg=="
+    ],
+    "react-native-maps": [
+      "react-native-maps@1.29.11",
+      "",
+      {
+        "dependencies": {
+          "@types/geojson": "^7946.0.13"
+        },
+        "peerDependencies": {
+          "react": ">= 18.3.1",
+          "react-native": ">= 0.76.0",
+          "react-native-web": ">= 0.11"
+        },
+        "optionalPeers": [
+          "react-native-web"
+        ]
+      },
+      "sha512-fZNc6AINuPdHS2puudanNPd9ZMPPuerTHfy9HU6LbpOD+kB03SuOZRbOEYIOE2eSuUPYwLHvU8ys1RcSIxLYhA=="
     ],
     "expo-task-manager": [
       "expo-task-manager@58.0.14",
