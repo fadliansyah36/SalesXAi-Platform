@@ -19,7 +19,11 @@ export function LocationWorkspace(){
  const [replayBusy,setReplayBusy]=useState(false),[mapMessage,setMapMessage]=useState("");
  const [busy,setBusy]=useState(false),[error,setError]=useState(""),[updatedAt,setUpdatedAt]=useState("");
  const can=(id:string)=>auth.canPerformApiAction(id as never);
- const canLive=can("location.live.read"),canHistory=can("location.history.read"),canGeofences=can("location.geofences.read"),canReplay=can("location.routes.replay");
+ const canLive=can("location.live.read"),canHistory=can("location.history.read"),canGeofences=can("location.geofences.read"),canManageGeofences=can("location.geofences.manage"),canReplay=can("location.routes.replay");
+ const [geofenceCode,setGeofenceCode]=useState("");
+ const [geofenceName,setGeofenceName]=useState("");
+ const [geofenceBoundary,setGeofenceBoundary]=useState("");
+ const [geofenceSubmitting,setGeofenceSubmitting]=useState(false);
  const refresh=useCallback(async()=>{
   if(!api||auth.status!=="authenticated"||!org)return;
   setBusy(true);setError("");
@@ -63,6 +67,24 @@ export function LocationWorkspace(){
    setMapMessage("Posisi dipilih: "+event.coordinate.lat.toFixed(5)+", "+event.coordinate.lng.toFixed(5));
   }
  },[routes,geofences,loadReplay]);
+ const saveGeofence=useCallback(async()=>{
+  if(!api||!canManageGeofences)return;
+  setGeofenceSubmitting(true);setError("");
+  try{
+   const boundary=JSON.parse(geofenceBoundary) as Record<string,unknown>;
+   if(!["Polygon","MultiPolygon"].includes(String(boundary.type))||!Array.isArray(boundary.coordinates)){
+    throw new Error("Boundary harus berupa GeoJSON Polygon atau MultiPolygon.");
+   }
+   await api.createGeofence({
+    code:geofenceCode.trim(),name:geofenceName.trim(),geofence_type:"custom",
+    boundary_geojson:boundary,event_types:["enter","exit","dwell"],dwell_seconds:300,accuracy_limit_m:100,
+   });
+   setGeofenceCode("");setGeofenceName("");setGeofenceBoundary("");
+   await refresh();
+   setMapMessage("Geofence berhasil disimpan.");
+  }catch(error){setError(error instanceof Error?error.message:"Geofence tidak dapat disimpan.");}
+  finally{setGeofenceSubmitting(false);}
+ },[api,canManageGeofences,geofenceBoundary,geofenceCode,geofenceName,refresh]);
  const replayPoint=replayPoints[replayIndex]??null;
  const center= replayPoint?{lat:replayPoint.latitude,lng:replayPoint.longitude}:live[0]?{lat:live[0].latitude,lng:live[0].longitude}:null;
  const mapsConfig=resolveMapsRuntimeConfig("web",{
@@ -106,6 +128,15 @@ export function LocationWorkspace(){
    <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]"><div className="border-b border-[var(--color-border)] px-4 py-3"><h2 className="font-semibold">Route history</h2></div>{routes.length===0?<p className="p-4 text-sm text-[var(--color-text-secondary)]">No route summaries available for the authorized scope.</p>:<div className="divide-y divide-[var(--color-border)]">{routes.slice(0,30).map(route=><div key={route.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"><div><p className="text-sm font-medium">{route.route_date}</p><p className="text-xs text-[var(--color-text-secondary)]">{route.point_count} GPS points · {route.sales_profile_id}</p></div><div className="flex items-center gap-3"><p className="text-sm font-semibold tabular-nums">{(route.distance_m/1000).toFixed(2)} km</p><button type="button" onClick={()=>void loadReplay(route)} disabled={replayBusy||!canReplay} aria-pressed={selectedReplay?.id===route.id} className="rounded-md border border-[var(--color-border)] px-3 py-1.5 text-xs font-semibold text-[var(--color-text-primary)] disabled:opacity-50">{replayBusy?"Loading…":"Replay"}</button></div></div>)}</div>}</div>
    <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]"><div className="border-b border-[var(--color-border)] px-4 py-3"><h2 className="font-semibold">Geofence activity</h2></div>{events.length===0?<p className="p-4 text-sm text-[var(--color-text-secondary)]">No geofence events for the authorized scope.</p>:<div className="divide-y divide-[var(--color-border)]">{events.slice(0,30).map(event=><div key={event.id} className="flex items-center justify-between gap-3 px-4 py-3"><div><p className="text-sm font-medium">{event.geofence_name} · {event.event_type}</p><p className="text-xs text-[var(--color-text-secondary)]">{event.user_id}</p></div><time className="text-xs text-[var(--color-text-secondary)]">{new Date(event.occurred_at).toLocaleString("id-ID")}</time></div>)}</div>}</div>
   </div>
+  {canManageGeofences&&<form onSubmit={event=>{event.preventDefault();void saveGeofence();}} className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 space-y-3">
+   <div><h2 className="font-semibold">Configure custom geofence</h2><p className="mt-1 text-xs text-[var(--color-text-secondary)]">Simpan boundary GeoJSON Polygon atau MultiPolygon. Deteksi enter, exit dan dwell aktif setelah titik GPS diterima.</p></div>
+   <div className="grid gap-3 sm:grid-cols-2">
+    <label className="grid gap-1 text-xs font-medium text-[var(--color-text-secondary)]">Kode geofence<input required maxLength={64} value={geofenceCode} onChange={event=>setGeofenceCode(event.target.value)} placeholder="AREA-JAKARTA-01" className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-text-primary)]"/></label>
+    <label className="grid gap-1 text-xs font-medium text-[var(--color-text-secondary)]">Nama geofence<input required maxLength={160} value={geofenceName} onChange={event=>setGeofenceName(event.target.value)} placeholder="Area Operasional" className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-text-primary)]"/></label>
+   </div>
+   <label className="grid gap-1 text-xs font-medium text-[var(--color-text-secondary)]">GeoJSON boundary<textarea required rows={4} value={geofenceBoundary} onChange={event=>setGeofenceBoundary(event.target.value)} placeholder='{"type":"Polygon","coordinates":[[[106.8,-6.2],[106.81,-6.2],[106.81,-6.21],[106.8,-6.21],[106.8,-6.2]]]}' className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 font-mono text-xs text-[var(--color-text-primary)]"/></label>
+   <button type="submit" disabled={geofenceSubmitting||!geofenceCode.trim()||!geofenceName.trim()||!geofenceBoundary.trim()} className="rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{geofenceSubmitting?"Menyimpan…":"Simpan geofence"}</button>
+  </form>}
   <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]"><div className="border-b border-[var(--color-border)] px-4 py-3"><h2 className="font-semibold">Configured geofences</h2></div>{geofences.length===0?<p className="p-4 text-sm text-[var(--color-text-secondary)]">No geofences configured.</p>:<div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3">{geofences.map(item=><div key={item.id} className="rounded-lg border border-[var(--color-border)] p-3"><p className="font-medium">{item.name}</p><p className="mt-1 text-xs text-[var(--color-text-secondary)]">{item.code} · {item.geofence_type} · {item.status}</p><p className="mt-1 text-xs text-[var(--color-text-secondary)]">Dwell {item.dwell_seconds}s · Accuracy ±{item.accuracy_limit_m}m</p></div>)}</div>}</div>
  </section>;
 }
