@@ -422,11 +422,21 @@ class SmartOrderRepository:
     if prior["decision"]!=p.decision:raise APIError(409,"approval_already_recorded","This actor has already recorded a different approval decision.")
     return await self.get_order(db,org,actor,oid,True)
    if o["status"]!="pending_approval":raise APIError(409,"invalid_order_transition","Only pending approval orders can be decided.")
-   pending_partners=await db.fetchval("""select count(*) from (select distinct oi.product_owner_organization_id from public.order_items oi
-    join public.commerce_partner_links l on l.organization_id=oi.product_owner_organization_id and l.partner_organization_id=$1
-     and l.relationship_type in ('principal','distributor','company','customer') and l.status='active' and l.starts_at<=now() and (l.ends_at is null or l.ends_at>now())
-    where oi.organization_id=$1 and oi.order_id=$2 and oi.product_owner_organization_id<>$1
-     and coalesce((select d.decision from public.order_partner_decisions d where d.organization_id=$1 and d.order_id=$2 and d.partner_organization_id=oi.product_owner_organization_id order by d.decided_at desc,d.id desc limit 1),'')<>'accepted') pending""",org,oid)
+   pending_partners=await db.fetchval("""select count(*) from (
+    select distinct partner_org from (
+     select oi.product_owner_organization_id partner_org from public.order_items oi
+      where oi.organization_id=$1 and oi.order_id=$2 and oi.product_owner_organization_id<>$1
+     union
+     select sm.organization_id partner_org from public.stock_movements sm
+      where sm.reference_type='order' and sm.reference_id=$2 and sm.movement_type='reserve' and sm.organization_id<>$1
+    ) candidates
+    join public.commerce_partner_links l on l.organization_id=candidates.partner_org and l.partner_organization_id=$1
+     and l.relationship_type in ('principal','distributor','company','customer') and l.status='active'
+     and l.starts_at<=now() and (l.ends_at is null or l.ends_at>now())
+    where coalesce((select d.decision from public.order_partner_decisions d
+      where d.organization_id=$1 and d.order_id=$2 and d.partner_organization_id=candidates.partner_org
+      order by d.decided_at desc,d.id desc limit 1),'')<>'accepted'
+   ) pending""",org,oid)
    if pending_partners:raise APIError(409,"partner_approval_pending","All Principal and Distributor partners must accept their order allocations before buyer approval.")
    policy=await db.fetchrow("""select * from public.order_approval_policies where organization_id=$1 and status='active'
     and minimum_total<=$2 and (maximum_total is null or maximum_total>=$2) order by minimum_total desc limit 1""",org,o["grand_total"])
