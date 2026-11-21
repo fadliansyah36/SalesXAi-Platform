@@ -33,9 +33,9 @@ def database_ssl_context() -> ssl.SSLContext:
 
 def storage_request(method: str, path: str, payload: bytes | None = None, content_type: str = "application/json"):
     base = os.getenv("SUPABASE_URL", "https://eyofuiyxalbehbqoaeny.supabase.co").rstrip("/")
-    key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+    key = os.getenv("SUPABASE_SECRET_KEY") or os.getenv("SUPABASE_SERVICE_ROLE_KEY")
     if not key:
-        raise RuntimeError("SUPABASE_SERVICE_ROLE_KEY is required by the server-side analytics export worker.")
+        raise RuntimeError("SUPABASE_SECRET_KEY is required by the server-side analytics export worker.")
     request = urllib.request.Request(
         base + "/storage/v1/" + path.lstrip("/"),
         data=payload,
