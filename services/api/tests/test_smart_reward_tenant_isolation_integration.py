@@ -121,12 +121,17 @@ class SmartRewardAuthenticatedTenantIsolationTests(unittest.IsolatedAsyncioTestC
 
     async def asyncTearDown(self):
         if getattr(self, "db", None):
-            await self.db.execute("delete from public.organizations where id = any($1::uuid[])", [
-                self.organization_id, self.other_organization_id
-            ])
+            organization_ids = [self.organization_id, self.other_organization_id]
+            await self.db.execute(
+                "delete from public.organization_memberships where organization_id=any($1::uuid[])",
+                organization_ids,
+            )
+            await self.db.execute(
+                "delete from public.organizations where id=any($1::uuid[])",
+                organization_ids,
+            )
             await self.db.execute("delete from public.session_devices where auth_session_id=$1", self.session_id)
             await self.db.execute("delete from auth.sessions where id=$1", self.session_id)
-            await self.db.execute("delete from public.profiles where id=$1", self.user_id)
             await self.db.execute("delete from auth.users where id=$1", self.user_id)
             await self.db.close()
 
