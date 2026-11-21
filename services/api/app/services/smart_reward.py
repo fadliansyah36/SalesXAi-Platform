@@ -244,6 +244,43 @@ class SmartRewardService:
     values($1,$2,$3,'reversal',$4,$5,$6,'ledger',$7,'ledger',$7,$8,$9,$10,$11) returning *""",org,a["id"],old["participant_user_id"],delta,b,after,eid,actor,p.idempotency_key,p.reason,eid)
    await db.execute("update public.reward_accounts set points_balance=$3,updated_at=now() where organization_id=$1 and id=$2",org,a["id"],after)
    await self._audit(db,org,actor,"points.reversed","reward_points_ledger",r["id"],p.reason,{"reversed_entry_id":str(eid)});return dict(r)
+
+ async def platform_overview(self,db:SmartRewardRepository,start_at=None,end_at=None,limit=100,offset=0):
+  total=await db.fetchval("select count(*) from public.organizations where status='active'")
+  rows=await db.fetch("""with ledger as (
+    select organization_id,
+     coalesce(sum(points_delta) filter(where entry_type='earn' and points_delta>0),0)::bigint earned_points,
+     coalesce(sum(-points_delta) filter(where entry_type='redemption'),0)::bigint redeemed_points,
+     coalesce(sum(-points_delta) filter(where entry_type='expiration'),0)::bigint expired_points,
+     coalesce(sum(points_delta) filter(where entry_type in ('adjustment','reversal')),0)::bigint adjusted_points,
+     count(*) filter(where entry_type='earn' and metadata ? 'rule_id')::bigint incentive_achievements
+    from public.reward_points_ledger where ($1::timestamptz is null or occurred_at>=$1)
+     and ($2::timestamptz is null or occurred_at<$2) group by organization_id
+   ), accounts as (
+    select organization_id,coalesce(sum(points_balance),0)::bigint outstanding_points,
+     count(distinct participant_user_id)::bigint participants from public.reward_accounts
+    where status='active' group by organization_id
+   ), redemptions as (
+    select organization_id,count(*) filter(where status in ('requested','approved'))::bigint pending_redemptions
+    from public.reward_redemptions where ($1::timestamptz is null or requested_at>=$1)
+     and ($2::timestamptz is null or requested_at<$2) group by organization_id
+   ), approvals as (
+    select organization_id,count(*) filter(where status='pending')::bigint pending_approvals
+    from public.reward_approval_requests where ($1::timestamptz is null or created_at>=$1)
+     and ($2::timestamptz is null or created_at<$2) group by organization_id
+   )
+   select o.id organization_id,o.name organization_name,coalesce(l.earned_points,0) earned_points,
+    coalesce(l.redeemed_points,0) redeemed_points,coalesce(a.outstanding_points,0) outstanding_points,
+    coalesce(l.expired_points,0) expired_points,coalesce(l.adjusted_points,0) adjusted_points,
+    coalesce(l.incentive_achievements,0) incentive_achievements,
+    coalesce(r.pending_redemptions,0) pending_redemptions,coalesce(p.pending_approvals,0) pending_approvals,
+    coalesce(a.participants,0) participants
+   from public.organizations o left join ledger l on l.organization_id=o.id
+   left join accounts a on a.organization_id=o.id left join redemptions r on r.organization_id=o.id
+   left join approvals p on p.organization_id=o.id where o.status='active'
+   order by o.name,o.id limit $3 offset $4""",start_at,end_at,limit,offset)
+  return {"items":[dict(x) for x in rows],"total":int(total or 0),"limit":limit,"offset":offset}
+
  async def report(self,db:SmartRewardRepository,org,page,size,start_at=None,end_at=None,branch_id=None,actor=None):
   await db.fetchval("select public.process_reward_expirations(500)")
   if actor is not None:
