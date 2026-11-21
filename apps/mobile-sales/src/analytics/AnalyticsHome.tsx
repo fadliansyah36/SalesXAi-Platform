@@ -13,7 +13,6 @@ type AuthProps={
 };
 
 const formatValue=(value:number)=>new Intl.NumberFormat("id-ID",{maximumFractionDigits:2}).format(value);
-const localDate=(value:Date)=>`${value.getFullYear()}-${String(value.getMonth()+1).padStart(2,"0")}-${String(value.getDate()).padStart(2,"0")}`;
 const today=(timezone?:string)=>new Intl.DateTimeFormat("en-CA",{timeZone:timezone||Intl.DateTimeFormat().resolvedOptions().timeZone,year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
 const shiftDate=(value:string,days:number)=>{const [year,month,day]=value.split("-").map(Number);return new Date(Date.UTC(year,month-1,day+days,12)).toISOString().slice(0,10);};
 
