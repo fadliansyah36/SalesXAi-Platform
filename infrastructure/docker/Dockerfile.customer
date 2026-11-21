@@ -11,6 +11,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV HOSTNAME=0.0.0.0
 COPY --from=build /workspace/infrastructure/scripts/verify-portal-static-runtime.mjs ./infrastructure/scripts/verify-portal-static-runtime.mjs
+COPY --from=build /workspace/infrastructure/scripts/portal-gateway.mjs ./infrastructure/scripts/portal-gateway.mjs
 COPY --from=build /workspace/apps/customer-portal/.next/standalone ./apps/customer-portal/.next/standalone
 EXPOSE 3000
-CMD ["node", "apps/customer-portal/.next/standalone/apps/customer-portal/server.js"]
+CMD ["node", "infrastructure/scripts/portal-gateway.mjs", "customer"]

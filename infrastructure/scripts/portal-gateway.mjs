@@ -8,6 +8,9 @@ const groups = {
     { name: "website", directory: "apps/website", basePath: "", port: 3101, isDefault: true },
     { name: "sales", directory: "apps/sales-portal", basePath: "/sales", port: 3102 },
   ],
+  customer: [
+    { name: "customer", directory: "apps/customer-portal", basePath: "", port: 3301, isDefault: true },
+  ],
   company: [
     { name: "company", directory: "apps/company-portal", basePath: "", port: 3201, isDefault: true },
     { name: "distributor", directory: "apps/distributor-portal", basePath: "/distributor", port: 3202 },
@@ -20,7 +23,7 @@ const groups = {
 const groupName = process.argv[2];
 const apps = groups[groupName];
 if (!apps) {
-  process.stderr.write("Usage: node infrastructure/scripts/portal-gateway.mjs <website|company>\n");
+  process.stderr.write("Usage: node infrastructure/scripts/portal-gateway.mjs <website|customer|company>\n");
   process.exit(1);
 }
 

@@ -1,4 +1,5 @@
 import logging
+from os import getenv
 import asyncpg
 from contextlib import asynccontextmanager
 from uuid import uuid4
@@ -224,7 +225,7 @@ async def readyz(request: Request):
         raise APIError(
             503, "database_unavailable", "Supabase PostgreSQL readiness check failed."
         ) from exc
-    return {"status": "ready", "database": "connected"}
+    return {"status": "ready", "database": "connected", "source_commit": getenv("RAILWAY_GIT_COMMIT_SHA", "unknown")}
 
 
 app.include_router(auth.router, prefix="/api/v1")
