@@ -60,6 +60,7 @@ async def refresh_organization(connection: asyncpg.Connection, organization_id, 
     )
     start_date = end_date - timedelta(days=lookback - 1)
     async with connection.transaction():
+        await connection.execute("select set_config('TimeZone',$1,true)", timezone_name)
         await connection.fetchval(
             "select public.analytics_refresh_daily_metrics($1,$2,$3)",
             organization_id, start_date, end_date,
