@@ -489,6 +489,12 @@ export class SalesXApiClient {
     return this.request(`/api/v1/admin/smart-team/overview?${query.toString()}`);
   }
 
+  listPlatformSmartRewardOverview(limit=100,offset=0,startAt?:string,endAt?:string):Promise<{items:import("@salesx-ai/api-contracts").PlatformSmartRewardOverviewRow[];total:number;limit:number;offset:number}> {
+    const query=new URLSearchParams({limit:String(limit),offset:String(offset)});
+    if(startAt)query.set("start_at",startAt);if(endAt)query.set("end_at",endAt);
+    return this.request(`/api/v1/admin/smart-reward/overview?${query.toString()}`);
+  }
+
 
   async uploadSmartTeamVisitEvidence(
     organizationId:string,visitId:string,file:Blob,fileName:string,mimeType:string,
