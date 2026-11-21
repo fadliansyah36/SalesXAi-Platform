@@ -687,13 +687,13 @@ export class SalesXApiClient {
         while(!stopped){
           const part=await reader.read();if(part.done)break;
           buffer+=decoder.decode(part.value,{stream:true});
-          let boundary=buffer.indexOf("\\n\\n");
+          let boundary=buffer.indexOf("\n\n");
           while(boundary>=0){
             const frame=buffer.slice(0,boundary);buffer=buffer.slice(boundary+2);
             let eventName="message",data="";
-            for(const line of frame.split("\\n")){if(line.startsWith("event:"))eventName=line.slice(6).trim();else if(line.startsWith("data:"))data+=line.slice(5).trim();}
+            for(const line of frame.split("\n")){if(line.startsWith("event:"))eventName=line.slice(6).trim();else if(line.startsWith("data:"))data+=line.slice(5).trim();}
             if(eventName==="smartorder.changed"&&data){try{emit(JSON.parse(data) as import("@salesx-ai/api-contracts").SmartOrderRealtimeEvent);}catch{}}
-            boundary=buffer.indexOf("\\n\\n");
+            boundary=buffer.indexOf("\n\n");
           }
         }
       }catch{if(stopped||controller.signal.aborted)return;}
@@ -852,13 +852,13 @@ export function createLocationApi(client:SalesXApiClient,organizationId:string){
       while(!controller.signal.aborted){
        const part=await reader.read();if(part.done)break;
        buffer+=decoder.decode(part.value,{stream:true});
-       let boundary=buffer.indexOf("\\n\\n");
+       let boundary=buffer.indexOf("\n\n");
        while(boundary>=0){
         const frame=buffer.slice(0,boundary);buffer=buffer.slice(boundary+2);
-        const eventName=frame.split("\\n").find(line=>line.startsWith("event:"))?.slice(6).trim();
-        const data=frame.split("\\n").filter(line=>line.startsWith("data:")).map(line=>line.slice(5).trim()).join("\\n");
+        const eventName=frame.split("\n").find(line=>line.startsWith("event:"))?.slice(6).trim();
+        const data=frame.split("\n").filter(line=>line.startsWith("data:")).map(line=>line.slice(5).trim()).join("\n");
         if(eventName==="location.updated"&&data){try{onEvent(JSON.parse(data));}catch{}}
-        boundary=buffer.indexOf("\\n\\n");
+        boundary=buffer.indexOf("\n\n");
        }
       }
       delay=1000;
