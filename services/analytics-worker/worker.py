@@ -126,7 +126,7 @@ async def process_export(connection: asyncpg.Connection, job: asyncpg.Record):
            set status='completed',artifact_path=$2,artifact_bytes=$3,row_count=$4,
                data_as_of=(select max(calculated_at) from public.analytics_metric_snapshots
                  where organization_id=$5 and period_grain=$6 and period_end >= $7 and period_start <= $8),
-               completed_at=now(),lease_owner=null,lease_expires_at=null,updated_at=now()
+               completed_at=now(),expires_at=now()+interval '30 days',lease_owner=null,lease_expires_at=null,updated_at=now()
            where id=$1""",
         export_id, path, len(data), len(rows), run["organization_id"],
         run["period_grain"], run["period_start"], run["period_end"],
@@ -252,6 +252,33 @@ async def execute_schedule(connection: asyncpg.Connection, job: asyncpg.Record, 
         raise
 
 
+async def cleanup_expired_exports(connection: asyncpg.Connection):
+    rows=await connection.fetch(
+        """select id,organization_id,report_run_id,artifact_path
+           from public.analytics_report_exports
+           where status='completed' and artifact_path is not null and expires_at<=now()
+           order by expires_at limit 20"""
+    )
+    for row in rows:
+        try:
+            await asyncio.to_thread(storage_request,"DELETE",f"object/{BUCKET}/{row['artifact_path']}",None,"application/json")
+            await connection.execute(
+                """update public.analytics_report_exports
+                   set artifact_path=null,artifact_deleted_at=now(),updated_at=now()
+                   where id=$1 and artifact_path=$2""",row["id"],row["artifact_path"]
+            )
+            await connection.execute(
+                "update public.analytics_report_runs set artifact_path=null where id=$1 and organization_id=$2",
+                row["report_run_id"],row["organization_id"],
+            )
+        except Exception:
+            await connection.execute(
+                "update public.analytics_report_exports set cleanup_attempt_count=cleanup_attempt_count+1,updated_at=now() where id=$1",
+                row["id"],
+            )
+            logger.exception("analytics_export_cleanup_failed",extra={"export_id":str(row["id"])})
+
+
 async def run_once() -> int:
     dsn = os.getenv("DATABASE_URL")
     if not dsn:
@@ -322,6 +349,7 @@ async def run_daemon():
                             job["report_run_id"], "failed" if terminal else "queued", str(exc)[:1000],
                         )
                         logger.exception("analytics_export_failed", extra={"export_id": str(job["id"])})
+                await cleanup_expired_exports(connection)
             except Exception:
                 logger.exception("analytics_scheduler_iteration_failed")
             await asyncio.sleep(float(os.getenv("ANALYTICS_SCHEDULER_POLL_SECONDS", "30")))
