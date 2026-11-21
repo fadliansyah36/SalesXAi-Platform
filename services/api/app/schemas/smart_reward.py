@@ -113,6 +113,7 @@ class RewardCatalogItemResponse(BaseModel):
  quantity_reserved:int=0; quantity_fulfilled:int=0; starts_at:datetime|None=None
  ends_at:datetime|None=None; eligibility:dict[str,Any]; metadata:dict[str,Any]
  status:str; created_by:UUID; updated_by:UUID; created_at:datetime; updated_at:datetime
+ eligible:bool|None=None; eligibility_reason:str|None=None; available_stock:int|None=None; points_balance:int|None=None; period_remaining:int|None=None
 
 class RewardBalanceResponse(BaseModel):
  model_config=ConfigDict(extra="allow")
