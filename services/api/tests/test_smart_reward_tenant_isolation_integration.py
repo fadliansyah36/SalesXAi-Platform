@@ -16,23 +16,16 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 import asyncpg
+import jwt
 from fastapi.security import HTTPAuthorizationCredentials
 from starlette.requests import Request
 
+from app.config import Settings
 from app.errors import APIError
 from app.routers import smart_reward
 from app.schemas.smart_reward import RewardProgramWrite, RewardRedemptionWrite
 from app.security.dependencies import get_current_principal, require_permission
-
-
-class _FixtureJWTVerifier:
-    def __init__(self, claims):
-        self.claims = claims
-
-    async def verify(self, token):
-        if token != "isolated-phase06-fixture-token":
-            raise APIError(401, "invalid_token", "Invalid isolated fixture token.")
-        return self.claims
+from app.security.jwt import SupabaseJWTVerifier
 
 
 class SmartRewardAuthenticatedTenantIsolationTests(unittest.IsolatedAsyncioTestCase):
@@ -58,9 +51,20 @@ class SmartRewardAuthenticatedTenantIsolationTests(unittest.IsolatedAsyncioTestC
             "session_id": str(self.session_id),
             "iat": now_epoch,
             "exp": now_epoch + 3600,
-            "iss": "http://127.0.0.1:54321/auth/v1",
+            "iss": "https://eyofuiyxalbehbqoaeny.supabase.co/auth/v1",
             "aud": "authenticated",
         }
+        fixture_secret = "phase06-local-test-jwt-secret-not-a-production-credential"
+        settings = Settings(
+            _env_file=None,
+            supabase_url="https://eyofuiyxalbehbqoaeny.supabase.co",
+            supabase_jwks_url="https://eyofuiyxalbehbqoaeny.supabase.co/auth/v1/.well-known/jwks.json",
+            supabase_jwt_issuer="https://eyofuiyxalbehbqoaeny.supabase.co/auth/v1",
+            supabase_jwt_audience="authenticated",
+            supabase_jwt_secret=fixture_secret,
+        )
+        self.verifier = SupabaseJWTVerifier(settings)
+        self.fixture_token = jwt.encode(self.claims, fixture_secret, algorithm="HS256")
 
         await self.db.execute(
             """insert into auth.users
@@ -120,7 +124,6 @@ class SmartRewardAuthenticatedTenantIsolationTests(unittest.IsolatedAsyncioTestC
             role_id,
             self.organization_id,
         )
-        self.verifier = _FixtureJWTVerifier(self.claims)
 
     async def asyncTearDown(self):
         if getattr(self, "db", None):
@@ -150,7 +153,7 @@ class SmartRewardAuthenticatedTenantIsolationTests(unittest.IsolatedAsyncioTestC
     async def _authenticated_principal(self, request):
         return await get_current_principal(
             request,
-            HTTPAuthorizationCredentials(scheme="Bearer", credentials="isolated-phase06-fixture-token"),
+            HTTPAuthorizationCredentials(scheme="Bearer", credentials=self.fixture_token),
             self.db,
         )
 
