@@ -1199,7 +1199,7 @@ export function LandingPage() {
                   <div className="mt-3 flex items-center justify-between text-xs text-[var(--color-text-secondary)]">
                     <span>Kantor Area Bogor → Toko Sentosa</span>
                     <Link
-                      href="/portal?tab=aktivitas"
+                      href={getSalesXPortalUrlForPath("/portal")+"?tab=aktivitas"}
                       className="font-semibold text-[#348CB2] hover:underline"
                     >
                       Lihat Peta Live di Portal →
@@ -1249,7 +1249,7 @@ export function LandingPage() {
 
               <div className="mt-6">
                 <Link
-                  href="/portal?tab=ai"
+                  href={getSalesXPortalUrlForPath("/portal")+"?tab=ai"}
                   className="inline-flex items-center gap-2 rounded-xl bg-[#348CB2] px-5 py-3 text-sm font-semibold text-white hover:bg-[#236D91] transition-colors"
                 >
                   <span>Coba Staff AI di Sales Portal</span>
@@ -1389,7 +1389,7 @@ export function LandingPage() {
                     </div>
                     <div className="lg:col-span-4 flex lg:justify-end">
                       <Link
-                        href="/portal?tab=ai"
+                        href={getSalesXPortalUrlForPath("/portal")+"?tab=ai"}
                         className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-[#123A54] hover:bg-[#194F70] px-5 py-3 text-sm font-semibold text-white transition-colors text-center"
                       >
                         <span>Uji Staff AI di Portal</span>
