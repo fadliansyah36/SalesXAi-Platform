@@ -62,11 +62,17 @@ async def _claim_schedules(connection:asyncpg.Connection,worker_id:str):
                    case j.schedule_kind
                      when 'interval' then now()+make_interval(mins=>j.interval_minutes)
                      when 'daily' then ((now() at time zone j.timezone)::date+1+j.local_time) at time zone j.timezone
-                     when 'weekly' then (((now() at time zone j.timezone)::date
-                       + ((j.day_of_week-extract(dow from (now() at time zone j.timezone)::date)::int+7)%7)
-                       + case when ((now() at time zone j.timezone)::date
-                         + ((j.day_of_week-extract(dow from (now() at time zone j.timezone)::date)::int+7)%7))
-                         <= (now() at time zone j.timezone)::date then 7 else 0 end+j.local_time) at time zone j.timezone
+                     when 'weekly' then (
+                       ((now() at time zone j.timezone)::date
+                         + ((j.day_of_week-extract(dow from (now() at time zone j.timezone))::int+7)%7)
+                         + case when (
+                           ((now() at time zone j.timezone)::date
+                             + ((j.day_of_week-extract(dow from (now() at time zone j.timezone))::int+7)%7)
+                             + j.local_time) <= (now() at time zone j.timezone)
+                           ) then 7 else 0 end
+                         + j.local_time
+                       ) at time zone j.timezone
+                     )
                      when 'monthly' then (((date_trunc('month',now() at time zone j.timezone)::date
                        + interval '1 month'+(j.day_of_month-1)*interval '1 day')::date+j.local_time) at time zone j.timezone)
                    end
