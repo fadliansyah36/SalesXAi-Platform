@@ -696,7 +696,7 @@ export class SalesXApiClient {
             boundary=buffer.indexOf("\\n\\n");
           }
         }
-      }catch(error){if(stopped||controller.signal.aborted)return;}
+      }catch{if(stopped||controller.signal.aborted)return;}
       schedule();
     };
     void connect();
