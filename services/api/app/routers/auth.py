@@ -120,6 +120,17 @@ async def create_portal_handoff(
     if not _bff_secret_valid(request):
         from app.errors import APIError
         raise APIError(403,"bff_handoff_forbidden","A trusted Web authentication BFF is required.")
+    expected_portal_origin={
+        "sales":settings.salesx_website_origin,
+        "customer":settings.salesx_customer_origin,
+        "company":settings.salesx_company_origin,
+        "distributor":settings.salesx_company_origin,
+        "principal":settings.salesx_company_origin,
+        "supervisor":settings.salesx_company_origin,
+    }[payload.target_portal]
+    if not expected_portal_origin or payload.target_origin!=expected_portal_origin:
+        from app.errors import APIError
+        raise APIError(400,"portal_origin_mismatch","The destination origin does not match the registered portal.")
     allowed_origins=set(settings.allowed_origins)
     if settings.app_public_url:
         allowed_origins.add(settings.app_public_url)
@@ -180,7 +191,15 @@ async def exchange_portal_handoff(
     allowed_origins=set(settings.allowed_origins)
     if settings.app_public_url:
         allowed_origins.add(settings.app_public_url)
-    if target_origin not in allowed_origins:
+    expected_origins={
+        "sales":settings.salesx_website_origin,
+        "customer":settings.salesx_customer_origin,
+        "company":settings.salesx_company_origin,
+        "distributor":settings.salesx_company_origin,
+        "principal":settings.salesx_company_origin,
+        "supervisor":settings.salesx_company_origin,
+    }
+    if target_origin not in allowed_origins or target_origin not in {value for value in expected_origins.values() if value}:
         raise APIError(400,"portal_origin_not_allowed","The target portal origin is not registered.")
     token_hash=sha256(token.encode()).hexdigest()
     row=await connection.fetchrow(
