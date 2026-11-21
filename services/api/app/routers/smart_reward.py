@@ -42,7 +42,8 @@ async def create_program(organization_id:UUID,payload:RewardProgramWrite,princip
  smart_reward_service._tenant(organization_id,tenant); return await smart_reward_service.create_program(db,organization_id,principal.user_id,payload)
 @router.patch("/{organization_id}/smart-reward/programs/{program_id}",response_model=RewardProgramResponse)
 async def update_program(organization_id:UUID,program_id:UUID,payload:RewardProgramPatch,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartreward.programs.update")),db:SmartRewardRepository=Depends(get_smart_reward_repository)):
- smart_reward_service._tenant(organization_id,tenant); async with db.transaction():
+ smart_reward_service._tenant(organization_id,tenant)
+ async with db.transaction():
   existing=await db.fetchrow("select * from public.reward_programs where organization_id=$1 and id=$2 for update",organization_id,program_id)
   if not existing: raise APIError(404,"reward_program_not_found","Program not found.")
   merged=_merge_smart_reward_patch(existing,payload,RewardProgramWrite)
