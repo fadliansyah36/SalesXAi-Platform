@@ -39,7 +39,7 @@ async function retryRows(db:SQLiteDatabase,rows:QueuedPoint[]){
 }
 function isPermanentLocationSyncError(error:unknown){
  const status=typeof error==="object"&&error!==null&&"status" in error?Number((error as {status?:unknown}).status):0;
- return status>=400&&status<500&&![408,425,429].includes(status);
+ return status>=400&&status<500&&![401,408,425,429].includes(status);
 }
 async function blockRows(db:SQLiteDatabase,rows:QueuedPoint[]){
  for(const row of rows)await db.runAsync(
