@@ -26,8 +26,13 @@ class SmartRewardApprovalService:
   else:
    where="organization_id=$1 and (requested_by=$2 or participant_user_id=$2)";args=[org,actor]
   total=await db.fetchval("select count(*) from public.reward_approval_requests where "+where,*args)
-  rows=await db.fetch("select * from public.reward_approval_requests where "+where+" order by created_at desc limit $"+str(len(args)+1)+" offset $"+str(len(args)+2),*args,size,(page-1)*size)
-  return {"items":[dict(x) for x in rows],"page":page,"page_size":size,"total":total}
+  rows=await db.fetch("select a.*,coalesce((select jsonb_agg(jsonb_build_object('id',h.id,'from_status',h.from_status,'to_status',h.to_status,'actor_user_id',h.actor_user_id,'reason',h.reason,'occurred_at',h.occurred_at) order by h.occurred_at) from public.reward_approval_history h where h.approval_request_id=a.id),'[]'::jsonb) history from public.reward_approval_requests a where "+where+" order by a.created_at desc limit $"+str(len(args)+1)+" offset $"+str(len(args)+2),*args,size,(page-1)*size)
+  items=[]
+  for row in rows:
+   item=dict(row)
+   if isinstance(item.get("history"),str): item["history"]=json.loads(item["history"])
+   items.append(item)
+  return {"items":items,"page":page,"page_size":size,"total":total}
  async def request(self,db:asyncpg.Connection,org:UUID,actor:UUID,p):
   async with db.transaction():
    actor_roles=await db.fetch("""select r.key from public.organization_memberships m join public.user_role_assignments ura on ura.membership_id=m.id
@@ -51,7 +56,9 @@ class SmartRewardApprovalService:
    if p.request_type=="manual_earning":
     if rule["event_key"]!="manual.approved" or not rule["requires_approval"] or not p.manual_points:
      raise APIError(422,"manual_reward_approval_invalid","Manual requests require an active manual.approved rule and a positive points request.")
-    points=int(p.manual_points);metric=Decimal(str(p.metric_value));source_type="manual";source_id=p.source_id
+    points=int(p.manual_points)
+    if rule["max_points"] is not None and points>int(rule["max_points"]): raise APIError(422,"manual_reward_points_exceed_rule_cap","Requested points exceed the rule cap.")
+    metric=Decimal(str(p.metric_value));source_type="manual";source_id=p.source_id
    else:
     expected={"order.completed":"order","visit.completed":"visit","target.achieved":"target"}.get(rule["event_key"])
     if expected!=p.source_type or not p.source_id: raise APIError(422,"reward_event_mismatch","Source does not match the incentive rule.")
