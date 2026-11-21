@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { SmartTeamConsole } from '@/components/smart-team/SmartTeamConsole';
+import { LocationWorkspace } from '@/components/location/LocationWorkspace';
 import Link from 'next/link';
 import {
   LayoutDashboard,
@@ -1782,16 +1783,7 @@ export function CompanyPortalApp() {
             </div>
           )}
 
-          {activeTab === 'gps_live' && !hasTeamLocation && (
-            <div className="rounded-2xl border border-dashed border-[var(--color-border-strong)] bg-[var(--color-surface)] p-8 text-center text-sm text-[var(--color-text-muted)]">
-              Data lokasi belum tersedia untuk sales profile. GPS telemetry akan tampil setelah Location Intelligence terhubung.
-            </div>
-          )}
-          {activeTab === 'gps_history' && !hasTeamLocation && (
-            <div className="rounded-2xl border border-dashed border-[var(--color-border-strong)] bg-[var(--color-surface)] p-8 text-center text-sm text-[var(--color-text-muted)]">
-              Histori perjalanan belum tersedia. Lokasi dan perjalanan baru ditampilkan setelah data Location Intelligence tersedia.
-            </div>
-          )}
+          {(activeTab === 'gps_live' || activeTab === 'gps_history') && <LocationWorkspace/>}
 
           {/* ================================================================
            * SCREEN 6 (7): MANAJEMEN TIM
