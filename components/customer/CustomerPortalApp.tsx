@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
+import { usePortalRouteGuard } from '@/components/auth/usePortalRouteGuard';
 import Link from 'next/link';
 import {
   Home,
@@ -97,6 +98,7 @@ export type CustomerTabId =
 
 export function CustomerPortalApp() {
   const auth = useSalesXAuth();
+  usePortalRouteGuard("customer");
   const visiblePortalSwitchLinks = [
     {href:"/company",label:"Company",portal:"company"},
     {href:"/portal",label:"Sales Portal",portal:"sales"},
