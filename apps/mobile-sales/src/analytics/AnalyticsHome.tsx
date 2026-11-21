@@ -132,7 +132,7 @@ export function AnalyticsHome({auth}:{auth:AuthProps}){
     <NativeText weight="semibold">Riwayat Laporan</NativeText>
     {reports.slice(0,5).map(report=><NativeInline key={report.id} style={{justifyContent:"space-between",alignItems:"center",paddingVertical:8,borderBottomWidth:1,borderBottomColor:colors.border}}>
      <NativeStack gap="1"><NativeText>{report.report_key}</NativeText><NativeText variant="caption" color={colors.textMuted}>{report.status} · {report.period_start} – {report.period_end}</NativeText></NativeStack>
-     {report.status==="completed"&&<Pressable onPress={()=>void download(report.id)} disabled={exportBusy} accessibilityRole="button"><NativeText color={colors.primary}>Download</NativeText></Pressable>}
+     {report.status==="completed"&&report.download_available!==false&&<Pressable onPress={()=>void download(report.id)} disabled={exportBusy} accessibilityRole="button"><NativeText color={colors.primary}>Download</NativeText></Pressable>}
     </NativeInline>)}
    </NativeStack>}
    <NativeText variant="caption" color={colors.textMuted}>Sumber: FastAPI Analytics · {data?.data_as_of?new Date(data.data_as_of).toLocaleString("id-ID"):"Menunggu snapshot"}</NativeText>
