@@ -238,6 +238,9 @@ class RewardCustomerSegmentWrite(BaseModel):
  ends_at:datetime|None=None
  @model_validator(mode="after")
  def validate_period(self):
+  for value in (self.starts_at,self.ends_at):
+   if value is not None and (value.tzinfo is None or value.utcoffset() is None):
+    raise ValueError("Segment period timestamps must include a timezone")
   if self.starts_at and self.ends_at and self.ends_at<=self.starts_at:
    raise ValueError("ends_at must be after starts_at")
   return self
@@ -263,6 +266,23 @@ class RewardCustomerSegmentResponse(BaseModel):
  updated_by:UUID
  created_at:datetime
  updated_at:datetime
+
+class RewardCustomerSegmentEvaluationResponse(BaseModel):
+ model_config=ConfigDict(extra="forbid")
+ segment_id:UUID
+ matched_members:int=Field(ge=0)
+ evaluated_members:int=Field(ge=0)
+
+class RewardCustomerSegmentReportResponse(BaseModel):
+ model_config=ConfigDict(extra="forbid")
+ active_members:int=Field(ge=0)
+ inactive_members:int=Field(ge=0)
+ removed_members:int=Field(ge=0)
+ ledger_entries:int=Field(ge=0)
+ earned_points:int
+ redeemed_points:int=Field(ge=0)
+ expired_points:int=Field(ge=0)
+ adjusted_points:int
 
 class RewardCustomerSegmentMemberResponse(BaseModel):
  model_config=ConfigDict(extra="allow")
