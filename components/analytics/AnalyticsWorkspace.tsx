@@ -5,7 +5,8 @@ import {createAnalyticsApi} from "@salesx-ai/api-client";
 import type {AnalyticsDashboardResponse,AnalyticsReportExportResponse,AnalyticsReportRun} from "@salesx-ai/api-contracts";
 import {useSalesXAuth} from "@/components/providers/AppProviders";
 
-const dateValue=(value:Date)=>`${value.getFullYear()}-${String(value.getMonth()+1).padStart(2,"0")}-${String(value.getDate()).padStart(2,"0")}`;
+const dateValue=(value:Date,timezone?:string)=>new Intl.DateTimeFormat("en-CA",{timeZone:timezone||Intl.DateTimeFormat().resolvedOptions().timeZone,year:"numeric",month:"2-digit",day:"2-digit"}).format(value);
+const shiftDate=(value:string,days:number)=>{const [year,month,day]=value.split("-").map(Number);return new Date(Date.UTC(year,month-1,day+days,12)).toISOString().slice(0,10);};
 const initialEnd=dateValue(new Date());
 const initialStart=(()=>{const value=new Date();value.setDate(value.getDate()-29);return dateValue(value);})();
 const numberValue=(value:number)=>new Intl.NumberFormat("id-ID",{maximumFractionDigits:2}).format(value);
@@ -14,10 +15,17 @@ export function AnalyticsWorkspace({compact=false}:{compact?:boolean}){
  const auth=useSalesXAuth();
  const [periodStart,setPeriodStart]=useState(initialStart);
  const [periodEnd,setPeriodEnd]=useState(initialEnd);
+ const [periodEdited,setPeriodEdited]=useState(false);
  const [grain,setGrain]=useState<"day"|"week"|"month">("day");
  const [scopeType,setScopeType]=useState<"tenant"|"branch"|"team"|"territory"|"user"|null>(null);
  const [scopeId,setScopeId]=useState("");
  const [dashboard,setDashboard]=useState<AnalyticsDashboardResponse|null>(null);
+ useEffect(()=>{
+  if(!dashboard?.timezone||periodEdited)return;
+  const end=dateValue(new Date(),dashboard.timezone);
+  setPeriodEnd(end);setPeriodStart(shiftDate(end,-29));
+ },[dashboard?.timezone,periodEdited]);
+ useEffect(()=>{setPeriodEdited(false);},[auth.activeOrganizationId]);
  const [reports,setReports]=useState<AnalyticsReportRun[]>([]);
  const [loading,setLoading]=useState(false);
  const [error,setError]=useState<string|null>(null);
@@ -116,9 +124,10 @@ export function AnalyticsWorkspace({compact=false}:{compact?:boolean}){
     <button type="button" onClick={()=>void requestExport()} disabled={busy||!scopeType||!auth.canPerformApiAction("analytics.reports.create")} className="rounded-lg bg-[#348CB2] px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">{busy?"Memproses…":"Ekspor CSV"}</button>
    </div>
   </div>
+  <div className="mb-2 text-[10px] text-[var(--color-text-muted)]">Tanggal mengikuti zona waktu organisasi: {dashboard?.timezone??"memuat…"}</div>
   <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-   <label className="text-xs text-[var(--color-text-secondary)]">Dari<input type="date" value={periodStart} max={periodEnd} onChange={e=>setPeriodStart(e.target.value)} className="mt-1 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-2 text-sm text-[var(--color-text-primary)]"/></label>
-   <label className="text-xs text-[var(--color-text-secondary)]">Sampai<input type="date" value={periodEnd} min={periodStart} onChange={e=>setPeriodEnd(e.target.value)} className="mt-1 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-2 text-sm text-[var(--color-text-primary)]"/></label>
+   <label className="text-xs text-[var(--color-text-secondary)]">Dari<input type="date" value={periodStart} max={periodEnd} onChange={e=>{setPeriodEdited(true);setPeriodStart(e.target.value);}} className="mt-1 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-2 text-sm text-[var(--color-text-primary)]"/></label>
+   <label className="text-xs text-[var(--color-text-secondary)]">Sampai<input type="date" value={periodEnd} min={periodStart} onChange={e=>{setPeriodEdited(true);setPeriodEnd(e.target.value);}} className="mt-1 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-2 text-sm text-[var(--color-text-primary)]"/></label>
    <label className="text-xs text-[var(--color-text-secondary)]">Periode<select value={grain} onChange={e=>setGrain(e.target.value as typeof grain)} className="mt-1 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-2 text-sm text-[var(--color-text-primary)]"><option value="day">Harian</option><option value="week">Mingguan</option><option value="month">Bulanan</option></select></label>
    <label className="text-xs text-[var(--color-text-secondary)]">Cakupan<select value={scopeType??""} onChange={e=>setScopeType(e.target.value as NonNullable<typeof scopeType>)} className="mt-1 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-2 text-sm text-[var(--color-text-primary)]"><option value="" disabled>Menentukan otomatis…</option><option value="tenant">Organisasi</option><option value="branch">Cabang</option><option value="team">Tim</option><option value="territory">Teritori</option><option value="user">Salesperson</option></select></label>
    {scopeType!==null&&scopeType!=="tenant"&&<label className="text-xs text-[var(--color-text-secondary)]">ID Scope<select value={scopeId} onChange={e=>setScopeId(e.target.value)} className="mt-1 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-2 text-xs text-[var(--color-text-primary)]">{(dashboard?.scopes??[]).filter(scope=>scope.scope_type===scopeType).map(scope=><option key={scope.scope_id??"tenant"} value={scope.scope_id??""}>{scope.scope_id}</option>)}</select></label>}
