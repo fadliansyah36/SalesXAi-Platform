@@ -26,7 +26,7 @@ export function getSalesXPortalUrlForPath(path:string):string{
  if(normalized==="/distributor"||normalized.startsWith("/distributor/"))return getSalesXPortalUrl("distributor");
  if(normalized==="/principal"||normalized.startsWith("/principal/"))return getSalesXPortalUrl("principal");
  if(normalized==="/supervisor"||normalized.startsWith("/supervisor/"))return getSalesXPortalUrl("supervisor");
- if(normalized==="/super-admin"||normalized.startsWith("/admin"))return getSalesXPortalUrl("super_admin");
+ if(normalized==="/super-admin"||normalized.startsWith("/super-admin/")||normalized.startsWith("/admin"))return getSalesXPortalUrl("super_admin");
  return website()+normalized;
 }
 
