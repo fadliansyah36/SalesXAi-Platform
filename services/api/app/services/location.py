@@ -4,6 +4,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID
 import asyncpg
 from app.errors import APIError
+from app.repositories.location import location_repository
 
 class LocationService:
     def _tenant(self, org, tenant):
@@ -52,19 +53,14 @@ class LocationService:
                     return dict(active)
                 raise APIError(409, "location_session_already_active", "Another active location session is already bound to this user.")
             try:
-                row = await db.fetchrow("""insert into public.location_tracking_sessions
-                  (organization_id,sales_profile_id,user_id,shift_id,device_id,consented_at,consent_policy_version)
-                  values($1,$2,$3,$4,$5,now(),$6) returning *""",
-                  org, profile["id"], actor, payload.shift_id, payload.device_id, payload.consent_policy_version)
+                row = await location_repository.create_session(db,org,profile["id"],actor,payload.shift_id,payload.device_id,payload.consent_policy_version)
             except asyncpg.UniqueViolationError as exc:
                 active = await db.fetchrow("""select * from public.location_tracking_sessions
                   where organization_id=$1 and user_id=$2 and status='active'""", org, actor)
                 if active and active["device_id"] == payload.device_id and active["consent_policy_version"] == payload.consent_policy_version:
                     return dict(active)
                 raise APIError(409, "location_session_already_active", "A location session is already active for this user.") from exc
-            await db.execute("""insert into public.admin_audit_logs(actor_user_id,organization_id,action,resource_type,resource_id,metadata)
-              values($1,$2,'location.session.started','location_session',$3::text,$4::jsonb)""",
-              actor, org, row["id"], json.dumps({"device_id":payload.device_id,"consent_policy_version":payload.consent_policy_version}))
+            await location_repository.audit_session(db,actor,org,"location.session.started",row["id"],{"device_id":payload.device_id,"consent_policy_version":payload.consent_policy_version})
             return dict(row)
 
     async def update_session(self, db, org, tenant, actor, session_id, payload):
@@ -80,11 +76,8 @@ class LocationService:
                 raise APIError(403, "location_session_forbidden", "The session is outside your authorized scope.")
             if row["status"] not in allowed:
                 raise APIError(409, "location_session_transition_invalid", "The requested location session transition is not valid.")
-            updated = await db.fetchrow("""update public.location_tracking_sessions set status=$3,
-              ended_at=case when $4 then now() else null end,updated_at=now()
-              where organization_id=$1 and id=$2 returning *""", org, session_id, target, target in {"completed","revoked"})
-            await db.execute("""insert into public.admin_audit_logs(actor_user_id,organization_id,action,resource_type,resource_id,metadata)
-              values($1,$2,$3,'location_session',$4::text,$5::jsonb)""", actor, org, "location.session."+payload.action, session_id, json.dumps({"reason":payload.reason}))
+            updated = await location_repository.update_session(db,org,session_id,target,target in {"completed","revoked"})
+            await location_repository.audit_session(db,actor,org,"location.session."+payload.action,session_id,{"reason":payload.reason})
             return dict(updated)
 
     async def ingest(self, db, org, tenant, actor, session_id, device_id, payload):
@@ -103,13 +96,7 @@ class LocationService:
                 stamp = point.recorded_at
                 if stamp.tzinfo is None or stamp > now+timedelta(minutes=5) or stamp < now-timedelta(days=30):
                     raise APIError(422, "location_timestamp_invalid", "Location timestamps must include timezone and be within the last 30 days.")
-                inserted = await db.fetchval("""insert into public.location_points
-                  (organization_id,session_id,user_id,device_id,client_point_id,recorded_at,latitude,longitude,accuracy_m,
-                   altitude_m,speed_mps,heading_deg,source,metadata)
-                  values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14::jsonb)
-                  on conflict(organization_id,session_id,client_point_id) do nothing returning id""",
-                  org, session_id, actor, device_id, point.client_point_id, stamp, point.latitude, point.longitude,
-                  point.accuracy_m, point.altitude_m, point.speed_mps, point.heading_deg, point.source, json.dumps(point.metadata))
+                inserted = await location_repository.insert_point(db,org,session_id,actor,device_id,point)
                 if inserted: accepted += 1
                 else: duplicates += 1
             return {"session_id":session_id,"accepted":accepted,"duplicates":duplicates,"received":len(payload.points)}
@@ -122,8 +109,7 @@ class LocationService:
           (l.recorded_at < now()-interval '15 minutes') stale
           from public.location_latest_positions l where l.organization_id=$1 and l.sales_profile_id=any($2::uuid[])
           order by l.recorded_at desc limit 500""", org, ids)
-        await db.execute("""insert into public.location_access_audit(organization_id,actor_user_id,resource_type,action)
-          values($1,$2,'live_map','read')""", org, actor)
+        await location_repository.audit_access(db,org,actor,"live_map","read")
         return [dict(r) for r in rows]
 
     async def history(self, db, org, tenant, actor, from_at, to_at, profile_id, page, size):
@@ -145,8 +131,7 @@ class LocationService:
           where p.organization_id=$1 and s.sales_profile_id=any($2::uuid[]) and ($3::uuid is null or s.sales_profile_id=$3)
           and p.recorded_at >= $4 and p.recorded_at < $5 order by p.recorded_at desc,p.id desc limit $6 offset $7""",
           org,ids,profile_id,start,end,size,(page-1)*size)
-        await db.execute("""insert into public.location_access_audit(organization_id,actor_user_id,resource_type,action,filters)
-          values($1,$2,'route_history','read',$3::jsonb)""",org,actor,json.dumps({"from":start.isoformat(),"to":end.isoformat()}))
+        await location_repository.audit_access(db,org,actor,"route_history","read",{"from":start.isoformat(),"to":end.isoformat()})
         return {"items":[dict(r) for r in rows],"page":page,"page_size":size,"total":int(total or 0),"from_at":start,"to_at":end}
 
     async def routes(self, db, org, tenant, actor, from_date, to_date, profile_id):
@@ -160,8 +145,7 @@ class LocationService:
           join public.location_tracking_sessions s on s.organization_id=r.organization_id and s.id=r.session_id
           where r.organization_id=$1 and s.sales_profile_id=any($2::uuid[]) and ($3::uuid is null or s.sales_profile_id=$3)
           and r.route_date between $4 and $5 order by r.route_date desc,r.started_at desc""",org,ids,profile_id,start,end)
-        await db.execute("""insert into public.location_access_audit(organization_id,actor_user_id,resource_type,action,filters)
-          values($1,$2,'route_history','read',$3::jsonb)""",org,actor,json.dumps({"from_date":str(start),"to_date":str(end)}))
+        await location_repository.audit_access(db,org,actor,"route_history","read",{"from_date":str(start),"to_date":str(end)})
         return [dict(r) for r in rows]
 
 
@@ -178,8 +162,7 @@ class LocationService:
         total = await db.fetchval("""select count(*) from public.location_geofence_events e
           join public.location_tracking_sessions s on s.organization_id=e.organization_id and s.id=e.session_id
           where e.organization_id=$1 and s.sales_profile_id=any($2::uuid[])""",org,ids)
-        await db.execute("""insert into public.location_access_audit(organization_id,actor_user_id,resource_type,action,filters)
-          values($1,$2,'geofence','read',$3::jsonb)""",org,actor,json.dumps({"page":page,"page_size":size}))
+        await location_repository.audit_access(db,org,actor,"geofence","read",{"page":page,"page_size":size})
         return {"items":[dict(r) for r in rows],"page":page,"page_size":size,"total":int(total or 0)}
 
 location_service=LocationService()
