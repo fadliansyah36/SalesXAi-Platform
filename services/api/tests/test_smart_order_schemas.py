@@ -9,10 +9,19 @@ from app.schemas.smart_order import (
     PromotionWrite,
     StockMovementWrite,
     PartnerOrderDecision,
+    VariantWrite,
 )
 
 
 class SmartOrderSchemaTests(unittest.TestCase):
+    def test_variant_write_preserves_optional_stable_identity(self):
+        variant_id = uuid4()
+        existing = VariantWrite(id=variant_id, sku="SKU-1", name="Existing SKU")
+        created = VariantWrite(sku="SKU-2", name="New SKU")
+        self.assertEqual(existing.id, variant_id)
+        self.assertIsNone(created.id)
+
+
     def test_handover_requires_real_carrier_and_tracking_reference(self):
         with self.assertRaises(ValidationError):
             FulfillmentUpdate(status="handed_over")
