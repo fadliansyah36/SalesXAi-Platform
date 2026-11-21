@@ -8,10 +8,13 @@ create policy smartreward_private_read on realtime.messages
 for select to authenticated
 using (
   extension = 'broadcast'
+  and payload ->> 'organization_id' = split_part(realtime.topic(), ':', 2)
   and (
     (
       realtime.topic() ~ '^tenant:[0-9a-fA-F-]{36}:user:[0-9a-fA-F-]{36}:smartreward$'
       and split_part(realtime.topic(), ':', 4) = (select auth.uid())::text
+      and (payload ->> 'participant_user_id' = split_part(realtime.topic(), ':', 4)
+        or payload ->> 'requested_by' = split_part(realtime.topic(), ':', 4))
       and exists (
         select 1
         from public.organization_memberships m
@@ -31,6 +34,7 @@ using (
     or
     (
       realtime.topic() ~ '^tenant:[0-9a-fA-F-]{36}:branch:[0-9a-fA-F-]{36}:smartreward$'
+      and payload ->> 'branch_id' = split_part(realtime.topic(), ':', 4)
       and exists (
         select 1
         from public.organization_memberships m
