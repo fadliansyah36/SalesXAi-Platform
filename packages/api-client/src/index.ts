@@ -734,7 +734,7 @@ export class SalesXApiClient {
     return()=>{stopped=true;clear();if(timer)clearTimeout(timer);socket?.close();};
   }
 
-  subscribeSmartRewardBroadcast(organizationId:string,supabaseUrl:string,publishableKey:string,onEvent:(event:import("@salesx-ai/api-contracts").SmartRewardRealtimeEvent)=>void,onReconnect?:()=>void):()=>void{
+  subscribeSmartRewardBroadcast(organizationId:string,userId:string,supabaseUrl:string,publishableKey:string,onEvent:(event:import("@salesx-ai/api-contracts").SmartRewardRealtimeEvent)=>void,onReconnect?:()=>void):()=>void{
     let stopped=false,attempt=0,socket:WebSocket|null=null,heartbeat:ReturnType<typeof setInterval>|null=null,timer:ReturnType<typeof setTimeout>|null=null;
     const seen=new Set<string>();
     const emit=(event:import("@salesx-ai/api-contracts").SmartRewardRealtimeEvent)=>{const key=event.event_id??[event.organization_id,event.resource,event.record_id,event.operation,event.status??"",event.occurred_at].join("|");if(seen.has(key))return;seen.add(key);if(seen.size>512){const first=seen.values().next().value;if(first)seen.delete(first);}if(event.organization_id===organizationId)onEvent(event);};
@@ -745,7 +745,7 @@ export class SalesXApiClient {
       if(!token)throw new Error("Realtime access token is unavailable.");
       const base=(supabaseUrl.endsWith("/")?supabaseUrl.slice(0,-1):supabaseUrl).replace(/^https:/,"wss:").replace(/^http:/,"ws:");
       socket=new WebSocket(base+"/realtime/v1/websocket?apikey="+encodeURIComponent(publishableKey)+"&vsn=2.0.0");
-      socket.onopen=()=>{attempt=0;if(reconnecting)onReconnect?.();const joinRef="1";socket?.send(JSON.stringify({topic:"realtime:tenant:"+organizationId+":smartreward",event:"phx_join",payload:{config:{broadcast:{ack:false,self:false},presence:{key:""},postgres_changes:[],private:true},access_token:token},ref:joinRef,join_ref:joinRef}));let ref=1;heartbeat=setInterval(()=>{if(socket?.readyState===WebSocket.OPEN)socket.send(JSON.stringify({topic:"phoenix",event:"heartbeat",payload:{},ref:String(++ref),join_ref:null}));},25000);};
+      socket.onopen=()=>{attempt=0;if(reconnecting)onReconnect?.();const joinRef="1";socket?.send(JSON.stringify({topic:"realtime:tenant:"+organizationId+":user:"+userId+":smartreward",event:"phx_join",payload:{config:{broadcast:{ack:false,self:false},presence:{key:""},postgres_changes:[],private:true},access_token:token},ref:joinRef,join_ref:joinRef}));let ref=1;heartbeat=setInterval(()=>{if(socket?.readyState===WebSocket.OPEN)socket.send(JSON.stringify({topic:"phoenix",event:"heartbeat",payload:{},ref:String(++ref),join_ref:null}));},25000);};
       socket.onmessage=(message)=>{try{const frame=JSON.parse(String(message.data));if(frame.event==="phx_error"||frame.event==="phx_close"){socket?.close();return;}if(frame.event==="broadcast"&&frame.payload?.event==="smartreward.changed"){emit(frame.payload.payload as import("@salesx-ai/api-contracts").SmartRewardRealtimeEvent);}}catch{}};
       socket.onerror=()=>socket?.close();socket.onclose=()=>{clear();schedule();};
     }catch{clear();schedule();}};
