@@ -203,6 +203,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
           token: code,
           encrypted_session: encryptedSession,
           target_portal: targetPortal,
+          organization_id: payload.organization_id,
           target_origin: target.origin,
           expires_at: new Date(expiry * 1000).toISOString(),
         }),
