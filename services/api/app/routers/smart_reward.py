@@ -67,8 +67,8 @@ async def adjust(organization_id:UUID,payload:RewardAdjustmentWrite,principal:Pr
 async def reverse(organization_id:UUID,entry_id:UUID,payload:RewardReverseWrite,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartreward.ledger.reverse")),db:asyncpg.Connection=Depends(get_connection)):
  smart_reward_service._tenant(organization_id,tenant); return await smart_reward_service.reverse(db,organization_id,principal.user_id,entry_id,payload)
 @router.get("/{organization_id}/smart-reward/reports")
-async def report(organization_id:UUID,page:int=Query(1,ge=1),page_size:int=Query(25,ge=1,le=100),tenant:TenantContext=Depends(require_api_action("smartreward.reports.read")),db:asyncpg.Connection=Depends(get_connection)):
- smart_reward_service._tenant(organization_id,tenant); return await smart_reward_service.report(db,organization_id,page,page_size)
+async def report(organization_id:UUID,page:int=Query(1,ge=1),page_size:int=Query(25,ge=1,le=100),start_at:str|None=None,end_at:str|None=None,branch_id:UUID|None=None,tenant:TenantContext=Depends(require_api_action("smartreward.reports.read")),db:asyncpg.Connection=Depends(get_connection)):
+ smart_reward_service._tenant(organization_id,tenant); return await smart_reward_service.report(db,organization_id,page,page_size,start_at,end_at,branch_id)
 
 @router.get("/{organization_id}/smart-reward/approvals")
 async def approvals(organization_id:UUID,page:int=Query(1,ge=1),page_size:int=Query(25,ge=1,le=100),principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartreward.approvals.read")),db:asyncpg.Connection=Depends(get_connection)):
