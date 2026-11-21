@@ -1,4 +1,5 @@
 from datetime import datetime
+from datetime import datetime
 from uuid import UUID
 
 import asyncpg
@@ -12,9 +13,28 @@ from app.services.account_administration import account_administration_service
 from app.services.organization_mutations import organization_mutation_service
 from app.services.platform_reads import platform_read_service
 from app.services.smart_team import smart_team_service
+from app.services.smart_reward import smart_reward_service
+from app.repositories.smart_reward import SmartRewardRepository
 from app.schemas.smart_team import PlatformSmartTeamOverviewResponse
 
 router = APIRouter(prefix="/admin", tags=["platform-security"])
+
+
+@router.get("/smart-reward/overview")
+async def list_platform_smartreward_overview(
+    start_at: datetime | None = Query(default=None),
+    end_at: datetime | None = Query(default=None),
+    limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0, le=100000),
+    principal: Principal = Depends(require_api_action("platform.smartreward.overview.read")),
+    connection: asyncpg.Connection = Depends(get_connection),
+) -> dict:
+    return await smart_reward_service.platform_overview(
+        SmartRewardRepository(connection), start_at, end_at, limit, offset
+    )
+
+
+
 
 
 @router.get("/smart-team/overview", response_model=list[PlatformSmartTeamOverviewResponse])
