@@ -86,13 +86,14 @@ class AnalyticsRepository:
         return bool(await connection.fetchval(
             """select exists(select 1 from public.organization_memberships m
                join public.user_role_assignments ura on ura.membership_id=m.id
+               join public.roles r on r.id=ura.role_id
                join public.role_permissions rp on rp.role_id=ura.role_id
                where m.organization_id=$1 and m.user_id=$2 and m.status='active'
                  and ura.revoked_at is null and ura.starts_at<=now()
                  and (ura.expires_at is null or ura.expires_at>now())
                  and rp.permission_key=$5 and (
                    (ura.scope_type in ('tenant','organization') and ura.scope_id=m.organization_id)
-                   or (ura.scope_type=$3 and ura.scope_id=$4)
+                   or (ura.scope_type=$3 and ura.scope_id=$4 and ($3<>'branch' or r.key='supervisor'))
                  ))""",
             organization_id,user_id,scope_type,scope_id,permission,
         ))
