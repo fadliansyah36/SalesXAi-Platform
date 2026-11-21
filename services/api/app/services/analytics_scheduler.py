@@ -36,7 +36,7 @@ async def _seed_schedules(connection:asyncpg.Connection)->None:
         """insert into public.analytics_scheduled_jobs
            (organization_id,job_key,job_type,schedule_kind,local_time,timezone,next_run_at)
            select o.id,'analytics.daily.refresh','refresh_daily','daily','00:15'::time,o.timezone,
-             ((now() at time zone o.timezone)::date+1+time '00:15') at time zone o.timezone
+             now()
            from public.organizations o where o.status='active'
            on conflict(organization_id,job_key) do nothing"""
     )
@@ -94,7 +94,7 @@ async def _run_schedule(connection:asyncpg.Connection,job:asyncpg.Record)->None:
     try:
         if job["job_type"] not in {"refresh_daily","refresh_weekly","refresh_monthly"}:
             raise RuntimeError("unsupported_analytics_schedule_job")
-        lookback=int((job["parameters"] or {}).get("lookback_days",35))
+        lookback=int((job["parameters"] or {}).get("lookback_days",366))
         if not 1<=lookback<=366:
             raise ValueError("analytics_lookback_days_out_of_range")
         metadata=await _refresh(connection,job["organization_id"],lookback)
