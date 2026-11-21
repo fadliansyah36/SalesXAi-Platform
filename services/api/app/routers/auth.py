@@ -1,5 +1,5 @@
 from uuid import UUID
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from hashlib import sha256
 from hmac import compare_digest
 from typing import Literal
@@ -127,10 +127,11 @@ async def create_portal_handoff(
         raise APIError(400,"portal_origin_not_allowed","The target portal origin is not registered.")
     now=datetime.now(timezone.utc)
     expiry=payload.expires_at
-    if expiry.tzinfo is None or expiry<=now or expiry>now.replace(microsecond=0)+__import__("datetime").timedelta(seconds=120):
+    if expiry.tzinfo is None or expiry<=now or expiry>now.replace(microsecond=0)+timedelta(seconds=120):
         from app.errors import APIError
         raise APIError(422,"invalid_handoff_expiry","Portal handoff tickets must expire within 120 seconds.")
     token_hash=sha256(payload.token.encode()).hexdigest()
+    await connection.execute("delete from public.auth_portal_handoffs where expires_at<now()-interval '1 day' or consumed_at<now()-interval '1 day'")
     await connection.execute(
         """insert into public.auth_portal_handoffs
            (token_hash,target_portal,target_origin,encrypted_session,expires_at)
