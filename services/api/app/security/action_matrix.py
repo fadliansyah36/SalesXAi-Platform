@@ -1043,6 +1043,7 @@ API_ACTION_MATRIX: tuple[ApiActionContract, ...] = (
     ApiActionContract("smartreward.approvals.read", "GET", "/api/v1/organizations/{organization_id}/smart-reward/approvals", "smartreward", "approvals_read", "reward_approval_request", "tenant_permission:smartreward:approval:read", "smartreward:approval:read", "tenant", "tenant_permission_and_resource_tenant_match"),
     ApiActionContract("smartreward.approvals.create", "POST", "/api/v1/organizations/{organization_id}/smart-reward/approvals", "smartreward", "approvals_create", "reward_approval_request", "tenant_permission:smartreward:approval:request", "smartreward:approval:request", "tenant", "tenant_permission_and_resource_tenant_match"),
     ApiActionContract("smartreward.approvals.decide", "PATCH", "/api/v1/organizations/{organization_id}/smart-reward/approvals/{approval_id}", "smartreward", "approvals_decide", "reward_approval_request", "tenant_permission:smartreward:approval:decide", "smartreward:approval:decide", "tenant", "tenant_permission_and_resource_tenant_match"),
+    ApiActionContract("smartreward.events.read", "GET", "/api/v1/organizations/{organization_id}/smart-reward/events", "smartreward", "events_read", "reward_event", "tenant_permission:smartreward:ledger:read", "smartreward:ledger:read", "tenant", "tenant_permission_and_resource_tenant_match"),
 )
 
 
