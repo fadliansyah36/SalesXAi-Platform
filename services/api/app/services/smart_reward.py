@@ -268,13 +268,15 @@ class SmartRewardService:
    await self._audit(db,org,actor,"points.reversed","reward_points_ledger",r["id"],p.reason,{"reversed_entry_id":str(eid)});return dict(r)
 
  async def platform_overview(self,db:SmartRewardRepository,start_at=None,end_at=None,limit=100,offset=0):
+  await db.fetchval("select public.process_reward_expirations(1000)")
   total=await db.fetchval("select count(*) from public.organizations where status='active'")
   rows=await db.fetch("""with ledger as (
     select organization_id,
      coalesce(sum(points_delta) filter(where entry_type='earn' and points_delta>0),0)::bigint earned_points,
      coalesce(sum(-points_delta) filter(where entry_type='redemption'),0)::bigint redeemed_points,
      coalesce(sum(-points_delta) filter(where entry_type='expiration'),0)::bigint expired_points,
-     coalesce(sum(points_delta) filter(where entry_type in ('adjustment','reversal')),0)::bigint adjusted_points,
+     coalesce(sum(points_delta) filter(where entry_type='adjustment'),0)::bigint adjusted_points,
+     coalesce(sum(points_delta) filter(where entry_type='reversal'),0)::bigint reversed_points,
      count(*) filter(where entry_type='earn' and metadata ? 'rule_id')::bigint incentive_achievements
     from public.reward_points_ledger where ($1::timestamptz is null or occurred_at>=$1)
      and ($2::timestamptz is null or occurred_at<$2) group by organization_id
@@ -294,7 +296,7 @@ class SmartRewardService:
    select o.id organization_id,o.name organization_name,coalesce(l.earned_points,0) earned_points,
     coalesce(l.redeemed_points,0) redeemed_points,coalesce(a.outstanding_points,0) outstanding_points,
     coalesce(l.expired_points,0) expired_points,coalesce(l.adjusted_points,0) adjusted_points,
-    coalesce(l.incentive_achievements,0) incentive_achievements,
+    coalesce(l.reversed_points,0) reversed_points,coalesce(l.incentive_achievements,0) incentive_achievements,
     coalesce(r.pending_redemptions,0) pending_redemptions,coalesce(p.pending_approvals,0) pending_approvals,
     coalesce(a.participants,0) participants
    from public.organizations o left join ledger l on l.organization_id=o.id
