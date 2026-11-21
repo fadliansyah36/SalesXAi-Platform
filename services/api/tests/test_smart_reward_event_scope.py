@@ -19,31 +19,31 @@ class SmartRewardEventAudienceTests(unittest.TestCase):
         ).read_text(encoding="utf-8")
 
     def test_branch_scoped_company_admin_is_not_tenant_wide(self):
-        tenant, branches, catalog = _reward_event_audience([
+        audience = _reward_event_audience([
             {"role_key": "company_admin", "scope_type": "branch", "scope_id": "branch-a",
              "permission_key": "smartreward:ledger:read"}
         ])
-        self.assertFalse(tenant)
-        self.assertEqual(branches, [])
-        self.assertFalse(catalog)
+        self.assertEqual(audience['tenant_resources'], [])
+        self.assertEqual(audience['branch_scopes'], [])
+        self.assertEqual(audience['catalog_resources'], [])
 
     def test_supervisor_receives_only_assigned_branch_scope(self):
         tenant, branches, catalog = _reward_event_audience([
             {"role_key": "supervisor", "scope_type": "branch", "scope_id": "branch-a",
              "permission_key": "smartreward:ledger:read"}
         ])
-        self.assertFalse(tenant)
-        self.assertEqual(branches, ["branch-a"])
-        self.assertFalse(catalog)
+        self.assertEqual(audience['tenant_resources'], [])
+        self.assertEqual(audience['branch_scopes'], [{"branch_id":"branch-a","resources":["reward_points_ledger"]}])
+        self.assertEqual(audience['catalog_resources'], [])
 
     def test_tenant_owner_requires_tenant_scope(self):
         tenant, branches, catalog = _reward_event_audience([
             {"role_key": "tenant_owner", "scope_type": "tenant", "scope_id": "org-a",
              "permission_key": "smartreward:ledger:read"}
         ])
-        self.assertTrue(tenant)
-        self.assertEqual(branches, [])
-        self.assertFalse(catalog)
+        self.assertEqual(audience['tenant_resources'], ["reward_points_ledger"])
+        self.assertEqual(audience['branch_scopes'], [])
+        self.assertEqual(audience['catalog_resources'], [])
 
     def test_branch_catalog_permission_does_not_broaden_to_tenant_events(self):
         tenant, branches, catalog = _reward_event_audience([
@@ -52,9 +52,9 @@ class SmartRewardEventAudienceTests(unittest.TestCase):
             {"role_key": "supervisor", "scope_type": "branch", "scope_id": "branch-a",
              "permission_key": "smartreward:catalog:read"},
         ])
-        self.assertFalse(tenant)
-        self.assertEqual(branches, ["branch-a"])
-        self.assertFalse(catalog)
+        self.assertEqual(audience['tenant_resources'], [])
+        self.assertEqual(audience['branch_scopes'], [{"branch_id":"branch-a","resources":["reward_points_ledger"]}])
+        self.assertEqual(audience['catalog_resources'], [])
 
     def test_tenant_catalog_permission_is_separate_from_ledger_audience(self):
         tenant, branches, catalog = _reward_event_audience([
@@ -63,9 +63,9 @@ class SmartRewardEventAudienceTests(unittest.TestCase):
             {"role_key": "tenant_owner", "scope_type": "tenant", "scope_id": "org-a",
              "permission_key": "smartreward:catalog:read"},
         ])
-        self.assertTrue(tenant)
-        self.assertEqual(branches, [])
-        self.assertTrue(catalog)
+        self.assertEqual(audience['tenant_resources'], ["reward_points_ledger"])
+        self.assertEqual(audience['branch_scopes'], [])
+        self.assertEqual(audience['catalog_resources'], ["reward_catalog_items"])
 
     def test_legacy_tenant_broadcast_is_suppressed_until_owner_policy_is_active(self):
         self.assertIn("no tenant-wide Broadcast topic", self.broadcast_migration)
