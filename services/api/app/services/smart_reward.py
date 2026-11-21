@@ -81,7 +81,7 @@ class SmartRewardService:
     if reason is None and allowed_users and str(actor) not in allowed_users: reason="participant_ineligible"
     if reason is None and int(elig.get("minimum_balance",0))>balance: reason="insufficient_minimum_balance"
     period_days=max(1,min(int(elig.get("period_days",30)),366))
-    period_remaining=None
+    period_remaining=None;catalog_period_remaining=None
     if elig.get("max_per_user_per_period") is not None:
      used=int(await db.fetchval("""select coalesce(sum(quantity),0) from public.reward_redemptions
       where organization_id=$1 and participant_user_id=$2 and catalog_item_id=$3 and status not in ('rejected','cancelled')
@@ -92,10 +92,11 @@ class SmartRewardService:
      used_total=int(await db.fetchval("""select coalesce(sum(quantity),0) from public.reward_redemptions
       where organization_id=$1 and catalog_item_id=$2 and status not in ('rejected','cancelled')
        and requested_at>=now()-make_interval(days=>$3)""",org,item["id"],period_days) or 0)
-     if reason is None and used_total>=int(elig["max_total_per_period"]): reason="catalog_period_limit"
+     catalog_period_remaining=max(0,int(elig["max_total_per_period"])-used_total)
+     if reason is None and catalog_period_remaining<=0: reason="catalog_period_limit"
     if reason is None and balance<int(item["points_cost"]): reason="insufficient_points"
     item.pop("db_now",None);item.update({"eligible":reason is None,"eligibility_reason":reason,
-     "available_stock":available,"points_balance":balance,"period_remaining":period_remaining})
+     "available_stock":available,"points_balance":balance,"period_remaining":period_remaining,"catalog_period_remaining":catalog_period_remaining})
     items.append(item)
    return {"items":items,"page":page,"page_size":size,"total":total}
  async def create_catalog_item(self,db:SmartRewardRepository,org,actor,p):
