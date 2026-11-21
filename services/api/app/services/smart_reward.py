@@ -60,7 +60,7 @@ class SmartRewardService:
    rows=await db.fetch("select *,now() db_now from public.reward_catalog_items where organization_id=$1 and ($2::text is null or category=$2) order by created_at desc limit $3 offset $4",org,category,size,(page-1)*size)
    items=[]
    for row in rows:
-    item=dict(row);elig=item.get("eligibility") or {};program_audience={}
+    item=dict(row);elig=item.get("eligibility") or {};program_audience={};program=None
     reason=None
     if not member: reason="membership_required"
     elif item["status"]!="active": reason="catalog_inactive"
