@@ -9,8 +9,13 @@ import asyncpg
 class AnalyticsRepository:
     async def list_scopes(self, connection: asyncpg.Connection, organization_id: UUID, user_id: UUID):
         return await connection.fetch(
-            """select distinct case when r.key='sales_rep' then 'user' else ura.scope_type end scope_type,
-                      case when r.key='sales_rep' then m.user_id else ura.scope_id end scope_id
+            """select distinct
+                      case when r.key='sales_rep' then 'user'
+                           when ura.scope_type='organization' then 'tenant'
+                           else ura.scope_type end scope_type,
+                      case when r.key='sales_rep' then m.user_id
+                           when ura.scope_type='organization' then m.organization_id
+                           else ura.scope_id end scope_id
                from public.organization_memberships m
                join public.user_role_assignments ura on ura.membership_id=m.id
                join public.roles r on r.id=ura.role_id
