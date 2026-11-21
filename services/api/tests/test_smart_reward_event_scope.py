@@ -1,9 +1,23 @@
 import unittest
+from pathlib import Path
 
 from app.routers.smart_reward import _reward_event_audience
 
 
 class SmartRewardEventAudienceTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        root = Path(__file__).resolve().parents[1]
+        repo_root = root.parent.parent
+        cls.broadcast_migration = (
+            repo_root / "supabase" / "migrations"
+            / "20261121104000_p06_reward_broadcast_disable_unsafe_tenant_topic.sql"
+        ).read_text(encoding="utf-8")
+        cls.owner_policy = (
+            repo_root / "supabase" / "owner-pending"
+            / "20261121101500_smartreward_realtime_role_scope_policy.sql"
+        ).read_text(encoding="utf-8")
+
     def test_branch_scoped_company_admin_is_not_tenant_wide(self):
         tenant, branches, catalog = _reward_event_audience([
             {"role_key": "company_admin", "scope_type": "branch", "scope_id": "branch-a",
@@ -52,6 +66,13 @@ class SmartRewardEventAudienceTests(unittest.TestCase):
         self.assertTrue(tenant)
         self.assertEqual(branches, [])
         self.assertTrue(catalog)
+
+    def test_legacy_tenant_broadcast_is_suppressed_until_owner_policy_is_active(self):
+        self.assertIn("no tenant-wide Broadcast topic", self.broadcast_migration)
+        self.assertNotIn("||':smartreward'", self.broadcast_migration)
+        self.assertIn("resource-specific", self.owner_policy)
+        self.assertIn("smartreward:ledger:read", self.owner_policy)
+        self.assertIn("smartreward:catalog:read", self.owner_policy)
 
 
 if __name__ == "__main__":
