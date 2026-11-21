@@ -195,7 +195,7 @@ The latest main commit 823072c is a test-only follow-up in `services/api/tests/t
 4. **Incentive source coverage:** implemented verified sources are completed orders, completed visits and visit-target achievement. Additional activity/KPI adapters remain a gap if required by the full business catalog.
 5. SMTP and Google OAuth secrets remain intentionally deferred; no placeholder credentials were added.
 
-**Closure rule:** Phase 06 stays IN_PROGRESS and Phase 07 stays LOCKED until populated ledger evidence, reconciliation, live concurrency, authenticated cross-tenant/private-Realtime validation and remaining PRD submodule gaps are closed. Next phase after closure: **Phase 07 — Realtime Location & Route History**.
+**Closure rule:** Phase 06 stays IN_PROGRESS and Phase 07 stays IN_PROGRESS until populated ledger evidence, reconciliation, live concurrency, authenticated cross-tenant/private-Realtime validation and remaining PRD submodule gaps are closed. Next phase after closure: **Phase 07 — Realtime Location & Route History**.
 
 
 ## Latest-source UI release continuation — 2026-11-21
@@ -236,7 +236,7 @@ The latest main commit 823072c is a test-only follow-up in `services/api/tests/t
 - Rule evaluation preserves manually managed memberships in hybrid segments; only rule-origin memberships are updated/deactivated by evaluation.
 - Latest repository main HEAD: `b2dd365e930c8c5216402bbda0ef36484e9e7889`. Latest API source commit containing segment routes/action matrix: `90770cd1fa7e151b9e16861d700a99c2d23f2cf2`; latest shared portal UI source: `b2dd365e930c8c5216402bbda0ef36484e9e7889`.
 - Railway current latest deployments are still QUEUED (not live): API `fe707dc3-4569-41fa-9d59-fda4f6420e47` (source 90770cd1), Website `e790cd63-0959-436e-bad1-b7c3fc7b8e3b`, Customer `64cf1a75-4f25-4cc6-801a-b1e1d6a6afcf`, Company `bb8eb2ee-1540-49bd-8562-4cacbfba104d` (portal source b2dd365e). Latest-source release is therefore not marked deployed.
-- Supabase confirms 17 Phase 06 migrations including customer segments; Security Advisor returned zero lints. Customer segment tables and permission keys exist. Production reward and segment row counts remain zero.
+- Supabase confirms 18 Phase 06 migrations including customer segments; Security Advisor returned zero lints. Customer segment tables and permission keys exist. Production reward and segment row counts remain zero.
 
 **Phase 06 remains IN_PROGRESS; Phase 07 remains IN_PROGRESS.**
 
@@ -259,7 +259,7 @@ The latest main commit 823072c is a test-only follow-up in `services/api/tests/t
 - Latest API deployment: `2320ba70-5976-4592-9912-ff3ae74dbc31`, source `f1cbc3921efef90782da1cdf8cdea44ac3793077`, Railway status **SUCCESS**. Build completed and `GET /readyz` returned `200 OK`; FastAPI application startup completed.
 - Latest relevant portal source remains `b2dd365e930c8c5216402bbda0ef36484e9e7889`; the API-only commit does not change portal build inputs. Website and Customer deployments on that source are SUCCESS; Company deployment `bb8eb2ee-1540-49bd-8562-4cacbfba104d` is SUCCESS with all five grouped Next.js servers reporting Ready. The portal gateway starts Website/Sales and Company/Distributor/Principal/Supervisor/Super Admin groups. This confirms production build/runtime startup, not a browser visual/computed-style inspection.
 - Railway project remains `026ec9f8-398a-4177-bbbf-afdb302972b9`, production environment; exactly the four required services are maintained. Native `@salesx-ai/mobile-sales` remains untouched/offline.
-- Supabase project `eyofuiyxalbehbqoaeny` remains ACTIVE_HEALTHY. The 17 Phase 06 migrations remain recorded, and Security Advisor returns zero lints. Read-only populated-row check still reports 0 organizations, 0 profiles, 0 reward accounts, 0 ledger entries, 0 redemptions, 0 point lots, 0 approvals, 0 reward audit events, 0 customer segments and 0 segment members. No production fixtures were created; no populated-ledger or concurrency claim is made.
+- Supabase project `eyofuiyxalbehbqoaeny` remains ACTIVE_HEALTHY. The 18 Phase 06 migrations remain recorded, and Security Advisor returns zero lints. Read-only populated-row check still reports 0 organizations, 0 profiles, 0 reward accounts, 0 ledger entries, 0 redemptions, 0 point lots, 0 approvals, 0 reward audit events, 0 customer segments and 0 segment members. No production fixtures were created; no populated-ledger or concurrency claim is made.
 - A temporary Supabase development branch is the safe available path for isolated populated fixtures. Branch creation requires explicit cost confirmation at **US$0.01344 per hour**; no branch has been created pending that approval. No production data has been written.
 - No fresh API pytest/Ruff, portal typecheck/lint/build matrix or Expo typecheck/bundle export has been run on the current segment source. Historical CI baseline is not counted as current-source validation.
 - **Phase 06 remains IN_PROGRESS; Phase 07 remains IN_PROGRESS.** Remaining DoD: isolated fixture branch approval and execution; earning/redemption/expiration/reversal/adjustment reconciliation and concurrency/idempotency; authenticated cross-tenant/private Realtime tests; fresh current-source CI/build/Expo checks; portal asset HTTP verification beyond build/gateway readiness.
@@ -309,3 +309,10 @@ No new Supabase migration was needed for these API/client integration fixes; the
 - Website and Customer latest relevant deployments remain SUCCESS at source `c26f67ce`; API latest relevant deployment remains SUCCESS at source `8bb17e30`. No stale build or additional Railway service was created.
 
 **Phase 06 remains IN_PROGRESS until the Company route-alias deployment and live route/static-asset verification finish. No Supabase staging branch or production fixture data was created; populated transaction/concurrency and real-account authorization validation remain deferred to final integrated testing per the user's direction.**
+
+## 2026-11-21 final continuation — scoped SSE and Native fallback
+
+- The SmartReward event stream now resolves tenant-wide audience only when a tenant-management role has `scope_type` `tenant` or `organization`; a branch-scoped company-admin assignment can no longer become tenant-wide. Supervisor event scope is limited to assigned branch IDs.
+- Four unit tests cover tenant-owner scope, branch-supervisor scope, branch-scoped company-admin denial and catalog permission separation. They are included in the 134-test passing API suite.
+- Native SmartReward no longer attempts direct Supabase user-topic Broadcast by default. `EXPO_PUBLIC_SMARTREWARD_PRIVATE_BROADCAST_ENABLED` must remain unset/false until the owner policy is applied and authenticated allow/deny subscriptions pass.
+- The two live concurrency tests remain skipped in CI because no disposable local Supabase database is configured. The authenticated cross-tenant API integration tests remain an open Phase 06 gate.

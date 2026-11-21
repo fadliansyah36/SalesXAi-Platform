@@ -43,3 +43,12 @@ No key, placeholder credential or billing configuration is committed. Browser an
 5. Verify production referrer/package/bundle restrictions, map rendering, route calculation and quotas.
 
 Do not add a Google OAuth secret or reuse the server Routes key in a client bundle.
+
+## Role exposure and least-privilege boundary
+
+- Sales users capture and view their own consented current location and local route preview in the Native Expo app.
+- Supervisors receive live location and route history only for their assigned branch/team/territory scope.
+- Company Admin and Tenant Owner receive tenant-level operational location views under their assigned organization permissions.
+- Distributor and Principal roles are not granted raw employee GPS access by the current Phase 07 permission matrix.
+- Super Admin receives platform governance/configuration capabilities, not raw tenant employee location data by default. Any future platform-wide location access requires a separate explicit permission and audit contract.
+- The shared contracts expose map viewport and map-event types, but the UI must continue to enforce the role-specific data scope at the FastAPI boundary.

@@ -33,7 +33,7 @@ export function GoogleMapsCanvas({ config, center, markers, routes, polygons, he
 }) {
   if (!resolveMapsAdapter("web", config) || !config.apiKey) return (
     <div className="flex items-center justify-between gap-4 border-y border-[var(--color-border)] bg-[var(--color-surface-muted)] px-5 py-6"
-      style={{ minHeight: height }} role="status">
+      style={{ minHeight: height }} role="status" aria-label="Status aktivasi peta lokasi">
       <div>
         <p className="text-sm font-semibold text-[var(--color-text-primary)]">Google Maps belum diaktifkan</p>
         <p className="mt-1 max-w-2xl text-sm text-[var(--color-text-secondary)]">
@@ -43,7 +43,7 @@ export function GoogleMapsCanvas({ config, center, markers, routes, polygons, he
       </div>
     </div>
   );
-  return <div style={{ height, width: "100%" }}>
+  return <div style={{ height, width: "100%" }} role="region" aria-label="Peta lokasi SalesX-Ai">
     <APIProvider apiKey={config.apiKey} language={config.language} region={config.region}>
       <GoogleMap defaultCenter={center} defaultZoom={12} mapId={config.mapId}
         gestureHandling="greedy" style={{ width: "100%", height: "100%" }}>

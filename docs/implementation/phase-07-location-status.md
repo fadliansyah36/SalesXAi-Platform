@@ -11,7 +11,7 @@
 - Geofence list responses now include boundary GeoJSON; Web map overlays render authorized geofences and reconstructed route polylines.
 - Credential contract and activation sequence are documented in `docs/architecture/google-maps.md`. No fake key or map ID is used; no map tiles are claimed active.
 - Owner-gated Location Realtime SQL is prepared at `supabase/owner-pending/20261121100000_location_realtime_messages_owner_policy.sql` and is not applied. It filters private Broadcast subscriptions by organization, authenticated membership, location permission and branch/team/territory assignment.
-- Google Maps Foundation is code-ready for final credential activation, pending final GitHub CI evidence and actual credential activation.
+- Google Maps Foundation is code-ready for final credential activation. Latest CI confirms the Web/Native build path; keys and map tiles remain intentionally inactive until credentials are supplied.
 ## Applied database changes
 - 20261121082433_p07_location_intelligence_foundation: tracking sessions, points, geofences, geofence events and route summaries.
 - 20261121083536_p07_location_live_projection_geofence_realtime: latest-position projection, geofence presence state, access audit, PostGIS route/geofence processing, private Broadcast and server notification.
@@ -95,3 +95,12 @@ PostGIS geography/geometry types and GiST indexes are installed. All five tables
 The earlier initial checkpoint below is historical and is superseded by the current execution snapshot and Google Maps continuation above. Remaining gates are owner-level Realtime policy application and subscription isolation, device-level background lifecycle verification, offline/out-of-order batch verification, geofence and route reconstruction edge-case validation, and production deployment evidence.
 
 Phase 06 SmartReward remains IN_PROGRESS. Its populated ledger fixture/reconciliation, concurrency/idempotency and authenticated cross-tenant/private-Realtime gates remain separate open work. Phase 07 is authorized to proceed in parallel by the latest execution decision.
+
+## Role surfaces and latest build evidence — 2026-11-21
+
+- Sales: consented own-device capture and local route preview in Native Expo.
+- Supervisor: live location and route history restricted to assigned branch/team/territory.
+- Company Admin/Tenant Owner: tenant-level operational map and reporting.
+- Distributor and Principal: no raw employee GPS permission in the current role matrix. Super Admin has governance/configuration, not raw employee GPS by default.
+- GitHub API checks `44891786436` passed 134 tests (2 local-DB concurrency tests skipped); Native Expo build and Web Auth static checks passed. Portal build `44891786366` passed 8/8. Foundation build `44891783078` passed Expo config, Metro, Android/iOS bundle exports and workspace build.
+- Current Railway snapshot: API `/readyz` and the three portal `/api/health` checks are healthy. The final source-refresh commit is required to bring website/customer/company deployment SHAs to the same `main` commit as API.

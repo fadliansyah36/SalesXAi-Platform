@@ -15,7 +15,7 @@
 
 ---
 Source branch: main
-Source code commit at snapshot: be4df89f23fee83fb6f1c57dd94e75e5a4abca02
+Source code commit at snapshot: 8248d9bfb9bf1e9a5c2aecfabec8e1d845e0cc88
 Repository binding: fadliansyah36/SalesXAi-Platform (canonical connected repository; the alternate URL spelling SalesX-Ai-Platform does not resolve)
 Supabase project: eyofuiyxalbehbqoaeny
 
@@ -55,29 +55,32 @@ Target repository: fadliansyah36/SalesXAi-Platform
 Branch: main
 Supabase project ref: eyofuiyxalbehbqoaeny
 
-## Current authoritative status — 2026-11-21 (Phase 06 release continuation)
+## Current authoritative status — 2026-11-21 (Phase 06/07 + Google Maps)
 
-| Phase | Current status |
+**Code snapshot:** branch `main`, commit `8248d9bfb9bf1e9a5c2aecfabec8e1d845e0cc88`.
+
+| Workstream | Status |
 |---|---|
-| Phase 00 — Repository Bootstrap & Governance | COMPLETED |
-| Phase 01 — Canonical Design System & Design Tokens | COMPLETED |
-| Phase 02 — Identity, Tenant & Authorization Foundation | COMPLETED |
-| Phase 03 — Master Data Foundation | COMPLETED |
-| Phase 04 — SmartTeam Operations | COMPLETED |
-| Phase 05 — SmartOrder | COMPLETED |
-| Phase 06 — SmartReward & Incentive | IN_PROGRESS — Customer Segment is present; concurrent redemption, authenticated cross-tenant API and owner-authorized private Realtime validation remain open |
-| Phase 07 — Realtime Location & Route History | IN_PROGRESS — native lifecycle, offline/geofence edge-case validation, owner-level Realtime policy and release evidence remain open |
+| Phase 06 — SmartReward & Incentive | IN_PROGRESS — concurrent redemption integration and authenticated cross-tenant API tests are not yet executed; owner-authorized private Realtime policy is pending. |
+| Phase 07 — Realtime Location & Route History | IN_PROGRESS — backend/database/Expo/portal code is integrated; owner Realtime policy and device/offline/geofence/route runtime evidence remain open. |
+| Google Maps Foundation | READY FOR FINAL CREDENTIAL ACTIVATION — shared provider adapters, contracts, API, Web and Expo renderers are implemented; no key or map tiles are active. |
+| Production Release | IN_PROGRESS — all four current Railway services are healthy, but three portal deployments still need a deployment from the current `main` code snapshot. |
 
-**Latest main source SHA:** `627ce255e770e2712a479cff9ce3d6b5c08f17c7` (explicit Tailwind v4 monorepo source scanning fix). **Latest API runtime source SHA:** `823072c098dcbee285d5a0157e33fa47b6371075` (portal-only CSS commit does not require API redeploy). **Latest portal runtime source SHA:** `627ce255e770e2712a479cff9ce3d6b5c08f17c7`.
+**Supabase:** 90 migrations applied (18 Phase 06, 5 Phase 07); 80 public tables; PostgreSQL 17.12; project ACTIVE_HEALTHY. Security Advisor: 0 lints. Performance Advisor: 0 unindexed foreign-key lints; 269 unused-index notices are informational. Current project data counts: 0 Auth users, 0 organizations, 0 memberships, 0 reward accounts and 0 reward ledger entries. No real-user login/register test or persistent fixture data was created.
 
-**Railway production:** all four required services are ONLINE, 1/1 replicas, deployment SUCCESS. `salesx-api` runs source `823072c`; `salesx-website`, `salesx-customer`, and `salesx-company` run latest source `627ce255`. The latest portal deployment IDs are `041b40bf-9a86-4813-beab-68a331c42bd8`, `a0610b6f-8642-4a04-b2a1-c88ad1a1ee57`, and `b98a72dc-6902-4d14-91cf-de91751dc021` respectively. The API was correctly not redeployed for a CSS-only commit.
+**Phase 06 evidence and gaps:** migration `20261121093654_p06_reward_realtime_payload_scope` is applied. The actual redemption service retains account/catalog row locking and idempotency. A two-connection integration harness exists, but its two tests were skipped because no disposable local `SALESX_TEST_DATABASE_URL` is configured. The 4 new SmartReward event-audience tests pass. Authenticated cross-tenant API read/write/resource tests remain open. The live `smartreward_private_read` policy still authorizes the tenant topic too broadly; owner-gated replacement SQL is prepared but not applied. Native direct Broadcast is disabled by default; Web and Native use the FastAPI scoped SSE fallback.
 
-**Release validation:** 8/8 portal build matrix SUCCESS; 3/3 production-container CSS/JS runtime checks SUCCESS; 115 API tests PASS, compileall/Ruff/FastAPI image PASS; Web Auth typecheck PASS and lint 0 errors (2 image optimization warnings); Expo typecheck and Android bundle export PASS. All eight served portal routes returned CSS and JavaScript bundles with expected MIME types and canonical token CSS.
+**Phase 07 evidence and gaps:** 5 Phase 07 migrations are applied. Native Expo tracking includes consent, device registration, background task, SQLite offline outbox, retry/dedup/sync and a local route preview. FastAPI location/history/route/geofence/SSE endpoints and Supervisor/Company map surfaces are integrated. The location `realtime.messages` policy is prepared but not active. Physical-device background lifecycle, offline replay, out-of-order point/geofence and route edge cases have not been runtime-verified.
 
-**Supabase:** 17 Phase 06 migrations are recorded, including `20261121054216_p06_reward_customer_segments`; the two new segment tables have RLS and deny-client policies; segment permission keys are present. Supabase Security Advisor returned zero lints after the segment migration. Existing baseline checks reported 13/13 original reward tables with RLS and zero direct client business-table grants. However, organizations = 0, profiles = 0, Auth users = 0 and all reward activity tables are empty. No populated ledger reconciliation, live concurrent load, authenticated cross-tenant session or private Realtime denial test can be claimed.
+**Google Maps:** shared `packages/maps` contracts include coordinates, marker, viewport, polyline/polygon, map events, feature flags, provider adapters, GeoJSON conversion, distance and encoded-polyline decoding. Web uses `@vis.gl/react-google-maps`; Native Expo uses `react-native-maps`; FastAPI exposes `/api/v1/maps/config` and organization-scoped route computation. `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`, Android/iOS keys and `GOOGLE_MAPS_SERVER_API_KEY` remain unconfigured; no fake credentials or Google tiles are claimed active.
 
-**Remaining scope:** the Customer Segment entity and membership foundation are now present. Reward program periods/audience provide the current campaign-like lifecycle; independent campaign aggregate behavior and any additional activity/KPI adapters must be checked against the Master PRD before closure. Phase 06 remains IN_PROGRESS; Phase 07 remains IN_PROGRESS. See `docs/implementation/phase-06-smartreward-status.md` for deployment IDs and detailed evidence.
+**GitHub CI evidence on this snapshot:** API checks run `44891786436` SUCCESS (134 tests passed, 2 skipped; compileall, Ruff/static checks, mobile Expo build and Web Auth static check passed). Independent portal build run `44891786366` SUCCESS (8/8: website, sales, customer, company, supervisor, distributor, principal and super-admin). Foundation run `44891783078` SUCCESS (Expo config, Metro startup, Android/iOS JS bundle exports and Turborepo workspace build). Portal container/runtime run `44890848118` SUCCESS (website, customer and company images; healthchecks).
 
+**Railway current snapshot:** `salesx-api` SUCCESS at code SHA `8248d9b`; `salesx-website`, `salesx-customer` and `salesx-company` SUCCESS at `07975e9`. Queue is empty. API `/readyz` returned HTTP 200 with `database=connected`; all three portal domains returned HTTP 200 with their expected application UI, and `/api/health` healthchecks passed. The final source-refresh commit below will trigger the three portal services from the same `main` SHA. The pre-existing extra `@salesx-ai/mobile-sales` Railway service is outside the four-service release and failed because Railpack could not find `bun`; the Native Expo build itself passes GitHub CI. No service was created or deleted.
+
+**Closure rule:** Phase 06 and Phase 07 remain IN_PROGRESS until their respective owner authorization and runtime validation gates have evidence. Phase 08 — Analytics & KPI Aggregation remains next after Phase 07 closure.
+
+---
 The dated Phase 02 PARTIAL / Phase 03 LOCKED and earlier Phase 04 IN_PROGRESS entries below are historical snapshots. The Phase 04 closure addendum, latest Phase 05 continuation record and Phase 06 addendum above are authoritative. Phase 06 remains IN_PROGRESS; Phase 07 remains IN_PROGRESS.
 
 ## Phase 00 — Repository Bootstrap & Governance
@@ -1386,7 +1389,7 @@ SmartReward integration was extended: typed mutation contracts, tenant-scoped lo
 
 Python unit suite had 119 passing tests in the prior run; two Ruff unused-import findings were fixed. New partial-update merge tests and final-source CI/build are running. Railway's latest API deployment is queued, Company portal has a queued Super Admin page deployment, and earlier portal deployments are building. This is not yet a latest-source release confirmation.
 
-**Phase 06: IN_PROGRESS. Phase 07: LOCKED.**
+**Phase 06: IN_PROGRESS. Phase 07: IN_PROGRESS.**
 
 
 ## Latest Phase 06 build checkpoint — 2026-11-21

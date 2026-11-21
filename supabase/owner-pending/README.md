@@ -17,6 +17,6 @@ The Supabase project owner or an explicitly authorized database operator must re
    - Authorizes the private organization live-location topic.
    - Filters each payload to the actor's active organization membership, `location.live.read` permission and tenant/branch/team/territory scope.
 
-After owner approval and application, verify authenticated subscription allow/deny cases with isolated Auth test users and confirm that cross-tenant, cross-branch and wrong-role subscriptions are rejected. Until then, FastAPI's permission-checked SSE endpoints remain the supported event delivery path.
+After owner approval and application, verify authenticated subscription allow/deny cases with isolated Auth test users and confirm that cross-tenant, cross-branch and wrong-role subscriptions are rejected. Only after those tests pass may the Expo build set `EXPO_PUBLIC_SMARTREWARD_PRIVATE_BROADCAST_ENABLED=true`. Keep this flag unset/false until then; Native and Web clients use the FastAPI permission-checked SSE stream as the supported event delivery path.
 
 Do not add these SQL files to the applied migration ledger until the owner-authorized execution is confirmed.
