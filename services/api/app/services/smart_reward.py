@@ -272,9 +272,12 @@ class SmartRewardService:
    from public.reward_points_ledger l
    left join public.organization_memberships m on m.organization_id=l.organization_id and m.user_id=l.participant_user_id
    where l.organization_id=$1 and ($2::timestamptz is null or l.occurred_at>=$2) and ($3::timestamptz is null or l.occurred_at<$3) and ($4::uuid is null or m.branch_id=$4)""",org,start_at,end_at,branch_id)
-  pending=await db.fetchval("select count(*) from public.reward_redemptions where organization_id=$1 and status in ('requested','approved')",org)
-  approvals=await db.fetchval("select count(*) from public.reward_approval_requests where organization_id=$1 and status='pending'",org)
-  outstanding=await db.fetchval("select coalesce(sum(points_balance),0)::bigint from public.reward_accounts where organization_id=$1 and status='active'",org)
+  pending=await db.fetchval("""select count(*) from public.reward_redemptions r join public.organization_memberships m on m.organization_id=r.organization_id and m.user_id=r.participant_user_id
+   where r.organization_id=$1 and r.status in ('requested','approved') and ($2::uuid is null or m.branch_id=$2)""",org,branch_id)
+  approvals=await db.fetchval("""select count(*) from public.reward_approval_requests a join public.organization_memberships m on m.organization_id=a.organization_id and m.user_id=a.participant_user_id
+   where a.organization_id=$1 and a.status='pending' and ($2::uuid is null or m.branch_id=$2)""",org,branch_id)
+  outstanding=await db.fetchval("""select coalesce(sum(a.points_balance),0)::bigint from public.reward_accounts a join public.organization_memberships m on m.organization_id=a.organization_id and m.user_id=a.participant_user_id
+   where a.organization_id=$1 and a.status='active' and ($2::uuid is null or m.branch_id=$2)""",org,branch_id)
   by_branch=await db.fetch("""select m.branch_id,coalesce(sum(case when l.entry_type='earn' then l.points_delta else 0 end),0)::bigint earned_points,
    coalesce(sum(case when l.entry_type='redemption' then -l.points_delta else 0 end),0)::bigint redeemed_points,
    coalesce(sum(case when l.entry_type='expiration' then -l.points_delta else 0 end),0)::bigint expired_points,
