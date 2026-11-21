@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
+import { usePortalRouteGuard } from '@/components/auth/usePortalRouteGuard';
 import Link from 'next/link';
 import {
   Home,
@@ -157,6 +158,7 @@ export type SuperAdminTab =
 
 export function SuperAdminPortalApp() {
   const auth = useSalesXAuth();
+  usePortalRouteGuard("super_admin");
   const { theme, toggleTheme } = useTheme();
 
   // Auth State
