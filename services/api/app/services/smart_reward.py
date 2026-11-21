@@ -92,6 +92,8 @@ class SmartRewardService:
   raise APIError(422,"reward_source_invalid","Unsupported source type.")
  async def issue_points(self,db:SmartRewardRepository,org,actor,p):
   async with db.transaction():
+   old=await db.fetchrow("select * from public.reward_points_ledger where organization_id=$1 and participant_user_id=$2 and idempotency_key=$3",org,p.participant_user_id,p.idempotency_key)
+   if old:return dict(old)
    program=await db.fetchrow("select audience,configuration,status,starts_at,ends_at,now() db_now from public.reward_programs where organization_id=$1 and id=$2 for share",org,p.program_id)
    if not program or program["status"]!="active" or program["starts_at"]>program["db_now"] or program["ends_at"]<=program["db_now"]: raise APIError(409,"reward_program_inactive","Program is not active.")
    rule=await db.fetchrow("select * from public.reward_incentive_rules where organization_id=$1 and id=$2 and program_id=$3 and status='active' for update",org,p.rule_id,p.program_id)
@@ -139,7 +141,16 @@ class SmartRewardService:
    member=await db.fetchrow("select branch_id from public.organization_memberships where organization_id=$1 and user_id=$2 and status='active'",org,actor)
    if not member: raise APIError(422,"reward_participant_not_member","Participant must be an active organization member.")
    roles=await db.fetch("select r.key from public.user_role_assignments ura join public.roles r on r.id=ura.role_id join public.organization_memberships m on m.id=ura.membership_id where m.organization_id=$1 and m.user_id=$2 and m.status='active' and ura.revoked_at is null and ura.starts_at<=now() and (ura.expires_at is null or ura.expires_at>now())",org,actor)
-   role_keys={x["key"] for x in roles}; allowed_roles=set(elig.get("roles",[])); allowed_branches=set(elig.get("branch_ids",[])); allowed_users=set(elig.get("user_ids",[]))
+   role_keys={x["key"] for x in roles}
+   program_audience={}
+   if item["program_id"] is not None:
+    program=await db.fetchrow("select audience,status,starts_at,ends_at,now() db_now from public.reward_programs where organization_id=$1 and id=$2 for share",org,item["program_id"])
+    if not program or program["status"]!="active" or program["starts_at"]>program["db_now"] or program["ends_at"]<=program["db_now"]:
+     raise APIError(409,"reward_program_inactive","Linked reward program is not active.")
+    program_audience=program["audience"] or {}
+   allowed_roles=set(elig.get("roles",[]))|set(program_audience.get("roles",[]))
+   allowed_branches=set(elig.get("branch_ids",[]))|set(program_audience.get("branch_ids",[]))
+   allowed_users=set(elig.get("user_ids",[]))|set(program_audience.get("user_ids",[]))
    if allowed_roles and not role_keys.intersection(allowed_roles): raise APIError(403,"reward_role_ineligible","Participant role is not eligible for this catalog item.")
    if allowed_branches and (member["branch_id"] is None or str(member["branch_id"]) not in allowed_branches): raise APIError(403,"reward_branch_ineligible","Participant branch is not eligible for this catalog item.")
    if allowed_users and str(actor) not in allowed_users: raise APIError(403,"reward_user_ineligible","Participant is not eligible for this catalog item.")
@@ -147,6 +158,9 @@ class SmartRewardService:
    if elig.get("max_per_user_per_period") is not None:
     used=await db.fetchval("select coalesce(sum(quantity),0) from public.reward_redemptions where organization_id=$1 and participant_user_id=$2 and catalog_item_id=$3 and status<>'rejected' and requested_at>=now()-make_interval(days=>$4)",org,actor,item["id"],period_days)
     if int(used or 0)+p.quantity>int(elig["max_per_user_per_period"]): raise APIError(409,"reward_redemption_limit","Participant redemption limit has been reached.")
+   if elig.get("max_total_per_period") is not None:
+    used_total=await db.fetchval("select coalesce(sum(quantity),0) from public.reward_redemptions where organization_id=$1 and catalog_item_id=$2 and status<>'rejected' and requested_at>=now()-make_interval(days=>$3)",org,item["id"],period_days)
+    if int(used_total or 0)+p.quantity>int(elig["max_total_per_period"]): raise APIError(409,"reward_catalog_period_limit","Catalog item redemption limit has been reached.")
    cost=int(item["points_cost"])*p.quantity
    if b<cost:raise APIError(409,"insufficient_reward_points","Insufficient reward points.")
    if item["quantity_total"] is not None and int(item["quantity_total"])-int(item["quantity_reserved"])-int(item["quantity_fulfilled"])<p.quantity:raise APIError(409,"reward_out_of_stock","Reward is out of stock.")
