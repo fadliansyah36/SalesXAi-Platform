@@ -1515,3 +1515,15 @@ Live API /readyz reports ready/database connected; website, customer and company
 - Current main HEAD at this reconciliation was f6e558aeb818c0e5f63b3b6599e504686826d57d; it is documentation-only relative to the deployed application-code snapshot. Railway service watch patterns correctly skip documentation-only changes.
 
 **Current decision:** Phase 06 IN_PROGRESS (owner SmartReward Realtime gate); Phase 07 IN_PROGRESS (owner Location Realtime gate); Google Maps Foundation READY FOR FINAL CREDENTIAL ACTIVATION; four-service Production Release COMPLETED for the verified deployed code snapshot. No claim is made that owner policies are active or Google map tiles are enabled.
+
+
+## Latest execution — Phase 08 Analytics foundation (2026-11-21)
+
+- Phase ordering conflict is resolved by ADR-005: Phase 08 = Analytics & Operational Reporting (Engineering Execution Master Plan + root AGENTS.md); Unified AI Platform is Phase 11. The Master PRD product scope remains intact; only execution order is reconciled.
+- Live Supabase was re-queried: ACTIVE_HEALTHY, PostgreSQL 17.12, 96 applied migrations, latest 20261121130429. Phase 06 retains 19 applied migrations; Phase 07 retains 7; Phase 08 has 3 applied migrations.
+- Phase 08 schema includes metric definitions, tenant metric snapshots, report definitions/runs, export job queue, indexes, role-scoped read policies, and service-role-only refresh function execution. Security Advisor after the export/policy migration returned 0 lints.
+- Daily deterministic aggregation function and services/analytics-worker/worker.py are committed. API routes expose dashboard read, report run list and report run creation; shared TypeScript contracts/client and action-matrix entries are committed.
+- Phase 08 remains IN_PROGRESS: daily worker execution has not been scheduled/deployed; week/month rollups, complete branch/team/territory snapshots, report export worker/storage delivery, and portal/Expo screen wiring still need implementation and validation. Do not present the queue table as a completed export workflow.
+- The three applied Phase 08 migration filenames under supabase/migrations are reconciled to exact live versions: 20261121130029, 20261121130209, 20261121130429.
+- Phase 06 and Phase 07 remain IN_PROGRESS. Live realtime.messages remains owned by supabase_realtime_admin; connected SQL principal cannot assume owner. Owner policies are not applied and no Realtime subscription allow/deny evidence exists, so neither phase is closed.
+- SMTP and Google OAuth secrets remain intentionally deferred; no placeholder credentials were introduced.
