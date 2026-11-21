@@ -80,6 +80,7 @@ async def maps_config(tenant: TenantContext = Depends(require_api_action("maps.c
     return {
         "provider": settings.maps_provider,
         "server_routes_enabled": settings.google_maps_routes_enabled,
+        "server_places_enabled": settings.google_maps_places_enabled,
         "language": settings.google_maps_language,
         "region": settings.google_maps_region,
     }
