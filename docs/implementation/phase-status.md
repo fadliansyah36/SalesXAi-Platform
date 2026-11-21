@@ -1577,16 +1577,9 @@ Live API /readyz reports ready/database connected; website, customer and company
 - Existing location point trigger and the Phase 07 backend/Expo/portal implementation remain recorded in the earlier execution entries.
 - **Evidence boundary:** authenticated JWT subscription allow/deny behavior was not exercised. This is an explicit user-approved validation waiver, not a passing test result. No physical-device/field test was performed or required.
 
-### Phase 08 — Analytics, KPI Aggregation & Operational Reporting: IN_PROGRESS
+### Historical Phase 08 entry (superseded)
 
-- Applied migration `20261121131321_p08_analytics_weekly_monthly_rollups` to Supabase project `eyofuiyxalbehbqoaeny`.
-- Added `public.analytics_refresh_period_rollups(uuid,date,date)`, service-role-only, to materialize weekly and monthly snapshots from canonical daily snapshots. Additive metrics are summed; `inventory.available` uses the latest daily value in each period.
-- Updated `services/analytics-worker/worker.py` to run daily refresh followed by weekly/monthly rollup for each active organization.
-- Version-controlled migration path: `supabase/migrations/20261121131321_p08_analytics_weekly_monthly_rollups.sql`.
-- Remaining Phase 08 scope: branch/team/territory and salesperson aggregation, report export worker and private artifact delivery, recurring worker scheduling, and integration of analytics API into existing Web portals and native Expo where applicable.
-- No worker deployment or production activation is claimed.
-- Next phase after Phase 08 completion: **Phase 09 — Workflow Engine, Scheduling, Notifications & Durable Jobs**.
-
+The earlier Phase 08 snapshot below was superseded by the current implementation evidence in the section immediately following this entry.
 
 ## Phase 08 latest implementation evidence — 2026-11-21
 
