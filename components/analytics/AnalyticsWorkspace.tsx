@@ -57,7 +57,7 @@ export function AnalyticsWorkspace({compact=false}:{compact?:boolean}){
 
  const visibleMetrics=useMemo(()=>{
   const values=dashboard?.metrics??[];
-  if(scopeType===null)return values;
+  if(scopeType===null)return [];
   if(scopeType==="tenant")return values.filter(item=>item.scope_type==="tenant");
   return values.filter(item=>item.scope_type===scopeType&&(!scopeId||item.scope_id===scopeId));
  },[dashboard,scopeType,scopeId]);
