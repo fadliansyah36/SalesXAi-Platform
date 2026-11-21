@@ -1,4 +1,5 @@
 'use client';
+import { getSalesXPortalUrlForPath } from '@/components/auth/portalUrls';
 
 import React, { useState } from 'react';
 import Link from 'next/link';
@@ -103,7 +104,7 @@ export function PortalShell<T extends string>({
       {/* Desktop Left Sidebar */}
       <aside className="hidden lg:flex lg:w-[260px] lg:shrink-0 lg:flex-col border-r border-[var(--color-border)] bg-[var(--color-surface)] sticky top-0 h-screen overflow-y-auto">
         <div className="flex h-16 items-center justify-between px-4 border-b border-[var(--color-border)] shrink-0">
-          <Link href="/">
+          <Link href={getSalesXPortalUrlForPath("/")}>
             <BrandLogo subtitle={portalSubtitle} compact />
           </Link>
         </div>
