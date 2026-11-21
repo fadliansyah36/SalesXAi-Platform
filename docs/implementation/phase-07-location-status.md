@@ -119,3 +119,17 @@ Latest successful runtime source for the four designated Railway services is 833
 - salesx-company deployment 42af78b1-8aaa-4c5b-b3d1-8232708b0822 — SUCCESS
 
 Live API readiness and all eight portal-group health probes returned healthy; no new service or database was created.
+
+
+## Execution reconciliation — 2026-11-21
+
+This addendum reconciles Phase 07 gates against the canonical Engineering Execution Master Plan and root AGENTS.md.
+
+- The canonical plan explicitly excludes real-world/field testing as a phase prerequisite. Physical-device observations (OS suspension, battery optimization, permission revocation and offline resume) remain documented operational caveats, but are not an additional Phase 07 acceptance gate. The implementation retains explicit consent, foreground/background permission handling, visible tracking state, shift-bound session ownership, offline outbox, idempotent ingestion and sync recovery.
+- The current source contains the Expo Location/TaskManager implementation, SQLite outbox, FastAPI ingestion/history/replay/geofence endpoints, PostGIS schema, role-scoped map workspace and provider-neutral Google Maps adapters. The code snapshot validated by API/Expo workflow 44899483509 is 27dc32b5984fac315a4027aecfe3ca3f8e3217d6.
+- The seven Phase 07 migrations are present in the live Supabase ledger through 20261121110006. No duplicate schema migration is justified by the reviewed scope.
+- The four designated Railway services have successful deployments from the code-equivalent source 27dc32b5984fac315a4027aecfe3ca3f8e3217d6, with subsequent documentation-only commits. Latest successful deployment IDs are recorded in phase-status.md. The separate pre-existing @salesx-ai/mobile-sales Railway service is not one of the four release services and is not a substitute for the Expo/EAS mobile build.
+- The sole Phase 07 DoD blocker is official owner-level application of supabase/owner-pending/20261121100000_location_realtime_messages_owner_policy.sql followed by authenticated subscription allow/deny validation. Until then, permission-checked FastAPI SSE remains the active delivery path.
+- Google Maps Foundation is READY FOR FINAL CREDENTIAL ACTIVATION: shared contracts/adapters, Web and Expo renderers, FastAPI config/Places/Routes adapters, environment separation and keyless fallback are implemented. Google tiles/Places/Routes remain disabled until real restricted credentials, map ID where required, and billing are supplied.
+
+**Reconciled Phase 07 status: IN_PROGRESS only because the owner-level private Realtime authorization gate is still pending.** No physical-device field test, staging deployment, manual real-user login, or Product Owner Acceptance is required by canonical execution governance.
