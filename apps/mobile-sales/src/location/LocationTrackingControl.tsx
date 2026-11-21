@@ -3,12 +3,12 @@ import {AppState,Pressable} from "react-native";
 import * as Location from "expo-location";
 import type {SalesXApiClient} from "@salesx-ai/api-client";
 import {NativeInline,NativeStack,NativeSurface,NativeText,useNativeTheme} from "@salesx-ai/design-system/native";
-import {ensureLocationDeviceId,flushLocationOutbox,startLocationTracking,stopLocationTracking,syncLocationAccessToken,syncPendingLocationStop,LOCATION_TASK_NAME} from "./locationTracking";
+import {ensureLocationDeviceId,flushLocationOutbox,getLocalLocationRoute,startLocationTracking,stopLocationTracking,syncLocationAccessToken,syncPendingLocationStop,LOCATION_TASK_NAME} from "./locationTracking";
 import {LocationMap} from "./LocationMap";
-import type {MapCoordinate} from "../../../../packages/maps/src";
+import type {MapCoordinate,MapPolyline} from "../../../../packages/maps/src";
 
 export function LocationTrackingControl({api,organizationId,accessToken,actorUserId,shiftId}:{api:SalesXApiClient|null;organizationId:string|null;accessToken:string|null;actorUserId:string|null;shiftId?:string|null}){
- const {colors}=useNativeTheme();const [consent,setConsent]=useState(false);const [active,setActive]=useState(false);const [busy,setBusy]=useState(false);const [notice,setNotice]=useState("");const [currentCoordinate,setCurrentCoordinate]=useState<MapCoordinate|null>(null);
+ const {colors}=useNativeTheme();const [consent,setConsent]=useState(false);const [active,setActive]=useState(false);const [busy,setBusy]=useState(false);const [notice,setNotice]=useState("");const [currentCoordinate,setCurrentCoordinate]=useState<MapCoordinate|null>(null);const [currentRoute,setCurrentRoute]=useState<MapPolyline[]>([]);
  useEffect(()=>{void (async()=>{setActive(await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK_NAME));})();},[]);
  useEffect(()=>{
   if(!active){setCurrentCoordinate(null);return;}
@@ -18,6 +18,14 @@ export function LocationTrackingControl({api,organizationId,accessToken,actorUse
   }).catch(()=>undefined);
   return ()=>{mounted=false;};
  },[active]);
+ useEffect(()=>{
+  if(!organizationId||!actorUserId){setCurrentRoute([]);return;}
+  let mounted=true;
+  const refresh=async()=>{try{const route=await getLocalLocationRoute(organizationId,actorUserId);if(mounted)setCurrentRoute(route);}catch{}};
+  void refresh();
+  const subscription=AppState.addEventListener("change",state=>{if(state==="active")void refresh();});
+  return ()=>{mounted=false;subscription.remove();};
+ },[organizationId,actorUserId]);
  useEffect(()=>{void syncLocationAccessToken(accessToken);},[accessToken]);
  useEffect(()=>{
   if(!api||!organizationId)return;
@@ -33,7 +41,7 @@ export function LocationTrackingControl({api,organizationId,accessToken,actorUse
     if(!consent)throw new Error("Persetujuan pelacakan harus diberikan terlebih dahulu.");
     const device=await ensureLocationDeviceId();
     await startLocationTracking(api,organizationId,accessToken,device,actorUserId,shiftId);
-    setActive(true);setNotice("Pelacakan lokasi aktif. Anda dapat menghentikannya kapan saja.");
+    setActive(true);setCurrentRoute(await getLocalLocationRoute(organizationId,actorUserId));setNotice("Pelacakan lokasi aktif. Anda dapat menghentikannya kapan saja.");
    }
   }catch(error){setNotice(error instanceof Error?error.message:"Tidak dapat mengubah status pelacakan.");}
   finally{setBusy(false);}
@@ -45,7 +53,7 @@ export function LocationTrackingControl({api,organizationId,accessToken,actorUse
     <NativeText variant="caption" color={active?colors.success:colors.textSecondary}>{active?"AKTIF":"NONAKTIF"}</NativeText>
    </NativeInline>
    <NativeText color={colors.textSecondary}>Lokasi GPS hanya dikumpulkan setelah Anda menyetujui dan memberikan izin perangkat. Data disimpan sementara secara lokal ketika offline dan dikirim ke FastAPI saat koneksi tersedia.</NativeText>
-   <LocationMap center={currentCoordinate} />
+   <LocationMap center={currentCoordinate??currentRoute[0]?.coordinates[currentRoute[0].coordinates.length-1]??null} routes={currentRoute} />
    {!active&&<Pressable onPress={()=>setConsent(v=>!v)} style={{padding:12,borderRadius:12,borderWidth:1,borderColor:consent?colors.primary:colors.border}}>
     <NativeText color={consent?colors.primary:colors.textPrimary}> {consent?"✓ ":"□ "}Saya menyetujui pelacakan lokasi selama sesi kerja dan memahami bahwa saya dapat menghentikannya.</NativeText>
    </Pressable>}
