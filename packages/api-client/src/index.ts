@@ -787,7 +787,7 @@ export class SalesXApiClient {
   }
 }
 
-export type {RewardProgram,RewardRule,RewardCatalogItem,RewardLedgerEntry,RewardBalance,RewardRedemption,RewardPage,RewardApprovalRequest,RewardApprovalWrite,RewardApprovalDecision,RewardApprovalHistory,SmartRewardRealtimeEvent} from "@salesx-ai/api-contracts";
+export type {RewardProgram,RewardRule,RewardCatalogItem,RewardLedgerEntry,RewardBalance,RewardRedemption,RewardPage,RewardApprovalRequest,RewardApprovalWrite,RewardApprovalDecision,RewardApprovalHistory,SmartRewardRealtimeEvent,RewardProgressItem,RewardProgressResponse} from "@salesx-ai/api-contracts";
 export function createSmartRewardApi(client:SalesXApiClient,organizationId:string){
  const base="/api/v1/organizations/"+encodeURIComponent(organizationId)+"/smart-reward";
  return {
@@ -801,6 +801,7 @@ export function createSmartRewardApi(client:SalesXApiClient,organizationId:strin
   createCatalogItem:(body:unknown)=>client.request<import("@salesx-ai/api-contracts").RewardCatalogItem>(base+"/catalog",{method:"POST",body:JSON.stringify(body)}),
   updateCatalogItem:(id:string,body:unknown)=>client.request<import("@salesx-ai/api-contracts").RewardCatalogItem>(base+"/catalog/"+encodeURIComponent(id),{method:"PATCH",body:JSON.stringify(body)}),
   balance:()=>client.request<import("@salesx-ai/api-contracts").RewardBalance>(base+"/balance"),
+  progress:()=>client.request<import("@salesx-ai/api-contracts").RewardProgressResponse>(base+"/progress"),
   ledger:(page=1,pageSize=25)=>client.request<import("@salesx-ai/api-contracts").RewardPage<import("@salesx-ai/api-contracts").RewardLedgerEntry>>(base+"/ledger?page="+page+"&page_size="+pageSize),
   issue:(body:unknown)=>client.request<import("@salesx-ai/api-contracts").RewardLedgerEntry>(base+"/earnings",{method:"POST",body:JSON.stringify(body)}),
   redeem:(body:unknown)=>client.request<import("@salesx-ai/api-contracts").RewardRedemption>(base+"/redemptions",{method:"POST",body:JSON.stringify(body)}),
