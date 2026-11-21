@@ -1320,3 +1320,8 @@ This addendum supersedes the older Phase 06 foundation-only blocker list above. 
 - Supabase read-only counts remain empty for organizations, profiles, reward accounts, ledger, redemptions, lots, approvals, audit events and customer segments. No production fixture data was created.
 - Temporary isolated Supabase branch requires explicit cost approval (US$0.01344/hour); not created.
 - Phase 06 remains IN_PROGRESS; Phase 07 remains LOCKED.
+
+
+## Portal static asset verification — 2026-11-21
+
+Live HTML returned HTTP 200 for Website, Sales, Customer, Company, Distributor, Principal, Supervisor and Super Admin (`/admin`). Referenced CSS assets returned HTTP 200 with `text/css`; page-specific JavaScript chunks returned HTTP 200 with `application/javascript`. The Super Admin route is `/admin`, not `/super-admin`. This is static asset delivery evidence, not authenticated interaction acceptance.
