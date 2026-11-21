@@ -10,8 +10,10 @@ Query:
 - period_start: ISO date (required)
 - period_end: ISO date (required)
 - grain: day | week | month (default day)
+- optional scope_type: tenant | branch | team | territory | user
+- optional scope_id: UUID for a non-tenant scope
 
-Returns the authorized metric snapshots, caller scopes, period, data_as_of and is_stale. Maximum range is 366 days. Tenant, branch, team, territory and self scopes are filtered by the server-side assignment resolver and database RLS.
+Returns the authorized metric snapshots, caller scopes, period, data_as_of and is_stale. Maximum range is 366 days. If no scope is supplied, the service returns only the caller's assigned scopes so the UI can choose a valid initial scope. Explicit scope filters are validated by active membership, role assignment, permission, tenant and resource scope before query execution.
 
 ## Report runs
 
@@ -32,7 +34,7 @@ Body:
   "parameters": {}
 }
 
-Requires analytics:reports:manage at tenant scope. The endpoint registers an idempotent durable report run and returns HTTP 202. It does not claim an export artifact exists until an export worker completes the job.
+Requires analytics:reports:manage within the caller's authorized organization/scope. The endpoint registers an idempotent durable report run and queued export, returning HTTP 202. The report is not downloadable until the export worker completes and the private artifact is available.
 
 ## Permissions
 
