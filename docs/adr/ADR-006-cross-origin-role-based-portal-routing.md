@@ -18,7 +18,7 @@ SalesX-Ai serves multiple portal applications across the existing four-service R
 3. Preserve authenticated sessions across portal origins through a one-time BFF handoff:
    - Source BFF encrypts access/refresh session data with AES-256-GCM using the existing `SALESX_BFF_SHARED_SECRET`.
    - API stores only the SHA-256 hash of a random one-time ticket and the encrypted session envelope.
-   - Ticket is bound to an allow-listed target origin and expires after 60 seconds.
+   - Ticket is bound to an exact portal-to-origin mapping, active organization, actor user and target portal; it expires after 60 seconds.
    - Target BFF atomically consumes the ticket, decrypts the envelope, verifies the access token/user, and sets its own HttpOnly session cookies.
    - Raw access and refresh tokens never appear in the redirect URL.
 4. Portal switchers use the same handoff. Public landing/login links remain ordinary links because no authenticated session is available there.
@@ -27,10 +27,10 @@ SalesX-Ai serves multiple portal applications across the existing four-service R
 
 ## Security properties
 
-- Opaque single-use ticket, SHA-256 hash at rest, atomic consume, 60-second expiry.
+- Opaque single-use ticket, SHA-256 hash at rest, atomic consume, 60-second expiry, organization/actor foreign-key binding.
 - AES-256-GCM encrypted session envelope; no plaintext refresh token stored in the database.
 - Shared BFF secret required for API create/exchange calls.
-- Exact target-origin allow-list check.
+- Exact target-origin allow-list check and portal-origin mapping validated by FastAPI.
 - Existing FastAPI tenant/role/scope authorization remains the authority after handoff.
 - Public navigation does not expose Super Admin.
 
