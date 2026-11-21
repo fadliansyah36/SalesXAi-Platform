@@ -2,12 +2,12 @@ from __future__ import annotations
 import json
 from decimal import Decimal, ROUND_FLOOR
 from uuid import UUID
-import asyncpg
+from app.repositories.smart_reward import SmartRewardRepository
 from app.errors import APIError
 from app.services.smart_reward import smart_reward_service
 
 class SmartRewardApprovalService:
- async def list(self,db:asyncpg.Connection,org:UUID,actor:UUID,page:int,size:int):
+ async def list(self,db:SmartRewardRepository,org:UUID,actor:UUID,page:int,size:int):
   scopes=await db.fetch("""select ura.scope_type,ura.scope_id,r.key role_key from public.organization_memberships m
    join public.user_role_assignments ura on ura.membership_id=m.id
    join public.roles r on r.id=ura.role_id
