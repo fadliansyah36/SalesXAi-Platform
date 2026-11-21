@@ -36,6 +36,10 @@ class SmartRewardApprovalService:
    actor_keys={x["key"] for x in actor_roles}
    if not actor_keys.intersection({"tenant_owner","company_admin","supervisor","principal_user"}) and p.participant_user_id!=actor:
     raise APIError(403,"reward_request_ownership_forbidden","Participants may request points only for their own account.")
+   if "supervisor" in actor_keys and not actor_keys.intersection({"tenant_owner","company_admin","principal_user"}) and p.participant_user_id!=actor:
+    allowed=await db.fetch("select ura.scope_id from public.organization_memberships m join public.user_role_assignments ura on ura.membership_id=m.id where m.organization_id=$1 and m.user_id=$2 and m.status='active' and ura.scope_type='branch' and ura.revoked_at is null and ura.starts_at<=now() and (ura.expires_at is null or ura.expires_at>now())",org,actor)
+    branch=await db.fetchval("select branch_id from public.organization_memberships where organization_id=$1 and user_id=$2 and status='active'",org,p.participant_user_id)
+    if branch not in {x["scope_id"] for x in allowed}: raise APIError(403,"reward_approval_scope_forbidden","Participant is outside the supervisor branch scope.")
    old=await db.fetchrow("select * from public.reward_approval_requests where organization_id=$1 and requested_by=$2 and idempotency_key=$3",org,actor,p.idempotency_key)
    if old:return dict(old)
    membership=await db.fetchrow("select id,branch_id from public.organization_memberships where organization_id=$1 and user_id=$2 and status='active'",org,p.participant_user_id)
