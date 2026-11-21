@@ -45,27 +45,31 @@ async def _seed_schedules(connection:asyncpg.Connection)->None:
 async def _claim_schedules(connection:asyncpg.Connection):
     return await connection.fetch(
         """with due as (
-             select id,next_run_at scheduled_for from public.analytics_scheduled_jobs
-             where enabled and next_run_at<=now()
-             order by next_run_at for update skip locked limit 20
+             select id,coalesce(retry_at,next_run_at) scheduled_for,(retry_at is not null) retrying
+             from public.analytics_scheduled_jobs
+             where enabled and coalesce(retry_at,next_run_at)<=now()
+             order by coalesce(retry_at,next_run_at) for update skip locked limit 20
            ), advanced as (
              update public.analytics_scheduled_jobs j
              set last_run_at=now(),updated_at=now(),
-                 next_run_at=case j.schedule_kind
-                   when 'interval' then now()+make_interval(mins=>j.interval_minutes)
-                   when 'daily' then ((now() at time zone j.timezone)::date+1+j.local_time) at time zone j.timezone
-                   when 'weekly' then (((now() at time zone j.timezone)::date
-                     + ((j.day_of_week-extract(dow from (now() at time zone j.timezone)::date)::int+7)%7)
-                     + case when ((now() at time zone j.timezone)::date
-                       + ((j.day_of_week-extract(dow from (now() at time zone j.timezone)::date)::int+7)%7))
-                       <= (now() at time zone j.timezone)::date then 7 else 0 end+j.local_time) at time zone j.timezone
-                   when 'monthly' then (((date_trunc('month',now() at time zone j.timezone)::date
-                     + interval '1 month'+(j.day_of_month-1)*interval '1 day')::date+j.local_time) at time zone j.timezone)
+                 attempt_count=case when due.retrying then j.attempt_count+1 else 1 end,
+                 retry_at=null,
+                 next_run_at=case when due.retrying then j.next_run_at else
+                   case j.schedule_kind
+                     when 'interval' then now()+make_interval(mins=>j.interval_minutes)
+                     when 'daily' then ((now() at time zone j.timezone)::date+1+j.local_time) at time zone j.timezone
+                     when 'weekly' then (((now() at time zone j.timezone)::date
+                       + ((j.day_of_week-extract(dow from (now() at time zone j.timezone)::date)::int+7)%7)
+                       + case when ((now() at time zone j.timezone)::date
+                         + ((j.day_of_week-extract(dow from (now() at time zone j.timezone)::date)::int+7)%7))
+                         <= (now() at time zone j.timezone)::date then 7 else 0 end+j.local_time) at time zone j.timezone
+                     when 'monthly' then (((date_trunc('month',now() at time zone j.timezone)::date
+                       + interval '1 month'+(j.day_of_month-1)*interval '1 day')::date+j.local_time) at time zone j.timezone)
+                   end
                  end
              from due where j.id=due.id returning j.*,due.scheduled_for
            ) select * from advanced"""
     )
-
 
 async def _refresh(connection:asyncpg.Connection,organization_id,lookback:int)->dict:
     tz=await connection.fetchval("select timezone from public.organizations where id=$1",organization_id) or "UTC"
@@ -81,7 +85,7 @@ async def _refresh(connection:asyncpg.Connection,organization_id,lookback:int)->
 
 
 async def _run_schedule(connection:asyncpg.Connection,job:asyncpg.Record)->None:
-    key=f"{job['id']}:{job['scheduled_for'].isoformat()}"
+    key=f"{job['id']}:{job['scheduled_for'].isoformat()}:{job['attempt_count']}"
     execution=await connection.fetchval(
         """insert into public.analytics_job_executions
            (organization_id,scheduled_job_id,job_type,idempotency_key,status)
@@ -103,7 +107,7 @@ async def _run_schedule(connection:asyncpg.Connection,job:asyncpg.Record)->None:
             execution,json.dumps(metadata),
         )
         await connection.execute(
-            "update public.analytics_scheduled_jobs set last_status='completed',last_error=null where id=$1",job["id"]
+            "update public.analytics_scheduled_jobs set last_status='completed',last_error=null,attempt_count=0,retry_at=null where id=$1",job["id"]
         )
     except Exception as exc:
         await connection.execute(
@@ -111,7 +115,8 @@ async def _run_schedule(connection:asyncpg.Connection,job:asyncpg.Record)->None:
                error_code='analytics_job_failed',error_message=$2 where id=$1""",execution,str(exc)[:1000]
         )
         await connection.execute(
-            "update public.analytics_scheduled_jobs set last_status='failed',last_error=$2 where id=$1",
+            "update public.analytics_scheduled_jobs set last_status='failed',last_error=$2,
+               retry_at=case when attempt_count<max_attempts then now()+make_interval(secs=>least((power(2,attempt_count))::int,3600)) else null end where id=$1",
             job["id"],str(exc)[:1000],
         )
         raise
