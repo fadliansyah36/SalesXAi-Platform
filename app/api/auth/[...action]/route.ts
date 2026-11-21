@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 import {
   ACCESS_COOKIE, REFRESH_COOKIE, EXPIRY_COOKIE, CSRF_COOKIE,
   OAUTH_STATE_COOKIE, OAUTH_VERIFIER_COOKIE, OAUTH_FLOW_COOKIE, OAUTH_USER_COOKIE, OAUTH_CREATED_COOKIE,
@@ -13,6 +14,45 @@ type RouteContext = { params: Promise<{ action: string[] }> };
 function isSession(value: unknown): value is SupabaseAuthSession {
   return Boolean(value && typeof value === "object"
     && "access_token" in value && "refresh_token" in value && "user" in value);
+}
+
+
+type PortalHandoffTarget = { origin: string; path: string };
+function portalHandoffTarget(portal: string): PortalHandoffTarget | null {
+  const origin = (value: string | undefined, fallback: string) => {
+    const candidate = (value?.trim() || fallback).replace(/\/$/, "");
+    try { return new URL(candidate).origin; } catch { return ""; }
+  };
+  const website = origin(process.env.NEXT_PUBLIC_SALESX_WEBSITE_URL, "https://salesx-website-production.up.railway.app");
+  const customer = origin(process.env.NEXT_PUBLIC_SALESX_CUSTOMER_URL, "https://salesx-customer-production.up.railway.app");
+  const company = origin(process.env.NEXT_PUBLIC_SALESX_COMPANY_URL, "https://salesx-company-production.up.railway.app");
+  const targets: Record<string, PortalHandoffTarget> = {
+    sales: { origin: website, path: "/sales/portal" },
+    customer: { origin: customer, path: "/" },
+    company: { origin: company, path: "/" },
+    distributor: { origin: company, path: "/distributor/portal" },
+    principal: { origin: company, path: "/principal/portal" },
+    supervisor: { origin: company, path: "/supervisor/portal" },
+  };
+  return targets[portal] ?? null;
+}
+
+function encryptPortalSession(value: Record<string, unknown>, secret: string): string {
+  const key = createHash("sha256").update(secret).digest();
+  const iv = randomBytes(12);
+  const cipher = createCipheriv("aes-256-gcm", key, iv);
+  const ciphertext = Buffer.concat([cipher.update(JSON.stringify(value), "utf8"), cipher.final()]);
+  return Buffer.concat([iv, cipher.getAuthTag(), ciphertext]).toString("base64url");
+}
+
+function decryptPortalSession(value: string, secret: string): Record<string, unknown> {
+  const bytes = Buffer.from(value, "base64url");
+  if (bytes.length < 29) throw new Error("Invalid portal handoff payload.");
+  const key = createHash("sha256").update(secret).digest();
+  const decipher = createDecipheriv("aes-256-gcm", key, bytes.subarray(0, 12));
+  decipher.setAuthTag(bytes.subarray(12, 28));
+  const plain = Buffer.concat([decipher.update(bytes.subarray(28)), decipher.final()]);
+  return JSON.parse(plain.toString("utf8")) as Record<string, unknown>;
 }
 
 function supabaseMessage(body: Record<string, unknown>): string {
@@ -125,6 +165,108 @@ export async function POST(request: NextRequest, context: RouteContext) {
   if (!requestCsrf(request)) return authError(403, "csrf_validation_failed", "The request origin or CSRF token is invalid.");
   const payload = await request.json().catch(() => ({})) as Record<string, unknown>;
   const accessToken = request.cookies.get(ACCESS_COOKIE)?.value ?? "";
+
+
+  if (route === "portal-handoff") {
+    const targetPortal = String(payload.target_portal ?? "");
+    const target = portalHandoffTarget(targetPortal);
+    const secret = process.env.SALESX_BFF_SHARED_SECRET ?? "";
+    const refreshToken = request.cookies.get(REFRESH_COOKIE)?.value ?? "";
+    if (!target || !target.origin || !accessToken || !refreshToken || secret.length < 32) {
+      return authError(400, "portal_handoff_unavailable", "The requested portal handoff is not available.");
+    }
+    const limited = await enforceBffRateLimit(request, "portal_handoff", targetPortal);
+    if (limited) return limited;
+    const origin = apiUrl();
+    if (!origin) return authError(503, "api_not_configured", "SALESX_API_URL is deployment-pending.");
+    const code = randomToken(32);
+    const expiry = Math.floor(Date.now() / 1000) + 60;
+    const encryptedSession = encryptPortalSession({
+      access_token: accessToken,
+      refresh_token: refreshToken,
+      token_type: "bearer",
+      expires_at: Number(request.cookies.get(EXPIRY_COOKIE)?.value ?? expiry),
+      user_id: subjectFromJwt(accessToken) ?? "",
+      target_origin: target.origin,
+      expires_at_ticket: expiry,
+    }, secret);
+    try {
+      const created = await fetch(origin + "/api/v1/auth/portal-handoffs", {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer " + accessToken,
+          "Content-Type": "application/json",
+          "X-Client-Platform": "web",
+          "X-SalesX-BFF-Secret": secret,
+        },
+        body: JSON.stringify({
+          token: code,
+          encrypted_session: encryptedSession,
+          target_portal: targetPortal,
+          target_origin: target.origin,
+          expires_at: new Date(expiry * 1000).toISOString(),
+        }),
+        cache: "no-store",
+        signal: AbortSignal.timeout(8000),
+      });
+      if (!created.ok) return authError(created.status, "portal_handoff_create_failed", "The destination portal session could not be prepared.");
+    } catch {
+      return authError(503, "portal_handoff_unavailable", "The portal handoff service is temporarily unavailable.");
+    }
+    const destination = new URL(target.path, target.origin);
+    destination.searchParams.set("portal_handoff", code);
+    return NextResponse.json({ target_url: destination.toString() }, { headers: { "Cache-Control": "no-store" } });
+  }
+
+  if (route === "portal-handoff-exchange") {
+    const code = String(payload.code ?? "");
+    const secret = process.env.SALESX_BFF_SHARED_SECRET ?? "";
+    const targetOrigin = appOrigin(request);
+    const origin = apiUrl();
+    if (code.length < 32 || secret.length < 32 || !origin) {
+      return authError(400, "portal_handoff_invalid", "The portal handoff ticket is invalid.");
+    }
+    const limited = await enforceBffRateLimit(request, "portal_handoff_exchange", tokenFingerprint(code));
+    if (limited) return limited;
+    try {
+      const exchanged = await fetch(origin + "/api/v1/auth/portal-handoffs/exchange", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-SalesX-BFF-Secret": secret },
+        body: JSON.stringify({ token: code, target_origin: targetOrigin }),
+        cache: "no-store",
+        signal: AbortSignal.timeout(8000),
+      });
+      if (!exchanged.ok) return authError(exchanged.status, "portal_handoff_exchange_failed", "The portal handoff ticket is invalid, expired or already used.");
+      const body = await exchanged.json() as { encrypted_session?: string };
+      if (!body.encrypted_session) return authError(502, "portal_handoff_exchange_failed", "The handoff service returned no session.");
+      const session = decryptPortalSession(body.encrypted_session, secret);
+      const access = String(session.access_token ?? "");
+      const refresh = String(session.refresh_token ?? "");
+      const expiresAt = Number(session.expires_at ?? 0);
+      const ticketExpiry = Number(session.expires_at_ticket ?? 0);
+      const userId = String(session.user_id ?? "");
+      if (!access || !refresh || !userId || userId !== subjectFromJwt(access)
+        || session.target_origin !== targetOrigin || ticketExpiry <= Math.floor(Date.now() / 1000)) {
+        return authError(401, "portal_handoff_session_invalid", "The handoff session could not be verified.");
+      }
+      const verified = await userForAccessToken(access);
+      if (!verified.ok || verified.data.id !== userId) return authError(401, "portal_handoff_session_invalid", "The transferred session is no longer valid.");
+      const expiresIn = Math.max(60, expiresAt - Math.floor(Date.now() / 1000));
+      const sessionValue: SupabaseAuthSession = {
+        access_token: access,
+        refresh_token: refresh,
+        token_type: "bearer",
+        expires_in: expiresIn,
+        expires_at: expiresAt,
+        user: verified.data,
+      };
+      const response = NextResponse.json({ accepted: true }, { headers: { "Cache-Control": "no-store" } });
+      setSessionCookies(response, sessionValue);
+      return response;
+    } catch {
+      return authError(401, "portal_handoff_session_invalid", "The handoff session could not be decrypted or verified.");
+    }
+  }
 
   if (route === "sign-in") {
     const identifier = String(payload.identifier ?? payload.email ?? payload.phone ?? "").trim();
