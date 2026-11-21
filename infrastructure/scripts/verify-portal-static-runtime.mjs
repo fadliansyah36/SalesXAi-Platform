@@ -25,7 +25,7 @@ if (!apps) throw new Error("Usage: node verify-portal-static-runtime.mjs <websit
 const port = Number(process.env.PORT || 3000);
 const root = process.cwd();
 
-function cssFiles(directory) {
+function staticFiles(directory, extension) {
   const staticRoot = path.join(root, directory, ".next", "standalone", directory, ".next", "static");
   if (!fs.existsSync(staticRoot)) throw new Error("Missing standalone static directory: " + staticRoot);
   const found = [];
@@ -35,7 +35,7 @@ function cssFiles(directory) {
     for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
       const full = path.join(current, entry.name);
       if (entry.isDirectory()) pending.push(full);
-      else if (entry.isFile() && entry.name.endsWith(".css")) {
+      else if (entry.isFile() && entry.name.endsWith(extension)) {
         found.push(path.relative(staticRoot, full).split(path.sep).join("/"));
       }
     }
@@ -76,33 +76,44 @@ async function retryGet(urlPath, deadline) {
 
 const deadline = Date.now() + 60000;
 for (const app of apps) {
-  const css = cssFiles(app.directory);
+  const css = staticFiles(app.directory, ".css");
+  const js = staticFiles(app.directory, ".js");
   if (!css.length) throw new Error(app.name + " build emitted no CSS files");
+  if (!js.length) throw new Error(app.name + " build emitted no JavaScript chunks");
+
   const page = await retryGet(app.prefix || "/", deadline);
-  const linkedStylesheets = [...page.body.matchAll(/href=["']([^"']+\.css(?:\?[^"']*)?)["']/g)].map((match) => match[1]);
-  if (!linkedStylesheets.length) {
-    throw new Error(app.name + " HTML does not reference a stylesheet; check App Router layout/CSS import");
-  }
+  const linkedStylesheets = [...page.body.matchAll(/href=["']([^"']+\\.css(?:\\?[^"']*)?)["']/g)].map((match) => match[1]);
+  const linkedScripts = [...page.body.matchAll(/<script[^>]+src=["']([^"']+\\.js(?:\\?[^"']*)?)["']/g)].map((match) => match[1]);
+  if (!linkedStylesheets.length) throw new Error(app.name + " HTML does not reference a stylesheet; check App Router layout/CSS import");
+  if (!linkedScripts.length) throw new Error(app.name + " HTML does not reference a JavaScript bundle; hydration cannot be verified");
+
   for (const href of linkedStylesheets) {
     const response = await retryGet(href, deadline);
     if (!response.contentType.includes("text/css") || response.body.length === 0) {
       throw new Error(app.name + " stylesheet is not delivered as CSS: " + href);
     }
   }
+  for (const src of linkedScripts) {
+    const response = await retryGet(src, deadline);
+    if (!/(javascript|ecmascript)/i.test(response.contentType) || response.body.length === 0) {
+      throw new Error(app.name + " JavaScript bundle is not delivered correctly: " + src);
+    }
+  }
+
   let tokenStylesheet = null;
   for (const file of css) {
     const asset = await retryGet((app.prefix || "") + "/_next/static/" + file, deadline);
     if (!asset.contentType.includes("text/css") || asset.body.length === 0) {
       throw new Error(app.name + " standalone CSS asset is missing or invalid: " + file);
     }
-    if (/--salesx-color-background|--font-sans|--color-background/.test(asset.body)) {
-      tokenStylesheet = file;
-    }
+    if (/--salesx-color-background|--font-sans|--color-background/.test(asset.body)) tokenStylesheet = file;
   }
-  if (!tokenStylesheet) {
-    throw new Error(app.name + " CSS assets do not contain canonical SalesX styling tokens");
-  }
-  process.stdout.write("CSS runtime OK: " + app.name + " page=" + (app.prefix || "/") +
-    " linkedStylesheets=" + linkedStylesheets.length + " tokenCSS=" + tokenStylesheet + "\n");
+  if (!tokenStylesheet) throw new Error(app.name + " CSS assets do not contain canonical SalesX styling tokens");
+
+  process.stdout.write("Static runtime OK: " + app.name +
+    " page=" + (app.prefix || "/") +
+    " css=" + linkedStylesheets.length +
+    " js=" + linkedScripts.length +
+    " tokenCSS=" + tokenStylesheet + "\\n");
 }
-process.stdout.write("Portal group CSS/static runtime verified: " + group + "\n");
+process.stdout.write("Portal group CSS/JS static runtime verified: " + group + "\\n");
