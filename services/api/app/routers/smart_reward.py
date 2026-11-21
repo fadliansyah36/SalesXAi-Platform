@@ -148,7 +148,7 @@ async def create_customer_segment(organization_id:UUID,payload:RewardCustomerSeg
  return await smart_reward_segment_service.create(db,organization_id,principal.user_id,payload)
 
 @router.get("/{organization_id}/smart-reward/segments/{segment_id}",response_model=RewardCustomerSegmentResponse)
-async def customer_segment_detail(organization_id:UUID,segment_id:UUID,tenant:TenantContext=Depends(require_api_action("smartreward.segments.read")),db:SmartRewardRepository=Depends(get_smart_reward_repository)):
+async def customer_segment_detail(organization_id:UUID,segment_id:UUID,tenant:TenantContext=Depends(require_api_action("smartreward.segments.detail")),db:SmartRewardRepository=Depends(get_smart_reward_repository)):
  smart_reward_service._tenant(organization_id,tenant)
  row=await smart_reward_segment_service._get(db,organization_id,segment_id)
  return dict(row)
@@ -159,17 +159,17 @@ async def update_customer_segment(organization_id:UUID,segment_id:UUID,payload:R
  return await smart_reward_segment_service.update(db,organization_id,principal.user_id,segment_id,payload)
 
 @router.get("/{organization_id}/smart-reward/segments/{segment_id}/members",response_model=RewardPageResponse[RewardCustomerSegmentMemberResponse])
-async def customer_segment_members(organization_id:UUID,segment_id:UUID,page:int=Query(1,ge=1),page_size:int=Query(25,ge=1,le=100),tenant:TenantContext=Depends(require_api_action("smartreward.segments.read")),db:SmartRewardRepository=Depends(get_smart_reward_repository)):
+async def customer_segment_members(organization_id:UUID,segment_id:UUID,page:int=Query(1,ge=1),page_size:int=Query(25,ge=1,le=100),tenant:TenantContext=Depends(require_api_action("smartreward.segments.members.read")),db:SmartRewardRepository=Depends(get_smart_reward_repository)):
  smart_reward_service._tenant(organization_id,tenant)
  return await smart_reward_segment_service.members(db,organization_id,segment_id,page,page_size)
 
 @router.post("/{organization_id}/smart-reward/segments/{segment_id}/members",status_code=201,response_model=RewardCustomerSegmentMemberResponse)
-async def add_customer_segment_member(organization_id:UUID,segment_id:UUID,payload:RewardCustomerSegmentMemberWrite,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartreward.segments.manage")),db:SmartRewardRepository=Depends(get_smart_reward_repository)):
+async def add_customer_segment_member(organization_id:UUID,segment_id:UUID,payload:RewardCustomerSegmentMemberWrite,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartreward.segments.members.create")),db:SmartRewardRepository=Depends(get_smart_reward_repository)):
  smart_reward_service._tenant(organization_id,tenant)
  return await smart_reward_segment_service.add_member(db,organization_id,principal.user_id,segment_id,payload)
 
 @router.delete("/{organization_id}/smart-reward/segments/{segment_id}/members/{participant_user_id}",response_model=RewardCustomerSegmentMemberResponse)
-async def remove_customer_segment_member(organization_id:UUID,segment_id:UUID,participant_user_id:UUID,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartreward.segments.manage")),db:SmartRewardRepository=Depends(get_smart_reward_repository)):
+async def remove_customer_segment_member(organization_id:UUID,segment_id:UUID,participant_user_id:UUID,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartreward.segments.members.remove")),db:SmartRewardRepository=Depends(get_smart_reward_repository)):
  smart_reward_service._tenant(organization_id,tenant)
  return await smart_reward_segment_service.remove_member(db,organization_id,principal.user_id,segment_id,participant_user_id)
 
@@ -179,6 +179,6 @@ async def customer_segment_report(organization_id:UUID,segment_id:UUID,tenant:Te
  return await smart_reward_segment_service.report(db,organization_id,segment_id)
 
 @router.post("/{organization_id}/smart-reward/segments/{segment_id}/evaluate")
-async def evaluate_customer_segment(organization_id:UUID,segment_id:UUID,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartreward.segments.manage")),db:SmartRewardRepository=Depends(get_smart_reward_repository)):
+async def evaluate_customer_segment(organization_id:UUID,segment_id:UUID,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartreward.segments.evaluate")),db:SmartRewardRepository=Depends(get_smart_reward_repository)):
  smart_reward_service._tenant(organization_id,tenant)
  return await smart_reward_segment_service.evaluate(db,organization_id,principal.user_id,segment_id)
