@@ -51,6 +51,7 @@ import { BrandLogo } from '@/components/common/BrandLogo';
 import { Modal } from '@/components/common/Modal';
 import { PWAInstallButton } from '@/components/common/PWAInstallButton';
 import { useSalesXAuth } from '@/components/providers/AppProviders';
+import { SmartRewardWorkspace } from '@/components/smart-reward/SmartRewardWorkspace';
 import { PortalSignupAction } from '@/components/auth/PortalSignupAction';
 import {
   CUSTOMER_OUTLET_PROFILE,
