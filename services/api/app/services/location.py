@@ -81,6 +81,8 @@ class LocationService:
                 raise APIError(404, "location_session_not_found", "Location session was not found.")
             if row["user_id"] != actor and not await self.profile_allowed(db, org, actor, row["sales_profile_id"]):
                 raise APIError(403, "location_session_forbidden", "The session is outside your authorized scope.")
+            if payload.action == "stop" and row["status"] == "completed":
+                return dict(row)
             if row["status"] not in allowed:
                 raise APIError(409, "location_session_transition_invalid", "The requested location session transition is not valid.")
             updated = await location_repository.update_session(db,org,session_id,target,target in {"completed","revoked"})
@@ -98,14 +100,32 @@ class LocationService:
                 raise APIError(403, "location_device_owner_mismatch", "Location session is bound to another user or device.")
             if session["status"] != "active" or session["ended_at"] is not None:
                 raise APIError(409, "location_session_not_active", "Location points can only be uploaded to an active session.")
+            if not session["shift_id"]:
+                raise APIError(409, "location_shift_not_active", "Location sessions must be bound to an active SmartTeam shift.")
+            shift = await db.fetchrow("""select id,clock_in_at,clock_out_at
+              from public.smartteam_shifts
+              where organization_id=$1 and id=$2 and user_id=$3 and sales_profile_id=$4
+              for update""", org, session["shift_id"], actor, session["sales_profile_id"])
+            if not shift or shift["clock_in_at"] is None:
+                raise APIError(409, "location_shift_not_active", "The linked SmartTeam shift is not valid for this Sales profile.")
             accepted = duplicates = 0
             for point in payload.points:
                 stamp = point.recorded_at
                 if stamp.tzinfo is None or stamp > now+timedelta(minutes=5) or stamp < now-timedelta(days=30):
                     raise APIError(422, "location_timestamp_invalid", "Location timestamps must include timezone and be within the last 30 days.")
+                if shift["clock_out_at"] is not None and stamp > shift["clock_out_at"]:
+                    raise APIError(409, "location_shift_ended", "Location points recorded after the shift ended are not accepted.")
                 inserted = await location_repository.insert_point(db,org,session_id,actor,device_id,point)
                 if inserted: accepted += 1
                 else: duplicates += 1
+            if shift["clock_out_at"] is not None:
+                completed = await location_repository.update_session(
+                    db, org, session_id, "completed", True, shift["clock_out_at"]
+                )
+                await location_repository.audit_session(
+                    db, actor, org, "location.session.completed",
+                    session_id, {"reason": "shift_ended", "shift_id": str(session["shift_id"])}
+                )
             return {"session_id":session_id,"accepted":accepted,"duplicates":duplicates,"received":len(payload.points)}
 
     async def live(self, db, org, tenant, actor):
