@@ -149,6 +149,14 @@ class AnalyticsRepository:
         )
         return {**dict(row),"export_id":export["id"],"export_status":export["status"]}
 
+    async def record_report_access(self,connection,organization_id,user_id,report_run_id,event_type):
+        await connection.execute(
+            """insert into public.analytics_report_access_events
+               (organization_id,report_run_id,actor_user_id,event_type)
+               values($1,$2,$3,$4)""",
+            organization_id,report_run_id,user_id,event_type,
+        )
+
     async def completed_report_artifact(self,connection,organization_id,user_id,report_run_id):
         return await connection.fetchrow(
             """select r.id report_run_id,r.scope_type,r.scope_id,e.artifact_path,e.status
