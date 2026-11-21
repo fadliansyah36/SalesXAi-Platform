@@ -75,9 +75,13 @@ class SmartRewardService:
    if owner!=user: raise APIError(403,"reward_source_owner_mismatch","Visit belongs to another participant.")
    return Decimal(1)
   if t=="order":
-   r=await db.fetchrow("select grand_total,customer_user_id,channel from public.orders where organization_id=$1 and id=$2 and status in ('fulfilled','completed')",org,sid)
+   r=await db.fetchrow("select grand_total,customer_user_id,channel,cart_id from public.orders where organization_id=$1 and id=$2 and status in ('fulfilled','completed')",org,sid)
    if not r: raise APIError(422,"reward_source_not_eligible","Order must be fulfilled or completed.")
-   if r["channel"]=="customer" and r["customer_user_id"]!=user: raise APIError(403,"reward_source_owner_mismatch","Order belongs to another customer.")
+   if r["channel"]=="customer":
+    if r["customer_user_id"]!=user: raise APIError(403,"reward_source_owner_mismatch","Order belongs to another customer.")
+   else:
+    owner=await db.fetchval("select owner_user_id from public.carts where organization_id=$1 and id=$2",org,r["cart_id"]) if r["cart_id"] else None
+    if owner!=user: raise APIError(403,"reward_source_owner_mismatch","Sales order does not belong to this participant.")
    return Decimal(str(r["grand_total"]))
   if t=="target":
    r=await db.fetchrow("select sales_profile_id,metric_key,target_value,period_start,period_end from public.smartteam_targets where organization_id=$1 and id=$2",org,sid)
@@ -177,7 +181,7 @@ class SmartRewardService:
    where m.organization_id=$1 and m.user_id=$2 and m.status='active' and ura.revoked_at is null
     and ura.starts_at<=now() and (ura.expires_at is null or ura.expires_at>now())""",org,user)
   roles={x["role_key"] for x in scopes}
-  if roles.intersection({"tenant_owner","company_admin","principal_user"}):
+  if roles.intersection({"tenant_owner","company_admin","principal_user","distributor_user"}):
    where="organization_id=$1";args=[org]
   elif "supervisor" in roles:
    branches=[x["scope_id"] for x in scopes if x["role_key"]=="supervisor" and x["scope_type"]=="branch"]
