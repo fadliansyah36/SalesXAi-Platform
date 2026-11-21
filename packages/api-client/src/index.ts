@@ -902,6 +902,10 @@ export function createAnalyticsApi(client:SalesXApiClient,organizationId:string)
    ),
   reports:()=>client.request<import("@salesx-ai/api-contracts").AnalyticsReportRun[]>(base+"/reports"),
   createReport:(payload:import("@salesx-ai/api-contracts").AnalyticsReportRunCreate)=>
-   client.request<import("@salesx-ai/api-contracts").AnalyticsReportRun>(base+"/reports",{method:"POST",body:JSON.stringify(payload)}),
+   client.request<import("@salesx-ai/api-contracts").AnalyticsReportExportResponse>(base+"/reports",{method:"POST",body:JSON.stringify(payload)}),
+  downloadReport:(reportRunId:string)=>
+   client.request<import("@salesx-ai/api-contracts").AnalyticsReportDownloadResponse>(
+    base+"/reports/"+encodeURIComponent(reportRunId)+"/download"
+   ),
  };
 }
