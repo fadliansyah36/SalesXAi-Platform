@@ -76,11 +76,6 @@ class SmartRewardAuthenticatedTenantIsolationTests(unittest.IsolatedAsyncioTestC
             self.email,
         )
         await self.db.execute(
-            "insert into public.profiles(id,email,display_name,status) values($1,$2,'Phase 06 tenant fixture','active')",
-            self.user_id,
-            self.email,
-        )
-        await self.db.execute(
             """insert into auth.sessions(id,user_id,created_at,updated_at,not_after)
                values($1,$2,now(),now(),now()+interval '1 hour')""",
             self.session_id,
