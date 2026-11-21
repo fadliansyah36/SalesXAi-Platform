@@ -14,6 +14,7 @@ const SESSION_KEY="salesx-location-session-v1";
 const ORG_KEY="salesx-location-org-v1";
 const DEVICE_KEY="salesx-mobile-device-id-v1";
 const ACTOR_KEY="salesx-location-actor-v1";
+const SHIFT_KEY="salesx-location-shift-v1";
 const TOKEN_KEY="salesx-location-token-v1";
 const STOP_PENDING_KEY="salesx-location-stop-pending-v1";
 const API_ORIGIN=(process.env.EXPO_PUBLIC_SALESX_API_URL??"").replace(/\/$/,"");
@@ -123,6 +124,7 @@ export async function syncLocationAccessToken(token:string|null){
  if(token)await SecureStore.setItemAsync(TOKEN_KEY,token);else await SecureStore.deleteItemAsync(TOKEN_KEY);
 }
 export async function startLocationTracking(api:SalesXApiClient,organizationId:string,accessToken:string,deviceId:string,actorUserId:string,shiftId?:string|null){
+ if(!shiftId)throw new Error("Shift kerja aktif wajib tersedia sebelum pelacakan lokasi dimulai.");
  if(!(await TaskManager.isAvailableAsync()))throw new Error("Background TaskManager tidak tersedia. Gunakan native development/production build, bukan web runtime.");
  const foreground=await Location.requestForegroundPermissionsAsync();
  if(foreground.status!=="granted")throw new Error("Izin lokasi saat aplikasi digunakan wajib diberikan.");
@@ -131,7 +133,7 @@ export async function startLocationTracking(api:SalesXApiClient,organizationId:s
  const locationApi=createLocationApi(api,organizationId);
  const session=await locationApi.startSession({device_id:deviceId,consent_policy_version:"sales-location-v1",shift_id:shiftId??null});
  await SecureStore.setItemAsync(SESSION_KEY,session.id);await SecureStore.setItemAsync(ORG_KEY,organizationId);
- await SecureStore.setItemAsync(TOKEN_KEY,accessToken);await SecureStore.setItemAsync(ACTOR_KEY,actorUserId);
+ await SecureStore.setItemAsync(TOKEN_KEY,accessToken);await SecureStore.setItemAsync(ACTOR_KEY,actorUserId);await SecureStore.setItemAsync(SHIFT_KEY,shiftId);
  await SecureStore.deleteItemAsync(STOP_PENDING_KEY);
  try{
   await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME,{accuracy:Location.Accuracy.Balanced,timeInterval:30000,distanceInterval:50,
@@ -139,16 +141,17 @@ export async function startLocationTracking(api:SalesXApiClient,organizationId:s
    foregroundService:{notificationTitle:"SalesX-Ai location tracking",notificationBody:"Pelacakan lokasi aktif atas persetujuan Anda."}});
  }catch(error){
   await locationApi.updateSession(session.id,{action:"stop",reason:"native_location_task_start_failed"});
-  await SecureStore.deleteItemAsync(SESSION_KEY);await SecureStore.deleteItemAsync(ORG_KEY);await SecureStore.deleteItemAsync(ACTOR_KEY);
+  await SecureStore.deleteItemAsync(SESSION_KEY);await SecureStore.deleteItemAsync(ORG_KEY);await SecureStore.deleteItemAsync(ACTOR_KEY);await SecureStore.deleteItemAsync(SHIFT_KEY);
   throw error;
  }
  return session;
 }
+export async function getStoredLocationShiftId(){return SecureStore.getItemAsync(SHIFT_KEY);}
 export async function syncPendingLocationStop(api:SalesXApiClient,organizationId:string){
  const pending=await SecureStore.getItemAsync(STOP_PENDING_KEY),sessionId=await SecureStore.getItemAsync(SESSION_KEY);
  if(pending!=="true"||!sessionId)return;
  await createLocationApi(api,organizationId).updateSession(sessionId,{action:"stop",reason:"offline_stop_synchronized"});
- await SecureStore.deleteItemAsync(SESSION_KEY);await SecureStore.deleteItemAsync(ORG_KEY);await SecureStore.deleteItemAsync(ACTOR_KEY);await SecureStore.deleteItemAsync(STOP_PENDING_KEY);
+ await SecureStore.deleteItemAsync(SESSION_KEY);await SecureStore.deleteItemAsync(ORG_KEY);await SecureStore.deleteItemAsync(ACTOR_KEY);await SecureStore.deleteItemAsync(SHIFT_KEY);await SecureStore.deleteItemAsync(STOP_PENDING_KEY);
 }
 export async function stopLocationTracking(api:SalesXApiClient,organizationId:string){
  const sessionId=await SecureStore.getItemAsync(SESSION_KEY);
@@ -158,9 +161,9 @@ export async function stopLocationTracking(api:SalesXApiClient,organizationId:st
  if(deviceId)await flushLocationOutbox(api,organizationId,deviceId);
  try{
   await createLocationApi(api,organizationId).updateSession(sessionId,{action:"stop",reason:"user_requested"});
-  await SecureStore.deleteItemAsync(SESSION_KEY);await SecureStore.deleteItemAsync(ORG_KEY);await SecureStore.deleteItemAsync(ACTOR_KEY);await SecureStore.deleteItemAsync(STOP_PENDING_KEY);
+  await SecureStore.deleteItemAsync(SESSION_KEY);await SecureStore.deleteItemAsync(ORG_KEY);await SecureStore.deleteItemAsync(ACTOR_KEY);await SecureStore.deleteItemAsync(SHIFT_KEY);await SecureStore.deleteItemAsync(STOP_PENDING_KEY);
  }catch{
-  await SecureStore.setItemAsync(STOP_PENDING_KEY,"true");
+  await SecureStore.setItemAsync(STOP_PENDING_KEY,"true");await SecureStore.deleteItemAsync(SHIFT_KEY);
   throw new Error("Pengambilan lokasi sudah dihentikan di perangkat; status stop server menunggu sinkronisasi jaringan.");
  }
 }
