@@ -195,6 +195,7 @@ export const API_ACTION_MATRIX: readonly ApiActionContract[] = [
   {id:"location.events.read",method:"GET",path:"/api/v1/organizations/{organization_id}/location/events",feature:"location",action:"events_read",resource:"location_event",rolePolicy:"tenant_permission:location.live.read",permission:"location.live.read",scope:"tenant",serverEnforcement:"tenant_permission_and_profile_scope"},
   {id:"maps.config.read",method:"GET",path:"/api/v1/maps/config",feature:"maps",action:"config_read",resource:"maps_config",rolePolicy:"tenant_permission:location.history.read",permission:"location.history.read",scope:"tenant",serverEnforcement:"tenant_permission_and_tenant_match"},
   {id:"maps.routes.compute",method:"POST",path:"/api/v1/organizations/{organization_id}/maps/routes/compute",feature:"maps",action:"routes_compute",resource:"map_route",rolePolicy:"tenant_permission:location.history.read",permission:"location.history.read",scope:"tenant",serverEnforcement:"tenant_permission_and_tenant_match"},
+  {id:"maps.places.search",method:"POST",path:"/api/v1/maps/places/search",feature:"maps",action:"places_search",resource:"map_places",rolePolicy:"tenant_permission:location.history.read",permission:"location.history.read",scope:"tenant",serverEnforcement:"tenant_permission_and_tenant_match"},
 ] as const;
 
 export type ApiActionId = (typeof API_ACTION_MATRIX)[number]["id"];
