@@ -35,6 +35,8 @@ class SmartRewardApprovalService:
   return {"items":items,"page":page,"page_size":size,"total":total}
  async def request(self,db:SmartRewardRepository,org:UUID,actor:UUID,p):
   async with db.transaction():
+   lock_key=str(org)+":"+str(actor)+":"+p.idempotency_key
+   await db.fetchval("select pg_advisory_xact_lock(hashtextextended($1,0))",lock_key)
    actor_roles=await db.fetch("""select r.key from public.organization_memberships m join public.user_role_assignments ura on ura.membership_id=m.id
     join public.roles r on r.id=ura.role_id where m.organization_id=$1 and m.user_id=$2 and m.status='active'
     and ura.revoked_at is null and ura.starts_at<=now() and (ura.expires_at is null or ura.expires_at>now())""",org,actor)
