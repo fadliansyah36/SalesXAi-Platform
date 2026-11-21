@@ -72,6 +72,11 @@ export function SmartTeamHome({auth,salesProfileId,onShiftContextChange}:{auth:A
  const canReadActivities=auth.canPerformApiAction("smartteam.activities.read");
  const canManageActivities=auth.canPerformApiAction("smartteam.activities.create");
  const canReadTargets=auth.canPerformApiAction("smartteam.targets.read");
+ useEffect(()=>{
+  setAttendance([]);
+  setAttendanceLoaded(false);
+  setOutbox([]);
+ },[organizationId]);
  const activeShift=useMemo(()=>{
   if(outbox.some(row=>row.kind==="clock_out"&&row.status==="pending"))return undefined;
   return attendance.find(row=>row.user_id===auth.context?.user.id&&row.status==="active");
