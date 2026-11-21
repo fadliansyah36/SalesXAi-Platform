@@ -9,44 +9,58 @@ export const LOCATION_TASK_NAME="salesx-location-background-v1";
 const DB_NAME="salesx-location-outbox.db";
 const SESSION_KEY="salesx-location-session-v1";
 const ORG_KEY="salesx-location-org-v1";
-const DEVICE_KEY="salesx-location-device-v1";
+const DEVICE_KEY="salesx-mobile-device-id-v1";
+const ACTOR_KEY="salesx-location-actor-v1";
 const TOKEN_KEY="salesx-location-token-v1";
 const STOP_PENDING_KEY="salesx-location-stop-pending-v1";
 const API_ORIGIN=(process.env.EXPO_PUBLIC_SALESX_API_URL??"").replace(/\/$/,"");
+const OUTBOX_SCHEMA_VERSION=1;
 
-type QueuedPoint={id:string;payload:string;attempts:number};
+type QueuedPoint={id:string;payload:string;attempts:number;organization_id:string|null;session_id:string|null;device_id:string|null;actor_user_id:string|null;schema_version:number;sync_state:string};
 async function database(){
  const db=await SQLite.openDatabaseAsync(DB_NAME);
- await db.execAsync("CREATE TABLE IF NOT EXISTS location_outbox (id TEXT PRIMARY KEY NOT NULL,payload TEXT NOT NULL,created_at TEXT NOT NULL,attempts INTEGER NOT NULL DEFAULT 0,next_attempt_at INTEGER NOT NULL DEFAULT 0)");
+ await db.execAsync("CREATE TABLE IF NOT EXISTS location_outbox (id TEXT PRIMARY KEY NOT NULL,payload TEXT NOT NULL,created_at TEXT NOT NULL,attempts INTEGER NOT NULL DEFAULT 0,next_attempt_at INTEGER NOT NULL DEFAULT 0,organization_id TEXT,session_id TEXT,device_id TEXT,actor_user_id TEXT,schema_version INTEGER NOT NULL DEFAULT 1,sync_state TEXT NOT NULL DEFAULT 'queued')");
+ const columns=await db.getAllAsync<{name:string}>("PRAGMA table_info(location_outbox)");
+ const names=new Set(columns.map(column=>column.name));
+ const additions:[string,string][]=[["organization_id","TEXT"],["session_id","TEXT"],["device_id","TEXT"],["actor_user_id","TEXT"],["schema_version","INTEGER NOT NULL DEFAULT 1"],["sync_state","TEXT NOT NULL DEFAULT 'queued'"]];
+ for(const [name,definition] of additions)if(!names.has(name))await db.execAsync("ALTER TABLE location_outbox ADD COLUMN "+name+" "+definition);
  return db;
 }
 function pointId(){return "loc-"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,12);}
-
+async function retryRows(db:SQLite.SQLiteDatabase,rows:QueuedPoint[]){
+ for(const row of rows){
+  const attempts=row.attempts+1,delay=Math.min(60000,1000*Math.pow(2,Math.min(attempts,6)));
+  await db.runAsync("UPDATE location_outbox SET attempts=?,next_attempt_at=?,sync_state='retrying' WHERE id=?",attempts,Date.now()+delay,row.id);
+ }
+}
+async function pruneOutbox(db:SQLite.SQLiteDatabase){
+ await db.runAsync("DELETE FROM location_outbox WHERE sync_state='synced' AND created_at<?",new Date(Date.now()-7*86400000).toISOString());
+}
 async function storeLocations(locations:Location.LocationObject[]){
- const sessionId=await SecureStore.getItemAsync(SESSION_KEY);
- const orgId=await SecureStore.getItemAsync(ORG_KEY);
- const deviceId=await SecureStore.getItemAsync(DEVICE_KEY);
- if(!sessionId||!orgId||!deviceId||!locations.length)return;
+ const sessionId=await SecureStore.getItemAsync(SESSION_KEY),orgId=await SecureStore.getItemAsync(ORG_KEY);
+ const deviceId=await SecureStore.getItemAsync(DEVICE_KEY),actorId=await SecureStore.getItemAsync(ACTOR_KEY);
+ if(!sessionId||!orgId||!deviceId||!actorId||!locations.length)return;
  const db=await database();
  for(const location of locations){
-  const payload={
-   client_point_id:pointId(),recorded_at:new Date(location.timestamp).toISOString(),
-   latitude:location.coords.latitude,longitude:location.coords.longitude,
-   accuracy_m:Math.max(0,location.coords.accuracy??10000),
-   altitude_m:location.coords.altitude,speed_mps:location.coords.speed,
-   heading_deg:location.coords.heading,source:"gps",metadata:{provider:"native_location"}
-  };
-  await db.runAsync("INSERT OR IGNORE INTO location_outbox(id,payload,created_at) VALUES(?,?,?)",payload.client_point_id,JSON.stringify(payload),new Date().toISOString());
+  const payload={client_point_id:pointId(),recorded_at:new Date(location.timestamp).toISOString(),
+   latitude:location.coords.latitude,longitude:location.coords.longitude,accuracy_m:Math.max(0,location.coords.accuracy??10000),
+   altitude_m:location.coords.altitude,speed_mps:location.coords.speed,heading_deg:location.coords.heading,
+   source:"gps",metadata:{provider:"native_location",schema_version:OUTBOX_SCHEMA_VERSION}};
+  await db.runAsync("INSERT OR IGNORE INTO location_outbox(id,payload,created_at,organization_id,session_id,device_id,actor_user_id,schema_version,sync_state) VALUES(?,?,?,?,?,?,?,?, 'queued')",
+   payload.client_point_id,JSON.stringify(payload),new Date().toISOString(),orgId,sessionId,deviceId,actorId,OUTBOX_SCHEMA_VERSION);
  }
  await flushBackgroundOutbox();
 }
-
 async function flushBackgroundOutbox(){
  const sessionId=await SecureStore.getItemAsync(SESSION_KEY),orgId=await SecureStore.getItemAsync(ORG_KEY);
- const deviceId=await SecureStore.getItemAsync(DEVICE_KEY),token=await SecureStore.getItemAsync(TOKEN_KEY);
- if(!sessionId||!orgId||!deviceId||!token||!API_ORIGIN)return;
+ const deviceId=await SecureStore.getItemAsync(DEVICE_KEY),actorId=await SecureStore.getItemAsync(ACTOR_KEY);
+ const token=await SecureStore.getItemAsync(TOKEN_KEY);
+ if(!sessionId||!orgId||!deviceId||!actorId||!token||!API_ORIGIN)return;
  const db=await database();
- const rows=await db.getAllAsync<QueuedPoint>("SELECT id,payload,attempts FROM location_outbox WHERE next_attempt_at<=? ORDER BY created_at LIMIT 100",Date.now());
+ await db.runAsync("UPDATE location_outbox SET organization_id=?,session_id=?,device_id=?,actor_user_id=?,schema_version=? WHERE sync_state IN ('queued','retrying') AND organization_id IS NULL",
+  orgId,sessionId,deviceId,actorId,OUTBOX_SCHEMA_VERSION);
+ const rows=await db.getAllAsync<QueuedPoint>("SELECT id,payload,attempts,organization_id,session_id,device_id,actor_user_id,schema_version,sync_state FROM location_outbox WHERE next_attempt_at<=? AND sync_state IN ('queued','retrying') AND organization_id=? AND session_id=? AND device_id=? AND actor_user_id=? AND schema_version=? ORDER BY created_at LIMIT 100",
+  Date.now(),orgId,sessionId,deviceId,actorId,OUTBOX_SCHEMA_VERSION);
  if(!rows.length)return;
  try{
   const response=await fetch(API_ORIGIN+"/api/v1/organizations/"+encodeURIComponent(orgId)+"/location/sessions/"+encodeURIComponent(sessionId)+"/points",{
@@ -54,49 +68,37 @@ async function flushBackgroundOutbox(){
    body:JSON.stringify({points:rows.map(row=>JSON.parse(row.payload))})
   });
   if(!response.ok)throw new Error("Location sync returned HTTP "+response.status);
-  for(const row of rows)await db.runAsync("DELETE FROM location_outbox WHERE id=?",row.id);
- }catch{
-  for(const row of rows){
-   const attempts=row.attempts+1,delay=Math.min(60000,1000*Math.pow(2,Math.min(attempts,6)));
-   await db.runAsync("UPDATE location_outbox SET attempts=?,next_attempt_at=? WHERE id=?",attempts,Date.now()+delay,row.id);
-  }
- }
+  for(const row of rows)await db.runAsync("UPDATE location_outbox SET sync_state='synced',next_attempt_at=0 WHERE id=?",row.id);
+  await pruneOutbox(db);
+ }catch{await retryRows(db,rows);}
 }
-
 export async function flushLocationOutbox(api:SalesXApiClient,organizationId:string,deviceId:string){
- const sessionId=await SecureStore.getItemAsync(SESSION_KEY);
- if(!sessionId)return;
+ const sessionId=await SecureStore.getItemAsync(SESSION_KEY),actorId=await SecureStore.getItemAsync(ACTOR_KEY);
+ if(!sessionId||!actorId)return;
  const db=await database();
- const rows=await db.getAllAsync<QueuedPoint>("SELECT id,payload,attempts FROM location_outbox WHERE next_attempt_at<=? ORDER BY created_at LIMIT 100",Date.now());
+ const rows=await db.getAllAsync<QueuedPoint>("SELECT id,payload,attempts,organization_id,session_id,device_id,actor_user_id,schema_version,sync_state FROM location_outbox WHERE next_attempt_at<=? AND sync_state IN ('queued','retrying') AND organization_id=? AND session_id=? AND device_id=? AND actor_user_id=? AND schema_version=? ORDER BY created_at LIMIT 100",
+  Date.now(),organizationId,sessionId,deviceId,actorId,OUTBOX_SCHEMA_VERSION);
  if(!rows.length)return;
  try{
   await createLocationApi(api,organizationId).ingest(sessionId,deviceId,{points:rows.map(row=>JSON.parse(row.payload))});
-  for(const row of rows)await db.runAsync("DELETE FROM location_outbox WHERE id=?",row.id);
- }catch{
-  for(const row of rows){
-   const attempts=row.attempts+1,delay=Math.min(60000,1000*Math.pow(2,Math.min(attempts,6)));
-   await db.runAsync("UPDATE location_outbox SET attempts=?,next_attempt_at=? WHERE id=?",attempts,Date.now()+delay,row.id);
-  }
- }
+  for(const row of rows)await db.runAsync("UPDATE location_outbox SET sync_state='synced',next_attempt_at=0 WHERE id=?",row.id);
+  await pruneOutbox(db);
+ }catch{await retryRows(db,rows);}
 }
-
 TaskManager.defineTask(LOCATION_TASK_NAME,async({data,error})=>{
  if(error)throw error;
  const locations=(data as {locations?:Location.LocationObject[]}|undefined)?.locations??[];
  await storeLocations(locations);
 });
-
 export async function ensureLocationDeviceId(){
- let value=await SecureStore.getItemAsync(DEVICE_KEY);
- if(!value){value="salesx-"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,12);await SecureStore.setItemAsync(DEVICE_KEY,value);}
+ const key=DEVICE_KEY;let value=await SecureStore.getItemAsync(key);
+ if(!value){value="salesx-"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,12);await SecureStore.setItemAsync(key,value);}
  return value;
 }
-
 export async function syncLocationAccessToken(token:string|null){
- if(token)await SecureStore.setItemAsync(TOKEN_KEY,token);
+ if(token)await SecureStore.setItemAsync(TOKEN_KEY,token);else await SecureStore.deleteItemAsync(TOKEN_KEY);
 }
-
-export async function startLocationTracking(api:SalesXApiClient,organizationId:string,accessToken:string,deviceId:string,shiftId?:string|null){
+export async function startLocationTracking(api:SalesXApiClient,organizationId:string,accessToken:string,deviceId:string,actorUserId:string,shiftId?:string|null){
  if(!(await TaskManager.isAvailableAsync()))throw new Error("Background TaskManager tidak tersedia. Gunakan native development/production build, bukan web runtime.");
  const foreground=await Location.requestForegroundPermissionsAsync();
  if(foreground.status!=="granted")throw new Error("Izin lokasi saat aplikasi digunakan wajib diberikan.");
@@ -104,31 +106,26 @@ export async function startLocationTracking(api:SalesXApiClient,organizationId:s
  if(background.status!=="granted")throw new Error("Izin lokasi latar belakang belum diberikan. Pelacakan tidak dimulai.");
  const locationApi=createLocationApi(api,organizationId);
  const session=await locationApi.startSession({device_id:deviceId,consent_policy_version:"sales-location-v1",shift_id:shiftId??null});
- await SecureStore.setItemAsync(SESSION_KEY,session.id);
- await SecureStore.setItemAsync(ORG_KEY,organizationId);
- await SecureStore.setItemAsync(TOKEN_KEY,accessToken);
+ await SecureStore.setItemAsync(SESSION_KEY,session.id);await SecureStore.setItemAsync(ORG_KEY,organizationId);
+ await SecureStore.setItemAsync(TOKEN_KEY,accessToken);await SecureStore.setItemAsync(ACTOR_KEY,actorUserId);
  await SecureStore.deleteItemAsync(STOP_PENDING_KEY);
  try{
-  await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME,{
-   accuracy:Location.Accuracy.Balanced,timeInterval:30000,distanceInterval:50,
+  await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME,{accuracy:Location.Accuracy.Balanced,timeInterval:30000,distanceInterval:50,
    pausesUpdatesAutomatically:true,showsBackgroundLocationIndicator:true,
-   foregroundService:{notificationTitle:"SalesX-Ai location tracking",notificationBody:"Pelacakan lokasi aktif atas persetujuan Anda."}
-  });
+   foregroundService:{notificationTitle:"SalesX-Ai location tracking",notificationBody:"Pelacakan lokasi aktif atas persetujuan Anda."}});
  }catch(error){
   await locationApi.updateSession(session.id,{action:"stop",reason:"native_location_task_start_failed"});
-  await SecureStore.deleteItemAsync(SESSION_KEY);await SecureStore.deleteItemAsync(ORG_KEY);
+  await SecureStore.deleteItemAsync(SESSION_KEY);await SecureStore.deleteItemAsync(ORG_KEY);await SecureStore.deleteItemAsync(ACTOR_KEY);
   throw error;
  }
  return session;
 }
-
 export async function syncPendingLocationStop(api:SalesXApiClient,organizationId:string){
  const pending=await SecureStore.getItemAsync(STOP_PENDING_KEY),sessionId=await SecureStore.getItemAsync(SESSION_KEY);
  if(pending!=="true"||!sessionId)return;
  await createLocationApi(api,organizationId).updateSession(sessionId,{action:"stop",reason:"offline_stop_synchronized"});
- await SecureStore.deleteItemAsync(SESSION_KEY);await SecureStore.deleteItemAsync(ORG_KEY);await SecureStore.deleteItemAsync(STOP_PENDING_KEY);
+ await SecureStore.deleteItemAsync(SESSION_KEY);await SecureStore.deleteItemAsync(ORG_KEY);await SecureStore.deleteItemAsync(ACTOR_KEY);await SecureStore.deleteItemAsync(STOP_PENDING_KEY);
 }
-
 export async function stopLocationTracking(api:SalesXApiClient,organizationId:string){
  const sessionId=await SecureStore.getItemAsync(SESSION_KEY);
  if(await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK_NAME))await Location.stopLocationUpdatesAsync(LOCATION_TASK_NAME);
@@ -137,9 +134,8 @@ export async function stopLocationTracking(api:SalesXApiClient,organizationId:st
  if(deviceId)await flushLocationOutbox(api,organizationId,deviceId);
  try{
   await createLocationApi(api,organizationId).updateSession(sessionId,{action:"stop",reason:"user_requested"});
-  await SecureStore.deleteItemAsync(SESSION_KEY);await SecureStore.deleteItemAsync(ORG_KEY);
-  await SecureStore.deleteItemAsync(STOP_PENDING_KEY);
- }catch(error){
+  await SecureStore.deleteItemAsync(SESSION_KEY);await SecureStore.deleteItemAsync(ORG_KEY);await SecureStore.deleteItemAsync(ACTOR_KEY);await SecureStore.deleteItemAsync(STOP_PENDING_KEY);
+ }catch{
   await SecureStore.setItemAsync(STOP_PENDING_KEY,"true");
   throw new Error("Pengambilan lokasi sudah dihentikan di perangkat; status stop server menunggu sinkronisasi jaringan.");
  }
