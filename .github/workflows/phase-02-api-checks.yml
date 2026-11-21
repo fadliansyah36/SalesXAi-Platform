@@ -111,7 +111,14 @@ jobs:
           enabled = false
           EOF
       - name: Start ephemeral Supabase services
-        run: supabase start --exclude studio,logflare,vector,edge-runtime,analytics,inbucket
+        shell: bash
+        run: |
+          set -o pipefail
+          docker info
+          supabase start --debug 2>&1 | tee /tmp/supabase-start.log || {
+            tail -n 160 /tmp/supabase-start.log
+            exit 1
+          }
       - name: Apply the repository migration ledger to local Supabase
         run: supabase db reset --local
       - name: Resolve isolated database URL
@@ -127,6 +134,7 @@ jobs:
         run: python -m unittest discover -s tests -p 'test_smart_reward_*_integration.py' -v
       - name: Stop ephemeral Supabase
         if: always()
+        continue-on-error: true
         run: supabase stop --no-backup
 
   web-auth-static:
