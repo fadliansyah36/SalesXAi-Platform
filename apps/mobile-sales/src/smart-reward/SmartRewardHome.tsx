@@ -1,14 +1,14 @@
 import {useCallback,useEffect,useMemo,useState} from "react";
 import {Pressable,View} from "react-native";
 import {NativeStack,NativeSurface,NativeText,useNativeTheme} from "@salesx-ai/design-system/native";
-import {createSmartRewardApi,type RewardBalance,type RewardCatalogItem,type RewardLedgerEntry,type RewardRedemption,type RewardProgram,type RewardApprovalRequest} from "@salesx-ai/api-client";
+import {createSmartRewardApi,type RewardBalance,type RewardCatalogItem,type RewardLedgerEntry,type RewardRedemption,type RewardProgram,type RewardApprovalRequest,type RewardProgressItem} from "@salesx-ai/api-client";
 import {useMobileSalesAuth} from "../auth/useMobileSalesAuth";
 type Auth=ReturnType<typeof useMobileSalesAuth>;
 const fmt=(n:number)=>new Intl.NumberFormat("id-ID").format(n);
 export function SmartRewardHome({auth}:{auth:Auth}){
  const {colors}=useNativeTheme(),org=auth.activeOrganizationId,client=auth.apiClient;
  const api=useMemo(()=>client&&org?createSmartRewardApi(client,org):null,[client,org]);
- const [balance,setBalance]=useState<RewardBalance|null>(null),[catalog,setCatalog]=useState<RewardCatalogItem[]>([]),[ledger,setLedger]=useState<RewardLedgerEntry[]>([]),[redemptions,setRedemptions]=useState<RewardRedemption[]>([]),[programs,setPrograms]=useState<RewardProgram[]>([]),[approvals,setApprovals]=useState<RewardApprovalRequest[]>([]);
+ const [balance,setBalance]=useState<RewardBalance|null>(null),[catalog,setCatalog]=useState<RewardCatalogItem[]>([]),[ledger,setLedger]=useState<RewardLedgerEntry[]>([]),[redemptions,setRedemptions]=useState<RewardRedemption[]>([]),[programs,setPrograms]=useState<RewardProgram[]>([]),[approvals,setApprovals]=useState<RewardApprovalRequest[]>([]),[progress,setProgress]=useState<RewardProgressItem[]>([]);
  const [busy,setBusy]=useState(false),[notice,setNotice]=useState(""),[error,setError]=useState("");
  const can=(id:string)=>auth.canPerformApiAction(id as never);
  const canRealtime=can("smartreward.ledger.read")||can("smartreward.redemptions.read");
@@ -21,6 +21,7 @@ export function SmartRewardHome({auth}:{auth:Auth}){
   if(can("smartreward.redemptions.read"))jobs.push(api.redemptions(1,20).then(r=>setRedemptions(r.items)));
   if(can("smartreward.programs.read"))jobs.push(api.programs(1,20).then(r=>setPrograms(r.items)));
   if(can("smartreward.approvals.read"))jobs.push(api.approvals(1,20).then(r=>setApprovals(r.items)));
+  if(can("smartreward.progress.read"))jobs.push(api.progress().then(r=>setProgress(r.items)));
   const settled=await Promise.allSettled(jobs),failed=settled.find(x=>x.status==="rejected");
   if(failed&&failed.status==="rejected")setError(failed.reason instanceof Error?failed.reason.message:"Data reward gagal dimuat.");
  },[api,auth.status,auth.contextEpoch,org]);
@@ -41,7 +42,7 @@ export function SmartRewardHome({auth}:{auth:Auth}){
  return <NativeStack gap="3">
   <NativeText variant="title" weight="semibold">SmartReward & Incentive</NativeText>
   <NativeSurface elevation="sm" radius="lg" style={{padding:16}}><NativeText color={colors.textSecondary}>Saldo poin</NativeText><NativeText variant="heading" weight="bold">{balance?fmt(balance.points_balance):"—"}</NativeText><NativeText variant="caption" color={colors.textSecondary}>Saldo dihitung dan direkonsiliasi oleh FastAPI.</NativeText>{balance?.next_expiration_at&&<NativeText variant="caption" color={colors.textSecondary}>{fmt(balance.expiring_points_30d??0)} poin kedaluwarsa dalam 30 hari · berikutnya {new Date(balance.next_expiration_at).toLocaleDateString("id-ID")}</NativeText>}</NativeSurface>
-  <NativeSurface elevation="sm" radius="lg" style={{padding:14}}><NativeText weight="semibold">Progress incentive</NativeText><NativeText variant="title">{programs.filter(p=>p.status==="active").length} program aktif</NativeText><NativeText variant="caption" color={colors.textSecondary}>{fmt(ledger.filter(x=>x.points_delta>0&&x.entry_type==="earn").reduce((n,x)=>n+x.points_delta,0))} poin diperoleh dari ledger</NativeText></NativeSurface>
+  <NativeSurface elevation="sm" radius="lg" style={{padding:14}}><NativeText weight="semibold">Progress incentive</NativeText><NativeText variant="title">{programs.filter(p=>p.status==="active").length} program aktif</NativeText><NativeText variant="caption" color={colors.textSecondary}>{fmt(ledger.filter(x=>x.points_delta>0&&x.entry_type==="earn").reduce((n,x)=>n+x.points_delta,0))} poin diperoleh dari ledger</NativeText>{progress.map(item=><View key={item.rule_id} style={{paddingTop:10,marginTop:10,borderTopWidth:1,borderTopColor:colors.border}}><NativeText weight="semibold">{item.rule_name}</NativeText><NativeText variant="caption" color={colors.textSecondary}>{item.program_name} · {item.period_days} hari</NativeText><NativeText variant="caption">{fmt(item.points_earned)} poin{item.points_limit!==null?" / "+fmt(item.points_limit)+" poin":""}</NativeText>{item.target_metric!==null&&<NativeText variant="caption" color={colors.textSecondary}>Metric {String(item.metric_achieved)} / {String(item.target_metric)}</NativeText>}{item.progress_percent!==null&&<View style={{height:6,backgroundColor:colors.border,borderRadius:8,overflow:"hidden",marginTop:6}}><View style={{height:6,width:Math.max(0,Math.min(100,Number(item.progress_percent)))+"%",backgroundColor:colors.primary,borderRadius:8}}/></View>}</View>)}</NativeSurface>
   {notice!==""&&<NativeText color={colors.success}>{notice}</NativeText>}{error!==""&&<NativeText color={colors.danger}>{error}</NativeText>}
   <NativeText variant="title" weight="semibold">Katalog reward</NativeText>
   {catalog.map(item=><NativeSurface key={item.id} elevation="sm" radius="lg" style={{padding:14}}><NativeStack gap="2"><NativeText weight="semibold">{item.name}</NativeText><NativeText variant="caption" color={colors.textSecondary}>{fmt(item.points_cost)} poin · {item.status}</NativeText>{can("smartreward.redemptions.create")&&<Pressable disabled={busy||item.status!=="active"} onPress={()=>void redeem(item)} style={{padding:12,borderRadius:10,backgroundColor:colors.primary,opacity:busy?0.5:1}}><NativeText color={colors.surface} weight="semibold">Tukar reward</NativeText></Pressable>}</NativeStack></NativeSurface>)}
