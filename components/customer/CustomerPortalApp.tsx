@@ -181,12 +181,6 @@ export function CustomerPortalApp() {
   const [appliedPromoTitle, setAppliedPromoTitle] = useState<string | null>(
     'Diskon 20% Minuman Energi'
   );
-  const [vouchers, setVouchers] = useState<CustomerVoucherItem[]>(
-    CUSTOMER_INITIAL_VOUCHERS
-  );
-  const [selectedVoucherId, setSelectedVoucherId] = useState<string | null>(
-    null
-  );
 
   // Cart & Checkout
   const [cart, setCart] = useState<CustomerCartItem[]>(CUSTOMER_INITIAL_CART);
@@ -279,19 +273,9 @@ export function CustomerPortalApp() {
     return Math.round(cartSubtotal * 0.1);
   }, [appliedPromoTitle, cartSubtotal]);
 
-  const activeVoucher = useMemo(
-    () => vouchers.find((v) => v.id === selectedVoucherId && !v.used) ?? null,
-    [vouchers, selectedVoucherId]
-  );
-  const cartVoucherDiscount = useMemo(() => {
-    if (!activeVoucher || cartSubtotal < activeVoucher.minSpend) return 0;
-    return activeVoucher.discountAmount;
-  }, [activeVoucher, cartSubtotal]);
-
-  const cartTotalDiscount = Math.min(
-    cartSubtotal,
-    cartPromoDiscount + cartVoucherDiscount
-  );
+  // Reward vouchers are not applied as checkout discounts until the FastAPI
+  // order contract supports an authoritative reward-redemption reference.
+  const cartTotalDiscount = Math.min(cartSubtotal, cartPromoDiscount);
   const cartGrandTotal = Math.max(0, cartSubtotal - cartTotalDiscount);
 
   const addToCart = (product: Product, qty = 1) => {
@@ -1878,53 +1862,17 @@ export function CustomerPortalApp() {
                     ))}
                   </div>
 
-                  {/* Selectable Voucher SmartReward Strip */}
                   <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 space-y-2.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold flex items-center gap-1.5 text-[#123A54] dark:text-white">
-                        <Ticket className="h-4 w-4 text-[#F97316]" />
-                        <span>Pakai Voucher SmartReward</span>
-                      </span>
-                      {selectedVoucherId && (
-                        <button
-                          type="button"
-                          onClick={() => setSelectedVoucherId(null)}
-                          className="text-[11px] font-semibold text-red-600 cursor-pointer"
-                        >
-                          Lepas Voucher
-                        </button>
-                      )}
+                    <div className="flex items-center gap-2 text-xs font-bold text-[#123A54] dark:text-white">
+                      <Ticket className="h-4 w-4 text-[#F97316]" />
+                      <span>Reward & Voucher</span>
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                      {vouchers
-                        .filter((v) => !v.used)
-                        .map((v) => {
-                          const eligible = cartSubtotal >= v.minSpend;
-                          const selected = selectedVoucherId === v.id;
-                          return (
-                            <button
-                              key={v.id}
-                              type="button"
-                              disabled={!eligible}
-                              onClick={() =>
-                                setSelectedVoucherId(selected ? null : v.id)
-                              }
-                              className={`rounded-xl border px-3 py-2 text-left text-xs transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
-                                selected
-                                  ? 'border-[#F97316] bg-[#FFF7ED] dark:bg-[#431407]/40'
-                                  : 'border-[var(--color-border)] bg-[var(--color-background)]'
-                              }`}
-                            >
-                              <p className="font-bold text-[#123A54] dark:text-white">
-                                {v.code} · -{formatRupiah(v.discountAmount)}
-                              </p>
-                              <p className="text-[11px] text-[var(--color-text-muted)] tabular-nums">
-                                Min. belanja {formatRupiah(v.minSpend)}
-                              </p>
-                            </button>
-                          );
-                        })}
-                    </div>
+                    <p className="text-xs text-[var(--color-text-secondary)]">
+                      Penukaran poin dan voucher reward dikelola melalui SmartReward. Voucher belum mengurangi total checkout sampai kontrak order mendukung validasi redemption dari FastAPI.
+                    </p>
+                    <Link href="/customer/smart-reward" className="inline-flex rounded-lg border border-[var(--color-border)] px-3 py-2 text-xs font-semibold text-[var(--color-primary)]">
+                      Buka katalog SmartReward
+                    </Link>
                   </div>
 
                   <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 space-y-3">
