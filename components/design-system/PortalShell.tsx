@@ -64,7 +64,6 @@ const PORTAL_SWITCHER = [
 ] as const;
 
 const PORTAL_KEY_BY_PATH: Record<(typeof PORTAL_SWITCHER)[number]["href"], PortalKey> = {
-  "/super-admin": "super_admin",
   "/distributor": "distributor",
   "/principal": "principal",
   "/supervisor": "supervisor",
