@@ -2,6 +2,7 @@
 
 import React, { useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   Home,
   Store,
@@ -66,7 +67,6 @@ import {
   OrderDetailModal,
   RouteReplayModal,
   NavigationPreviewModal,
-  SmartRewardModal,
   ProductDetailModal,
   PromoDetailModal,
   VisitHistoryDetailModal,
@@ -82,8 +82,6 @@ import {
   INITIAL_PROMOTIONS,
   INITIAL_NOTIFICATIONS,
   INITIAL_LEADS,
-  INITIAL_REWARD_CATALOG,
-  INITIAL_REWARD_LEDGER,
   MONTHLY_REALIZATION_DATA,
   PERFORMANCE_BY_PERIOD,
   formatRupiah,
@@ -94,8 +92,6 @@ import {
   type PromotionItem,
   type NotificationItem,
   type LeadRecord,
-  type RewardItem,
-  type RewardLedgerEntry,
 } from '@/lib/salesx-data';
 
 type MainSection =
@@ -122,6 +118,7 @@ const LEGACY_SMARTTEAM_UI_ENABLED = false;
 export function SalesPortalApp() {
   const { theme, toggleTheme } = useTheme();
   const auth = useSalesXAuth();
+  const router = useRouter();
   const isOnline = useOnlineStatus();
 
   // Auth & Shift State
@@ -152,10 +149,6 @@ export function SalesPortalApp() {
   const [leads, setLeads] = useState<LeadRecord[]>(INITIAL_LEADS);
   const [notifications, setNotifications] = useState<NotificationItem[]>(
     INITIAL_NOTIFICATIONS
-  );
-  const [rewardPoints, setRewardPoints] = useState<number>(14_500);
-  const [rewardLedger, setRewardLedger] = useState<RewardLedgerEntry[]>(
-    INITIAL_REWARD_LEDGER
   );
 
   // Filters & Search
@@ -213,7 +206,6 @@ export function SalesPortalApp() {
   const [detailOrder, setDetailOrder] = useState<OrderRecord | null>(null);
   const [detailProduct, setDetailProduct] = useState<Product | null>(null);
   const [detailPromo, setDetailPromo] = useState<PromotionItem | null>(null);
-  const [smartRewardOpen, setSmartRewardOpen] = useState(false);
   const [routeModalOpen, setRouteModalOpen] = useState(false);
   const [shiftModalOpen, setShiftModalOpen] = useState(false);
   const [logoutModalOpen, setLogoutModalOpen] = useState(false);
@@ -480,37 +472,6 @@ export function SalesPortalApp() {
     setOrderTab('create');
     showToast(`${lead.businessName} dikonversi menjadi Outlet Binaan & siap dibuatkan Order.`);
   };
-
-  const handleRedeemReward = (item: RewardItem) => {
-    if (rewardPoints < item.pointsCost) return;
-    setRewardPoints((prev) => prev - item.pointsCost);
-    setRewardLedger((prev) => [
-      {
-        id: `led-${Date.now()}`,
-        title: `Penukaran: ${item.title}`,
-        dateLabel: 'Hari ini, baru saja',
-        pointsDelta: -item.pointsCost,
-        type: 'Penukaran',
-      },
-      ...prev,
-    ]);
-    showToast(`Berhasil menukarkan ${item.pointsCost.toLocaleString('id-ID')} poin untuk ${item.title}.`);
-  };
-
-  // Filtered collections
-  const filteredOutlets = outlets.filter((o) => {
-    const matchText =
-      o.name.toLowerCase().includes(outletSearch.toLowerCase()) ||
-      o.city.toLowerCase().includes(outletSearch.toLowerCase());
-    if (!matchText) return false;
-    if (outletFilter === 'priority' && !o.isPriority) return false;
-    if (outletFilter === 'today' && !o.visitToday) return false;
-    if (outletCityFilter !== 'Semua' && o.city !== outletCityFilter)
-      return false;
-    if (outletCategoryFilter !== 'Semua' && o.category !== outletCategoryFilter)
-      return false;
-    return true;
-  });
 
   const filteredProducts = products.filter((p) => {
     const matchText =
@@ -987,13 +948,13 @@ export function SalesPortalApp() {
                       SmartReward — Poin Insentif Aktif
                     </p>
                     <p className="font-mono text-base font-bold text-[#123A54] dark:text-white tabular-nums">
-                      {rewardPoints.toLocaleString('id-ID')} poin siap ditukar
+                      Saldo dan katalog reward terhubung ke FastAPI
                     </p>
                   </div>
                 </div>
                 <button
                   type="button"
-                  onClick={() => setSmartRewardOpen(true)}
+                  onClick={() => router.push('/portal/smart-reward')}
                   className="rounded-xl bg-[#F97316] hover:bg-[#EA580C] px-4 py-2 text-xs font-bold text-white cursor-pointer"
                 >
                   Buka Katalog Reward
@@ -1720,7 +1681,7 @@ export function SalesPortalApp() {
                     <div className="flex items-center gap-3">
                       <button
                         type="button"
-                        onClick={() => setSmartRewardOpen(true)}
+                        onClick={() => router.push('/portal/smart-reward')}
                         className="inline-flex items-center gap-2 rounded-xl bg-[#F97316] hover:bg-[#EA580C] px-4 py-2.5 text-xs sm:text-sm font-bold text-white shadow-sm cursor-pointer"
                       >
                         <Gift className="h-4 w-4" />
@@ -2319,9 +2280,9 @@ export function SalesPortalApp() {
                     {
                       id: 'smartreward' as const,
                       title: 'SmartReward (Poin & Insentif)',
-                      sub: `${rewardPoints.toLocaleString('id-ID')} poin dapat ditukar`,
+                      sub: 'Lihat saldo dan insentif dari FastAPI',
                       icon: Gift,
-                      onSelect: () => setSmartRewardOpen(true),
+                      onSelect: () => router.push('/portal/smart-reward'),
                     },
                     {
                       id: 'target' as const,
@@ -3067,15 +3028,6 @@ export function SalesPortalApp() {
         outlets={outlets}
         onClose={() => setNavigationVisit(null)}
         onOpenEvidence={(v) => setEvidenceVisit(v)}
-      />
-
-      <SmartRewardModal
-        open={smartRewardOpen}
-        onClose={() => setSmartRewardOpen(false)}
-        pointsBalance={rewardPoints}
-        catalog={INITIAL_REWARD_CATALOG}
-        ledger={rewardLedger}
-        onRedeem={handleRedeemReward}
       />
 
       <ProductDetailModal
