@@ -7,7 +7,7 @@ class LocationSessionStart(BaseModel):
     model_config = ConfigDict(extra="forbid")
     device_id: str = Field(min_length=8, max_length=180)
     consent_policy_version: str = Field(min_length=1, max_length=80)
-    shift_id: UUID | None = None
+    shift_id: UUID
 
 class LocationSessionAction(BaseModel):
     model_config = ConfigDict(extra="forbid")
