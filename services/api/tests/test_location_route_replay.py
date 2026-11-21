@@ -43,6 +43,7 @@ class LocationRepositoryAndMigrationContracts(unittest.TestCase):
     def setUpClass(cls):
         root = Path(__file__).resolve().parents[1]
         cls.repository = (root / "app" / "repositories" / "location.py").read_text(encoding="utf-8")
+        cls._service_text = (root / "app" / "services" / "location.py").read_text(encoding="utf-8")
         cls.migration = (
             root.parent.parent / "supabase" / "migrations"
             / "20261121100848_p07_location_geofence_ordering_route_replay.sql"
@@ -58,6 +59,13 @@ class LocationRepositoryAndMigrationContracts(unittest.TestCase):
         self.assertIn("recorded_at >= $3 and recorded_at <= $4", self.repository)
         self.assertIn("order by recorded_at asc,id asc", self.repository)
         self.assertIn("async def get_route_replay_context", self.repository)
+
+    def test_location_profile_visibility_is_permission_scoped(self):
+        self.assertIn("join public.role_permissions rp on rp.role_id=ura.role_id and rp.permission_key=$3", self._service_text)
+        self.assertIn("async def visible_profiles(self, db, org, actor, permission_key", self._service_text)
+
+    def test_geofence_visibility_requires_exact_read_permission(self):
+        self.assertIn("rp.permission_key='location.geofences.read'", self.repository)
 
     def test_out_of_order_points_cannot_rewind_geofence_state(self):
         self.assertIn("new.recorded_at<=prior.last_recorded_at", self.migration)
