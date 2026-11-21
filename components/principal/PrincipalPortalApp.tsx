@@ -2,6 +2,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { usePortalRouteGuard } from '@/components/auth/usePortalRouteGuard';
+import { AnalyticsWorkspace } from '@/components/analytics/AnalyticsWorkspace';
 import Link from 'next/link';
 import {
   Home,
@@ -738,6 +739,7 @@ export function PrincipalPortalApp() {
               </div>
             </div>
           </div>
+        <AnalyticsWorkspace compact />
         </div>
       )}
 
