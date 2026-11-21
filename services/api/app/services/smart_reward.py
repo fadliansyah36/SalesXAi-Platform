@@ -103,9 +103,9 @@ class SmartRewardService:
     target_metric=cfg.get("minimum_metric",cfg.get("target_metric"))
     progress=None
     if target_metric is not None and Decimal(str(target_metric))>0:
-     progress=min(Decimal(100),metric/Decimal(str(target_metric))*Decimal(100))
+     progress=max(Decimal(0),min(Decimal(100),metric/Decimal(str(target_metric))*Decimal(100)))
     elif points_limit is not None and int(points_limit)>0:
-     progress=min(Decimal(100),Decimal(points)/Decimal(int(points_limit))*Decimal(100))
+     progress=max(Decimal(0),min(Decimal(100),Decimal(points)/Decimal(int(points_limit))*Decimal(100)))
     items.append({
      "program_id":str(rule["program_id"]),"program_name":rule["program_name"],
      "rule_id":str(rule["rule_id"]),"rule_name":rule["rule_name"],"event_key":rule["event_key"],
