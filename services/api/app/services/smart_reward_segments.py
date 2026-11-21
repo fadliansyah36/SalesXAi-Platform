@@ -1,9 +1,7 @@
 from __future__ import annotations
 import json
-from uuid import UUID
 import asyncpg
 from app.errors import APIError
-from app.repositories.smart_reward import SmartRewardRepository
 
 class SmartRewardSegmentService:
  async def _audit(self,db,org,actor,action,kind,rid,reason=None,meta=None):
