@@ -125,10 +125,12 @@ async def decide_approval(organization_id:UUID,approval_id:UUID,payload:RewardAp
 
 def _reward_event_audience(scopes):
     """Build per-audience resource grants from active role/permission assignments."""
-    resource_permissions = {
+    event_permissions = {
         "smartreward:ledger:read": "reward_points_ledger",
         "smartreward:redemption:read": "reward_redemptions",
         "smartreward:approval:read": "reward_approval_requests",
+    }
+    catalog_permissions = {
         "smartreward:program:read": "reward_programs",
         "smartreward:rule:read": "reward_incentive_rules",
         "smartreward:catalog:read": "reward_catalog_items",
@@ -140,33 +142,29 @@ def _reward_event_audience(scopes):
     branch_scopes = {}
 
     for scope in scopes:
-        resource = resource_permissions.get(scope["permission_key"])
-        if resource:
-            participant_resources.add(resource)
+        event_resource = event_permissions.get(scope["permission_key"])
+        if event_resource:
+            participant_resources.add(event_resource)
+            if (
+                scope["role_key"] in tenant_roles
+                and scope["scope_type"] in {"tenant", "organization"}
+            ):
+                tenant_resources.add(event_resource)
+            if (
+                scope["role_key"] == "supervisor"
+                and scope["scope_type"] == "branch"
+                and scope["scope_id"] is not None
+            ):
+                branch_id = str(scope["scope_id"])
+                branch_scopes.setdefault(branch_id, set()).add(event_resource)
+
+        catalog_resource = catalog_permissions.get(scope["permission_key"])
         if (
-            resource
+            catalog_resource
             and scope["role_key"] in tenant_roles
             and scope["scope_type"] in {"tenant", "organization"}
         ):
-            tenant_resources.add(resource)
-        if (
-            scope["role_key"] in tenant_roles
-            and scope["scope_type"] in {"tenant", "organization"}
-            and scope["permission_key"] in {
-                "smartreward:program:read",
-                "smartreward:rule:read",
-                "smartreward:catalog:read",
-            }
-        ):
-            catalog_resources.add(resource_permissions[scope["permission_key"]])
-        if (
-            resource
-            and scope["role_key"] == "supervisor"
-            and scope["scope_type"] == "branch"
-            and scope["scope_id"] is not None
-        ):
-            branch_id = str(scope["scope_id"])
-            branch_scopes.setdefault(branch_id, set()).add(resource)
+            catalog_resources.add(catalog_resource)
 
     return {
         "participant_resources": sorted(participant_resources),
