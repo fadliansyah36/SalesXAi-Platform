@@ -76,6 +76,14 @@ class LocationRepository:
                 and (ura.expires_at is null or ura.expires_at>now())
                 and ura.scope_type='team'
                 and sp.territory_id=coalesce(g.territory_id,o.territory_id))
+            or exists(select 1 from public.teams supervised_team
+              join public.sales_profiles supervised_profile
+                on supervised_profile.organization_id=supervised_team.organization_id
+               and supervised_profile.team_id=supervised_team.id
+               and supervised_profile.status='active'
+              where supervised_team.organization_id=g.organization_id
+                and supervised_team.supervisor_user_id=$2
+                and supervised_profile.territory_id=coalesce(g.territory_id,o.territory_id))
           )
           order by g.created_at desc""", org, actor)
 
