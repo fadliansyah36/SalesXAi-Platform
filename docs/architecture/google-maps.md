@@ -6,10 +6,10 @@ SalesX-Ai owns operational GPS capture and route history. Google Maps is a repla
 
 ## Provider boundary
 
-- Provider-neutral coordinate, marker, viewport, route, polygon and runtime configuration contracts live in \`packages/maps/src/index.ts\`.
+- Provider-neutral coordinate, marker, viewport/bounds, route, polygon, map-event, feature-flag and runtime configuration contracts live in \`packages/maps/src/index.ts\`. The package also exposes Web/Native provider resolution, GeoJSON conversion, encoded-polyline decoding and distance calculation.
 - Web renderer: \`components/location/GoogleMapsCanvas.tsx\`, using the existing \`@vis.gl/react-google-maps\` dependency.
 - Native renderer: \`apps/mobile-sales/src/location/LocationMap.tsx\`, using \`react-native-maps\` with \`PROVIDER_GOOGLE\`.
-- FastAPI: \`GET /api/v1/maps/config\` reports safe readiness flags; \`POST /api/v1/organizations/{organization_id}/maps/routes/compute\` uses the server-only Routes API adapter.
+- FastAPI: \`GET /api/v1/maps/config\` reports safe readiness flags; \`POST /api/v1/organizations/{organization_id}/maps/routes/compute\` uses the server-only Routes API adapter. The server key is modeled as a Pydantic SecretStr in \`services/api/app/config.py\`; no raw secret is returned by the config endpoint.
 - Operational GPS, sessions, route history and geofences remain sourced from Supabase/PostGIS through permission-checked FastAPI endpoints.
 
 ## Environment contract
@@ -51,4 +51,4 @@ Do not add a Google OAuth secret or reuse the server Routes key in a client bund
 - Company Admin and Tenant Owner receive tenant-level operational location views under their assigned organization permissions.
 - Distributor and Principal roles are not granted raw employee GPS access by the current Phase 07 permission matrix.
 - Super Admin receives platform governance/configuration capabilities, not raw tenant employee location data by default. Any future platform-wide location access requires a separate explicit permission and audit contract.
-- The shared contracts expose map viewport and map-event types, but the UI must continue to enforce the role-specific data scope at the FastAPI boundary.
+- Web and Native renderers emit typed marker, route, geofence and viewport events. Supervisor/Company consume authorized map events and route replay through the typed FastAPI client. The UI must continue to enforce role-specific data scope at the FastAPI boundary.
