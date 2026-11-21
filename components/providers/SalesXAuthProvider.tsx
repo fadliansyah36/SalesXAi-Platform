@@ -38,7 +38,7 @@ interface SalesXAuthValue {
   signInWithOtp(phone:string):Promise<void>;
   verifyOtp(phone:string,token:string):Promise<void>;
   signOut(scope?:"local"|"global"|"others"):Promise<void>;
-  createPortalHandoff(targetPortal:PortalKey):Promise<string>;
+  createPortalHandoff(targetPortal:PortalKey,organizationId:string):Promise<string>;
   completeAuthCallback():Promise<"authenticated"|"recovery"|"none">;
   switchAccount():Promise<void>;
   setActiveOrganization(id:string):void;
@@ -119,8 +119,9 @@ export function SalesXAuthProvider({children}:{children:React.ReactNode}) {
     return body as T;
   },[ensureCsrf]);
 
-  const createPortalHandoff=useCallback(async(targetPortal:PortalKey)=>{
-    const result=await authRequest<{target_url:string}>("portal-handoff",{target_portal:targetPortal});
+  const createPortalHandoff=useCallback(async(targetPortal:PortalKey,organizationId:string)=>{
+    if(!organizationId)throw new Error("Organisasi aktif diperlukan untuk perpindahan portal.");
+    const result=await authRequest<{target_url:string}>("portal-handoff",{target_portal:targetPortal,organization_id:organizationId});
     if(!result.target_url)throw new Error("Portal handoff did not return a destination URL.");
     return result.target_url;
   },[authRequest]);
