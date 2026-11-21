@@ -11,6 +11,7 @@ from app.schemas.smart_reward import (
     RewardApprovalDecision,
     RewardBalanceResponse,
     RewardCatalogItemResponse,
+    RewardCatalogWrite,
     RewardPageResponse,
     RewardProgramResponse,
     RewardProgramWrite,
@@ -24,8 +25,6 @@ from app.schemas.smart_reward import (
     RewardProgramPatch,
     RewardRulePatch,
     RewardCatalogPatch,
-    RewardProgramPatch,
-    RewardRulePatch,
 )
 
 
