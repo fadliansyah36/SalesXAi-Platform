@@ -75,6 +75,7 @@ async def _refresh(connection:asyncpg.Connection,organization_id,lookback:int)->
         await connection.execute("select set_config('TimeZone',$1,true)",tz)
         await connection.fetchval("select public.analytics_refresh_daily_metrics($1,$2,$3)",organization_id,start,end)
         await connection.fetchval("select public.analytics_refresh_scoped_daily_metrics($1,$2,$3)",organization_id,start,end)
+        await connection.fetchval("select public.analytics_refresh_scoped_aux_metrics($1,$2,$3)",organization_id,start,end)
         await connection.fetchval("select public.analytics_refresh_period_rollups($1,$2,$3)",organization_id,start,end)
     return {"period_start":str(start),"period_end":str(end),"timezone":tz}
 
