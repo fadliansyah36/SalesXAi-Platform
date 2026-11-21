@@ -1054,6 +1054,7 @@ export function CompanyPortalApp() {
             </div>
           ))}
           {auth.canPerformApiAction("smartorder.catalog.products.read") && <Link href="/company/smart-order" className="mt-2 flex items-center gap-2.5 rounded-xl border border-[var(--color-border)] px-3 py-2.5 text-xs font-semibold text-[var(--color-text-secondary)]"><ShoppingBag className="h-4 w-4"/>SmartOrder</Link>}
+          {auth.canPerformApiAction("smartreward.catalog.read") && <Link href="/company/smart-reward" className="mt-2 flex items-center gap-2.5 rounded-xl border border-[var(--color-border)] px-3 py-2.5 text-xs font-semibold text-[var(--color-text-secondary)]">SmartReward</Link>}
         </div>
 
         {/* Cross-portal switcher & Logout */}
