@@ -91,8 +91,8 @@ class SmartRewardService:
   raise APIError(422,"reward_source_invalid","Unsupported source type.")
  async def issue_points(self,db,org,actor,p):
   async with db.transaction():
-   program=await db.fetchrow("select audience,configuration,status,starts_at,ends_at from public.reward_programs where organization_id=$1 and id=$2 for share",org,p.program_id)
-   if not program or program["status"]!="active" or program["starts_at"]>datetime.now(timezone.utc) or program["ends_at"]<=datetime.now(timezone.utc): raise APIError(409,"reward_program_inactive","Program is not active.")
+   program=await db.fetchrow("select audience,configuration,status,starts_at,ends_at,now() db_now from public.reward_programs where organization_id=$1 and id=$2 for share",org,p.program_id)
+   if not program or program["status"]!="active" or program["starts_at"]>program["db_now"] or program["ends_at"]<=program["db_now"]: raise APIError(409,"reward_program_inactive","Program is not active.")
    rule=await db.fetchrow("select * from public.reward_incentive_rules where organization_id=$1 and id=$2 and program_id=$3 and status='active' for update",org,p.rule_id,p.program_id)
    if not rule: raise APIError(404,"reward_rule_not_found","Active rule not found.")
    membership=await db.fetchrow("select branch_id from public.organization_memberships where organization_id=$1 and user_id=$2 and status='active'",org,p.participant_user_id)
