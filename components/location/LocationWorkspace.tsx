@@ -1,25 +1,9 @@
 "use client";
 import {useCallback,useEffect,useMemo,useState} from "react";
-import {APIProvider,Map as GoogleMap,AdvancedMarker,Pin,useMap} from "@vis.gl/react-google-maps";
+import {GoogleMapsCanvas} from "@/components/location/GoogleMapsCanvas";
+import {geoJsonLineCoordinates,geoJsonPolygonRings,resolveMapsRuntimeConfig} from "@/packages/maps/src";
 import {createLocationApi,type LocationLatestPosition,type LocationRouteSummary,type LocationGeofence,type LocationGeofenceEvent} from "@salesx-ai/api-client";
 import {useSalesXAuth} from "@/components/providers/AppProviders";
-
-function RouteLines({routes}:{routes:LocationRouteSummary[]}){
- const map=useMap();
- useEffect(()=>{
-  if(!map)return;
-  const lines:google.maps.Polyline[]=[];
-  for(const route of routes){
-   const geometry=route.route_geojson as {type?:string;coordinates?:number[][]}|null;
-   if(geometry?.type!=="LineString"||!geometry.coordinates||geometry.coordinates.length<2)continue;
-   const path=geometry.coordinates.map(([lng,lat])=>({lat,lng}));
-   const line=new google.maps.Polyline({path,geodesic:true,strokeColor:"#348CB2",strokeOpacity:0.85,strokeWeight:4,map});
-   lines.push(line);
-  }
-  return ()=>lines.forEach(line=>line.setMap(null));
- },[map,routes]);
- return null;
-}
 
 export function LocationWorkspace(){
  const auth=useSalesXAuth(),org=auth.activeOrganizationId,client=auth.apiClient;
@@ -53,7 +37,15 @@ export function LocationWorkspace(){
   return api.subscribeEvents(()=>void refresh(),()=>void refresh());
  },[api,org,canLive,auth.status,refresh]);
  const center=live[0]?{lat:live[0].latitude,lng:live[0].longitude}:null;
- const apiKey=process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY??"";
+ const mapsConfig=resolveMapsRuntimeConfig("web",{
+  NEXT_PUBLIC_GOOGLE_MAPS_API_KEY:process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
+  NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID:process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID,
+  GOOGLE_MAPS_LANGUAGE:process.env.GOOGLE_MAPS_LANGUAGE,
+  GOOGLE_MAPS_REGION:process.env.GOOGLE_MAPS_REGION,
+ });
+ const mapMarkers=live.map(item=>({id:item.user_id,title:item.user_id,position:{lat:item.latitude,lng:item.longitude},tone:item.stale?"stale" as const:"active" as const}));
+ const mapRoutes=routes.flatMap(route=>{const coordinates=geoJsonLineCoordinates(route.route_geojson);return coordinates.length>1?[{id:route.id,coordinates}]:[];});
+ const mapPolygons=geofences.flatMap(fence=>geoJsonPolygonRings(fence.boundary_geojson).map((coordinates,index)=>({id:fence.id+":"+index,label:fence.name,coordinates})));
  return <section className="space-y-5">
   <header className="flex flex-wrap items-end justify-between gap-3">
    <div><p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-text-secondary)]">Field Operations</p><h1 className="mt-1 text-2xl font-semibold text-[var(--color-text-primary)]">Location Intelligence</h1><p className="mt-1 text-sm text-[var(--color-text-secondary)]">Live sales position, route history and geofence activity.</p></div>
@@ -67,9 +59,7 @@ export function LocationWorkspace(){
   </div>
   <div className="overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]">
    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--color-border)] px-4 py-3"><h2 className="font-semibold">Live map</h2><span className="text-xs text-[var(--color-text-secondary)]">Updated {updatedAt||"—"}</span></div>
-   {center&&apiKey?<div className="h-[420px] w-full"><APIProvider apiKey={apiKey} language="id" region="ID"><GoogleMap mapId="DEMO_MAP_ID" defaultCenter={center} defaultZoom={12} style={{width:"100%",height:"100%"}}><RouteLines routes={routes}/>{live.map(item=><AdvancedMarker key={item.user_id} position={{lat:item.latitude,lng:item.longitude}} title={item.user_id}><Pin background={item.stale?"#94A3B8":"#10B981"} borderColor="#123A54" glyphColor="#FFFFFF"/></AdvancedMarker>)}</GoogleMap></APIProvider></div>:<div className="p-5">
-    {!center?<p className="text-sm text-[var(--color-text-secondary)]">No authorized live location has been received yet. Location is collected only after a Sales user explicitly starts a consented tracking session.</p>:<p className="text-sm text-[var(--color-text-secondary)]">Google Maps API key is not configured. Authorized coordinates remain available below.</p>}
-   </div>}
+   {center?<GoogleMapsCanvas config={mapsConfig} center={center} markers={mapMarkers} routes={mapRoutes} polygons={mapPolygons} height={420}/>:<div className="p-5"><p className="text-sm text-[var(--color-text-secondary)]">No authorized live location has been received yet. Location is collected only after a Sales user explicitly starts a consented tracking session.</p></div>}
    {live.length>0&&<div className="divide-y divide-[var(--color-border)]">{live.slice(0,20).map(item=><div key={item.user_id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm"><div><p className="font-medium">{item.user_id}</p><p className="text-xs text-[var(--color-text-secondary)]">{item.team_id?"Team "+item.team_id:"No team"} · Accuracy ±{Math.round(item.accuracy_m)} m</p></div><div className="text-right"><p className="font-mono text-xs tabular-nums">{item.latitude.toFixed(6)}, {item.longitude.toFixed(6)}</p><p className="text-xs text-[var(--color-text-secondary)]">{new Date(item.recorded_at).toLocaleString("id-ID")} · {item.stale?"Stale":"Current"}</p></div><a className="text-xs font-semibold text-[var(--color-primary)]" href={`https://www.google.com/maps/search/?api=1&query=${item.latitude},${item.longitude}`} target="_blank" rel="noreferrer">Open map</a></div>)}</div>}
   </div>
   <div className="grid gap-4 lg:grid-cols-2">
