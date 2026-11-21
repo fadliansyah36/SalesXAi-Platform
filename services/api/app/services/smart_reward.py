@@ -84,13 +84,13 @@ class SmartRewardService:
     period_remaining=None
     if elig.get("max_per_user_per_period") is not None:
      used=int(await db.fetchval("""select coalesce(sum(quantity),0) from public.reward_redemptions
-      where organization_id=$1 and participant_user_id=$2 and catalog_item_id=$3 and status<>'rejected'
+      where organization_id=$1 and participant_user_id=$2 and catalog_item_id=$3 and status not in ('rejected','cancelled')
        and requested_at>=now()-make_interval(days=>$4)""",org,actor,item["id"],period_days) or 0)
      period_remaining=max(0,int(elig["max_per_user_per_period"])-used)
      if reason is None and period_remaining<=0: reason="participant_period_limit"
     if elig.get("max_total_per_period") is not None:
      used_total=int(await db.fetchval("""select coalesce(sum(quantity),0) from public.reward_redemptions
-      where organization_id=$1 and catalog_item_id=$2 and status<>'rejected'
+      where organization_id=$1 and catalog_item_id=$2 and status not in ('rejected','cancelled')
        and requested_at>=now()-make_interval(days=>$3)""",org,item["id"],period_days) or 0)
      if reason is None and used_total>=int(elig["max_total_per_period"]): reason="catalog_period_limit"
     if reason is None and balance<int(item["points_cost"]): reason="insufficient_points"
@@ -267,10 +267,10 @@ class SmartRewardService:
    if allowed_users and str(actor) not in allowed_users: raise APIError(403,"reward_user_ineligible","Participant is not eligible for this catalog item.")
    period_days=max(1,min(int(elig.get("period_days",30)),366))
    if elig.get("max_per_user_per_period") is not None:
-    used=await db.fetchval("select coalesce(sum(quantity),0) from public.reward_redemptions where organization_id=$1 and participant_user_id=$2 and catalog_item_id=$3 and status<>'rejected' and requested_at>=now()-make_interval(days=>$4)",org,actor,item["id"],period_days)
+    used=await db.fetchval("select coalesce(sum(quantity),0) from public.reward_redemptions where organization_id=$1 and participant_user_id=$2 and catalog_item_id=$3 and status not in ('rejected','cancelled') and requested_at>=now()-make_interval(days=>$4)",org,actor,item["id"],period_days)
     if int(used or 0)+p.quantity>int(elig["max_per_user_per_period"]): raise APIError(409,"reward_redemption_limit","Participant redemption limit has been reached.")
    if elig.get("max_total_per_period") is not None:
-    used_total=await db.fetchval("select coalesce(sum(quantity),0) from public.reward_redemptions where organization_id=$1 and catalog_item_id=$2 and status<>'rejected' and requested_at>=now()-make_interval(days=>$3)",org,item["id"],period_days)
+    used_total=await db.fetchval("select coalesce(sum(quantity),0) from public.reward_redemptions where organization_id=$1 and catalog_item_id=$2 and status not in ('rejected','cancelled') and requested_at>=now()-make_interval(days=>$3)",org,item["id"],period_days)
     if int(used_total or 0)+p.quantity>int(elig["max_total_per_period"]): raise APIError(409,"reward_catalog_period_limit","Catalog item redemption limit has been reached.")
    cost=int(item["points_cost"])*p.quantity
    if b<cost:raise APIError(409,"insufficient_reward_points","Insufficient reward points.")
