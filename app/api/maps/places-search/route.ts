@@ -20,14 +20,14 @@ const FIELD_MASK = [
 ].join(',');
 
 export async function POST(req: NextRequest) {
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '';
+  const apiKey = process.env.GOOGLE_MAPS_PLACES_API_KEY || '';
   if (!apiKey) {
     return NextResponse.json(
       {
         error:
           'Google Maps API key belum terkonfigurasi di server. Aktifkan integrasi Google Maps terlebih dahulu.',
       },
-      { status: 400 }
+      { status: 503 }
     );
   }
 
@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
       pageToken?: string;
     };
 
-    if (!textQuery || !textQuery.trim()) {
+    if (typeof textQuery !== 'string' || !textQuery.trim() || textQuery.length > 200) {
       return NextResponse.json(
         { error: 'Kata kunci pencarian bisnis wajib diisi.' },
         { status: 400 }
@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
       pageSize: Math.min(Math.max(Number(pageSize) || 10, 1), 20),
     };
 
-    if (includedType && includedType !== 'all') {
+    if (includedType && includedType !== 'all' && /^[a-z0-9_]{1,64}$/.test(includedType)) {
       requestBody.includedType = includedType;
       if (strictTypeFiltering) {
         requestBody.strictTypeFiltering = true;
@@ -73,7 +73,10 @@ export async function POST(req: NextRequest) {
     if (
       locationBias &&
       typeof locationBias.lat === 'number' &&
-      typeof locationBias.lng === 'number'
+      typeof locationBias.lng === 'number' &&
+      Number.isFinite(locationBias.lat) && Number.isFinite(locationBias.lng) &&
+      locationBias.lat >= -90 && locationBias.lat <= 90 &&
+      locationBias.lng >= -180 && locationBias.lng <= 180
     ) {
       requestBody.locationBias = {
         circle: {
@@ -98,10 +101,10 @@ export async function POST(req: NextRequest) {
       headers: {
         'Content-Type': 'application/json',
         'X-Goog-Api-Key': apiKey,
-        'X-Goog-Maps-Solution-ID': 'gmp_mcp_codeassist_v1_aistudio',
         'X-Goog-FieldMask': FIELD_MASK,
       },
       body: JSON.stringify(requestBody),
+      signal: AbortSignal.timeout(10000),
     });
 
     const data = await res.json();
