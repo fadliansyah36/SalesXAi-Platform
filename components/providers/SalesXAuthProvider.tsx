@@ -38,6 +38,7 @@ interface SalesXAuthValue {
   signInWithOtp(phone:string):Promise<void>;
   verifyOtp(phone:string,token:string):Promise<void>;
   signOut(scope?:"local"|"global"|"others"):Promise<void>;
+  createPortalHandoff(targetPortal:PortalKey):Promise<string>;
   completeAuthCallback():Promise<"authenticated"|"recovery"|"none">;
   switchAccount():Promise<void>;
   setActiveOrganization(id:string):void;
@@ -118,6 +119,12 @@ export function SalesXAuthProvider({children}:{children:React.ReactNode}) {
     return body as T;
   },[ensureCsrf]);
 
+  const createPortalHandoff=useCallback(async(targetPortal:PortalKey)=>{
+    const result=await authRequest<{target_url:string}>("portal-handoff",{target_portal:targetPortal});
+    if(!result.target_url)throw new Error("Portal handoff did not return a destination URL.");
+    return result.target_url;
+  },[authRequest]);
+
   const clearCookieSession=useCallback(async()=>{
     const send=(csrf:string)=>fetch("/api/auth/session",{
       method:"DELETE",
@@ -194,6 +201,15 @@ export function SalesXAuthProvider({children}:{children:React.ReactNode}) {
     hydrating.current=true;
     try{
       await ensureCsrf();
+      const currentUrl=new URL(window.location.href);
+      const handoffCode=currentUrl.searchParams.get("portal_handoff");
+      if(handoffCode){
+        try{await authRequest("portal-handoff-exchange",{code:handoffCode});}
+        finally{
+          currentUrl.searchParams.delete("portal_handoff");
+          window.history.replaceState({}, "", currentUrl.pathname+currentUrl.search+currentUrl.hash);
+        }
+      }
       const response=await fetch("/api/auth/session",{method:"GET",credentials:"same-origin",cache:"no-store"});
       const body=await response.json().catch(()=>({session:null})) as AuthResponse;
       if(!response.ok||!body.session){
@@ -215,7 +231,7 @@ export function SalesXAuthProvider({children}:{children:React.ReactNode}) {
         setError(cause instanceof Error?cause.message:"Web session could not be restored.");
       }
     }finally{hydrating.current=false;}
-  },[ensureCsrf,loadContext,invalidateSession]);
+  },[ensureCsrf,loadContext,invalidateSession,authRequest]);
 
   useEffect(()=>{
     // Remove the pre-BFF browser token store during the one-time HttpOnly migration.
@@ -376,11 +392,11 @@ export function SalesXAuthProvider({children}:{children:React.ReactNode}) {
 
   const value=useMemo<SalesXAuthValue>(()=>({
     status,session,context,activeMembership,activeOrganizationId,error,
-    signInWithPassword,signUp,signInWithOAuth,linkIdentity,unlinkIdentity,
+    signInWithPassword,signUp,signInWithOAuth,linkIdentity,unlinkIdentity,createPortalHandoff,
     requestPasswordReset,updatePassword,signInWithOtp,verifyOtp,signOut,completeAuthCallback,switchAccount,
     setActiveOrganization,hasPermission,canAccessPortal,canPerformApiAction,apiFetch,apiClient,
   }),[status,session,context,activeMembership,activeOrganizationId,error,apiClient,signInWithPassword,
-    signUp,signInWithOAuth,linkIdentity,unlinkIdentity,requestPasswordReset,updatePassword,
+    signUp,signInWithOAuth,linkIdentity,unlinkIdentity,createPortalHandoff,requestPasswordReset,updatePassword,
     signInWithOtp,verifyOtp,signOut,completeAuthCallback,switchAccount,setActiveOrganization,hasPermission,canAccessPortal,canPerformApiAction,apiFetch]);
   return <SalesXAuthContext.Provider value={value}>
     <React.Fragment key={consumerEpoch}>{children}</React.Fragment>
