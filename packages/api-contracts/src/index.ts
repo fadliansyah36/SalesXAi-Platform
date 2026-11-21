@@ -406,7 +406,7 @@ export interface RewardCustomerSegmentMemberWrite {participant_user_id:UUID;expi
 
 export interface RewardCustomerSegmentReport {active_members:number;inactive_members:number;removed_members:number;ledger_entries:number;earned_points:number;redeemed_points:number;expired_points:number;adjusted_points:number;}
 
-export interface LocationSessionStart {device_id:string;consent_policy_version:string;shift_id?:UUID|null;}
+export interface LocationSessionStart {device_id:string;consent_policy_version:string;shift_id:UUID;}
 export interface LocationSessionAction {action:"pause"|"resume"|"stop"|"revoke";reason?:string|null;}
 export interface LocationSession {id:UUID;organization_id:UUID;sales_profile_id:UUID;user_id:UUID;shift_id:UUID|null;device_id:string;consented_at:ISODateTime;consent_policy_version:string;started_at:ISODateTime;ended_at:ISODateTime|null;status:"active"|"paused"|"completed"|"revoked";}
 export interface LocationPointWrite {client_point_id:string;recorded_at:ISODateTime;latitude:number;longitude:number;accuracy_m:number;altitude_m?:number|null;speed_mps?:number|null;heading_deg?:number|null;source:"gps"|"network"|"fused";metadata?:Record<string,unknown>;}
