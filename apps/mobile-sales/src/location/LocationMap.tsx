@@ -28,15 +28,15 @@ export function LocationMap({ center, routes = [], polygons = [],
   return <MapView provider={PROVIDER_GOOGLE} style={styles.map}
     initialRegion={{ latitude: center.lat, longitude: center.lng, latitudeDelta: 0.012, longitudeDelta: 0.012 }}
     showsUserLocation showsMyLocationButton toolbarEnabled
-    onRegionChangeComplete={region => onMapEvent?.({type:"viewport_change",viewport:{center:{lat:region.latitude,lng:region.longitude}}})}>
+    onRegionChangeComplete={region => onMapEvent?.({type:"viewport_change",viewport:{center:{lat:region.latitude,lng:region.longitude},zoom:Math.log2(360/region.longitudeDelta),bounds:{north:region.latitude+region.latitudeDelta/2,south:region.latitude-region.latitudeDelta/2,east:region.longitude+region.longitudeDelta/2,west:region.longitude-region.longitudeDelta/2}}})}>
     <Marker coordinate={{ latitude: center.lat, longitude: center.lng }} title="Posisi perangkat"
       onPress={() => onMapEvent?.({type:"marker_press",markerId:"device",coordinate:center})} />
     {routes.map(route => <Polyline key={route.id}
       coordinates={route.coordinates.map(point => ({ latitude: point.lat, longitude: point.lng }))}
-      strokeColor="#348CB2" strokeWidth={4} />)}
+      strokeColor="#348CB2" strokeWidth={4} onPress={() => onMapEvent?.({type:"route_press",routeId:route.id})} />)}
     {polygons.map(polygon => <Polygon key={polygon.id}
       coordinates={polygon.coordinates.map(point => ({ latitude: point.lat, longitude: point.lng }))}
-      strokeColor="#348CB2" fillColor="rgba(52,140,178,0.12)" strokeWidth={2} />)}
+      strokeColor="#348CB2" fillColor="rgba(52,140,178,0.12)" strokeWidth={2} onPress={() => onMapEvent?.({type:"geofence_press",geofenceId:polygon.id})} />)}
   </MapView>;
 }
 const styles = StyleSheet.create({
