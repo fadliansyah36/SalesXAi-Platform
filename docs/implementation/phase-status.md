@@ -1413,3 +1413,25 @@ The execution decision in the latest user instruction explicitly authorizes Phas
 - The initial migration apply attempts exposed missing composite ownership uniqueness constraints; the migration source was corrected before the successful application. The applied migration was then verified by querying the resulting table inventory and RLS state.
 
 **Phase 07 remains IN_PROGRESS — schema foundation only. Phase 06 remains IN_PROGRESS.** Do not mark either phase complete from this checkpoint.
+
+
+## Latest integrated execution checkpoint — 2026-11-21
+
+This checkpoint supersedes earlier status notes above wherever their test/deployment status differs.
+
+- **Main source snapshot:** `1cf969802c4043d0390ad203144e7c40c6293cab`.
+- **API CI:** workflow `44899182981` passed. API unit/contract suite: 164 tests passed (7 environment-dependent tests are separately exercised by the integration job); Python compile/Ruff checks passed; isolated Phase 06 database integration passed.
+- **Phase 06 isolated integration:** 7/7 tests passed on a disposable local Supabase stack: 2 concurrent redemption cases and 5 authenticated cross-tenant membership/read/write/resource/mutation denial cases.
+- **Expo:** mobile-sales typecheck and Android export/bundle passed in the same API workflow.
+- **Portals:** workflow `44899182990` passed all 8 portal builds (Website, Customer, Sales, Supervisor, Company, Distributor, Principal and Super Admin).
+- **Phase 07 database:** live Supabase has 93 applied migrations through `20261121110006`; all 8 Location tables have RLS enabled. Rollback-only `supabase/tests/phase07_location_lifecycle.sql` passed GPS point ingestion, duplicate suppression, out-of-order offline point handling, geofence enter/dwell/exit, latest-position projection and route reconstruction. Post-rollback fixture counts were zero.
+- **Google Maps foundation:** provider abstraction, Web/Expo map components, typed contracts/client, FastAPI Routes and Places adapters, and authenticated portal Places BFF bridge are implemented. No Maps keys/billing are configured; tiles and provider calls remain disabled until restricted credentials are supplied.
+- **Realtime owner gate:** the connected SQL principal cannot assume `supabase_realtime_admin`. SmartReward and Location owner policies remain under `supabase/owner-pending/`; FastAPI permission-checked SSE remains the supported fallback. No owner-policy application is claimed.
+- **Railway:** four production services remain connected to repository `fadliansyah36/SalesXAi-Platform`, branch `main`. The current queued deployments are not yet production success evidence; final source SHA/runtime/domain verification remains open.
+
+**Phase 06: IN_PROGRESS** — concurrent redemption and authenticated tenant isolation are PASS; private Supabase Realtime owner authorization remains open.  
+**Phase 07: IN_PROGRESS** — database/API/Expo/portal integration is implemented; owner Realtime authorization and physical-device lifecycle evidence remain open.  
+**Google Maps Foundation: READY FOR FINAL CREDENTIAL ACTIVATION** — pending restricted keys, map ID and billing activation only.  
+**Production Release: IN_PROGRESS** — all four services must be confirmed on the final main SHA with healthy runtime and live UI assets.
+
+Next phase after Phase 07 closure: **Phase 08 — Analytics & KPI Aggregation**.
