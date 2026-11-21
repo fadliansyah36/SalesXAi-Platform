@@ -1527,3 +1527,13 @@ Live API /readyz reports ready/database connected; website, customer and company
 - The three applied Phase 08 migration filenames under supabase/migrations are reconciled to exact live versions: 20261121130029, 20261121130209, 20261121130429.
 - Phase 06 and Phase 07 remain IN_PROGRESS. Live realtime.messages remains owned by supabase_realtime_admin; connected SQL principal cannot assume owner. Owner policies are not applied and no Realtime subscription allow/deny evidence exists, so neither phase is closed.
 - SMTP and Google OAuth secrets remain intentionally deferred; no placeholder credentials were introduced.
+
+
+## Phase 08 continuation — API repository boundary and current checks
+
+- Analytics application service now delegates SQL access to services/api/app/repositories/analytics.py; API router, action matrix, shared contracts and typed API client are wired in the existing FastAPI application.
+- API reference is recorded at docs/api/analytics.md. Report-run creation is idempotent and returns a queued report run; it is not represented as completed export delivery.
+- Analytics worker remains a one-shot daily tenant refresh process. No recurring Railway worker/scheduler has been configured or deployed.
+- GitHub combined status for API source commit 66a661d9eccd8f9da001666510f98290339c6694: API service check was still pending at last query; the other four Railway service checks reported success. This is not evidence that Analytics is production-active.
+- No portal page has yet been wired to consume createAnalyticsApi, and no Expo Analytics screen has been added. These are open Phase 08 vertical-slice items.
+- Current phase decisions: Phase 06 IN_PROGRESS; Phase 07 IN_PROGRESS; Phase 08 IN_PROGRESS. No Phase 06/07 owner Realtime policy was applied.
