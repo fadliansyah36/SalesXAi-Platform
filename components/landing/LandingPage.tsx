@@ -2043,9 +2043,6 @@ export function LandingPage() {
             <Link href="/customer" className="hover:text-[#348CB2]">
               Customer Portal
             </Link>
-            <Link href="/super-admin" className="hover:text-[#348CB2]">
-              Super Admin Portal
-            </Link>
             <a href="#produk" className="hover:text-[#348CB2]">
               Produk
             </a>
