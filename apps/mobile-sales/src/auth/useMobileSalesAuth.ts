@@ -10,6 +10,8 @@ export type MobileAuthStatus="loading"|"unauthenticated"|"authenticated"|"config
 const authBffUrl=(process.env.EXPO_PUBLIC_AUTH_BFF_URL??"").replace(/\/$/,"");
 const apiOrigin=(process.env.EXPO_PUBLIC_SALESX_API_URL??"").replace(/\/$/,"");
 const redirectUrl="salesxai://auth/callback";
+const MOBILE_DEVICE_ID_KEY="salesx-mobile-device-id-v1";
+async function getOrCreateMobileDeviceId(){let id=await SecureStore.getItemAsync(MOBILE_DEVICE_ID_KEY);if(!id){id="salesx-"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,12);await SecureStore.setItemAsync(MOBILE_DEVICE_ID_KEY,id);}return id;}
 
 function authorizationFingerprintFor(context:AuthContext,organizationId:string|null):string {
  return JSON.stringify({
