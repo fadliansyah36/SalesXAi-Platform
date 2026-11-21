@@ -181,14 +181,6 @@ export function PortalLoginView({ onCompleteLogin }: PortalLoginViewProps) {
           >
             Customer
           </Link>
-          <span className="text-[var(--color-text-muted)]">·</span>
-          <Link
-            href="/super-admin"
-            className="text-[#194F70] dark:text-[#87CEEB] hover:underline"
-          >
-            Super Admin
-          </Link>
-          <span className="text-[var(--color-text-muted)]">·</span>
           <span className="text-[var(--color-text-muted)] tabular-nums">
             {step === 'login' ? '1/3' : step === 'gps' ? '2/3' : '3/3'}
           </span>
