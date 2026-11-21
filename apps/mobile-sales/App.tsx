@@ -15,6 +15,8 @@ import { useMobileSalesAuth } from "./src/auth/useMobileSalesAuth";
 import { SmartTeamHome } from "./src/smart-team/SmartTeamHome";
 import { SmartOrderHome } from "./src/smart-order/SmartOrderHome";
 import { SmartRewardHome } from "./src/smart-reward/SmartRewardHome";
+import { LocationTrackingControl } from "./src/location/LocationTrackingControl";
+import "./src/location/locationTracking";
 
 type AuthState=ReturnType<typeof useMobileSalesAuth>;
 type AuthMode="login"|"signup"|"recovery"|"otp";
@@ -174,6 +176,7 @@ function SalesHome({auth}:{auth:AuthState}){
          <SmartTeamHome auth={auth} salesProfileId={typeof assignmentContext?.sales_profile?.id==="string"?String(assignmentContext.sales_profile.id):null}/>
        <SmartOrderHome auth={auth}/>
        <SmartRewardHome auth={auth}/>
+         <LocationTrackingControl api={auth.apiClient} organizationId={auth.activeOrganizationId} accessToken={auth.session?.access_token??null}/>
         </>}
 
        {canReadAssignmentContext&&assignmentContext&&<NativeStack gap="2">
