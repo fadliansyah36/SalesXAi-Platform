@@ -14,7 +14,7 @@ Supabase project ref: eyofuiyxalbehbqoaeny
 | Phase 03 — Master Data Foundation | COMPLETED |
 | Phase 04 — SmartTeam Operations | COMPLETED |
 | Phase 05 — SmartOrder | COMPLETED |
-| Phase 06 — SmartReward & Incentive | IN_PROGRESS — four-service production release and portal runtime validation passed; populated-ledger, live concurrency, authenticated cross-tenant and PRD submodule gaps remain |
+| Phase 06 — SmartReward & Incentive | IN_PROGRESS — Customer Segment schema/API/shared Web UI added and migration applied; latest-source deployment and populated-data/security validation remain open |
 | Phase 07 — Realtime Location & Route History | LOCKED — do not start until Phase 06 Definition of Done is evidenced |
 
 **Latest main source SHA:** `627ce255e770e2712a479cff9ce3d6b5c08f17c7` (explicit Tailwind v4 monorepo source scanning fix). **Latest API runtime source SHA:** `823072c098dcbee285d5a0157e33fa47b6371075` (portal-only CSS commit does not require API redeploy). **Latest portal runtime source SHA:** `627ce255e770e2712a479cff9ce3d6b5c08f17c7`.
@@ -23,7 +23,7 @@ Supabase project ref: eyofuiyxalbehbqoaeny
 
 **Release validation:** 8/8 portal build matrix SUCCESS; 3/3 production-container CSS/JS runtime checks SUCCESS; 115 API tests PASS, compileall/Ruff/FastAPI image PASS; Web Auth typecheck PASS and lint 0 errors (2 image optimization warnings); Expo typecheck and Android bundle export PASS. All eight served portal routes returned CSS and JavaScript bundles with expected MIME types and canonical token CSS.
 
-**Supabase:** 16/16 Phase 06 migrations applied; 13/13 reward tables have RLS; direct anon/authenticated business-table grants = 0; Security Advisor = 0 lints. However, organizations = 0, profiles = 0, Auth users = 0 and all reward activity tables are empty. No populated ledger reconciliation, live concurrent load, authenticated cross-tenant session or private Realtime denial test can be claimed.
+**Supabase:** 17 Phase 06 migrations are recorded, including `20261121054216_p06_reward_customer_segments`; the two new segment tables have RLS and deny-client policies; segment permission keys are present. Existing baseline checks reported 13/13 original reward tables with RLS and zero direct client business-table grants. However, organizations = 0, profiles = 0, Auth users = 0 and all reward activity tables are empty. No populated ledger reconciliation, live concurrent load, authenticated cross-tenant session or private Realtime denial test can be claimed.
 
 **Remaining scope:** the Master PRD 5.3 includes Campaign and Customer Segment submodules; reward program periods/audience cover campaign-like behavior, but no first-class customer-segment entity is present. This mapping/implementation gap, plus any additional required activity/KPI adapters, must be resolved before closure. Phase 06 remains IN_PROGRESS; Phase 07 remains LOCKED. See `docs/implementation/phase-06-smartreward-status.md` for deployment IDs and detailed evidence.
 
