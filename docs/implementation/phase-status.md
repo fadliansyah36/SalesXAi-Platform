@@ -10,10 +10,10 @@ Supabase project: eyofuiyxalbehbqoaeny
 - Phase 08 — Analytics & KPI Aggregation remains next after Phase 07 completion.
 
 ## Verified Supabase state
-- 88 applied migrations; PostgreSQL 17.12; project ACTIVE_HEALTHY.
+- 89 applied migrations; PostgreSQL 17.12; project ACTIVE_HEALTHY.
 - 80 public tables.
 - Phase 06 has 17 applied migrations.
-- Phase 07 has 4 applied migrations: foundation, latest-position/geofence/realtime projection, role bindings, and FK indexes.
+- Phase 07 has 5 applied migrations: foundation, latest-position/geofence/realtime projection, role bindings, and FK indexes.
 - Security Advisor: 0 security lints.
 - Performance Advisor: 0 unindexed foreign-key lints after the latest index migration.
 - The populated Phase 06 fixture SQL completed in a rollback-only transaction and left no test records in the production database.

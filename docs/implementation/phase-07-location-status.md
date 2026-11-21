@@ -7,6 +7,7 @@
 - 20261121083536_p07_location_live_projection_geofence_realtime: latest-position projection, geofence presence state, access audit, PostGIS route/geofence processing, private Broadcast and server notification.
 - 20261121084148_p07_location_role_permission_bindings: Sales, Supervisor, Company Admin and Tenant Owner location permissions.
 - 20261121084817_p07_location_and_segment_fk_indexes: indexes for Phase 06/07 foreign keys flagged by Performance Advisor.
+- 20261121085755_p07_location_assignment_and_device_integrity: composite session/user/device ownership constraints, branch/team/territory/shift assignment foreign keys and supporting indexes.
 
 ## Implemented code and integration
 - FastAPI router: services/api/app/routers/location.py.
@@ -14,10 +15,10 @@
 - Persistence boundary: services/api/app/repositories/location.py.
 - Request schemas: services/api/app/schemas/location.py.
 - Endpoints: session start/update; GPS batch ingestion; live positions; time-bounded paginated history; route summaries; geofence create/list; geofence event history; private SSE location events.
-- Device ownership: session start requires the device ID registered to the current authenticated session. Points are accepted only for the session owner and matching device.
+- Device ownership: session start requires the device ID registered to the current authenticated session. Points are accepted only for the session owner and matching device. Composite database foreign keys now enforce the organization/session/user/device relationship for points and latest-position projection.
 - GPS points are coordinate/accuracy/source/time validated, idempotent by session + client point ID, and written by FastAPI.
 - Latest position is maintained by a database trigger. Route summaries are reconstructed by PostGIS. Geofence enter/exit/dwell events are evaluated from accepted points.
-- Location reads are tenant- and Sales-profile-scope checked; privileged map/history reads are audited.
+- Location reads are tenant- and Sales-profile-scope checked; privileged map/history reads are audited. Latest-position assignments are constrained to the same organization’s branch, team and territory; tracking shifts are constrained to the same organization.
 - Shared contracts and typed API client include session, ingestion, live, history, route, geofence and event APIs.
 - Expo uses a visible consent control, OS foreground/background permissions, authenticated device identity, background location task, SQLite offline outbox, schema version, actor/device/tenant/session context, deduplication, retry/backoff and sync-state tracking.
 - Supervisor live_map and route_replay tabs and Company gps_live and gps_history tabs use the shared LocationWorkspace and FastAPI.
