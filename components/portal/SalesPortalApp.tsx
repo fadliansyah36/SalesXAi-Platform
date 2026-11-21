@@ -690,6 +690,7 @@ export function SalesPortalApp() {
             );
           })}
           {auth.canPerformApiAction("smartorder.catalog.products.read") && <Link href="/portal/smart-order" className="mt-2 flex items-center gap-2.5 rounded-xl border border-[var(--color-border)] px-3.5 py-2.5 text-sm font-semibold text-[var(--color-text-secondary)]"><ShoppingCart className="h-4 w-4"/>SmartOrder</Link>}
+          {auth.canPerformApiAction("smartreward.catalog.read") && <Link href="/portal/smart-reward" className="mt-2 flex items-center gap-2.5 rounded-xl border border-[var(--color-border)] px-3.5 py-2.5 text-sm font-semibold text-[var(--color-text-secondary)]">SmartReward</Link>}
         </nav>
 
         <div className="p-4 border-t border-[var(--color-border)] space-y-2.5">
