@@ -41,8 +41,8 @@ async def create_rule(organization_id:UUID,program_id:UUID,payload:RewardRuleWri
 async def update_rule(organization_id:UUID,rule_id:UUID,payload:RewardRuleWrite,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartreward.rules.update")),db:SmartRewardRepository=Depends(get_smart_reward_repository)):
  smart_reward_service._tenant(organization_id,tenant); return await smart_reward_service.update_rule(db,organization_id,principal.user_id,rule_id,payload)
 @router.get("/{organization_id}/smart-reward/catalog",response_model=RewardPageResponse[RewardCatalogItemResponse])
-async def catalog(organization_id:UUID,page:int=Query(1,ge=1),page_size:int=Query(24,ge=1,le=100),category:str|None=None,tenant:TenantContext=Depends(require_api_action("smartreward.catalog.read")),db:SmartRewardRepository=Depends(get_smart_reward_repository)):
- smart_reward_service._tenant(organization_id,tenant); return await smart_reward_service.catalog(db,organization_id,page,page_size,category)
+async def catalog(organization_id:UUID,page:int=Query(1,ge=1),page_size:int=Query(24,ge=1,le=100),category:str|None=None,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartreward.catalog.read")),db:SmartRewardRepository=Depends(get_smart_reward_repository)):
+ smart_reward_service._tenant(organization_id,tenant); return await smart_reward_service.catalog(db,organization_id,page,page_size,category,principal.user_id)
 @router.post("/{organization_id}/smart-reward/catalog",status_code=201,response_model=RewardCatalogItemResponse)
 async def create_catalog(organization_id:UUID,payload:RewardCatalogWrite,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartreward.catalog.create")),db:SmartRewardRepository=Depends(get_smart_reward_repository)):
  smart_reward_service._tenant(organization_id,tenant); return await smart_reward_service.create_catalog_item(db,organization_id,principal.user_id,payload)
