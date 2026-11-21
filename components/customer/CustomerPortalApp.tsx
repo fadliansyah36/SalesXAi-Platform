@@ -1,4 +1,5 @@
 'use client';
+import { getSalesXPortalUrlForPath } from '@/components/auth/portalUrls';
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { usePortalRouteGuard } from '@/components/auth/usePortalRouteGuard';
@@ -432,30 +433,30 @@ export function CustomerPortalApp() {
       <div className="min-h-screen bg-gradient-to-b from-[#E5F4F8] via-[#F3FAFC] to-[#FFFFFF] dark:from-[#0B1220] dark:via-[#111C2D] dark:to-[#0B1220] flex flex-col justify-between px-4 py-6 sm:px-6">
         <div className="mx-auto flex w-full max-w-md flex-wrap items-center justify-between gap-2">
           <Link
-            href="/"
+            href={getSalesXPortalUrlForPath("/")}
             className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-[#236D91] dark:text-[#87CEEB] hover:bg-white/70"
           >
             <ArrowLeft className="h-4 w-4" />
             <span>Beranda</span>
           </Link>
           <div className="flex flex-wrap items-center justify-end gap-x-2 gap-y-1 text-xs font-semibold">
-            <Link href="/company" className="text-[#348CB2] hover:underline">
+            <Link href={getSalesXPortalUrlForPath("/company")} className="text-[#348CB2] hover:underline">
               Company
             </Link>
             <span className="text-[var(--color-text-muted)]">·</span>
-            <Link href="/portal" className="text-[#348CB2] hover:underline">
+            <Link href={getSalesXPortalUrlForPath("/portal")} className="text-[#348CB2] hover:underline">
               Sales
             </Link>
             <span className="text-[var(--color-text-muted)]">·</span>
-            <Link href="/distributor" className="text-[#348CB2] hover:underline">
+            <Link href={getSalesXPortalUrlForPath("/distributor")} className="text-[#348CB2] hover:underline">
               Distributor
             </Link>
             <span className="text-[var(--color-text-muted)]">·</span>
-            <Link href="/principal" className="text-[#348CB2] hover:underline">
+            <Link href={getSalesXPortalUrlForPath("/principal")} className="text-[#348CB2] hover:underline">
               Principal
             </Link>
             <span className="text-[var(--color-text-muted)]">·</span>
-            <Link href="/supervisor" className="text-[#348CB2] hover:underline">
+            <Link href={getSalesXPortalUrlForPath("/supervisor")} className="text-[#348CB2] hover:underline">
               Supervisor
             </Link>
           </div>
@@ -524,7 +525,7 @@ export function CustomerPortalApp() {
             <span>Kembali</span>
           </button>
           <Link
-            href="/"
+            href={getSalesXPortalUrlForPath("/")}
             className="text-xs font-semibold text-[#348CB2] hover:underline"
           >
             Landing Page
@@ -769,7 +770,7 @@ export function CustomerPortalApp() {
       {/* Desktop Left Sidebar */}
       <aside className="hidden lg:flex lg:w-[250px] lg:shrink-0 lg:flex-col border-r border-[var(--color-border)] bg-[var(--color-surface)] sticky top-0 h-screen overflow-y-auto">
         <div className="flex h-16 items-center px-4 border-b border-[var(--color-border)] shrink-0">
-          <Link href="/">
+          <Link href={getSalesXPortalUrlForPath("/")}>
             <BrandLogo subtitle="CUSTOMER PORTAL" compact />
           </Link>
         </div>
