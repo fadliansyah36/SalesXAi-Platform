@@ -356,3 +356,5 @@ export interface RewardApprovalWrite {
 export interface RewardApprovalDecision {decision:"approved"|"rejected";reason:string;}
 
 export interface SmartRewardRealtimeEvent {event_id?:string;organization_id:string;resource:string;record_id:string;operation:string;status?:string|null;occurred_at:string;}
+
+export interface RewardApprovalHistory {id:UUID;from_status:string|null;to_status:string;actor_user_id:UUID;reason:string;occurred_at:ISODateTime;}
