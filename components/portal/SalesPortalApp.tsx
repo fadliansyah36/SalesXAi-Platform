@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
+import { usePortalRouteGuard } from '@/components/auth/usePortalRouteGuard';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -118,6 +119,7 @@ const LEGACY_SMARTTEAM_UI_ENABLED = false;
 export function SalesPortalApp() {
   const { theme, toggleTheme } = useTheme();
   const auth = useSalesXAuth();
+  usePortalRouteGuard("sales");
   const router = useRouter();
   const isOnline = useOnlineStatus();
 
