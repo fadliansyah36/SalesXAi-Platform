@@ -54,7 +54,6 @@ interface PortalShellProps<T extends string> {
 }
 
 const PORTAL_SWITCHER = [
-  { href: '/super-admin', label: 'Super Admin' },
   { href: '/distributor', label: 'Distributor' },
   { href: '/principal', label: 'Principal' },
   { href: '/supervisor', label: 'Supervisor' },
