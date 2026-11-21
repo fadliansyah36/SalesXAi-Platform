@@ -83,7 +83,7 @@ export function PortalLoginView({ onCompleteLogin }: PortalLoginViewProps) {
         auth.setActiveOrganization(membership.organization_id);
         const targetPortal=getSalesXPortalKeyForPath(destination);
         if(!targetPortal)throw new Error('Portal tujuan tidak dikenali.');
-        const handoffUrl=await auth.createPortalHandoff(targetPortal);
+        const handoffUrl=await auth.createPortalHandoff(targetPortal,membership.organization_id);
         window.location.replace(handoffUrl);
         return true;
       }
