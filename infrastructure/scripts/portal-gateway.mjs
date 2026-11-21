@@ -86,7 +86,7 @@ function resolveApp(requestUrl) {
   )) || defaultApp;
 }
 
-function firstStaticAsset(app) {
+function firstStaticAsset(app, extension) {
   const staticRoot = path.join(root, app.directory, ".next", "standalone", app.directory, ".next", "static");
   if (!existsSync(staticRoot)) return null;
   const pending = [staticRoot];
@@ -95,7 +95,7 @@ function firstStaticAsset(app) {
     for (const entry of readdirSync(directory, { withFileTypes: true })) {
       const fullPath = path.join(directory, entry.name);
       if (entry.isDirectory()) pending.push(fullPath);
-      else if (entry.isFile() && entry.name.endsWith(".js")) {
+      else if (entry.isFile() && entry.name.endsWith(extension)) {
         return path.relative(staticRoot, fullPath).split(path.sep).join("/");
       }
     }
@@ -132,24 +132,28 @@ async function readiness() {
   ]);
   const portalResults = await Promise.all(apps.map(async (app) => {
     const prefix = app.basePath || "";
-    const asset = firstStaticAsset(app);
-    const [rootStatus, deepLinkStatus, assetStatus, manifestStatus, serviceWorkerStatus] = await Promise.all([
+    const jsAsset = firstStaticAsset(app, ".js");
+    const cssAsset = firstStaticAsset(app, ".css");
+    const [rootStatus, deepLinkStatus, jsStatus, cssStatus, manifestStatus, serviceWorkerStatus] = await Promise.all([
       requestStatus(app, prefix + "/"),
       requestStatus(app, prefix + "/portal"),
-      asset ? requestStatus(app, prefix + "/_next/static/" + asset) : Promise.resolve(0),
+      jsAsset ? requestStatus(app, prefix + "/_next/static/" + jsAsset) : Promise.resolve(0),
+      cssAsset ? requestStatus(app, prefix + "/_next/static/" + cssAsset) : Promise.resolve(0),
       requestStatus(app, prefix + "/manifest.webmanifest"),
       requestStatus(app, prefix + "/sw.js"),
     ]);
     return {
       root: routeResponds(rootStatus),
       deepLink: routeResponds(deepLinkStatus),
-      staticAssets: assetStatus === 200,
+      staticAssets: jsStatus === 200 && cssStatus === 200,
+      stylesheets: cssStatus === 200,
       manifest: manifestStatus === 200,
       serviceWorker: serviceWorkerStatus === 200,
       status: {
         root: rootStatus,
         deepLink: deepLinkStatus,
-        staticAssets: assetStatus,
+        javascript: jsStatus,
+        stylesheet: cssStatus,
         manifest: manifestStatus,
         serviceWorker: serviceWorkerStatus,
       },
@@ -157,7 +161,7 @@ async function readiness() {
   }));
   const portalStatus = Object.fromEntries(apps.map((app, index) => [app.name, portalResults[index]]));
   const healthy = apiStatus === 200 && bffStatus === 200 && portalResults.every((result) =>
-    result.root && result.deepLink && result.staticAssets && result.manifest && result.serviceWorker);
+    result.root && result.deepLink && result.staticAssets && result.stylesheets && result.manifest && result.serviceWorker);
   return {
     healthy,
     api: apiStatus === 200 ? "ready" : "not_ready",
