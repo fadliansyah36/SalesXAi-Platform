@@ -62,3 +62,21 @@ class RewardAdjustmentWrite(BaseModel):
 class RewardReverseWrite(BaseModel):
  model_config=ConfigDict(extra="forbid")
  idempotency_key:str=Field(min_length=8,max_length=180); reason:str=Field(min_length=5,max_length=1000)
+
+class RewardApprovalWrite(BaseModel):
+ model_config=ConfigDict(extra="forbid")
+ request_type:Literal["manual_earning","rule_earning"]
+ participant_user_id:UUID
+ program_id:UUID
+ rule_id:UUID
+ source_type:Literal["order","visit","target","manual"]="manual"
+ source_id:UUID|None=None
+ manual_points:int|None=Field(default=None,gt=0,le=1000000000)
+ metric_value:Decimal=Field(default=Decimal(1),ge=0,max_digits=18,decimal_places=4)
+ idempotency_key:str=Field(min_length=8,max_length=180)
+ reason:str=Field(min_length=5,max_length=1000)
+
+class RewardApprovalDecision(BaseModel):
+ model_config=ConfigDict(extra="forbid")
+ decision:Literal["approved","rejected"]
+ reason:str=Field(min_length=5,max_length=1000)
