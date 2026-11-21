@@ -1,4 +1,24 @@
-# EXECUTION SNAPSHOT — 2026-11-21
+# EXECUTION SNAPSHOT — 2026-11-21 (Phase 08 + portal routing continuation)
+
+## Latest authoritative continuation — Phase 08 Analytics & Reporting + cross-portal routing
+
+- Phase 06 — SmartReward: remains IN_PROGRESS; the previously recorded owner-authorized private Realtime policy and authenticated subscription evidence remain pending.
+- Phase 07 — Location Intelligence: remains IN_PROGRESS; the previously recorded owner-authorized private Realtime policy remains pending.
+- Phase 08 — Analytics & Operational Reporting: **IN_PROGRESS, not COMPLETED**. KPI aggregation, scoped API filters, private CSV export lifecycle, signed download, scheduler retry/lease logic, Web/Expo integration and portal routing code have been implemented on `main`; live business-runtime validation is blocked by an empty project tenant/auth dataset.
+- Live Supabase project `eyofuiyxalbehbqoaeny`: **115 migrations**, latest `20261121143047`; 89/89 public tables have RLS. Security Advisor: 0 lints. Performance Advisor: 0 unindexed-FK lints; 274 unused-index notices are informational.
+- Live data check: 0 organizations, 0 Auth users, 0 scheduled jobs, 0 job executions, 0 report runs and 0 report exports. No synthetic persistent tenant, user or business records were inserted.
+- `analytics-private` Storage bucket is confirmed private (`public=false`), CSV-only, 50 MiB maximum. API issues 60-second signed URLs after report scope/tenant/retention authorization and records signed-url audit events.
+- Analytics consumers: Web Company, Supervisor, Sales, Distributor and Principal; native Expo Sales. Customer dashboard is not an Analytics consumer because Customer is not assigned the Analytics dashboard/report permissions in the current role model.
+- Cross-origin routing: Sales `/portal` on Website; Customer root; Company root; Distributor `/distributor`, Principal `/principal`, Supervisor `/supervisor` on Company service. Super Admin direct-only route is `/super-admin`; no public/login/switcher entry is provided.
+- Cross-origin sessions use one-time BFF handoff: AES-256-GCM encrypted session envelope, SHA-256 ticket hash at rest, 60-second expiry, atomic consume, exact portal-origin allow-list, organization/actor binding, and portal permission revalidation at issue and exchange. The shared BFF secret and public origins are configured in the existing Railway environment; no new service or database was created.
+- GitHub/Railway build checks on the current source snapshot: API, Website, Customer, Company and Expo Sales checks report SUCCESS. This is build/check evidence, not production deployment evidence.
+- Deployment boundary: no manual production redeploy is claimed. Railway source deployment records for the API are still queued/skipped in the latest inspection, and environment variable updates were applied with deployment skipping; production activation must be separately verified.
+- SMTP and Google OAuth credentials remain deployment-pending; no placeholder or hardcoded credential was added.
+- Next execution phase after Phase 08 completion: **Phase 09 — Workflow Engine, Scheduling, Notifications & Durable Jobs**.
+
+---
+
+
 
 ## Latest continuation — 2026-11-21 (SmartReward Realtime + Google Maps)
 
@@ -22,7 +42,7 @@ Supabase project: eyofuiyxalbehbqoaeny
 ## Current phase state
 - Phase 06 — SmartReward & Incentive: IN_PROGRESS. Do not mark COMPLETED until concurrent redemption, authenticated cross-tenant API authorization and private Realtime subscription evidence are complete.
 - Phase 07 — Realtime Location & Route History: IN_PROGRESS under the latest explicit execution instruction. It may proceed while Phase 06 remains IN_PROGRESS.
-- Phase 08 — Analytics & KPI Aggregation remains next after Phase 07 completion.
+- Phase 08 — Analytics & KPI Aggregation: IN_PROGRESS; Phase 08 implementation is active while Phase 06/07 owner-authorized Realtime gates remain independently open.
 
 ## Verified Supabase state
 - 90 applied migrations; latest version 20261121093654; PostgreSQL 17.12; project ACTIVE_HEALTHY.
@@ -1566,3 +1586,34 @@ Live API /readyz reports ready/database connected; website, customer and company
 - Remaining Phase 08 scope: branch/team/territory and salesperson aggregation, report export worker and private artifact delivery, recurring worker scheduling, and integration of analytics API into existing Web portals and native Expo where applicable.
 - No worker deployment or production activation is claimed.
 - Next phase after Phase 08 completion: **Phase 09 — Workflow Engine, Scheduling, Notifications & Durable Jobs**.
+
+
+## Phase 08 latest implementation evidence — 2026-11-21
+
+### Backend, API and data
+- Analytics service/repository separation is implemented. Scoped KPI queries accept period, grain and optional tenant/branch/team/territory/user scope; authorization is resolved from active organization membership and role assignment.
+- Deterministic metrics: orders count/gross value, scheduled/completed/productive visits, distinct outlet coverage, available inventory, points issued and fulfilled redemption points. Weekly/monthly outlet coverage is recalculated as period-level distinct outlets rather than summing daily distinct counts.
+- Report export uses an asynchronous queue and CSV worker, private `analytics-private` Storage, status/attempt tracking, exponential retry, retention cleanup and audit events.
+- Download endpoint validates report scope, organization, completion and retention before issuing a 60-second signed URL.
+- Scheduler is started from FastAPI lifespan on the existing API service. It seeds organization-local daily schedules, uses advisory-lock singleton ownership, `FOR UPDATE SKIP LOCKED`, leases, idempotency keys, retry/backoff and durable execution history. Standalone worker entrypoint remains at `services/analytics-worker/worker.py`.
+- Analytics endpoints:
+  - `GET /api/v1/organizations/{organization_id}/analytics/dashboard`
+  - `GET /api/v1/organizations/{organization_id}/analytics/reports`
+  - `POST /api/v1/organizations/{organization_id}/analytics/reports`
+  - `GET /api/v1/organizations/{organization_id}/analytics/reports/{report_run_id}/download`
+- Portal handoff endpoints:
+  - `POST /api/v1/auth/portal-handoffs`
+  - `POST /api/v1/auth/portal-handoffs/exchange`
+
+### Web, Expo and routing
+- `components/analytics/AnalyticsWorkspace.tsx` is connected to the shared typed API client for KPI cards, period/grain/scope filters, trend charts, metric table, report history, CSV export and secure download.
+- Web integration is present in Company, Supervisor, Sales, Distributor and Principal dashboards. Expo Sales uses `apps/mobile-sales/src/analytics/AnalyticsHome.tsx` from `apps/mobile-sales/App.tsx` with the same typed API client.
+- Company service now exposes the partner route wrappers for Distributor, Principal, Supervisor and direct-only Super Admin. Cross-origin portal navigation preserves the session through the one-time BFF handoff and server-side portal permission check.
+- Super Admin is omitted from public landing, Sales login and ordinary portal switchers. The route guard is UX-only; FastAPI permissions remain authoritative.
+
+### Migration and validation
+- Phase 08 migration set: 22 applied migrations, versions `20261121130029` through `20261121143047`; full list is in `docs/implementation/supabase-migration-ledger.md`.
+- Security Advisor: 0 lints. Performance Advisor: 0 unindexed foreign keys.
+- GitHub build checks: API, Website, Customer, Company and Expo Sales all SUCCESS at the latest checked source commit.
+- KPI calculation, real authorization, report export/download and scheduled execution could not be exercised against tenant-owned records because the bound project has zero organizations/users/jobs/reports. No synthetic records were retained. This remains a runtime-evidence gap; Phase 08 is therefore not marked complete.
+- No production deployment is claimed.
