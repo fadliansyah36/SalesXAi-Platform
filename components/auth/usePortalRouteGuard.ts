@@ -1,7 +1,7 @@
 'use client';
 
 import {useEffect} from "react";
-import {getSalesXPortalUrlForPath} from "@/components/auth/portalUrls";
+import {getSalesXPortalUrlForPath,getSalesXPortalKeyForPath} from "@/components/auth/portalUrls";
 import {getPreferredPortalPath} from "@salesx-ai/permissions";
 import type {PortalKey} from "@salesx-ai/shared-types";
 import {useSalesXAuth} from "@/components/providers/AppProviders";
@@ -16,6 +16,9 @@ export function usePortalRouteGuard(portal:PortalKey){
    ...(auth.context?.platform_permissions??[]),
   ];
   const destination=getPreferredPortalPath(permissions);
-  window.location.replace(destination?getSalesXPortalUrlForPath(destination):getSalesXPortalUrlForPath("/"));
- },[auth.status,auth.activeMembership,auth.context,auth.canAccessPortal,portal]);
+  const target=destination?getSalesXPortalKeyForPath(destination):null;
+  if(target){
+   void auth.createPortalHandoff(target).then(url=>window.location.replace(url)).catch(()=>window.location.replace(getSalesXPortalUrlForPath(destination!)));
+  }else window.location.replace(getSalesXPortalUrlForPath("/"));
+ },[auth.status,auth.activeMembership,auth.context,auth.canAccessPortal,auth.createPortalHandoff,portal]);
 }
