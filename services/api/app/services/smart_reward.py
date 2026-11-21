@@ -1,4 +1,5 @@
 from __future__ import annotations
+import asyncpg
 import json
 from decimal import Decimal, ROUND_FLOOR
 from app.repositories.smart_reward import SmartRewardRepository
