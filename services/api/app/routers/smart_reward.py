@@ -15,7 +15,7 @@ from app.services.smart_reward_approval import smart_reward_approval_service
 from app.schemas.smart_reward import (
  RewardApprovalWrite,RewardApprovalDecision,RewardPageResponse,RewardProgramResponse,
  RewardRuleResponse,RewardCatalogItemResponse,RewardBalanceResponse,RewardLedgerEntryResponse,
- RewardRedemptionResponse,RewardApprovalRequestResponse,RewardReportResponse
+ RewardRedemptionResponse,RewardApprovalRequestResponse,RewardReportResponse,RewardProgressResponse
 )
 router=APIRouter(prefix="/organizations",tags=["smart-reward"])
 
@@ -52,6 +52,9 @@ async def update_catalog(organization_id:UUID,item_id:UUID,payload:RewardCatalog
 @router.get("/{organization_id}/smart-reward/balance",response_model=RewardBalanceResponse)
 async def balance(organization_id:UUID,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartreward.balance.read")),db:SmartRewardRepository=Depends(get_smart_reward_repository)):
  smart_reward_service._tenant(organization_id,tenant); return await smart_reward_service.balance(db,organization_id,principal.user_id)
+@router.get("/{organization_id}/smart-reward/progress",response_model=RewardProgressResponse)
+async def progress(organization_id:UUID,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartreward.progress.read")),db:SmartRewardRepository=Depends(get_smart_reward_repository)):
+ smart_reward_service._tenant(organization_id,tenant); return await smart_reward_service.progress(db,organization_id,principal.user_id)
 @router.get("/{organization_id}/smart-reward/ledger",response_model=RewardPageResponse[RewardLedgerEntryResponse])
 async def ledger(organization_id:UUID,page:int=Query(1,ge=1),page_size:int=Query(25,ge=1,le=100),principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartreward.ledger.read")),db:SmartRewardRepository=Depends(get_smart_reward_repository)):
  smart_reward_service._tenant(organization_id,tenant); return await smart_reward_service.ledger(db,organization_id,principal.user_id,page,page_size)
