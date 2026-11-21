@@ -18,7 +18,7 @@ export function LocationWorkspace(){
  const [replayBusy,setReplayBusy]=useState(false);
  const [busy,setBusy]=useState(false),[error,setError]=useState(""),[updatedAt,setUpdatedAt]=useState("");
  const can=(id:string)=>auth.canPerformApiAction(id as never);
- const canLive=can("location.live.read"),canHistory=can("location.history.read"),canGeofences=can("location.geofences.read");
+ const canLive=can("location.live.read"),canHistory=can("location.history.read"),canGeofences=can("location.geofences.read"),canReplay=can("location.routes.replay");
  const refresh=useCallback(async()=>{
   if(!api||auth.status!=="authenticated"||!org)return;
   setBusy(true);setError("");
@@ -41,7 +41,7 @@ export function LocationWorkspace(){
   return api.subscribeEvents(()=>void refresh(),()=>void refresh());
  },[api,org,canLive,auth.status,refresh]);
  const loadReplay=useCallback(async(route:LocationRouteSummary)=>{
-  if(!api)return;
+  if(!api||!canReplay)return;
   setReplayBusy(true);setError("");
   try{
    const result=await api.routeReplay(route.id,{page:1,page_size:500});
@@ -49,7 +49,7 @@ export function LocationWorkspace(){
    if(result.total>result.items.length)setError("Route replay menampilkan 500 titik pertama. Gunakan rentang waktu yang lebih sempit untuk rute yang lebih panjang.");
   }catch(error){setError(error instanceof Error?error.message:"Route replay could not be loaded.");}
   finally{setReplayBusy(false);}
- },[api]);
+ },[api,canReplay]);
  const replayPoint=replayPoints[replayIndex]??null;
  const center= replayPoint?{lat:replayPoint.latitude,lng:replayPoint.longitude}:live[0]?{lat:live[0].latitude,lng:live[0].longitude}:null;
  const mapsConfig=resolveMapsRuntimeConfig("web",{
@@ -85,7 +85,7 @@ export function LocationWorkspace(){
    {replayPoints.length>0?<><input aria-label="Route replay timeline" type="range" min={0} max={replayPoints.length-1} value={replayIndex} onChange={event=>setReplayIndex(Number(event.target.value))} className="w-full accent-[var(--color-primary)]"/><div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[var(--color-text-secondary)]"><time>{replayPoint?new Date(replayPoint.recorded_at).toLocaleString("id-ID"):"—"}</time><span>{replayIndex+1} / {replayPoints.length} · Accuracy ±{Math.round(replayPoint?.accuracy_m??0)} m</span><div className="flex gap-2"><button type="button" onClick={()=>setReplayIndex(index=>Math.max(0,index-1))} disabled={replayIndex===0} className="rounded border border-[var(--color-border)] px-2 py-1 disabled:opacity-40">Previous</button><button type="button" onClick={()=>setReplayIndex(index=>Math.min(replayPoints.length-1,index+1))} disabled={replayIndex>=replayPoints.length-1} className="rounded border border-[var(--color-border)] px-2 py-1 disabled:opacity-40">Next</button></div></div></>:<p className="text-sm text-[var(--color-text-secondary)]">No GPS points found in this route.</p>}
   </div>}
   <div className="grid gap-4 lg:grid-cols-2">
-   <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]"><div className="border-b border-[var(--color-border)] px-4 py-3"><h2 className="font-semibold">Route history</h2></div>{routes.length===0?<p className="p-4 text-sm text-[var(--color-text-secondary)]">No route summaries available for the authorized scope.</p>:<div className="divide-y divide-[var(--color-border)]">{routes.slice(0,30).map(route=><div key={route.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"><div><p className="text-sm font-medium">{route.route_date}</p><p className="text-xs text-[var(--color-text-secondary)]">{route.point_count} GPS points · {route.sales_profile_id}</p></div><div className="flex items-center gap-3"><p className="text-sm font-semibold tabular-nums">{(route.distance_m/1000).toFixed(2)} km</p><button type="button" onClick={()=>void loadReplay(route)} disabled={replayBusy} aria-pressed={selectedReplay?.id===route.id} className="rounded-md border border-[var(--color-border)] px-3 py-1.5 text-xs font-semibold text-[var(--color-text-primary)] disabled:opacity-50">{replayBusy&&selectedReplay?.id===route.id?"Loading…":"Replay"}</button></div></div>)}</div>}</div>
+   <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]"><div className="border-b border-[var(--color-border)] px-4 py-3"><h2 className="font-semibold">Route history</h2></div>{routes.length===0?<p className="p-4 text-sm text-[var(--color-text-secondary)]">No route summaries available for the authorized scope.</p>:<div className="divide-y divide-[var(--color-border)]">{routes.slice(0,30).map(route=><div key={route.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"><div><p className="text-sm font-medium">{route.route_date}</p><p className="text-xs text-[var(--color-text-secondary)]">{route.point_count} GPS points · {route.sales_profile_id}</p></div><div className="flex items-center gap-3"><p className="text-sm font-semibold tabular-nums">{(route.distance_m/1000).toFixed(2)} km</p><button type="button" onClick={()=>void loadReplay(route)} disabled={replayBusy||!canReplay} aria-pressed={selectedReplay?.id===route.id} className="rounded-md border border-[var(--color-border)] px-3 py-1.5 text-xs font-semibold text-[var(--color-text-primary)] disabled:opacity-50">{replayBusy?"Loading…":"Replay"}</button></div></div>)}</div>}</div>
    <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]"><div className="border-b border-[var(--color-border)] px-4 py-3"><h2 className="font-semibold">Geofence activity</h2></div>{events.length===0?<p className="p-4 text-sm text-[var(--color-text-secondary)]">No geofence events for the authorized scope.</p>:<div className="divide-y divide-[var(--color-border)]">{events.slice(0,30).map(event=><div key={event.id} className="flex items-center justify-between gap-3 px-4 py-3"><div><p className="text-sm font-medium">{event.geofence_name} · {event.event_type}</p><p className="text-xs text-[var(--color-text-secondary)]">{event.user_id}</p></div><time className="text-xs text-[var(--color-text-secondary)]">{new Date(event.occurred_at).toLocaleString("id-ID")}</time></div>)}</div>}</div>
   </div>
   <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]"><div className="border-b border-[var(--color-border)] px-4 py-3"><h2 className="font-semibold">Configured geofences</h2></div>{geofences.length===0?<p className="p-4 text-sm text-[var(--color-text-secondary)]">No geofences configured.</p>:<div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3">{geofences.map(item=><div key={item.id} className="rounded-lg border border-[var(--color-border)] p-3"><p className="font-medium">{item.name}</p><p className="mt-1 text-xs text-[var(--color-text-secondary)]">{item.code} · {item.geofence_type} · {item.status}</p><p className="mt-1 text-xs text-[var(--color-text-secondary)]">Dwell {item.dwell_seconds}s · Accuracy ±{item.accuracy_limit_m}m</p></div>)}</div>}</div>
