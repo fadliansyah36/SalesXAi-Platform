@@ -1,4 +1,8 @@
 name: Phase 04 Independent Portal Builds
+concurrency:
+  group: phase-06-portal-validation-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches: [main]
