@@ -3,7 +3,7 @@ import {AppState,Pressable} from "react-native";
 import * as Location from "expo-location";
 import type {SalesXApiClient} from "@salesx-ai/api-client";
 import {NativeInline,NativeStack,NativeSurface,NativeText,useNativeTheme} from "@salesx-ai/design-system/native";
-import {ensureLocationDeviceId,flushLocationOutbox,getLocalLocationRoute,startLocationTracking,stopLocationTracking,syncLocationAccessToken,syncPendingLocationStop,getStoredLocationShiftId,LOCATION_TASK_NAME} from "./locationTracking";
+import {ensureLocationDeviceId,flushLocationOutbox,getLocalLocationRoute,startLocationTracking,stopLocationTracking,syncLocationAccessToken,syncPendingLocationStop,getStoredLocationContext,LOCATION_TASK_NAME} from "./locationTracking";
 import {LocationMap} from "./LocationMap";
 import type {MapCoordinate,MapPolyline} from "../../../../packages/maps/src";
 
@@ -12,8 +12,8 @@ export function LocationTrackingControl({api,organizationId,accessToken,actorUse
  useEffect(()=>{void (async()=>{setActive(await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK_NAME));})();},[]);
  useEffect(()=>{
   if(!shiftContextReady||!active||!api||!organizationId||stopRequested.current)return;
-  void getStoredLocationShiftId().then(stored=>{
-   if(!shiftId||(stored&&stored!==shiftId)){
+  void getStoredLocationContext().then(stored=>{
+   if(!shiftId||stored.organizationId!==organizationId||(stored.shiftId&&stored.shiftId!==shiftId)){
     stopRequested.current=true;setBusy(true);
     return stopLocationTracking(api,organizationId).catch(error=>{
      setNotice(error instanceof Error?error.message:"Shift berakhir; penghentian tracking menunggu sinkronisasi.");
