@@ -31,13 +31,26 @@ class SmartRewardEventAudienceTests(unittest.TestCase):
         self.assertEqual(branches, [])
         self.assertFalse(catalog)
 
-    def test_catalog_permission_is_separate_from_ledger_audience(self):
+    def test_branch_catalog_permission_does_not_broaden_to_tenant_events(self):
         tenant, branches, catalog = _reward_event_audience([
             {"role_key": "supervisor", "scope_type": "branch", "scope_id": "branch-a",
-             "permission_key": "smartreward:catalog:read"}
+             "permission_key": "smartreward:ledger:read"},
+            {"role_key": "supervisor", "scope_type": "branch", "scope_id": "branch-a",
+             "permission_key": "smartreward:catalog:read"},
         ])
         self.assertFalse(tenant)
         self.assertEqual(branches, ["branch-a"])
+        self.assertFalse(catalog)
+
+    def test_tenant_catalog_permission_is_separate_from_ledger_audience(self):
+        tenant, branches, catalog = _reward_event_audience([
+            {"role_key": "tenant_owner", "scope_type": "tenant", "scope_id": "org-a",
+             "permission_key": "smartreward:ledger:read"},
+            {"role_key": "tenant_owner", "scope_type": "tenant", "scope_id": "org-a",
+             "permission_key": "smartreward:catalog:read"},
+        ])
+        self.assertTrue(tenant)
+        self.assertEqual(branches, [])
         self.assertTrue(catalog)
 
 
