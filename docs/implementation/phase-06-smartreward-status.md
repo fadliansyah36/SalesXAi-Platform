@@ -1,3 +1,25 @@
+# PHASE 06 CURRENT EXECUTION SNAPSHOT — 2026-11-21
+
+**Status: IN_PROGRESS — not closed.**
+
+- 17 Phase 06 migrations are applied.
+- Customer Segment schema, membership, program/rule eligibility and reporting foundation remain in place.
+- Existing SmartReward service paths use transaction-scoped account locking and idempotency constraints. Existing API tests include serialized/idempotent lifecycle assertions.
+- Added isolated SQL fixture: supabase/tests/phase06_smartreward_ledger.sql.
+- The fixture was executed in a rollback-only database transaction. It verified ledger entries for earn, redemption, expiration, reversal (linked to the original redemption), and adjustment; ledger sum reconciliation to 850; duplicate idempotency rejection; and cross-tenant account-reference rejection. All fixture rows were rolled back.
+- Security Advisor reports 0 security lints; the latest Performance Advisor reports 0 unindexed foreign-key lints.
+- Existing private SmartReward Realtime authorization policy is present in realtime.messages.
+
+**Remaining Phase 06 gates:**
+1. Run the existing SmartReward API concurrency tests against an isolated test database using two real concurrent connections; the rollback-only fixture is not a substitute for this.
+2. Verify authenticated cross-tenant API access with isolated test sessions, without manual login/register using real customer accounts.
+3. Verify private SmartReward Realtime subscription authorization with a test session.
+4. Verify all portal and Expo SmartReward actions against their typed FastAPI contracts and the populated fixture.
+
+Do not mark Phase 06 COMPLETED until these gates have evidence.
+
+---
+
 # Phase 06 — SmartReward & Incentive Status
 
 Date: 2026-11-21

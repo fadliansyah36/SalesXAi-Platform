@@ -28,13 +28,13 @@ begin
   insert into public.reward_accounts(id,organization_id,participant_user_id,points_balance,status)
   values(v_account,v_org,v_user,0,'active') on conflict(id) do nothing;
 
-  insert into public.reward_points_ledger(id,organization_id,account_id,participant_user_id,entry_type,points_delta,balance_before,balance_after,source_type,source_id,actor_user_id,idempotency_key,reason,occurred_at,expires_at)
+  insert into public.reward_points_ledger(id,organization_id,account_id,participant_user_id,entry_type,points_delta,balance_before,balance_after,source_type,source_id,actor_user_id,reversal_of,idempotency_key,reason,occurred_at,expires_at)
   values
-   (v_earn,v_org,v_account,v_user,'earn',1000,0,1000,'incentive_rule','e060f2d1-9f2a-4bca-a0c1-000000000607',v_user,'fixture-earn-0001','Fixture earning entry',now(),now()+interval '365 days'),
-   (v_redemption,v_org,v_account,v_user,'redemption',-250,1000,750,'redemption','e060f2d1-9f2a-4bca-a0c1-000000000608',v_user,'fixture-redeem-01','Fixture redemption entry',now(),null),
-   ('e060f2d1-9f2a-4bca-a0c1-000000000609',v_org,v_account,v_user,'expiration',-100,750,650,'point_lot','e060f2d1-9f2a-4bca-a0c1-000000000610',v_user,'fixture-expire-001','Fixture expired points',now(),now()-interval '1 day'),
-   ('e060f2d1-9f2a-4bca-a0c1-000000000611',v_org,v_account,v_user,'reversal',250,650,900,'ledger_reversal',v_redemption,v_user,'fixture-reverse-01','Fixture redemption reversal',now(),null),
-   ('e060f2d1-9f2a-4bca-a0c1-000000000612',v_org,v_account,v_user,'adjustment',-50,900,850,'admin_adjustment','e060f2d1-9f2a-4bca-a0c1-000000000613',v_user,'fixture-adjust-001','Fixture manual adjustment',now(),null)
+   (v_earn,v_org,v_account,v_user,'earn',1000,0,1000,'incentive_rule','e060f2d1-9f2a-4bca-a0c1-000000000607',v_user,null,'fixture-earn-0001','Fixture earning entry',now(),now()+interval '365 days'),
+   (v_redemption,v_org,v_account,v_user,'redemption',-250,1000,750,'redemption','e060f2d1-9f2a-4bca-a0c1-000000000608',v_user,null,'fixture-redeem-01','Fixture redemption entry',now(),null),
+   ('e060f2d1-9f2a-4bca-a0c1-000000000609',v_org,v_account,v_user,'expiration',-100,750,650,'point_lot','e060f2d1-9f2a-4bca-a0c1-000000000610',v_user,null,'fixture-expire-001','Fixture expired points',now(),now()-interval '1 day'),
+   ('e060f2d1-9f2a-4bca-a0c1-000000000611',v_org,v_account,v_user,'reversal',250,650,900,'ledger_reversal',v_redemption,v_user,v_redemption,'fixture-reverse-01','Fixture redemption reversal',now(),null),
+   ('e060f2d1-9f2a-4bca-a0c1-000000000612',v_org,v_account,v_user,'adjustment',-50,900,850,'admin_adjustment','e060f2d1-9f2a-4bca-a0c1-000000000613',v_user,null,'fixture-adjust-001','Fixture manual adjustment',now(),null)
   on conflict(id) do nothing;
 
   select coalesce(sum(points_delta),0) into v_balance from public.reward_points_ledger

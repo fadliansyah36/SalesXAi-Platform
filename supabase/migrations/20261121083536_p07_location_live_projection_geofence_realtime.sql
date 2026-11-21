@@ -1,4 +1,5 @@
 -- Phase 07 additive continuation. Applied migration version: 20261121083536.
+-- NOTE: location Broadcast emission is installed here; location-specific realtime.messages authorization still requires the table owner supabase_realtime_admin. Until then, clients use the permission-checked FastAPI SSE endpoint.
 -- Existing five foundation tables remain canonical.
 create table if not exists public.location_latest_positions (
  organization_id uuid not null references public.organizations(id) on delete cascade,

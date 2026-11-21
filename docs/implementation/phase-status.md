@@ -1,3 +1,39 @@
+# EXECUTION SNAPSHOT — 2026-11-21
+Source branch: main
+Source code commit at snapshot: bcb15b2cbca7d994902162d89bbdbd6aff4f1baf
+Repository binding: fadliansyah36/SalesXAi-Platform (canonical connected repository; the alternate URL spelling SalesX-Ai-Platform does not resolve)
+Supabase project: eyofuiyxalbehbqoaeny
+
+## Current phase state
+- Phase 06 — SmartReward & Incentive: IN_PROGRESS. Do not mark COMPLETED until concurrent redemption, authenticated cross-tenant API authorization and private Realtime subscription evidence are complete.
+- Phase 07 — Realtime Location & Route History: IN_PROGRESS under the latest explicit execution instruction. It may proceed while Phase 06 remains IN_PROGRESS.
+- Phase 08 — Analytics & KPI Aggregation remains next after Phase 07 completion.
+
+## Verified Supabase state
+- 88 applied migrations; PostgreSQL 17.12; project ACTIVE_HEALTHY.
+- 80 public tables.
+- Phase 06 has 17 applied migrations.
+- Phase 07 has 4 applied migrations: foundation, latest-position/geofence/realtime projection, role bindings, and FK indexes.
+- Security Advisor: 0 security lints.
+- Performance Advisor: 0 unindexed foreign-key lints after the latest index migration.
+- The populated Phase 06 fixture SQL completed in a rollback-only transaction and left no test records in the production database.
+
+## Phase 07 implementation snapshot
+- FastAPI location session lifecycle, registered-device binding, consent version, GPS batch ingestion, idempotent point IDs, time-window history, route summary, geofence CRUD/event history, scoped live positions and private permission-checked SSE.
+- Typed API contracts/client and API action matrix entries are present.
+- Expo native tracking requires explicit in-app consent plus foreground/background OS permissions. Device identity is shared with authenticated session registration. SQLite outbox stores organization/session/device/actor/schema context and queued/retrying/synced state.
+- Supervisor live-map/route-replay tabs and Company GPS monitoring/history tabs now use the shared LocationWorkspace and FastAPI endpoints.
+- The database trigger emits a private Realtime Broadcast and a PostgreSQL notification. A dedicated location RLS policy on realtime.messages could not be created because the connected SQL principal is not a member/owner of supabase_realtime_admin. The FastAPI SSE stream is the currently available authorized delivery path; native Supabase private-channel subscription remains blocked.
+
+## Validation boundaries
+- Phase 06 fixture checks: earning, redemption, expiration, reversal linkage, adjustment, ledger sum reconciliation, duplicate idempotency rejection, and cross-tenant account-reference rejection. Fixture is rolled back.
+- Existing SmartReward service tests assert transaction locking/idempotency behavior. A live two-connection concurrent redemption run has not been completed; do not report concurrency as runtime-validated.
+- Location schema contract tests, API static checks, native build and portal typecheck/build are subject to the latest GitHub Actions/Railway run results; record only completed results.
+- No new Supabase Auth identities or business fixtures are retained.
+- No Railway service has been manually redeployed in this execution. Existing automatic deployments are tracked separately.
+
+---
+
 # SalesX-Ai Phase Status
 
 Target repository: fadliansyah36/SalesXAi-Platform

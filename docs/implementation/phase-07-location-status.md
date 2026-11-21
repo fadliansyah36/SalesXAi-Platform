@@ -1,3 +1,42 @@
+# PHASE 07 CURRENT EXECUTION SNAPSHOT — 2026-11-21
+
+**Status: IN_PROGRESS — implementation is open; not complete.**
+
+## Applied database changes
+- 20261121082433_p07_location_intelligence_foundation: tracking sessions, points, geofences, geofence events and route summaries.
+- 20261121083536_p07_location_live_projection_geofence_realtime: latest-position projection, geofence presence state, access audit, PostGIS route/geofence processing, private Broadcast and server notification.
+- 20261121084148_p07_location_role_permission_bindings: Sales, Supervisor, Company Admin and Tenant Owner location permissions.
+- 20261121084817_p07_location_and_segment_fk_indexes: indexes for Phase 06/07 foreign keys flagged by Performance Advisor.
+
+## Implemented code and integration
+- FastAPI router: services/api/app/routers/location.py.
+- Application service: services/api/app/services/location.py.
+- Persistence boundary: services/api/app/repositories/location.py.
+- Request schemas: services/api/app/schemas/location.py.
+- Endpoints: session start/update; GPS batch ingestion; live positions; time-bounded paginated history; route summaries; geofence create/list; geofence event history; private SSE location events.
+- Device ownership: session start requires the device ID registered to the current authenticated session. Points are accepted only for the session owner and matching device.
+- GPS points are coordinate/accuracy/source/time validated, idempotent by session + client point ID, and written by FastAPI.
+- Latest position is maintained by a database trigger. Route summaries are reconstructed by PostGIS. Geofence enter/exit/dwell events are evaluated from accepted points.
+- Location reads are tenant- and Sales-profile-scope checked; privileged map/history reads are audited.
+- Shared contracts and typed API client include session, ingestion, live, history, route, geofence and event APIs.
+- Expo uses a visible consent control, OS foreground/background permissions, authenticated device identity, background location task, SQLite offline outbox, schema version, actor/device/tenant/session context, deduplication, retry/backoff and sync-state tracking.
+- Supervisor live_map and route_replay tabs and Company gps_live and gps_history tabs use the shared LocationWorkspace and FastAPI.
+- Four named Railway services are preserved. An additional @salesx-ai/mobile-sales Railway service already exists in the connected Railway project; it was not created or removed by this change.
+
+## Realtime authorization limitation
+The trigger emits a private Broadcast to location:{organization_id}:live and a PostgreSQL notification. The current database connector principal cannot create a new policy on realtime.messages: that table is owned by supabase_realtime_admin, and the connected postgres principal cannot assume that role. The permission-checked FastAPI SSE endpoint is the current live-event delivery path. Direct Supabase private-channel subscription for Location remains blocked until an owner-level policy is added.
+
+## Remaining implementation/verification gates
+1. Add the owner-authorized realtime.messages policy for location channels and verify subscription isolation.
+2. Complete native Android/iOS build and background/foreground lifecycle verification on an isolated test device with explicit consent.
+3. Verify geofence enter/exit/dwell edge cases, out-of-order offline batches, and route reconstruction under batch ingestion.
+4. Verify live-map and route-history UI builds for Supervisor and Company; configure/confirm the existing Maps key in deployment environment if map tiles are required.
+5. Verify the latest Railway API and mobile deployment builds. No production success is claimed while deployments remain queued or build evidence is unavailable.
+
+Phase 07 must remain IN_PROGRESS until all lifecycle, authorization, offline-sync, portal and deployment gates are evidenced.
+
+---
+
 # Phase 07 — Realtime Location & Route History
 
 Status: IN_PROGRESS — schema foundation applied; API/native/portal slices remain open.
