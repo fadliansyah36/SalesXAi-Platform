@@ -18,6 +18,19 @@ LOCK_ID=88081208
 BUCKET="analytics-private"
 
 
+def _delete(settings:Settings,path:str)->None:
+    if settings.supabase_secret_key is None:
+        raise RuntimeError("SUPABASE_SECRET_KEY is required for private analytics export cleanup.")
+    key=settings.supabase_secret_key.get_secret_value()
+    request=urllib.request.Request(
+        f"{str(settings.supabase_url).rstrip('/')}/storage/v1/object/{BUCKET}/{path}",
+        method="DELETE",
+        headers={"Authorization":"Bearer "+key,"apikey":key},
+    )
+    with urllib.request.urlopen(request,timeout=20) as response:
+        response.read()
+
+
 def _upload(settings:Settings,path:str,data:bytes)->None:
     if settings.supabase_secret_key is None:
         raise RuntimeError("SUPABASE_SECRET_KEY is required for private analytics export storage.")
@@ -190,6 +203,33 @@ async def _run_export(connection:asyncpg.Connection,settings:Settings,job:asyncp
     )
 
 
+async def _cleanup_expired_exports(connection:asyncpg.Connection,settings:Settings)->None:
+    rows=await connection.fetch(
+        """select id,organization_id,report_run_id,artifact_path
+           from public.analytics_report_exports
+           where status='completed' and artifact_path is not null and expires_at<=now()
+           order by expires_at limit 20"""
+    )
+    for row in rows:
+        try:
+            await asyncio.to_thread(_delete,settings,row["artifact_path"])
+            await connection.execute(
+                """update public.analytics_report_exports
+                   set artifact_path=null,artifact_deleted_at=now(),updated_at=now()
+                   where id=$1 and artifact_path=$2""",row["id"],row["artifact_path"]
+            )
+            await connection.execute(
+                """update public.analytics_report_runs set artifact_path=null
+                   where id=$1 and organization_id=$2""",row["report_run_id"],row["organization_id"]
+            )
+        except Exception:
+            await connection.execute(
+                "update public.analytics_report_exports set cleanup_attempt_count=cleanup_attempt_count+1,updated_at=now() where id=$1",
+                row["id"],
+            )
+            logger.exception("analytics_export_cleanup_failed",extra={"export_id":str(row["id"])})
+
+
 async def _export_iteration(connection:asyncpg.Connection,settings:Settings,worker_id:str)->None:
     for job in await _claim_exports(connection,worker_id):
         try:
@@ -231,6 +271,7 @@ async def analytics_scheduler_loop(pool:asyncpg.Pool,settings:Settings)->None:
                                 except Exception:
                                     logger.exception("analytics_schedule_failed",extra={"job_id":str(job["id"])})
                             await _export_iteration(connection,settings,worker_id)
+                    await _cleanup_expired_exports(connection,settings)
                         except (asyncpg.PostgresConnectionError,asyncpg.InterfaceError):
                             logger.exception("analytics_scheduler_connection_lost")
                             break
