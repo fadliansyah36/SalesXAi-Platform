@@ -70,3 +70,10 @@
 - Owner-pending policy SQL remains unapplied because the live table owner is supabase_realtime_admin and the connected SQL principal cannot assume that role.
 
 **Current status remains IN_PROGRESS:** concurrency, ledger and authenticated cross-tenant validation pass; authenticated private Supabase Realtime allow/deny validation remains an external owner-level gate.
+
+
+## Latest live gate recheck — 2026-11-21
+
+- The live Realtime messages table remains owned by supabase_realtime_admin; connected SQL principal is postgres and pg_has_role(current_user,'supabase_realtime_admin','MEMBER') is false.
+- No owner-level SmartReward policy application or authenticated private-channel allow/deny result has been recorded. Existing tenant-wide Broadcast remains disabled by migration 20261121101601; permission-checked FastAPI SSE remains the supported fallback.
+- Phase 06 remains IN_PROGRESS. Do not mark complete until the owner applies the prepared resource-scoped policy and synthetic authenticated participant/branch/tenant allow/deny subscriptions pass.
