@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
+import { usePortalRouteGuard } from '@/components/auth/usePortalRouteGuard';
 import Link from 'next/link';
 import {
   Home,
@@ -115,6 +116,7 @@ export type PrincipalTab =
 
 export function PrincipalPortalApp() {
   const auth = useSalesXAuth();
+  usePortalRouteGuard("principal");
   const { theme, toggleTheme } = useTheme();
 
   // Auth
