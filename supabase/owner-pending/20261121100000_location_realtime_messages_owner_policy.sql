@@ -9,7 +9,7 @@ for select to authenticated
 using (
   extension = 'broadcast'
   and realtime.topic() ~ '^location:[0-9a-fA-F-]{36}:live$'
-  and nullif(payload ->> 'organization_id', '')::uuid = split_part(realtime.topic(), ':', 2)::uuid
+  and payload ->> 'organization_id' = split_part(realtime.topic(), ':', 2)
   and exists (
     select 1
     from public.organization_memberships actor_membership
@@ -18,7 +18,7 @@ using (
     join public.role_permissions actor_permission on actor_permission.role_id = actor_role.id
     join public.sales_profiles target_profile
       on target_profile.organization_id = actor_membership.organization_id
-     and target_profile.user_id = nullif(payload ->> 'user_id', '')::uuid
+     and target_profile.user_id::text = payload ->> 'user_id'
      and target_profile.status = 'active'
     left join public.organization_memberships target_membership
       on target_membership.organization_id = target_profile.organization_id
