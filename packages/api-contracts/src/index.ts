@@ -418,3 +418,6 @@ export interface LocationHistoryPage {items:LocationHistoryPoint[];page:number;p
 export interface LocationRouteSummary {id:UUID;organization_id:UUID;session_id:UUID;sales_profile_id:UUID;user_id:UUID;route_date:string;started_at:ISODateTime;ended_at:ISODateTime;point_count:number;distance_m:number;route_geojson:Record<string,unknown>|null;computed_at:ISODateTime;}
 export interface LocationGeofence {id:UUID;organization_id:UUID;code:string;name:string;geofence_type:"outlet"|"territory"|"custom";outlet_id:UUID|null;territory_id:UUID|null;event_types:Array<"enter"|"exit"|"dwell">;dwell_seconds:number;accuracy_limit_m:number;status:"active"|"inactive"|"archived";created_at:ISODateTime;updated_at:ISODateTime;}
 export interface LocationGeofenceWrite {code:string;name:string;geofence_type:"outlet"|"territory"|"custom";outlet_id?:UUID|null;territory_id?:UUID|null;boundary_geojson:Record<string,unknown>;event_types:Array<"enter"|"exit"|"dwell">;dwell_seconds:number;accuracy_limit_m:number;}
+
+export interface LocationGeofenceEvent {id:UUID;geofence_id:UUID;geofence_name:string;session_id:UUID;location_point_id:UUID;event_type:"enter"|"exit"|"dwell";occurred_at:ISODateTime;sales_profile_id:UUID;user_id:UUID;}
+export interface LocationGeofenceEventPage {items:LocationGeofenceEvent[];page:number;page_size:number;total:number;}
