@@ -48,11 +48,11 @@ class LocationService:
               and status='active' and effective_from<=current_date and (effective_until is null or effective_until>=current_date) for update""", org, actor)
             if not profile:
                 raise APIError(403, "sales_profile_required", "An active Sales profile is required to start location tracking.")
-            if payload.shift_id:
-                shift = await db.fetchval("""select exists(select 1 from public.smartteam_shifts where organization_id=$1
-                  and id=$2 and user_id=$3 and sales_profile_id=$4 and clock_in_at is not null and clock_out_at is null)""", org, payload.shift_id, actor, profile["id"])
-                if not shift:
-                    raise APIError(409, "location_shift_not_active", "The selected shift is not active for this Sales user.")
+            shift = await db.fetchval("""select exists(select 1 from public.smartteam_shifts where organization_id=$1
+              and id=$2 and user_id=$3 and sales_profile_id=$4 and clock_in_at is not null and clock_out_at is null)""",
+              org, payload.shift_id, actor, profile["id"])
+            if not shift:
+                raise APIError(409, "location_shift_not_active", "An active shift owned by this Sales profile is required for location tracking.")
             active = await db.fetchrow("""select * from public.location_tracking_sessions
               where organization_id=$1 and user_id=$2 and status='active' for update""", org, actor)
             if active:
