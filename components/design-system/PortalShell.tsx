@@ -385,21 +385,30 @@ export function PortalShell<T extends string>({
                 Portal Lainnya
               </p>
               <div className="grid grid-cols-3 gap-1.5 text-[11px] font-semibold">
-                {PORTAL_SWITCHER.map((item) => (
-                  <Link
+                {availablePortals.map((item) => (
+                  <button
                     key={item.href}
-                    href={item.href}
-                    onClick={() => setDrawerOpen(false)}
-                    className={`rounded-lg border py-2 px-1 text-center truncate ${
+                    type="button"
+                    disabled={handoffBusy!==null}
+                    onClick={async()=>{
+                      setDrawerOpen(false);
+                      setHandoffBusy(item.href);
+                      try{
+                        const destination=await auth.createPortalHandoff(PORTAL_KEY_BY_PATH[item.href]);
+                        window.location.assign(destination);
+                      }catch{
+                        setHandoffBusy(null);
+                      }
+                    }}
+                    className={`rounded-lg border py-2 px-1 text-center truncate disabled:opacity-50 ${
                       item.href === currentPortalPath
                         ? 'border-[#348CB2] bg-[#E5F4F8] dark:bg-[#19394B] text-[#123A54] dark:text-[#87CEEB]'
                         : 'border-[var(--color-border)] text-[var(--color-text-secondary)]'
                     }`}
                   >
-                    {item.label}
-                  </Link>
-                ))}
-              </div>
+                    {handoffBusy===item.href?"Mengalihkan…":item.label}
+                  </button>
+                ))}              </div>
               <button
                 type="button"
                 onClick={() => {
