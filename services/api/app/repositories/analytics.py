@@ -7,6 +7,12 @@ import asyncpg
 
 
 class AnalyticsRepository:
+    async def organization_timezone(self,connection,organization_id):
+        return await connection.fetchval(
+            "select coalesce(timezone,'UTC') from public.organizations where id=$1",
+            organization_id,
+        )
+
     async def list_scopes(self, connection: asyncpg.Connection, organization_id: UUID, user_id: UUID):
         return await connection.fetch(
             """select distinct
