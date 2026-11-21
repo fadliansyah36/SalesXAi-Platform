@@ -1,0 +1,13 @@
+begin;
+create index if not exists reward_approval_history_actor_fk_idx on public.reward_approval_history(actor_user_id);
+create index if not exists reward_approval_history_org_fk_idx on public.reward_approval_history(organization_id);
+create index if not exists reward_approval_requests_decider_fk_idx on public.reward_approval_requests(decided_by);
+create index if not exists reward_approval_requests_ledger_fk_idx on public.reward_approval_requests(ledger_entry_id);
+create index if not exists reward_approval_requests_participant_fk_idx on public.reward_approval_requests(participant_user_id);
+create index if not exists reward_approval_requests_program_fk_idx on public.reward_approval_requests(program_id);
+create index if not exists reward_approval_requests_requester_fk_idx on public.reward_approval_requests(requested_by);
+create index if not exists reward_approval_requests_rule_fk_idx on public.reward_approval_requests(rule_id);
+create index if not exists reward_point_lot_allocations_org_fk_idx on public.reward_point_lot_allocations(organization_id);
+create index if not exists reward_point_lots_org_fk_idx on public.reward_point_lots(organization_id);
+create index if not exists reward_point_lots_participant_fk_idx on public.reward_point_lots(participant_user_id);
+commit;
