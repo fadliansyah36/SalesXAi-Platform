@@ -51,11 +51,11 @@ export function LocationTrackingControl({api,organizationId,accessToken,actorUse
  const toggle=async()=>{
   if(!api||!organizationId||!accessToken||!actorUserId)return;
   const activeShiftId=shiftId;
-  if(!active&&!activeShiftId){setNotice("Mulai shift kerja terlebih dahulu sebelum mengaktifkan pelacakan lokasi.");return;}
   setBusy(true);setNotice("");
   try{
    if(active){await stopLocationTracking(api,organizationId);setActive(false);setConsent(false);setNotice("Pelacakan dihentikan. Data tertunda akan disinkronkan saat jaringan tersedia.");}
    else{
+    if(!activeShiftId)throw new Error("Mulai shift kerja terlebih dahulu sebelum mengaktifkan pelacakan lokasi.");
     if(!consent)throw new Error("Persetujuan pelacakan harus diberikan terlebih dahulu.");
     const device=await ensureLocationDeviceId();
     await startLocationTracking(api,organizationId,accessToken,device,actorUserId,activeShiftId);
