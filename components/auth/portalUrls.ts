@@ -1,3 +1,4 @@
+import type {PortalKey} from "@salesx-ai/shared-types";
 export type SalesXPortal="sales"|"customer"|"company"|"distributor"|"principal"|"supervisor"|"super_admin";
 
 const origin=(value:string|undefined,fallback:string)=> (value?.trim()||fallback).replace(/\/$/,"");
@@ -27,4 +28,16 @@ export function getSalesXPortalUrlForPath(path:string):string{
  if(normalized==="/supervisor"||normalized.startsWith("/supervisor/"))return getSalesXPortalUrl("supervisor");
  if(normalized==="/super-admin"||normalized.startsWith("/admin"))return getSalesXPortalUrl("super_admin");
  return website()+normalized;
+}
+
+export function getSalesXPortalKeyForPath(path:string):PortalKey|null{
+ const normalized=path.replace(/\/$/,"")||"/";
+ if(normalized==="/portal"||normalized.startsWith("/sales"))return "sales";
+ if(normalized==="/customer")return "customer";
+ if(normalized==="/company")return "company";
+ if(normalized==="/distributor"||normalized.startsWith("/distributor/"))return "distributor";
+ if(normalized==="/principal"||normalized.startsWith("/principal/"))return "principal";
+ if(normalized==="/supervisor"||normalized.startsWith("/supervisor/"))return "supervisor";
+ if(normalized==="/super-admin"||normalized.startsWith("/admin"))return "super_admin";
+ return null;
 }
