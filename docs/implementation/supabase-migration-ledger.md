@@ -72,7 +72,7 @@ The latest applied migration filename `20261121110006_p07_location_tracking_sess
 
 ## Latest live reconciliation — 2026-11-21
 
-The connected Supabase project was re-queried after the final applied migration. Counts remain unchanged and aligned: **93 applied migrations**, latest 20261121110006, **19 Phase 06** migrations, **7 Phase 07** migrations, **80/80 public tables with RLS**, **0 Security Advisor lints**, and **0 unindexed foreign-key lints**. The owner-pending Realtime policy files remain intentionally outside the applied ledger.
+The connected Supabase project was re-queried after the final applied migration. Counts Historical Phase 06/07-only snapshot (superseded): 93 migrations before Phase 08. See the latest live ledger reconciliation below for current totals. The owner-pending Realtime policy files remain intentionally outside the applied ledger.
 
 
 ## Phase 08 live ledger reconciliation — 2026-11-21 (latest)
