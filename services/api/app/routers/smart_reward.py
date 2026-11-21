@@ -124,40 +124,59 @@ async def decide_approval(organization_id:UUID,approval_id:UUID,payload:RewardAp
  smart_reward_service._tenant(organization_id,tenant); return await smart_reward_approval_service.decide(db,organization_id,principal.user_id,approval_id,payload)
 
 def _reward_event_audience(scopes):
-    """Resolve the narrowest event audience from active role assignments."""
-    tenant_roles = {"tenant_owner", "company_admin", "principal_user", "distributor_user"}
-    tenant_event_permissions = {
-        "smartreward:ledger:read",
-        "smartreward:redemption:read",
-        "smartreward:approval:read",
-        "smartreward:report:read",
+    """Build per-audience resource grants from active role/permission assignments."""
+    resource_permissions = {
+        "smartreward:ledger:read": "reward_points_ledger",
+        "smartreward:redemption:read": "reward_redemptions",
+        "smartreward:approval:read": "reward_approval_requests",
+        "smartreward:program:read": "reward_programs",
+        "smartreward:rule:read": "reward_incentive_rules",
+        "smartreward:catalog:read": "reward_catalog_items",
     }
-    tenant_scope = any(
-        scope["role_key"] in tenant_roles
-        and scope["scope_type"] in {"tenant", "organization"}
-        and scope["permission_key"] in tenant_event_permissions
-        for scope in scopes
-    )
-    branch_ids = sorted({
-        str(scope["scope_id"])
-        for scope in scopes
-        if scope["role_key"] == "supervisor"
-        and scope["scope_type"] == "branch"
-        and scope["permission_key"] in tenant_event_permissions
-        and scope["scope_id"] is not None
-    })
-    catalog_scope = tenant_scope and any(
-        scope["role_key"] in tenant_roles
-        and scope["scope_type"] in {"tenant", "organization"}
-        and scope["permission_key"] in {
-            "smartreward:program:read",
-            "smartreward:rule:read",
-            "smartreward:catalog:read",
-        }
-        for scope in scopes
-    )
-    return tenant_scope, branch_ids, catalog_scope
+    tenant_roles = {"tenant_owner", "company_admin", "principal_user", "distributor_user"}
+    participant_resources = set()
+    tenant_resources = set()
+    catalog_resources = set()
+    branch_scopes = {}
 
+    for scope in scopes:
+        resource = resource_permissions.get(scope["permission_key"])
+        if resource:
+            participant_resources.add(resource)
+        if (
+            resource
+            and scope["role_key"] in tenant_roles
+            and scope["scope_type"] in {"tenant", "organization"}
+        ):
+            tenant_resources.add(resource)
+        if (
+            scope["role_key"] in tenant_roles
+            and scope["scope_type"] in {"tenant", "organization"}
+            and scope["permission_key"] in {
+                "smartreward:program:read",
+                "smartreward:rule:read",
+                "smartreward:catalog:read",
+            }
+        ):
+            catalog_resources.add(resource_permissions[scope["permission_key"]])
+        if (
+            resource
+            and scope["role_key"] == "supervisor"
+            and scope["scope_type"] == "branch"
+            and scope["scope_id"] is not None
+        ):
+            branch_id = str(scope["scope_id"])
+            branch_scopes.setdefault(branch_id, set()).add(resource)
+
+    return {
+        "participant_resources": sorted(participant_resources),
+        "branch_scopes": [
+            {"branch_id": branch_id, "resources": sorted(resources)}
+            for branch_id, resources in sorted(branch_scopes.items())
+        ],
+        "tenant_resources": sorted(tenant_resources),
+        "catalog_resources": sorted(catalog_resources),
+    }
 
 @router.get("/{organization_id}/smart-reward/events")
 async def reward_events(organization_id:UUID,after:str|None=None,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartreward.events.read")),db:SmartRewardRepository=Depends(get_smart_reward_repository)):
@@ -169,8 +188,10 @@ async def reward_events(organization_id:UUID,after:str|None=None,principal:Princ
    and ura.starts_at<=now() and (ura.expires_at is null or ura.expires_at>now())
    and rp.permission_key in ('smartreward:ledger:read','smartreward:redemption:read','smartreward:approval:read','smartreward:program:read','smartreward:catalog:read')""",organization_id,principal.user_id)
  if not scopes: raise APIError(403,"reward_event_scope_forbidden","Reward event subscription is not authorized.")
- tenant_scope,branch_ids,catalog_scope=_reward_event_audience(scopes)
+ audience=_reward_event_audience(scopes)
  actor_id=str(principal.user_id)
+ if not any(audience.values()):
+  raise APIError(403,"reward_event_scope_forbidden","Reward event subscription has no readable resource scope.")
  cursor_time=await db.fetchval("select now()");cursor_id=UUID(int=0)
  if after:
   try:
@@ -183,16 +204,22 @@ async def reward_events(organization_id:UUID,after:str|None=None,principal:Princ
     and event_type='smartreward.changed' and (occurred_at>$2 or (occurred_at=$2 and id>$3))
     and (
       (
-        (payload->>'participant_user_id'=$5 or payload->>'requested_by'=$5
-          or payload->>'branch_id'=any($6::text[]))
-        and payload->>'resource'=any($7::text[])
+        (payload->>'participant_user_id'=$4 or payload->>'requested_by'=$4)
+        and payload->>'resource'=any($5::text[])
       )
-      or ($4::boolean and payload->>'resource'=any($7::text[]))
-      or ($8::boolean and payload->>'resource'=any($9::text[]))
+      or exists (
+        select 1 from jsonb_array_elements($6::jsonb) branch_scope
+        where branch_scope->>'branch_id'=payload->>'branch_id'
+          and payload->>'resource'=any(array(
+            select jsonb_array_elements_text(branch_scope->'resources')
+          ))
+      )
+      or payload->>'resource'=any($7::text[])
+      or payload->>'resource'=any($8::text[])
     )
-    order by occurred_at,id limit 100""",organization_id,cursor_time,cursor_id,tenant_scope,actor_id,branch_ids,
-    ['reward_points_ledger','reward_redemptions','reward_approval_requests'],catalog_scope,
-    ['reward_programs','reward_incentive_rules','reward_catalog_items'])
+    order by occurred_at,id limit 100""",organization_id,cursor_time,cursor_id,actor_id,
+    audience["participant_resources"],json.dumps(audience["branch_scopes"]),
+    audience["tenant_resources"],audience["catalog_resources"])
    if not rows:
     yield ": keepalive\n\n";await asyncio.sleep(3);continue
    for row in rows:
