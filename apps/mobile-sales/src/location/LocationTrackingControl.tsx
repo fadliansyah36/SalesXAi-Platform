@@ -12,14 +12,16 @@ export function LocationTrackingControl({api,organizationId,accessToken,actorUse
  useEffect(()=>{void (async()=>{setActive(await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK_NAME));})();},[]);
  useEffect(()=>{
   if(!shiftContextReady||!active||!api||!organizationId||stopRequested.current)return;
-  void getStoredLocationContext().then(stored=>{
+  stopRequested.current=true;
+  void getStoredLocationContext().then(async stored=>{
    if(!shiftId||stored.organizationId!==organizationId||(stored.shiftId&&stored.shiftId!==shiftId)){
-    stopRequested.current=true;setBusy(true);
-    return stopLocationTracking(api,organizationId).catch(error=>{
-     setNotice(error instanceof Error?error.message:"Shift berakhir; penghentian tracking menunggu sinkronisasi.");
-    }).finally(()=>{setActive(false);setConsent(false);setBusy(false);stopRequested.current=false;});
+    setBusy(true);
+    try{await stopLocationTracking(api,organizationId);}
+    catch(error){setNotice(error instanceof Error?error.message:"Shift berakhir; penghentian tracking menunggu sinkronisasi.");}
+    finally{setActive(false);setConsent(false);setBusy(false);}
    }
-  });
+  }).catch(error=>setNotice(error instanceof Error?error.message:"Konteks sesi lokasi tidak dapat dibaca."))
+   .finally(()=>{stopRequested.current=false;});
  },[active,api,organizationId,shiftContextReady,shiftId]);
 
  useEffect(()=>{
