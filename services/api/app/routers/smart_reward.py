@@ -42,10 +42,11 @@ async def create_program(organization_id:UUID,payload:RewardProgramWrite,princip
  smart_reward_service._tenant(organization_id,tenant); return await smart_reward_service.create_program(db,organization_id,principal.user_id,payload)
 @router.patch("/{organization_id}/smart-reward/programs/{program_id}",response_model=RewardProgramResponse)
 async def update_program(organization_id:UUID,program_id:UUID,payload:RewardProgramPatch,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartreward.programs.update")),db:SmartRewardRepository=Depends(get_smart_reward_repository)):
- smart_reward_service._tenant(organization_id,tenant); existing=await db.fetchrow("select * from public.reward_programs where organization_id=$1 and id=$2",organization_id,program_id)
- if not existing: raise APIError(404,"reward_program_not_found","Program not found.")
- merged=_merge_smart_reward_patch(existing,payload,RewardProgramWrite)
- return await smart_reward_service.update_program(db,organization_id,principal.user_id,program_id,merged)
+ smart_reward_service._tenant(organization_id,tenant); async with db.transaction():
+  existing=await db.fetchrow("select * from public.reward_programs where organization_id=$1 and id=$2 for update",organization_id,program_id)
+  if not existing: raise APIError(404,"reward_program_not_found","Program not found.")
+  merged=_merge_smart_reward_patch(existing,payload,RewardProgramWrite)
+  return await smart_reward_service.update_program(db,organization_id,principal.user_id,program_id,merged)
 @router.get("/{organization_id}/smart-reward/rules",response_model=list[RewardRuleResponse])
 async def rules(organization_id:UUID,program_id:UUID|None=None,tenant:TenantContext=Depends(require_api_action("smartreward.rules.read")),db:SmartRewardRepository=Depends(get_smart_reward_repository)):
  smart_reward_service._tenant(organization_id,tenant); return await smart_reward_service.rules(db,organization_id,program_id)
@@ -54,10 +55,11 @@ async def create_rule(organization_id:UUID,program_id:UUID,payload:RewardRuleWri
  smart_reward_service._tenant(organization_id,tenant); return await smart_reward_service.create_rule(db,organization_id,principal.user_id,payload,program_id)
 @router.patch("/{organization_id}/smart-reward/rules/{rule_id}",response_model=RewardRuleResponse)
 async def update_rule(organization_id:UUID,rule_id:UUID,payload:RewardRulePatch,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartreward.rules.update")),db:SmartRewardRepository=Depends(get_smart_reward_repository)):
- smart_reward_service._tenant(organization_id,tenant); existing=await db.fetchrow("select * from public.reward_incentive_rules where organization_id=$1 and id=$2",organization_id,rule_id)
- if not existing: raise APIError(404,"reward_rule_not_found","Rule not found.")
- merged=_merge_smart_reward_patch(existing,payload,RewardRuleWrite)
- return await smart_reward_service.update_rule(db,organization_id,principal.user_id,rule_id,merged)
+ smart_reward_service._tenant(organization_id,tenant); async with db.transaction():
+  existing=await db.fetchrow("select * from public.reward_incentive_rules where organization_id=$1 and id=$2 for update",organization_id,rule_id)
+  if not existing: raise APIError(404,"reward_rule_not_found","Rule not found.")
+  merged=_merge_smart_reward_patch(existing,payload,RewardRuleWrite)
+  return await smart_reward_service.update_rule(db,organization_id,principal.user_id,rule_id,merged)
 @router.get("/{organization_id}/smart-reward/catalog",response_model=RewardPageResponse[RewardCatalogItemResponse])
 async def catalog(organization_id:UUID,page:int=Query(1,ge=1),page_size:int=Query(24,ge=1,le=100),category:str|None=None,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartreward.catalog.read")),db:SmartRewardRepository=Depends(get_smart_reward_repository)):
  smart_reward_service._tenant(organization_id,tenant); return await smart_reward_service.catalog(db,organization_id,page,page_size,category,principal.user_id)
@@ -66,10 +68,11 @@ async def create_catalog(organization_id:UUID,payload:RewardCatalogWrite,princip
  smart_reward_service._tenant(organization_id,tenant); return await smart_reward_service.create_catalog_item(db,organization_id,principal.user_id,payload)
 @router.patch("/{organization_id}/smart-reward/catalog/{item_id}",response_model=RewardCatalogItemResponse)
 async def update_catalog(organization_id:UUID,item_id:UUID,payload:RewardCatalogPatch,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartreward.catalog.update")),db:SmartRewardRepository=Depends(get_smart_reward_repository)):
- smart_reward_service._tenant(organization_id,tenant); existing=await db.fetchrow("select * from public.reward_catalog_items where organization_id=$1 and id=$2",organization_id,item_id)
- if not existing: raise APIError(404,"reward_catalog_item_not_found","Item not found.")
- merged=_merge_smart_reward_patch(existing,payload,RewardCatalogWrite)
- return await smart_reward_service.update_catalog_item(db,organization_id,principal.user_id,item_id,merged)
+ smart_reward_service._tenant(organization_id,tenant); async with db.transaction():
+  existing=await db.fetchrow("select * from public.reward_catalog_items where organization_id=$1 and id=$2 for update",organization_id,item_id)
+  if not existing: raise APIError(404,"reward_catalog_item_not_found","Item not found.")
+  merged=_merge_smart_reward_patch(existing,payload,RewardCatalogWrite)
+  return await smart_reward_service.update_catalog_item(db,organization_id,principal.user_id,item_id,merged)
 @router.get("/{organization_id}/smart-reward/balance",response_model=RewardBalanceResponse)
 async def balance(organization_id:UUID,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartreward.balance.read")),db:SmartRewardRepository=Depends(get_smart_reward_repository)):
  smart_reward_service._tenant(organization_id,tenant); return await smart_reward_service.balance(db,organization_id,principal.user_id)
