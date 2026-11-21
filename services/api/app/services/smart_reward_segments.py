@@ -117,4 +117,27 @@ class SmartRewardSegmentService:
    await self._audit(db,org,actor,"customer_segment.evaluated","reward_customer_segment",sid,
     meta={"matched_members":matched})
    return {"segment_id":sid,"matched_members":matched,"evaluated_members":len(rows)}
+
+ async def report(self,db,org,sid):
+  await self._get(db,org,sid)
+  row=await db.fetchrow("""with members as (
+    select participant_user_id from public.reward_customer_segment_members
+    where organization_id=$1 and segment_id=$2 and status='active'
+     and (expires_at is null or expires_at>now())
+   ), ledger as (
+    select count(*)::bigint ledger_entries,
+     coalesce(sum(points_delta) filter(where entry_type='earn'),0)::bigint earned_points,
+     coalesce(sum(-points_delta) filter(where entry_type='redemption'),0)::bigint redeemed_points,
+     coalesce(sum(-points_delta) filter(where entry_type='expiration'),0)::bigint expired_points,
+     coalesce(sum(points_delta) filter(where entry_type='adjustment'),0)::bigint adjusted_points
+    from public.reward_points_ledger l join members m on m.participant_user_id=l.participant_user_id
+    where l.organization_id=$1
+   )
+   select (select count(*) from members)::bigint active_members,
+    (select count(*) from public.reward_customer_segment_members where organization_id=$1 and segment_id=$2 and status='inactive')::bigint inactive_members,
+    (select count(*) from public.reward_customer_segment_members where organization_id=$1 and segment_id=$2 and status='removed')::bigint removed_members,
+    ledger.ledger_entries,ledger.earned_points,ledger.redeemed_points,ledger.expired_points,ledger.adjusted_points
+   from ledger""",org,sid)
+  return dict(row)
+
 smart_reward_segment_service=SmartRewardSegmentService()
