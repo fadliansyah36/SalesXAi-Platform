@@ -11,6 +11,7 @@ export function SmartRewardWorkspace(){
  const [busy,setBusy]=useState(false),[loading,setLoading]=useState(false),[error,setError]=useState(""),[notice,setNotice]=useState("");
  const [qty,setQty]=useState<Record<string,string>>({});
  const can=(id:string)=>auth.canPerformApiAction(id as never);
+ const canRealtime=can("smartreward.ledger.read")||can("smartreward.redemptions.read");
  const refresh=useCallback(async()=>{
   if(!api||auth.status!=="authenticated")return;setLoading(true);setError("");
   const jobs:Promise<void>[]=[];
