@@ -36,7 +36,6 @@ import {
   Sun,
   Moon,
   ArrowLeft,
-  Menu as MenuIcon,
   Info,
   KeyRound,
   Webhook,
@@ -52,7 +51,6 @@ import {
 import type { PlatformRole, PlatformUserSummary, PlatformSmartTeamOverviewRow } from '@salesx-ai/api-client';
 import { BrandLogo } from '@/components/common/BrandLogo';
 import { useTheme } from '@/components/providers/AppProviders';
-import { SalesGoogleMap } from '@/components/maps/SalesGoogleMap';
 import { PortalShell, type PortalNavGroup } from '@/components/design-system/PortalShell';
 import { PlatformSmartRewardOverview } from '@/components/smart-reward/PlatformSmartRewardOverview';
 import { KpiMetricCard } from '@/components/design-system/KpiMetricCard';
