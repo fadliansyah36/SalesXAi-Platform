@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { getPreferredPortalPath } from '@salesx-ai/permissions';
 import Link from 'next/link';
 import {
   Mail,
@@ -66,6 +67,26 @@ export function PortalLoginView({ onCompleteLogin }: PortalLoginViewProps) {
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotSubmitted, setForgotSubmitted] = useState(false);
 
+  const redirectToAuthorizedPortal = async () => {
+    const context = await auth.apiClient?.getAuthContext();
+    if (!context) throw new Error('Konteks akses portal tidak dapat dimuat dari FastAPI.');
+    const memberships = context.memberships.filter((membership) => membership.status === 'active');
+    const salesMembership = memberships.find((membership) => membership.permissions.includes('portal:sales:access'));
+    if (salesMembership) {
+      auth.setActiveOrganization(salesMembership.organization_id);
+      return false;
+    }
+    for (const membership of memberships) {
+      const destination = getPreferredPortalPath([...context.platform_permissions, ...membership.permissions]);
+      if (destination) {
+        auth.setActiveOrganization(membership.organization_id);
+        window.location.replace(destination);
+        return true;
+      }
+    }
+    throw new Error('Akun ini belum memiliki akses ke portal SalesX-Ai. Hubungi administrator organisasi.');
+  };
+
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!identifier.trim() || !password.trim()) {
@@ -75,6 +96,7 @@ export function PortalLoginView({ onCompleteLogin }: PortalLoginViewProps) {
     setLoginError(null);
     try {
       await auth.signInWithPassword(identifier, password);
+      if (await redirectToAuthorizedPortal()) return;
       setStep('gps');
     } catch (err) {
       setLoginError(err instanceof Error ? err.message : 'Login gagal. Periksa kredensial Anda.');
@@ -101,6 +123,7 @@ export function PortalLoginView({ onCompleteLogin }: PortalLoginViewProps) {
   const handleVerifyOtp = async () => {
     try {
       await auth.verifyOtp(otpPhone, otpCode);
+      if (await redirectToAuthorizedPortal()) return;
       setOtpModalOpen(false);
       setStep('gps');
       setLoginError(null);
