@@ -11,14 +11,16 @@ export function usePortalRouteGuard(portal:PortalKey){
  const auth=useSalesXAuth();
  useEffect(()=>{
   if(auth.status!=="authenticated"||auth.canAccessPortal(portal))return;
-  const permissions=[
-   ...(auth.activeMembership?.permissions??[]),
-   ...(auth.context?.platform_permissions??[]),
-  ];
-  const destination=getPreferredPortalPath(permissions);
+  const memberships=(auth.context?.memberships??[]).filter(membership=>membership.status==="active");
+  const targetMembership=memberships.map(membership=>({
+    membership,
+    destination:getPreferredPortalPath([...(auth.context?.platform_permissions??[]),...membership.permissions]),
+  })).find(candidate=>candidate.destination!==null);
+  const destination=targetMembership?.destination??null;
   const target=destination?getSalesXPortalKeyForPath(destination):null;
-  if(target){
+  if(target&&targetMembership){
+   auth.setActiveOrganization(targetMembership.membership.organization_id);
    void auth.createPortalHandoff(target).then(url=>window.location.replace(url)).catch(()=>window.location.replace(getSalesXPortalUrlForPath(destination!)));
   }else window.location.replace(getSalesXPortalUrlForPath("/"));
- },[auth.status,auth.activeMembership,auth.context,auth.canAccessPortal,auth.createPortalHandoff,portal]);
+ },[auth.status,auth.activeMembership,auth.context,auth.canAccessPortal,auth.createPortalHandoff,auth.setActiveOrganization,portal]);
 }
