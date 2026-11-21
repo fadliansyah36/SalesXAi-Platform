@@ -81,6 +81,7 @@ async def geofence_events(organization_id:UUID,page:int=Query(1,ge=1),page_size:
 async def events(organization_id:UUID,request:Request,principal:Principal=Depends(get_current_principal),
  tenant:TenantContext=Depends(require_api_action("location.events.read")),db:asyncpg.Connection=Depends(get_connection)):
  if tenant.organization_id!=organization_id: raise APIError(403,"tenant_scope_mismatch","Location access is restricted to the active organization.")
+ await location_repository.audit_access(db,organization_id,principal.user_id,"live_map","subscribe")
  queue:asyncio.Queue[dict]=asyncio.Queue(maxsize=128)
  def receive(_connection,_pid,_channel,payload:str):
   try:
