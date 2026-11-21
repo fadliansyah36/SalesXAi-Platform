@@ -50,6 +50,7 @@ create table if not exists public.location_points (
   location extensions.geography(Point,4326) generated always as
     (extensions.st_setsrid(extensions.st_makepoint(longitude,latitude),4326)::extensions.geography) stored,
   metadata jsonb not null default '{}'::jsonb,
+  unique (organization_id,id),
   unique (organization_id,session_id,client_point_id),
   foreign key (organization_id,session_id)
     references public.location_tracking_sessions(organization_id,id) on delete cascade
