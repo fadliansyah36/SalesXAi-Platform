@@ -31,7 +31,7 @@ class SmartOrderRepository:
 
  async def get_product(self,db,org,pid):
   r=await db.fetchrow("""select p.*,c.name category_name,b.name brand_name,
-   coalesce((select jsonb_agg(to_jsonb(v)-'organization_id') from public.product_variants v where v.organization_id=p.organization_id and v.product_id=p.id),'[]'::jsonb) variants,
+   coalesce((select jsonb_agg(to_jsonb(v)-'organization_id') from public.product_variants v where v.organization_id=p.organization_id and v.product_id=p.id and v.status<>'archived'),'[]'::jsonb) variants,
    coalesce((select jsonb_agg(jsonb_build_object('id',i.id,'storage_path',i.storage_path,'mime_type',i.mime_type,'alt_text',i.alt_text)) from public.product_images i where i.organization_id=p.organization_id and i.product_id=p.id),'[]'::jsonb) images
    from public.products p left join public.product_categories c on c.organization_id=p.organization_id and c.id=p.category_id
    left join public.product_brands b on b.organization_id=p.organization_id and b.id=p.brand_id where p.id=$2 and (p.organization_id=$1 or (p.status='published' and exists(select 1 from public.commerce_catalog_access ca where ca.owner_organization_id=p.organization_id and ca.consumer_organization_id=$1 and ca.access_type='catalog' and ca.starts_at<=now() and (ca.ends_at is null or ca.ends_at>now()) and (ca.product_id is null or ca.product_id=p.id))))""",org,pid)
