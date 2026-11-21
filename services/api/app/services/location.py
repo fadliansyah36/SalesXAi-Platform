@@ -56,7 +56,7 @@ class LocationService:
             active = await db.fetchrow("""select * from public.location_tracking_sessions
               where organization_id=$1 and user_id=$2 and status='active' for update""", org, actor)
             if active:
-                if active["device_id"] == payload.device_id and active["consent_policy_version"] == payload.consent_policy_version:
+                if active["device_id"] == payload.device_id and active["consent_policy_version"] == payload.consent_policy_version and active["shift_id"] == payload.shift_id:
                     return dict(active)
                 raise APIError(409, "location_session_already_active", "Another active location session is already bound to this user.")
             try:
@@ -64,10 +64,10 @@ class LocationService:
             except asyncpg.UniqueViolationError as exc:
                 active = await db.fetchrow("""select * from public.location_tracking_sessions
                   where organization_id=$1 and user_id=$2 and status='active'""", org, actor)
-                if active and active["device_id"] == payload.device_id and active["consent_policy_version"] == payload.consent_policy_version:
+                if active and active["device_id"] == payload.device_id and active["consent_policy_version"] == payload.consent_policy_version and active["shift_id"] == payload.shift_id:
                     return dict(active)
                 raise APIError(409, "location_session_already_active", "A location session is already active for this user.") from exc
-            await location_repository.audit_session(db,actor,org,"location.session.started",row["id"],{"device_id":payload.device_id,"consent_policy_version":payload.consent_policy_version})
+            await location_repository.audit_session(db,actor,org,"location.session.started",row["id"],{"device_id":payload.device_id,"consent_policy_version":payload.consent_policy_version,"shift_id":str(payload.shift_id)})
             return dict(row)
 
     async def update_session(self, db, org, tenant, actor, session_id, payload):
