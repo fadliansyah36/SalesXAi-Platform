@@ -40,7 +40,9 @@ class AnalyticsRepository:
                      and rp.permission_key='analytics:dashboard:read'
                      and (
                        (s.scope_type='tenant' and ura.scope_type in ('tenant','organization') and ura.scope_id=m.organization_id)
-                       or (s.scope_type in ('branch','team','territory') and ura.scope_type=s.scope_type and ura.scope_id=s.scope_id)
+                       or (s.scope_type='branch' and r.key='supervisor' and ura.scope_type='branch' and ura.scope_id=s.scope_id)
+                       or (s.scope_type='team' and ura.scope_type='team' and ura.scope_id=s.scope_id)
+                       or (s.scope_type='territory' and ura.scope_type='territory' and ura.scope_id=s.scope_id)
                        or (s.scope_type='user' and s.scope_id=$5)
                        or (ura.scope_type in ('tenant','organization') and ura.scope_id=m.organization_id)
                      )
