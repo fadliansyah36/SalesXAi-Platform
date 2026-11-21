@@ -103,7 +103,8 @@ class AnalyticsRepository:
             """select r.id,r.report_key,r.period_start,r.period_end,r.period_grain,r.scope_type,r.scope_id,
                       r.status,r.requested_at,r.started_at,r.completed_at,r.data_as_of,r.row_count,r.error_code,
                       e.id export_id,e.status export_status,e.requested_at export_requested_at,
-                      e.completed_at export_completed_at,e.artifact_bytes
+                      e.completed_at export_completed_at,e.artifact_bytes,e.expires_at,
+                      (e.status='completed' and e.artifact_path is not null and e.expires_at>now()) download_available
                from public.analytics_report_runs r
                left join lateral (
                  select x.* from public.analytics_report_exports x
