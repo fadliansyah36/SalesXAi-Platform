@@ -140,7 +140,7 @@ export function AnalyticsWorkspace({compact=false}:{compact?:boolean}){
    <h3 className="text-sm font-bold text-[var(--color-text-primary)]">Riwayat Laporan</h3>
    {reports.map(report=><div key={report.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--color-border)] p-3">
     <div><p className="text-xs font-semibold">{report.report_key} · {report.period_start} – {report.period_end}</p><p className="mt-1 text-[11px] text-[var(--color-text-muted)]">Status report: {report.status}</p></div>
-    <button type="button" disabled={busy||report.status!=="completed"} onClick={()=>void download(report.id)} className="rounded-lg border border-[var(--color-border)] px-3 py-2 text-xs font-semibold disabled:opacity-40">Download CSV</button>
+    <button type="button" disabled={busy||report.status!=="completed"||report.download_available===false} onClick={()=>void download(report.id)} className="rounded-lg border border-[var(--color-border)] px-3 py-2 text-xs font-semibold disabled:opacity-40">Download CSV</button>
    </div>)}
    {reports.length===0&&<p className="text-xs text-[var(--color-text-muted)]">Belum ada riwayat ekspor.</p>}
   </div>}
