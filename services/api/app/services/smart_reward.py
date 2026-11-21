@@ -244,8 +244,23 @@ class SmartRewardService:
     values($1,$2,$3,'reversal',$4,$5,$6,'ledger',$7,'ledger',$7,$8,$9,$10,$11) returning *""",org,a["id"],old["participant_user_id"],delta,b,after,eid,actor,p.idempotency_key,p.reason,eid)
    await db.execute("update public.reward_accounts set points_balance=$3,updated_at=now() where organization_id=$1 and id=$2",org,a["id"],after)
    await self._audit(db,org,actor,"points.reversed","reward_points_ledger",r["id"],p.reason,{"reversed_entry_id":str(eid)});return dict(r)
- async def report(self,db,org,page,size,start_at=None,end_at=None,branch_id=None):
+ async def report(self,db,org,page,size,start_at=None,end_at=None,branch_id=None,actor=None):
   await db.fetchval("select public.process_reward_expirations(500)")
+  if actor is not None:
+   scopes=await db.fetch("""select r.key role_key,ura.scope_type,ura.scope_id from public.organization_memberships m
+    join public.user_role_assignments ura on ura.membership_id=m.id join public.roles r on r.id=ura.role_id
+    where m.organization_id=$1 and m.user_id=$2 and m.status='active' and ura.revoked_at is null
+     and ura.starts_at<=now() and (ura.expires_at is null or ura.expires_at>now())""",org,actor)
+   roles={x["role_key"] for x in scopes}
+   if "supervisor" in roles and not roles.intersection({"tenant_owner","company_admin","principal_user"}):
+    allowed={x["scope_id"] for x in scopes if x["role_key"]=="supervisor" and x["scope_type"]=="branch"}
+    if not allowed: raise APIError(403,"reward_report_scope_forbidden","Supervisor branch scope is required.")
+    if branch_id is not None and branch_id not in allowed: raise APIError(403,"reward_report_scope_forbidden","Requested report branch is outside supervisor scope.")
+    if branch_id is None:
+     if len(allowed)!=1: raise APIError(422,"reward_report_branch_required","Select one authorized branch for this report.")
+     branch_id=next(iter(allowed))
+   elif not roles.intersection({"tenant_owner","company_admin","principal_user","distributor_user"}):
+    raise APIError(403,"reward_report_scope_forbidden","Organization reward report permission is required.")
   r=await db.fetchrow("""select
    coalesce(sum(case when entry_type='earn' then points_delta else 0 end),0)::bigint earned_points,
    coalesce(sum(case when entry_type='redemption' then -points_delta else 0 end),0)::bigint redeemed_points,
