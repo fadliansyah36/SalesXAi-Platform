@@ -741,3 +741,30 @@ export class SalesXApiClient {
     });
   }
 }
+
+export type {RewardProgram,RewardRule,RewardCatalogItem,RewardLedgerEntry,RewardBalance,RewardRedemption,RewardPage} from "@salesx-ai/api-contracts";
+export function createSmartRewardApi(client:SalesXApiClient,organizationId:string){
+ const base="/api/v1/organizations/"+encodeURIComponent(organizationId)+"/smart-reward";
+ return {
+  programs:(page=1,pageSize=25)=>client.request<import("@salesx-ai/api-contracts").RewardPage<import("@salesx-ai/api-contracts").RewardProgram>>(base+"/programs?page="+page+"&page_size="+pageSize),
+  createProgram:(body:unknown)=>client.request<import("@salesx-ai/api-contracts").RewardProgram>(base+"/programs",{method:"POST",body:JSON.stringify(body)}),
+  updateProgram:(id:string,body:unknown)=>client.request<import("@salesx-ai/api-contracts").RewardProgram>(base+"/programs/"+encodeURIComponent(id),{method:"PATCH",body:JSON.stringify(body)}),
+  rules:(programId?:string)=>client.request<import("@salesx-ai/api-contracts").RewardRule[]>(base+"/rules"+(programId?"?program_id="+encodeURIComponent(programId):"")),
+  createRule:(programId:string,body:unknown)=>client.request<import("@salesx-ai/api-contracts").RewardRule>(base+"/programs/"+encodeURIComponent(programId)+"/rules",{method:"POST",body:JSON.stringify(body)}),
+  updateRule:(id:string,body:unknown)=>client.request<import("@salesx-ai/api-contracts").RewardRule>(base+"/rules/"+encodeURIComponent(id),{method:"PATCH",body:JSON.stringify(body)}),
+  catalog:(page=1,pageSize=24,category?:string)=>client.request<import("@salesx-ai/api-contracts").RewardPage<import("@salesx-ai/api-contracts").RewardCatalogItem>>(base+"/catalog?page="+page+"&page_size="+pageSize+(category?"&category="+encodeURIComponent(category):"")),
+  createCatalogItem:(body:unknown)=>client.request<import("@salesx-ai/api-contracts").RewardCatalogItem>(base+"/catalog",{method:"POST",body:JSON.stringify(body)}),
+  updateCatalogItem:(id:string,body:unknown)=>client.request<import("@salesx-ai/api-contracts").RewardCatalogItem>(base+"/catalog/"+encodeURIComponent(id),{method:"PATCH",body:JSON.stringify(body)}),
+  balance:()=>client.request<import("@salesx-ai/api-contracts").RewardBalance>(base+"/balance"),
+  ledger:(page=1,pageSize=25)=>client.request<import("@salesx-ai/api-contracts").RewardPage<import("@salesx-ai/api-contracts").RewardLedgerEntry>>(base+"/ledger?page="+page+"&page_size="+pageSize),
+  issue:(body:unknown)=>client.request<import("@salesx-ai/api-contracts").RewardLedgerEntry>(base+"/earnings",{method:"POST",body:JSON.stringify(body)}),
+  redeem:(body:unknown)=>client.request<import("@salesx-ai/api-contracts").RewardRedemption>(base+"/redemptions",{method:"POST",body:JSON.stringify(body)}),
+  redemptions:(page=1,pageSize=25)=>client.request<import("@salesx-ai/api-contracts").RewardPage<import("@salesx-ai/api-contracts").RewardRedemption>>(base+"/redemptions?page="+page+"&page_size="+pageSize),
+  decide:(id:string,body:unknown)=>client.request<import("@salesx-ai/api-contracts").RewardRedemption>(base+"/redemptions/"+encodeURIComponent(id),{method:"PATCH",body:JSON.stringify(body)}),
+  fulfill:(id:string,body:unknown)=>client.request<import("@salesx-ai/api-contracts").RewardRedemption>(base+"/redemptions/"+encodeURIComponent(id)+"/fulfill",{method:"POST",body:JSON.stringify(body)}),
+  cancel:(id:string)=>client.request(base+"/redemptions/"+encodeURIComponent(id)+"/cancel",{method:"POST"}),
+  adjust:(body:unknown)=>client.request<import("@salesx-ai/api-contracts").RewardLedgerEntry>(base+"/adjustments",{method:"POST",body:JSON.stringify(body)}),
+  reverse:(id:string,body:unknown)=>client.request<import("@salesx-ai/api-contracts").RewardLedgerEntry>(base+"/ledger/"+encodeURIComponent(id)+"/reverse",{method:"POST",body:JSON.stringify(body)}),
+  reports:(page=1,pageSize=25)=>client.request<Record<string,unknown>>(base+"/reports?page="+page+"&page_size="+pageSize),
+ };
+}

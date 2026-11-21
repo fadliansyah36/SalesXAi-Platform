@@ -331,3 +331,12 @@ export interface SmartOrderStockMovementPage {items:SmartOrderStockMovement[];pa
 export interface SmartOrderBrand {id:UUID;name:string;status:string;}
 export interface SmartOrderUnit {id:UUID;code:string;name:string;symbol?:string|null;decimal_places:number;status:string;}
 export interface SmartOrderRealtimeEvent {event_id?:UUID;organization_id:UUID;resource:string;record_id:UUID;order_id?:UUID|null;operation:"INSERT"|"UPDATE"|"DELETE";status?:string|null;occurred_at:string;}
+
+export type RewardProgramType="loyalty"|"incentive"|"campaign";
+export interface RewardProgram {id:UUID;organization_id:UUID;code:string;name:string;description:string|null;program_type:RewardProgramType;reward_type:"points"|"tier"|"voucher";starts_at:ISODateTime;ends_at:ISODateTime;status:"draft"|"active"|"paused"|"completed"|"archived";audience:Record<string,unknown>;configuration:Record<string,unknown>;created_at:ISODateTime;updated_at:ISODateTime;}
+export interface RewardRule {id:UUID;organization_id:UUID;program_id:UUID;code:string;name:string;event_key:"order.completed"|"visit.completed"|"target.achieved"|"manual.approved";priority:number;rule_config:Record<string,unknown>;points_per_unit:string|number;fixed_points:number;max_points:number|null;requires_approval:boolean;status:"active"|"inactive"|"archived";}
+export interface RewardCatalogItem {id:UUID;organization_id:UUID;program_id:UUID|null;code:string;name:string;description:string|null;category:string;points_cost:number;quantity_total:number|null;quantity_reserved:number;quantity_fulfilled:number;eligibility:Record<string,unknown>;metadata:Record<string,unknown>;status:"draft"|"active"|"paused"|"out_of_stock"|"archived";}
+export interface RewardLedgerEntry {id:UUID;entry_type:"earn"|"debit"|"redemption"|"reversal"|"adjustment"|"expiration";points_delta:number;balance_before:number;balance_after:number;source_type:string;source_id:UUID;reference_type:string|null;reference_id:UUID|null;actor_user_id:UUID;reason:string;occurred_at:ISODateTime;metadata:Record<string,unknown>;}
+export interface RewardBalance {account_id:UUID;organization_id:UUID;participant_user_id:UUID;points_balance:number;}
+export interface RewardRedemption {id:UUID;organization_id:UUID;catalog_item_id:UUID;participant_user_id:UUID;quantity:number;points_reserved:number;status:"requested"|"approved"|"rejected"|"cancelled"|"fulfilling"|"fulfilled";idempotency_key:string;requested_at:ISODateTime;fulfillment_reference:string|null;}
+export interface RewardPage<T>{items:T[];page:number;page_size:number;total:number;}
