@@ -33,7 +33,7 @@ class LocationService:
           org, actor, permission_key)
         return [r["id"] for r in rows]
 
-    async def profile_allowed(self, db, org, actor, profile):
+    async def profile_allowed(self, db, org, actor, profile, permission_key="location.live.read"):
         return profile in await self.visible_profiles(db, org, actor, permission_key)
 
     async def start(self, db, org, tenant, actor, auth_session_id, payload):
