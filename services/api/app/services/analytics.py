@@ -27,15 +27,23 @@ class AnalyticsService:
         if tenant.organization_id!=organization_id:
             raise APIError(403,"forbidden","Cross-tenant analytics access is denied.")
 
-    async def dashboard(self,connection,organization_id,tenant,principal,period_start,period_end,grain):
+    async def dashboard(self,connection,organization_id,tenant,principal,period_start,period_end,grain,scope_type=None,scope_id=None):
         self._tenant(organization_id,tenant)
         if period_end<period_start or (period_end-period_start).days>366:
             raise APIError(422,"invalid_analytics_period","Analytics period must be ordered and no longer than 366 days.")
         scopes=await self.repository.list_scopes(connection,organization_id,principal.user_id)
         if not scopes:
             raise APIError(403,"analytics_scope_denied","No analytics dashboard scope is assigned.")
+        if scope_id is not None and scope_type is None:
+            raise APIError(422,"invalid_analytics_scope","scope_type is required when scope_id is supplied.")
+        if scope_type is not None:
+            allowed=await self.repository.can_access_scope(
+                connection,organization_id,principal.user_id,scope_type,scope_id,"analytics:dashboard:read"
+            )
+            if not allowed:
+                raise APIError(403,"analytics_scope_denied","Requested KPI scope is outside the caller's assignment.")
         metrics=await self.repository.dashboard_metrics(
-            connection,organization_id,principal.user_id,period_start,period_end,grain
+            connection,organization_id,principal.user_id,period_start,period_end,grain,scope_type,scope_id
         )
         freshness=await self.repository.dashboard_freshness(connection,organization_id,period_start,period_end,grain)
         return {
