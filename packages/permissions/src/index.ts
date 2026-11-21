@@ -66,3 +66,16 @@ export function canAccessPortal(values:readonly string[]|null|undefined,portal:P
 }
 
 export * from "./action-matrix";
+
+/** Returns a role-first destination for ordinary portal navigation. Platform administration is intentionally excluded. */
+export function getPreferredPortalPath(values:readonly string[]|null|undefined):string|null {
+ const candidates:Array<[Permission,string]>=[
+  ["portal:customer:access","/customer"],
+  ["portal:sales:access","/portal"],
+  ["portal:supervisor:access","/supervisor"],
+  ["portal:company:access","/company"],
+  ["portal:distributor:access","/distributor"],
+  ["portal:principal:access","/principal"],
+ ];
+ return candidates.find(([permission])=>hasPermission(values,permission))?.[1]??null;
+}
