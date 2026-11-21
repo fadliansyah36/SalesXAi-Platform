@@ -18,7 +18,7 @@ export function LocationTrackingControl({api,organizationId,accessToken,actorUse
    const shiftChanged=shiftContextReady&&(!shiftId||(stored.shiftId&&stored.shiftId!==shiftId));
    if(organizationChanged||shiftChanged){
     setBusy(true);
-    try{await stopLocationTracking(api,organizationId);}
+    try{await stopLocationTracking(api,stored.organizationId??organizationId);}
     catch(error){setNotice(error instanceof Error?error.message:"Shift berakhir; penghentian tracking menunggu sinkronisasi.");}
     finally{setActive(false);setConsent(false);setBusy(false);}
    }
