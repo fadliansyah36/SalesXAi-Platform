@@ -25,7 +25,7 @@ export function AnalyticsWorkspace({compact=false}:{compact?:boolean}){
   const end=dateValue(new Date(),dashboard.timezone);
   setPeriodEnd(end);setPeriodStart(shiftDate(end,-29));
  },[dashboard?.timezone,periodEdited]);
- useEffect(()=>{setPeriodEdited(false);},[auth.activeOrganizationId]);
+ useEffect(()=>{setPeriodEdited(false);setScopeType(null);setScopeId("");setDashboard(null);setReports([]);},[auth.activeOrganizationId]);
  const [reports,setReports]=useState<AnalyticsReportRun[]>([]);
  const [loading,setLoading]=useState(false);
  const [error,setError]=useState<string|null>(null);
