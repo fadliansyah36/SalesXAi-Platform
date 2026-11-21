@@ -89,14 +89,20 @@ for (const app of apps) {
       throw new Error(app.name + " stylesheet is not delivered as CSS: " + href);
     }
   }
-  const asset = await retryGet((app.prefix || "") + "/_next/static/" + css[0], deadline);
-  if (!asset.contentType.includes("text/css") || asset.body.length === 0) {
-    throw new Error(app.name + " standalone CSS asset is missing or invalid");
+  let tokenStylesheet = null;
+  for (const file of css) {
+    const asset = await retryGet((app.prefix || "") + "/_next/static/" + file, deadline);
+    if (!asset.contentType.includes("text/css") || asset.body.length === 0) {
+      throw new Error(app.name + " standalone CSS asset is missing or invalid: " + file);
+    }
+    if (/--salesx-color-background|--font-sans|--color-background/.test(asset.body)) {
+      tokenStylesheet = file;
+    }
   }
-  if (!/--salesx-color-background|--font-sans|--color-background/.test(asset.body)) {
-    throw new Error(app.name + " CSS asset does not contain canonical SalesX styling tokens");
+  if (!tokenStylesheet) {
+    throw new Error(app.name + " CSS assets do not contain canonical SalesX styling tokens");
   }
   process.stdout.write("CSS runtime OK: " + app.name + " page=" + (app.prefix || "/") +
-    " linkedStylesheets=" + linkedStylesheets.length + " standaloneCSS=" + css[0] + "\n");
+    " linkedStylesheets=" + linkedStylesheets.length + " tokenCSS=" + tokenStylesheet + "\n");
 }
 process.stdout.write("Portal group CSS/static runtime verified: " + group + "\n");
