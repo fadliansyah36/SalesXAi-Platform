@@ -18,6 +18,9 @@ class Phase06RealtimePolicyContractTests(unittest.TestCase):
         self.assertIn("r.key = 'supervisor'", policy)
         self.assertIn("r.key in ('tenant_owner', 'company_admin', 'principal_user', 'distributor_user')", policy)
         self.assertIn("rp.permission_key", policy)
+        self.assertIn("payload ->> 'organization_id'", policy)
+        self.assertIn("payload ->> 'participant_user_id'", policy)
+        self.assertIn("payload ->> 'branch_id'", policy)
         self.assertIn("extension = 'broadcast'", policy)
 
     def test_location_realtime_policy_is_owner_gated_and_payload_scoped(self):
