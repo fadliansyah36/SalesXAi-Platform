@@ -258,8 +258,11 @@ class SmartRewardService:
    item=await db.fetchrow("select * from public.reward_catalog_items where organization_id=$1 and id=$2 and status='active' and (starts_at is null or starts_at<=now()) and (ends_at is null or ends_at>now()) for update",org,p.catalog_item_id)
    if not item:raise APIError(404,"reward_item_unavailable","Reward item is unavailable.")
    elig=item["eligibility"] or {}
-   if item["customer_segment_id"] is not None:
-    in_segment=await db.fetchval("select exists(select 1 from public.reward_customer_segment_members sm join public.reward_customer_segments sg on sg.organization_id=sm.organization_id and sg.id=sm.segment_id where sm.organization_id=$1 and sm.segment_id=$2 and sm.participant_user_id=$3 and sm.status='active' and (sm.expires_at is null or sm.expires_at>now()) and sg.status='active' and (sg.starts_at is null or sg.starts_at<=now()) and (sg.ends_at is null or sg.ends_at>now()))",org,item["customer_segment_id"],actor)
+   required_segment=item["customer_segment_id"]
+   if required_segment is None and item["program_id"] is not None:
+    required_segment=await db.fetchval("select customer_segment_id from public.reward_programs where organization_id=$1 and id=$2",org,item["program_id"])
+   if required_segment is not None:
+    in_segment=await db.fetchval("select exists(select 1 from public.reward_customer_segment_members sm join public.reward_customer_segments sg on sg.organization_id=sm.organization_id and sg.id=sm.segment_id where sm.organization_id=$1 and sm.segment_id=$2 and sm.participant_user_id=$3 and sm.status='active' and (sm.expires_at is null or sm.expires_at>now()) and sg.status='active' and (sg.starts_at is null or sg.starts_at<=now()) and (sg.ends_at is null or sg.ends_at>now()))",org,required_segment,actor)
     if not in_segment: raise APIError(403,"reward_customer_segment_required","Participant is not an active member of the required customer segment.")
    if elig.get("minimum_balance") and b<int(elig["minimum_balance"]):raise APIError(403,"reward_eligibility_denied","Minimum balance is not met.")
    member=await db.fetchrow("select branch_id from public.organization_memberships where organization_id=$1 and user_id=$2 and status='active'",org,actor)
