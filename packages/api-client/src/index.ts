@@ -887,5 +887,8 @@ export function createMapsApi(client:SalesXApiClient,organizationId:string){
    "/api/v1/organizations/"+encodeURIComponent(organizationId)+"/maps/routes/compute",
    {method:"POST",body:JSON.stringify(body)}
   ),
+  searchPlaces:(body:import("@salesx-ai/api-contracts").MapPlacesSearchRequest)=>client.request<import("@salesx-ai/api-contracts").MapPlacesSearchResponse>(
+   "/api/v1/maps/places/search",{method:"POST",body:JSON.stringify(body)}
+  ),
  };
 }
