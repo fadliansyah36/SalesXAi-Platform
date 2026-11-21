@@ -3,8 +3,7 @@
 Run only against a disposable local Supabase database:
 SALESX_TEST_DATABASE_URL=postgresql://...@127.0.0.1:54322/postgres
 
-The test creates synthetic Auth/profile/membership/role fixtures and calls the real
-tenant permission resolver plus FastAPI route handlers. No real customer account,
+The test creates synthetic Auth/profile/session/device/membership/role fixtures and signs a short-lived HS256 fixture JWT verified by the real SupabaseJWTVerifier. It calls the real tenant permission resolver and FastAPI route handlers. No real customer account,
 password login, SMTP, OAuth or production data is used.
 """
 from __future__ import annotations
