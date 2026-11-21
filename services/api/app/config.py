@@ -38,6 +38,10 @@ class Settings(BaseSettings):
     smtp_from_name: str = "SalesX-Ai"
     smtp_starttls: bool = True
     smtp_timeout_seconds: float = 10.0
+    maps_provider: str = "google"
+    google_maps_server_api_key: SecretStr | None = None
+    google_maps_language: str = "id"
+    google_maps_region: str = "ID"
 
     @field_validator("supabase_url")
     @classmethod
@@ -129,6 +133,7 @@ class Settings(BaseSettings):
         "supabase_secret_key",
         "salesx_bff_shared_secret",
         "smtp_password",
+        "google_maps_server_api_key",
         mode="before",
     )
     @classmethod
@@ -155,6 +160,26 @@ class Settings(BaseSettings):
         if value < 0 or value > 120:
             raise ValueError("JWT clock skew must be between 0 and 120 seconds")
         return value
+
+    @field_validator("maps_provider")
+    @classmethod
+    def validate_maps_provider(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if normalized not in {"google", "none"}:
+            raise ValueError("MAPS_PROVIDER must be google or none")
+        return normalized
+
+    @field_validator("google_maps_language", "google_maps_region")
+    @classmethod
+    def validate_maps_locale(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized or len(normalized) > 16:
+            raise ValueError("Google Maps language/region must contain 1 to 16 characters")
+        return normalized
+
+    @property
+    def google_maps_routes_enabled(self) -> bool:
+        return self.maps_provider == "google" and self.google_maps_server_api_key is not None
 
     @field_validator("smtp_port")
     @classmethod
