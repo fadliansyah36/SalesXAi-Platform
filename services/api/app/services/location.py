@@ -9,23 +9,32 @@ class LocationService:
         if tenant.organization_id != org:
             raise APIError(403, "tenant_scope_mismatch", "Location access is restricted to the active organization.")
 
-    async def visible_profiles(self, db, org, actor):
+    async def visible_profiles(self, db, org, actor, permission_key="location.history.read"):
         rows = await db.fetch("""select sp.id from public.sales_profiles sp
-          left join public.organization_memberships om on om.organization_id=sp.organization_id and om.user_id=sp.user_id and om.status='active'
+          left join public.organization_memberships om
+            on om.organization_id=sp.organization_id and om.user_id=sp.user_id and om.status='active'
           where sp.organization_id=$1 and sp.status='active' and (
-            sp.user_id=$2 or exists(select 1 from public.user_role_assignments ura
-              join public.roles r on r.id=ura.role_id join public.organization_memberships m on m.id=ura.membership_id
-              where m.organization_id=$1 and m.user_id=$2 and m.status='active' and ura.revoked_at is null
-                and ura.starts_at<=now() and (ura.expires_at is null or ura.expires_at>now())
-                and ((r.key in ('tenant_owner','tenant_admin','company_admin') and ura.scope_type in ('organization','tenant'))
+            sp.user_id=$2
+            or exists(select 1
+              from public.user_role_assignments ura
+              join public.roles r on r.id=ura.role_id
+              join public.role_permissions rp on rp.role_id=ura.role_id and rp.permission_key=$3
+              join public.organization_memberships m on m.id=ura.membership_id
+              where m.organization_id=$1 and m.user_id=$2 and m.status='active'
+                and ura.revoked_at is null and ura.starts_at<=now()
+                and (ura.expires_at is null or ura.expires_at>now())
+                and ((r.key in ('tenant_owner','tenant_admin','company_admin')
+                      and ura.scope_type in ('organization','tenant') and ura.scope_id=$1)
                   or (ura.scope_type='team' and ura.scope_id=sp.team_id)
                   or (ura.scope_type='branch' and ura.scope_id=om.branch_id)
                   or (ura.scope_type='territory' and ura.scope_id=sp.territory_id)))
-            or exists(select 1 from public.teams t where t.organization_id=$1 and t.id=sp.team_id and t.supervisor_user_id=$2))""", org, actor)
+            or exists(select 1 from public.teams t
+              where t.organization_id=$1 and t.id=sp.team_id and t.supervisor_user_id=$2))""",
+          org, actor, permission_key)
         return [r["id"] for r in rows]
 
     async def profile_allowed(self, db, org, actor, profile):
-        return profile in await self.visible_profiles(db, org, actor)
+        return profile in await self.visible_profiles(db, org, actor, permission_key)
 
     async def start(self, db, org, tenant, actor, auth_session_id, payload):
         self._tenant(org, tenant)
@@ -101,7 +110,7 @@ class LocationService:
 
     async def live(self, db, org, tenant, actor):
         self._tenant(org, tenant)
-        ids = await self.visible_profiles(db, org, actor)
+        ids = await self.visible_profiles(db, org, actor, "location.live.read")
         rows = await db.fetch("""select l.organization_id,l.user_id,l.sales_profile_id,l.branch_id,l.team_id,l.territory_id,
           l.session_id,l.latitude,l.longitude,l.accuracy_m,l.source,l.recorded_at,l.received_at,
           (l.recorded_at < now()-interval '15 minutes') stale
@@ -115,7 +124,7 @@ class LocationService:
         now=datetime.now(UTC); end=to_at or now; start=from_at or end-timedelta(days=7)
         if start.tzinfo is None or end.tzinfo is None or end<=start or end-start>timedelta(days=31) or end>now+timedelta(minutes=5):
             raise APIError(422,"location_history_window_invalid","Location history requires a timezone-aware window of at most 31 days.")
-        ids=await self.visible_profiles(db,org,actor)
+        ids=await self.visible_profiles(db,org,actor,"location.history.read")
         if profile_id and profile_id not in ids:
             raise APIError(403,"location_profile_scope_forbidden","The requested Sales profile is outside your authorized scope.")
         total=await db.fetchval("""select count(*) from public.location_points p join public.location_tracking_sessions s
@@ -133,7 +142,7 @@ class LocationService:
         return {"items":[dict(r) for r in rows],"page":page,"page_size":size,"total":int(total or 0),"from_at":start,"to_at":end}
 
     async def routes(self, db, org, tenant, actor, from_date, to_date, profile_id):
-        self._tenant(org,tenant); ids=await self.visible_profiles(db,org,actor)
+        self._tenant(org,tenant); ids=await self.visible_profiles(db,org,actor,"location.history.read")
         if profile_id and profile_id not in ids:
             raise APIError(403,"location_profile_scope_forbidden","The requested Sales profile is outside your authorized scope.")
         start=from_date or (datetime.now(UTC).date()-timedelta(days=7)); end=to_date or datetime.now(UTC).date()
@@ -163,7 +172,7 @@ class LocationService:
 
     async def route_replay(self, db, org, tenant, actor, route_id, from_at, to_at, page, size):
         self._tenant(org, tenant)
-        visible_ids = await self.visible_profiles(db, org, actor)
+        visible_ids = await self.visible_profiles(db, org, actor, "location.history.read")
         route = await location_repository.get_route_replay_context(db, org, route_id, visible_ids)
         if not route:
             raise APIError(404, "location_route_not_found", "Route was not found in your authorized scope.")
@@ -192,7 +201,7 @@ class LocationService:
 
     async def geofence_events(self, db, org, tenant, actor, page=1, size=100):
         self._tenant(org, tenant)
-        ids = await self.visible_profiles(db, org, actor)
+        ids = await self.visible_profiles(db, org, actor, "location.history.read")
         rows = await db.fetch("""select e.id,e.geofence_id,g.name geofence_name,e.session_id,e.location_point_id,
           e.event_type,e.occurred_at,s.sales_profile_id,s.user_id
           from public.location_geofence_events e
