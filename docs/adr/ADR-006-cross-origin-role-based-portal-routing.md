@@ -22,7 +22,7 @@ SalesX-Ai serves multiple portal applications across the existing four-service R
    - Target BFF atomically consumes the ticket, decrypts the envelope, verifies the access token/user, and sets its own HttpOnly session cookies.
    - Raw access and refresh tokens never appear in the redirect URL.
 4. Portal switchers use the same handoff. Public landing/login links remain ordinary links because no authenticated session is available there.
-5. Super Admin is omitted from public landing, login and ordinary portal navigation. The protected entry is the direct Company-origin route `/admin/portal`; the route guard and platform API permissions continue to enforce Super Admin authorization. URL knowledge alone grants no access.
+5. Super Admin is omitted from public landing, login and ordinary portal navigation. The protected entry is the direct Company-origin route `/super-admin`; the route guard and platform API permissions continue to enforce Super Admin authorization. URL knowledge alone grants no access.
 6. No Railway service or database is added. SMTP and Google OAuth credentials remain deployment-pending.
 
 ## Security properties
