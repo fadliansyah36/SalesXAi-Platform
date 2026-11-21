@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from pathlib import Path
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from uuid import uuid4
@@ -97,6 +98,14 @@ class LocationShiftBindingTests(unittest.IsolatedAsyncioTestCase):
                 device_id="device-fixture-0001",
                 consent_policy_version="sales-location-v1",
             )
+
+    def test_database_requires_shift_binding_for_location_sessions(self):
+        root = Path(__file__).resolve().parents[2]
+        migration = (
+            root.parent / "supabase" / "migrations"
+            / "20261121110006_p07_location_tracking_sessions_require_shift.sql"
+        ).read_text(encoding="utf-8")
+        self.assertIn("alter column shift_id set not null", migration)
 
     async def test_session_start_rejects_shift_not_active_for_sales_profile(self):
         organization_id = uuid4()
