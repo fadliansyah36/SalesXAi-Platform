@@ -744,6 +744,27 @@ export class SalesXApiClient {
     void connect();return()=>{stopped=true;clear();if(timer)clearTimeout(timer);socket?.close();};
   }
 
+  subscribeSmartRewardEvents(organizationId:string,onEvent:(event:{organization_id:string;resource:string;record_id:string;operation:string;occurred_at:string;status?:string|null;event_id?:string})=>void,onReconnect?:()=>void):()=>void{
+    let stopped=false,attempt=0,controller:AbortController|null=null,timer:ReturnType<typeof setTimeout>|null=null,lastEventId="";
+    const seen=new Set<string>();
+    const emit=(event:{organization_id:string;resource:string;record_id:string;operation:string;occurred_at:string;status?:string|null;event_id?:string})=>{const key=event.event_id??[event.organization_id,event.resource,event.record_id,event.operation,event.status??"",event.occurred_at].join("|");if(seen.has(key))return;seen.add(key);if(seen.size>512){const first=seen.values().next().value;if(first)seen.delete(first);}if(event.organization_id===organizationId)onEvent(event);};
+    const schedule=()=>{if(stopped)return;attempt+=1;timer=setTimeout(()=>void connect(),Math.min(30000,1000*2**Math.min(attempt,5)));};
+    const connect=async()=>{if(stopped)return;controller=new AbortController();try{
+      const reconnecting=attempt>0,q=lastEventId?"?after="+encodeURIComponent(lastEventId):"";
+      const response=await this.fetch("/api/v1/organizations/"+encodeURIComponent(organizationId)+"/smart-reward/events"+q,{headers:{Accept:"text/event-stream"},signal:controller.signal});
+      if(!response.ok||!response.body)throw new Error("SmartReward event stream is unavailable.");
+      attempt=0;if(reconnecting)onReconnect?.();const reader=response.body.getReader(),decoder=new TextDecoder();let buffer="";
+      while(!stopped){const part=await reader.read();if(part.done)break;buffer+=decoder.decode(part.value,{stream:true});let boundary=buffer.indexOf("\n\n");
+        while(boundary>=0){const frame=buffer.slice(0,boundary);buffer=buffer.slice(boundary+2);let eventName="message",data="",id="";
+          for(const line of frame.split("\n")){if(line.startsWith("event:"))eventName=line.slice(6).trim();else if(line.startsWith("data:"))data+=line.slice(5).trim();else if(line.startsWith("id:"))id=line.slice(3).trim();}
+          if(id)lastEventId=id;if(eventName==="smartreward.changed"&&data){try{emit(JSON.parse(data));}catch{}}
+          boundary=buffer.indexOf("\n\n");
+        }
+      }
+    }catch{if(stopped||controller.signal.aborted)return;}schedule();};
+    void connect();return()=>{stopped=true;controller?.abort();if(timer)clearTimeout(timer);};
+  }
+
   signOut(scope: "local" | "global" | "others" = "local"): Promise<void> {
     return this.request<void>("/api/v1/auth/sign-out", {
       method: "POST",
