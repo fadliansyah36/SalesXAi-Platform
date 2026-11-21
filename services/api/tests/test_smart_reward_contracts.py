@@ -5,6 +5,7 @@ from uuid import uuid4
 
 from pydantic import ValidationError
 
+from app.routers.smart_reward import _merge_smart_reward_patch
 from app.schemas.smart_reward import (
     PlatformSmartRewardOverviewResponse,
     RewardApprovalDecision,
@@ -23,6 +24,8 @@ from app.schemas.smart_reward import (
     RewardProgramPatch,
     RewardRulePatch,
     RewardCatalogPatch,
+    RewardProgramPatch,
+    RewardRulePatch,
 )
 
 
@@ -246,6 +249,46 @@ class SmartRewardSchemaTests(unittest.TestCase):
             offset=0,
         )
         self.assertEqual(platform.items[0].reversed_points, -2)
+
+
+class SmartRewardPartialUpdateMergeTests(unittest.TestCase):
+    def test_program_patch_merges_persisted_periods_and_preserves_untouched_fields(self):
+        current = {
+            "code": "LOYALTY",
+            "name": "Loyalty",
+            "description": None,
+            "program_type": "loyalty",
+            "reward_type": "points",
+            "starts_at": datetime(2026, 11, 20, tzinfo=timezone.utc),
+            "ends_at": datetime(2026, 12, 20, tzinfo=timezone.utc),
+            "status": "active",
+            "audience": {"roles": ["sales"]},
+            "configuration": {"expiration_days": 365},
+            "customer_segment_id": None,
+        }
+        merged = _merge_smart_reward_patch(current, RewardProgramPatch(status="paused"), RewardProgramWrite)
+        self.assertEqual(merged.status, "paused")
+        self.assertEqual(merged.name, "Loyalty")
+        self.assertTrue(merged.starts_at.endswith("+00:00"))
+
+    def test_rule_and_catalog_status_patches_preserve_required_fields(self):
+        rule = {
+            "code": "VISIT", "name": "Visit", "event_key": "visit.completed",
+            "priority": 100, "rule_config": {}, "points_per_unit": 0,
+            "fixed_points": 10, "max_points": None, "requires_approval": False,
+            "status": "active", "customer_segment_id": None,
+        }
+        merged_rule = _merge_smart_reward_patch(rule, RewardRulePatch(status="inactive"), RewardRuleWrite)
+        self.assertEqual(merged_rule.status, "inactive")
+        catalog = {
+            "program_id": None, "code": "VOUCHER", "name": "Voucher",
+            "description": None, "category": "voucher", "points_cost": 100,
+            "quantity_total": 5, "starts_at": None, "ends_at": None,
+            "eligibility": {}, "metadata": {}, "customer_segment_id": None, "status": "active",
+        }
+        merged_catalog = _merge_smart_reward_patch(catalog, RewardCatalogPatch(status="paused"), RewardCatalogWrite)
+        self.assertEqual(merged_catalog.status, "paused")
+        self.assertEqual(merged_catalog.points_cost, 100)
 
 
 class SmartRewardRepositoryContractTests(unittest.TestCase):
