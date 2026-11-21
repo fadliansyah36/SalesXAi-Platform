@@ -356,8 +356,12 @@ class SmartRewardRepositoryContractTests(unittest.TestCase):
         self.assertIn("participant_user_id", self.outbox_migration)
         self.assertIn("requested_by", self.outbox_migration)
         self.assertIn("branch_id", self.outbox_migration)
-        self.assertIn("catalog_scope", self.router)
-        self.assertIn("payload->>'branch_id'=any($6::text[])", self.router)
+        self.assertIn('"participant_resources"', self.router)
+        self.assertIn('"branch_scopes"', self.router)
+        self.assertIn('"tenant_resources"', self.router)
+        self.assertIn('"catalog_resources"', self.router)
+        self.assertIn("jsonb_array_elements($6::jsonb)", self.router)
+        self.assertIn("payload->>'resource'=any($5::text[])", self.router)
 
     def test_ledger_is_append_only_and_client_access_is_denied(self):
         self.assertIn("reward_ledger_immutable", self.core_migration)
