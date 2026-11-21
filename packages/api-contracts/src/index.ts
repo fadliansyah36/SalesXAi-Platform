@@ -358,3 +358,5 @@ export interface RewardApprovalDecision {decision:"approved"|"rejected";reason:s
 export interface SmartRewardRealtimeEvent {event_id?:string;organization_id:string;resource:string;record_id:string;operation:string;status?:string|null;occurred_at:string;}
 
 export interface RewardApprovalHistory {id:UUID;from_status:string|null;to_status:string;actor_user_id:UUID;reason:string;occurred_at:ISODateTime;}
+
+export interface PlatformSmartRewardOverviewRow {organization_id:UUID;organization_name:string;earned_points:number;redeemed_points:number;outstanding_points:number;expired_points:number;adjusted_points:number;incentive_achievements:number;pending_redemptions:number;pending_approvals:number;participants:number;}
