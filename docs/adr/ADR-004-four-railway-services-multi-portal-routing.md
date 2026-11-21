@@ -23,11 +23,15 @@ Each portal remains a separate Bun workspace and Next.js application with its ow
 
 ## Runtime contract
 
-- Railway root/build context remains the monorepo root.
-- Website service builds `@salesx-ai/website` and `@salesx-ai/sales-portal` sequentially; Company service builds `@salesx-ai/company-portal`, `@salesx-ai/distributor-portal`, `@salesx-ai/principal-portal`, `@salesx-ai/supervisor-portal`, and `@salesx-ai/super-admin` sequentially.
+- Railway root/build context remains the monorepo root for all four services.
+- `salesx-api` uses the existing `services/api/Dockerfile` with root directory `/services/api`.
+- `salesx-website` uses `infrastructure/docker/Dockerfile.website` and builds `@salesx-ai/website` plus `@salesx-ai/sales-portal` sequentially.
+- `salesx-customer` uses `infrastructure/docker/Dockerfile.customer` and builds `@salesx-ai/customer-portal`.
+- `salesx-company` uses `infrastructure/docker/Dockerfile.company` and builds `@salesx-ai/company-portal`, `@salesx-ai/distributor-portal`, `@salesx-ai/principal-portal`, `@salesx-ai/supervisor-portal`, and `@salesx-ai/super-admin` sequentially.
+- Portal Dockerfiles use Node 22 and Bun 1.4.5, install the shared workspace lockfile, and copy the complete Next standalone runtime tree, including generated `.next/static` CSS/JS and shared/app public assets.
 - Each standalone Next server binds only to loopback on its own internal port. The gateway binds to Railway's `PORT` on `0.0.0.0`.
 - The gateway preserves request path, query string, cookies, authorization, request body, forwarded origin headers and WebSocket upgrades.
-- `GET /api/health` is the group health contract. It checks all grouped portal roots and calls the root portal's existing API-dependent health route, which in turn checks FastAPI `/readyz`.
+- `GET /api/health` is the group health contract. It checks each grouped portal's canonical base route, `/portal` deep route, generated JavaScript and CSS assets, manifest and scoped service worker; it also calls the root portal's existing API-dependent health route, which in turn checks FastAPI `/readyz`.
 - All services retain the root monorepo build context, shared Bun lockfile, packages and canonical tokens. No new database, Supabase project or portal-specific backend is introduced.
 
 ## Security and operations
@@ -36,7 +40,7 @@ Each portal remains a separate Bun workspace and Next.js application with its ow
 - Website, Customer and Company remain the only browser origins in API CORS. Path prefixes are not separate origins.
 - Each grouped service's `APP_PUBLIC_URL` must match its own exact Railway Default Domain. Website is the mobile Auth BFF origin.
 - Provider credentials remain unset until real deployment secrets are supplied. No wildcard credentialed CORS or client-side service-role key is permitted.
-- The gateway fails health checks if a child portal process or FastAPI readiness is unavailable; Railway can retain its prior healthy deployment until the replacement passes its health check.
+- The gateway fails health checks if a child portal process, JavaScript/CSS asset delivery or FastAPI readiness is unavailable; Railway can retain its prior healthy deployment until the replacement passes its health check.
 - Rollback is to the prior successful deployment of the affected Railway service.
 
 ## Consequences
@@ -56,3 +60,15 @@ Auth callback redirects preserve the same-origin portal prefix and accept only t
 ## PWA isolation and cache safety
 
 Grouped portal PWAs use distinct manifest IDs, start URLs, scopes and service-worker registrations. The service worker derives a per-scope cache namespace and caches only static assets, icons and the manifest. API, auth and dynamic HTML responses are excluded to avoid cross-portal cache collisions and caching authenticated tenant data. Gateway readiness verifies each app's manifest and scoped service-worker endpoint.
+
+
+## Production Dockerfile and CSS validation addendum — 2026-11-21
+
+The three existing portal services are configured to use the monorepo-root Dockerfiles listed above. Their Railway service root directory remains `.`; no portal-specific Railway service was added. The API remains on its existing Dockerfile service. Website and Company retain the existing gateway start commands, and all three portal services use `/api/health` with deployment overlap/draining to avoid replacing a healthy release before the new group passes.
+
+A production-container CI workflow builds Website, Customer and Company images and probes every app's canonical route and emitted CSS. The verified group results are:
+- Website and Sales: CSS links and token stylesheet served through `/` and `/sales`.
+- Customer: CSS links and token stylesheet served through `/`.
+- Company, Distributor, Principal, Supervisor and Super Admin: CSS links and token stylesheet served through their respective root/basePath routes.
+
+This validation confirms the standalone container includes and serves the canonical SalesX design-token CSS. Railway's latest deployments remain queued until the deployment system processes the latest source; do not infer production success from CI container success.
