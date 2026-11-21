@@ -20,6 +20,9 @@ from app.schemas.smart_reward import (
     RewardCustomerSegmentCriteria,
     RewardCustomerSegmentWrite,
     RewardCustomerSegmentMemberWrite,
+    RewardProgramPatch,
+    RewardRulePatch,
+    RewardCatalogPatch,
 )
 
 
@@ -177,6 +180,13 @@ class SmartRewardSchemaTests(unittest.TestCase):
                 roles=["sales"],
                 untrusted_tenant_id=str(uuid4()),
             )
+
+    def test_reward_patch_schemas_accept_status_only_updates(self):
+        self.assertEqual(RewardProgramPatch(status="paused").status, "paused")
+        self.assertEqual(RewardRulePatch(status="inactive").status, "inactive")
+        self.assertEqual(RewardCatalogPatch(status="paused").status, "paused")
+        with self.assertRaises(ValidationError):
+            RewardCatalogPatch(points_cost=0)
 
     def test_customer_segment_period_and_member_identity_are_validated(self):
         with self.assertRaises(ValidationError):
