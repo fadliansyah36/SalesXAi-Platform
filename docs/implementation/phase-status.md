@@ -1311,3 +1311,12 @@ This addendum supersedes the older Phase 06 foundation-only blocker list above. 
 - Supabase currently has zero reward accounts/ledger rows. Zero balance mismatches over zero accounts is not evidence of populated transaction or concurrency validation. No production load test or authenticated cross-tenant browser session is claimed. SMTP and Google OAuth credentials remain deferred.
 
 **Release gate:** do not mark Phase 06 COMPLETED and do not start Phase 07 until the latest `salesx-website`, `salesx-customer`, and `salesx-company` deployments also report SUCCESS with health checks passing, and the remaining populated-data/runtime evidence is closed. The FastAPI release gate is now passed. Next phase after closure: **Phase 07 — Realtime Location & Route History**.
+
+
+## Phase 06 release checkpoint — 2026-11-21
+
+- API action-matrix startup failure was corrected in commit `f1cbc3921efef90782da1cdf8cdea44ac3793077`; latest API deployment `2320ba70-5976-4592-9912-ff3ae74dbc31` is SUCCESS and `/readyz` returned 200.
+- Portal source remains `b2dd365e930c8c5216402bbda0ef36484e9e7889`; Website, Customer and Company deployment/runtime statuses are SUCCESS. No current-source API/portal/Expo CI result or populated ledger test has been claimed.
+- Supabase read-only counts remain empty for organizations, profiles, reward accounts, ledger, redemptions, lots, approvals, audit events and customer segments. No production fixture data was created.
+- Temporary isolated Supabase branch requires explicit cost approval (US$0.01344/hour); not created.
+- Phase 06 remains IN_PROGRESS; Phase 07 remains LOCKED.
