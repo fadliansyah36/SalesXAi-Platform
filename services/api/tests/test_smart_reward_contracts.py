@@ -188,6 +188,14 @@ class SmartRewardSchemaTests(unittest.TestCase):
         with self.assertRaises(ValidationError):
             RewardCatalogPatch(points_cost=0)
 
+    def test_customer_segment_requires_timezone_aware_period(self):
+        with self.assertRaises(ValidationError):
+            RewardCustomerSegmentWrite(
+                code="VIP-TIME",
+                name="VIP Time",
+                starts_at="2026-11-21T00:00:00",
+            )
+
     def test_customer_segment_period_and_member_identity_are_validated(self):
         with self.assertRaises(ValidationError):
             RewardCustomerSegmentWrite(
