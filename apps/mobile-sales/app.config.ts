@@ -2,10 +2,10 @@ import type { ExpoConfig } from 'expo/config';
 
 const androidMapsKey = process.env.GOOGLE_MAPS_ANDROID_API_KEY?.trim();
 const iosMapsKey = process.env.GOOGLE_MAPS_IOS_API_KEY?.trim();
-const mapsPlugin = ['react-native-maps', {
+const mapsPlugin: NonNullable<ExpoConfig['plugins']>[number] = ['react-native-maps', {
   ...(androidMapsKey ? { androidGoogleMapsApiKey: androidMapsKey } : {}),
   ...(iosMapsKey ? { iosGoogleMapsApiKey: iosMapsKey } : {}),
-}] as const;
+}];
 const config: ExpoConfig = {
   name: 'SalesX-Ai Mobile Sales',
   slug: 'salesx-ai-mobile-sales',
