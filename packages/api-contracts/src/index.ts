@@ -340,3 +340,17 @@ export interface RewardLedgerEntry {id:UUID;entry_type:"earn"|"debit"|"redemptio
 export interface RewardBalance {account_id:UUID;organization_id:UUID;participant_user_id:UUID;points_balance:number;}
 export interface RewardRedemption {id:UUID;organization_id:UUID;catalog_item_id:UUID;participant_user_id:UUID;quantity:number;points_reserved:number;status:"requested"|"approved"|"rejected"|"cancelled"|"fulfilling"|"fulfilled";idempotency_key:string;requested_at:ISODateTime;fulfillment_reference:string|null;}
 export interface RewardPage<T>{items:T[];page:number;page_size:number;total:number;}
+
+export interface RewardApprovalRequest {
+ id:UUID;organization_id:UUID;request_type:"manual_earning"|"rule_earning"|"redemption_override";
+ participant_user_id:UUID;program_id:UUID|null;rule_id:UUID|null;source_type:string|null;source_id:UUID|null;
+ points_requested:number;metric_value:string|number;requested_by:UUID;idempotency_key:string;
+ status:"pending"|"approved"|"rejected"|"cancelled";request_reason:string;decision_reason:string|null;
+ decided_by:UUID|null;decided_at:ISODateTime|null;ledger_entry_id:UUID|null;created_at:ISODateTime;updated_at:ISODateTime;
+}
+export interface RewardApprovalWrite {
+ request_type:"manual_earning"|"rule_earning";participant_user_id:UUID;program_id:UUID;rule_id:UUID;
+ source_type?:"order"|"visit"|"target"|"manual";source_id?:UUID|null;manual_points?:number|null;
+ metric_value?:number;idempotency_key:string;reason:string;
+}
+export interface RewardApprovalDecision {decision:"approved"|"rejected";reason:string;}
