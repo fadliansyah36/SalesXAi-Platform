@@ -28,7 +28,7 @@ class AnalyticsRepository:
                       s.metric_value,s.dimensions,s.source_watermark,s.calculated_at
                from public.analytics_metric_snapshots s
                where s.organization_id=$1 and s.period_grain=$2
-                 and s.period_start between $3 and $4
+                 and s.period_end >= $3 and s.period_start <= $4
                  and exists (
                    select 1 from public.organization_memberships m
                    join public.user_role_assignments ura on ura.membership_id=m.id
@@ -54,7 +54,7 @@ class AnalyticsRepository:
     async def dashboard_freshness(self,connection,organization_id,start,end,grain):
         return await connection.fetchval(
             """select max(calculated_at) from public.analytics_metric_snapshots
-               where organization_id=$1 and period_grain=$2 and period_start between $3 and $4""",
+               where organization_id=$1 and period_grain=$2 and period_end >= $3 and period_start <= $4""",
             organization_id,grain,start,end,
         )
 
