@@ -23,7 +23,12 @@ export function SmartRewardHome({auth}:{auth:Auth}){
   if(failed&&failed.status==="rejected")setError(failed.reason instanceof Error?failed.reason.message:"Data reward gagal dimuat.");
  },[api,auth.status,auth.contextEpoch,org]);
  useEffect(()=>{void refresh();},[refresh]);
- useEffect(()=>{\n  if(!client||!org||auth.status!=="authenticated"||!canRealtime)return;\n  const url=process.env.EXPO_PUBLIC_SUPABASE_URL??"",key=process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY??"";\n  if(!url||!key)return;\n  return client.subscribeSmartRewardBroadcast(org,url,key,()=>void refresh(),()=>void refresh());\n },[client,org,auth.status,canRealtime,refresh]);
+ useEffect(()=>{
+  if(!client||!org||auth.status!=="authenticated"||!canRealtime)return;
+  const url=process.env.EXPO_PUBLIC_SUPABASE_URL??"",key=process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY??"";
+  if(!url||!key)return;
+  return client.subscribeSmartRewardBroadcast(org,url,key,()=>void refresh(),()=>void refresh());
+ },[client,org,auth.status,canRealtime,refresh]);
  const redeem=async(item:RewardCatalogItem)=>{
   if(!api)return;setBusy(true);setError("");setNotice("");
   try{await api.redeem({catalog_item_id:item.id,quantity:1,idempotency_key:"expo-reward-"+Date.now()+"-"+Math.random().toString(36).slice(2)});setNotice("Permintaan penukaran dikirim.");await refresh();}
