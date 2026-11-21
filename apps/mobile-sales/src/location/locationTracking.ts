@@ -1,6 +1,7 @@
 import * as Location from "expo-location";
 import * as TaskManager from "expo-task-manager";
 import * as SQLite from "expo-sqlite";
+import type { SQLiteDatabase } from "expo-sqlite";
 import * as SecureStore from "expo-secure-store";
 import type { SalesXApiClient } from "@salesx-ai/api-client";
 import { createLocationApi } from "@salesx-ai/api-client";
@@ -27,7 +28,7 @@ async function database(){
  return db;
 }
 function pointId(){return "loc-"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,12);}
-async function retryRows(db:SQLite.SQLiteDatabase,rows:QueuedPoint[]){
+async function retryRows(db:SQLiteDatabase,rows:QueuedPoint[]){
  for(const row of rows){
   const attempts=row.attempts+1,delay=Math.min(60000,1000*Math.pow(2,Math.min(attempts,6)));
   await db.runAsync("UPDATE location_outbox SET attempts=?,next_attempt_at=?,sync_state='retrying' WHERE id=?",attempts,Date.now()+delay,row.id);
