@@ -26,6 +26,7 @@ class _ShiftDatabase:
         self.fetchval_results = [True, shift_is_active]
         self.profile_id = uuid4()
         self.session_id = uuid4()
+        self.active_session = None
 
     def transaction(self):
         return _Transaction()
@@ -37,7 +38,7 @@ class _ShiftDatabase:
         if "from public.sales_profiles" in query:
             return {"id": self.profile_id}
         if "from public.location_tracking_sessions" in query:
-            return None
+            return self.active_session
         if "insert into public.location_tracking_sessions" in query:
             return {"id": self.session_id, "device_id": args[4], "consent_policy_version": args[5]}
         raise AssertionError(f"Unexpected query: {query}")
@@ -144,6 +145,34 @@ class LocationShiftBindingTests(unittest.IsolatedAsyncioTestCase):
             payload,
         )
         self.assertEqual(result["id"], database.session_id)
+
+    async def test_active_session_from_previous_shift_is_not_reused(self):
+        organization_id = uuid4()
+        user_id = uuid4()
+        requested_shift_id = uuid4()
+        database = _ShiftDatabase(shift_is_active=True)
+        database.active_session = {
+            "id": uuid4(),
+            "device_id": "device-fixture-0001",
+            "consent_policy_version": "sales-location-v1",
+            "shift_id": uuid4(),
+        }
+        payload = LocationSessionStart(
+            device_id="device-fixture-0001",
+            consent_policy_version="sales-location-v1",
+            shift_id=requested_shift_id,
+        )
+        with self.assertRaises(APIError) as caught:
+            await LocationService().start(
+                database,
+                organization_id,
+                SimpleNamespace(organization_id=organization_id),
+                user_id,
+                uuid4(),
+                payload,
+            )
+        self.assertEqual(caught.exception.status_code, 409)
+        self.assertEqual(caught.exception.code, "location_session_already_active")
 
     async def test_ingest_rejects_points_recorded_after_shift_end(self):
         organization_id = uuid4()
