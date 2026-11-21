@@ -23,6 +23,7 @@ class _ShiftDatabase:
     def __init__(self, shift_is_active: bool):
         self.fetchval_results = [True, shift_is_active]
         self.profile_id = uuid4()
+        self.session_id = uuid4()
 
     def transaction(self):
         return _Transaction()
@@ -30,8 +31,17 @@ class _ShiftDatabase:
     async def fetchval(self, *_args):
         return self.fetchval_results.pop(0)
 
-    async def fetchrow(self, *_args):
-        return {"id": self.profile_id}
+    async def fetchrow(self, query, *args):
+        if "from public.sales_profiles" in query:
+            return {"id": self.profile_id}
+        if "from public.location_tracking_sessions" in query:
+            return None
+        if "insert into public.location_tracking_sessions" in query:
+            return {"id": self.session_id, "device_id": args[4], "consent_policy_version": args[5]}
+        raise AssertionError(f"Unexpected query: {query}")
+
+    async def execute(self, *_args):
+        return "INSERT 0 1"
 
 
 class LocationShiftBindingTests(unittest.IsolatedAsyncioTestCase):
@@ -63,24 +73,22 @@ class LocationShiftBindingTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_session_start_checks_device_and_active_shift_before_insert(self):
         organization_id = uuid4()
+        user_id = uuid4()
         payload = LocationSessionStart(
             device_id="device-fixture-0001",
             consent_policy_version="sales-location-v1",
             shift_id=uuid4(),
         )
         database = _ShiftDatabase(shift_is_active=True)
-        # The next repository operation would only occur after both guards.
-        # This fake intentionally has no fetchrow for an active session, so the
-        # test asserts the guards are reached in their expected order.
-        with self.assertRaises(IndexError):
-            await LocationService().start(
-                database,
-                organization_id,
-                SimpleNamespace(organization_id=organization_id),
-                uuid4(),
-                uuid4(),
-                payload,
-            )
+        result = await LocationService().start(
+            database,
+            organization_id,
+            SimpleNamespace(organization_id=organization_id),
+            user_id,
+            uuid4(),
+            payload,
+        )
+        self.assertEqual(result["id"], database.session_id)
 
 
 if __name__ == "__main__":
