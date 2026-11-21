@@ -2885,43 +2885,7 @@ export function CompanyPortalApp() {
           {/* ================================================================
            * SCREEN 16 (18): LAPORAN
            * ================================================================ */}
-          {activeTab === 'reports' && (
-            <div className="space-y-4">
-              <div>
-                <h2 className="text-lg font-bold text-[#123A54] dark:text-white">
-                  Pilih Laporan Perusahaan
-                </h2>
-                <p className="text-xs text-[var(--color-text-muted)]">
-                  Klik laporan untuk meninjau ringkasan data dan mengunduh CSV
-                </p>
-              </div>
-              <div className="space-y-2.5">
-                {COMPANY_REPORTS_LIST.map((rep) => (
-                  <button
-                    key={rep.id}
-                    type="button"
-                    onClick={() => setSelectedReport(rep)}
-                    className="w-full flex items-center justify-between gap-4 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 text-left hover:border-[#348CB2] cursor-pointer"
-                  >
-                    <div className="flex items-center gap-3.5">
-                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#E5F4F8] dark:bg-[#19394B] text-[#348CB2]">
-                        <FileText className="h-5 w-5" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-bold">{rep.title}</p>
-                        <p className="text-xs text-[var(--color-text-secondary)]">
-                          {rep.subtitle}
-                        </p>
-                      </div>
-                    </div>
-                    <ChevronRight className="h-4 w-4 text-[var(--color-text-muted)] shrink-0" />
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* ================================================================
+          {activeTab === 'reports' && <AnalyticsWorkspace />}\n\n          {/* ================================================================
            * SCREEN 17 (19): INTEGRATION SETTINGS (WORKSPACE, MAPS, AI, ERP)
            * ================================================================ */}
           {activeTab === 'integrations' && (
