@@ -9,6 +9,7 @@ from app.schemas.smart_reward import (
     PlatformSmartRewardOverviewResponse,
     RewardApprovalDecision,
     RewardBalanceResponse,
+    RewardCatalogItemResponse,
     RewardPageResponse,
     RewardProgramResponse,
     RewardProgramWrite,
@@ -92,6 +93,35 @@ class SmartRewardSchemaTests(unittest.TestCase):
             total=0,
         )
         self.assertEqual(page.total, 0)
+
+    def test_catalog_response_exposes_server_eligibility_and_usage(self):
+        item = RewardCatalogItemResponse(
+            id=uuid4(),
+            organization_id=uuid4(),
+            program_id=None,
+            code="VOUCHER-1",
+            name="Voucher",
+            category="voucher",
+            points_cost=100,
+            quantity_total=10,
+            quantity_reserved=2,
+            quantity_fulfilled=1,
+            eligibility={},
+            metadata={},
+            status="active",
+            created_by=uuid4(),
+            updated_by=uuid4(),
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
+            eligible=False,
+            eligibility_reason="insufficient_points",
+            available_stock=7,
+            points_balance=50,
+            period_remaining=1,
+        )
+        self.assertFalse(item.eligible)
+        self.assertEqual(item.eligibility_reason, "insufficient_points")
+        self.assertEqual(item.available_stock, 7)
 
     def test_server_progress_response_carries_metric_and_period_progress(self):
         progress = RewardProgressResponse(
@@ -185,6 +215,9 @@ class SmartRewardRepositoryContractTests(unittest.TestCase):
 
     def test_source_ownership_and_program_audience_are_server_checked(self):
         self.assertIn("async def progress", self.service)
+        self.assertIn("eligibility_reason", self.service)
+        self.assertIn("participant_period_limit", self.service)
+        self.assertIn("status not in ('rejected','cancelled')", self.service)
         self.assertIn("metric_achieved", self.service)
         self.assertIn("smartreward.progress.read", self.router)
         self.assertIn("reward_source_owner_mismatch", self.service)
