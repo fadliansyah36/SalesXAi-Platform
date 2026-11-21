@@ -5,6 +5,7 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 from pydantic import ValidationError
+from app.errors import APIError
 
 from app.routers.smart_reward import _merge_smart_reward_patch
 from app.schemas.smart_reward import (
@@ -307,7 +308,7 @@ class SmartRewardRepositoryContractTests(unittest.TestCase):
 
     def test_smartreward_tenant_guard_rejects_cross_organization_scope(self):
         from app.services.smart_reward import smart_reward_service
-        with self.assertRaises(Exception) as caught:
+        with self.assertRaises(APIError) as caught:
             smart_reward_service._tenant(uuid4(), SimpleNamespace(organization_id=uuid4()))
         self.assertEqual(getattr(caught.exception, "code", None), "tenant_scope_mismatch")
 
