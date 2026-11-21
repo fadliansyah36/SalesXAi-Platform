@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from app.errors import APIError
-from app.security.dependencies import Principal, TenantContext, get_current_principal, require_api_action
+from app.security.dependencies import TenantContext, require_api_action
 
 router = APIRouter(tags=["maps"])
 
@@ -74,8 +74,8 @@ def _google_route(payload: MapRouteComputeRequest, api_key: str) -> dict:
 
 
 @router.get("/maps/config")
-async def maps_config(principal: Principal = Depends(get_current_principal)):
-    del principal
+async def maps_config(tenant: TenantContext = Depends(require_api_action("maps.config.read")):
+    del tenant
     return {
         "provider": "google" if os.getenv("MAPS_PROVIDER", "google").strip().lower() == "google" else "none",
         "server_routes_enabled": bool(os.getenv("GOOGLE_MAPS_SERVER_API_KEY")),
@@ -88,8 +88,7 @@ async def maps_config(principal: Principal = Depends(get_current_principal)):
 async def compute_route(
     organization_id: UUID,
     payload: MapRouteComputeRequest,
-    principal: Principal = Depends(get_current_principal),
-    tenant: TenantContext = Depends(require_api_action("location.routes.read")),
+    tenant: TenantContext = Depends(require_api_action("maps.routes.compute")),
 ):
     del principal
     if tenant.organization_id != organization_id:
