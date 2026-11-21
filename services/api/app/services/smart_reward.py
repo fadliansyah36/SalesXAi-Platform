@@ -6,6 +6,11 @@ from app.repositories.smart_reward import SmartRewardRepository
 from app.errors import APIError
 
 class SmartRewardService:
+ def _json_object(self,value):
+  if isinstance(value,str):
+   try: value=json.loads(value)
+   except (TypeError,ValueError): return {}
+  return value if isinstance(value,dict) else {}
  def _tenant(self,org,tenant):
   if tenant.organization_id!=org: raise APIError(403,"tenant_scope_mismatch","Reward access is restricted to the active organization.")
  async def _audit(self,db:SmartRewardRepository,org,actor,action,kind,rid,reason=None,meta=None):
@@ -257,7 +262,7 @@ class SmartRewardService:
    if old:return dict(old)
    item=await db.fetchrow("select * from public.reward_catalog_items where organization_id=$1 and id=$2 and status='active' and (starts_at is null or starts_at<=now()) and (ends_at is null or ends_at>now()) for update",org,p.catalog_item_id)
    if not item:raise APIError(404,"reward_item_unavailable","Reward item is unavailable.")
-   elig=item["eligibility"] or {}
+   elig=self._json_object(item["eligibility"])
    required_segment=item["customer_segment_id"]
    if required_segment is None and item["program_id"] is not None:
     required_segment=await db.fetchval("select customer_segment_id from public.reward_programs where organization_id=$1 and id=$2",org,item["program_id"])
@@ -274,7 +279,7 @@ class SmartRewardService:
     program=await db.fetchrow("select audience,status,starts_at,ends_at,now() db_now from public.reward_programs where organization_id=$1 and id=$2 for share",org,item["program_id"])
     if not program or program["status"]!="active" or program["starts_at"]>program["db_now"] or program["ends_at"]<=program["db_now"]:
      raise APIError(409,"reward_program_inactive","Linked reward program is not active.")
-    program_audience=program["audience"] or {}
+    program_audience=self._json_object(program["audience"])
    allowed_roles=set(elig.get("roles",[]))|set(program_audience.get("roles",[]))
    allowed_branches=set(elig.get("branch_ids",[]))|set(program_audience.get("branch_ids",[]))
    allowed_users=set(elig.get("user_ids",[]))|set(program_audience.get("user_ids",[]))
