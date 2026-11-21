@@ -11,7 +11,7 @@ line-length = 100
 target-version = "py312"
 [tool.ruff.lint]
 select = ["E", "F", "UP", "B"]
-ignore = ["E501", "B008"]
+ignore = ["E501", "B008", "E701", "E702"]
 
 [tool.setuptools.packages.find]
 include = ["app*"]
