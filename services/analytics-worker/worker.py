@@ -70,6 +70,10 @@ async def refresh_organization(connection: asyncpg.Connection, organization_id, 
             organization_id, start_date, end_date,
         )
         await connection.fetchval(
+            "select public.analytics_refresh_scoped_aux_metrics($1,$2,$3)",
+            organization_id, start_date, end_date,
+        )
+        await connection.fetchval(
             "select public.analytics_refresh_period_rollups($1,$2,$3)",
             organization_id, start_date, end_date,
         )
