@@ -796,7 +796,7 @@ export function createSmartRewardApi(client:SalesXApiClient,organizationId:strin
   cancel:(id:string)=>client.request(base+"/redemptions/"+encodeURIComponent(id)+"/cancel",{method:"POST"}),
   adjust:(body:unknown)=>client.request<import("@salesx-ai/api-contracts").RewardLedgerEntry>(base+"/adjustments",{method:"POST",body:JSON.stringify(body)}),
   reverse:(id:string,body:unknown)=>client.request<import("@salesx-ai/api-contracts").RewardLedgerEntry>(base+"/ledger/"+encodeURIComponent(id)+"/reverse",{method:"POST",body:JSON.stringify(body)}),
-  reports:(page=1,pageSize=25)=>client.request<Record<string,unknown>>(base+"/reports?page="+page+"&page_size="+pageSize),
+  reports:(page=1,pageSize=25,filters?:{start_at?:string;end_at?:string;branch_id?:string})=>{const q=new URLSearchParams({page:String(page),page_size:String(pageSize)});if(filters?.start_at)q.set("start_at",filters.start_at);if(filters?.end_at)q.set("end_at",filters.end_at);if(filters?.branch_id)q.set("branch_id",filters.branch_id);return client.request<Record<string,unknown>>(base+"/reports?"+q.toString());},
   approvals:(page=1,pageSize=25)=>client.request<import("@salesx-ai/api-contracts").RewardPage<import("@salesx-ai/api-contracts").RewardApprovalRequest>>(base+"/approvals?page="+page+"&page_size="+pageSize),
   requestApproval:(body:import("@salesx-ai/api-contracts").RewardApprovalWrite)=>client.request<import("@salesx-ai/api-contracts").RewardApprovalRequest>(base+"/approvals",{method:"POST",body:JSON.stringify(body)}),
   decideApproval:(id:string,body:import("@salesx-ai/api-contracts").RewardApprovalDecision)=>client.request<import("@salesx-ai/api-contracts").RewardApprovalRequest>(base+"/approvals/"+encodeURIComponent(id),{method:"PATCH",body:JSON.stringify(body)}),
