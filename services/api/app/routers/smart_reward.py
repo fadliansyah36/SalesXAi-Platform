@@ -87,7 +87,7 @@ async def decide_approval(organization_id:UUID,approval_id:UUID,payload:RewardAp
 @router.get("/{organization_id}/smart-reward/events")
 async def reward_events(organization_id:UUID,after:str|None=None,tenant:TenantContext=Depends(require_api_action("smartreward.events.read")),db:asyncpg.Connection=Depends(get_connection)):
  smart_reward_service._tenant(organization_id,tenant)
- cursor_time=datetime.now(timezone.utc);cursor_id=UUID(int=0)
+ cursor_time=await db.fetchval("select now()");cursor_id=UUID(int=0)
  if after:
   try:
    raw_time,raw_id=after.split("|",1);cursor_time=datetime.fromisoformat(raw_time.replace("Z","+00:00"));cursor_id=UUID(raw_id)
@@ -99,11 +99,11 @@ async def reward_events(organization_id:UUID,after:str|None=None,tenant:TenantCo
     and event_type='smartreward.changed' and (occurred_at>$2 or (occurred_at=$2 and id>$3))
     order by occurred_at,id limit 100""",organization_id,cursor_time,cursor_id)
    if not rows:
-    yield ": keepalive\\n\\n";await asyncio.sleep(3);continue
+    yield ": keepalive\n\n";await asyncio.sleep(3);continue
    for row in rows:
     cursor_time=row["occurred_at"];cursor_id=row["id"]
     payload=row["payload"]
     if isinstance(payload,str): payload=json.loads(payload)
     event_id=cursor_time.isoformat()+"|"+str(cursor_id)
-    yield "id: "+event_id+"\\nevent: smartreward.changed\\ndata: "+json.dumps(payload,default=str)+"\\n\\n"
+    yield "id: "+event_id+"\nevent: smartreward.changed\ndata: "+json.dumps(payload,default=str)+"\n\n"
  return StreamingResponse(stream(),media_type="text/event-stream",headers={"Cache-Control":"no-cache, no-transform","X-Accel-Buffering":"no","Connection":"keep-alive"})
