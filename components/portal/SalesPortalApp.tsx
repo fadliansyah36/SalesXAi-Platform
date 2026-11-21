@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { usePortalRouteGuard } from '@/components/auth/usePortalRouteGuard';
-import { getSalesXPortalUrlForPath } from '@/components/auth/portalUrls';
+import { getSalesXPortalKeyForPath, getSalesXPortalUrlForPath } from '@/components/auth/portalUrls';
 import { AnalyticsWorkspace } from '@/components/analytics/AnalyticsWorkspace';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -121,6 +121,7 @@ const LEGACY_SMARTTEAM_UI_ENABLED = false;
 export function SalesPortalApp() {
   const { theme, toggleTheme } = useTheme();
   const auth = useSalesXAuth();
+  const [portalSwitchBusy,setPortalSwitchBusy]=useState(false);
   usePortalRouteGuard("sales");
   const router = useRouter();
   const isOnline = useOnlineStatus();
@@ -674,9 +675,17 @@ export function SalesPortalApp() {
         <div className="p-4 border-t border-[var(--color-border)] space-y-2.5">
           <div className="grid grid-cols-2 gap-1.5 text-[11px] font-semibold">
             {visiblePortalSwitchLinks.map(item => (
-              <Link key={item.href} href={getSalesXPortalUrlForPath(item.href)} className="rounded-lg border border-[var(--color-border)] py-1.5 text-center hover:bg-[var(--color-surface-muted)]">
-                {item.label}
-              </Link>
+              <button key={item.href} type="button" disabled={portalSwitchBusy}
+                onClick={async()=>{
+                  const target=getSalesXPortalKeyForPath(item.href);
+                  if(!target)return;
+                  setPortalSwitchBusy(true);
+                  try{const destination=await auth.createPortalHandoff(target);window.location.assign(destination);}
+                  catch{setPortalSwitchBusy(false);}
+                }}
+                className="rounded-lg border border-[var(--color-border)] py-1.5 text-center hover:bg-[var(--color-surface-muted)] disabled:opacity-50">
+                {portalSwitchBusy?"Mengalihkan…":item.label}
+              </button>
             ))}
           </div>
           <Link
