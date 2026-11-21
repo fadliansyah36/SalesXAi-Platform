@@ -42,7 +42,6 @@ import {
   X,
   Truck,
   Package,
-  Award,
   FileSpreadsheet,
   RefreshCw,
   Ticket,
