@@ -13,7 +13,7 @@ Query:
 - optional scope_type: tenant | branch | team | territory | user
 - optional scope_id: UUID for a non-tenant scope
 
-Returns the authorized metric snapshots, caller scopes, period, data_as_of and is_stale. Maximum range is 366 days. If no scope is supplied, the service returns only the caller's assigned scopes so the UI can choose a valid initial scope. Explicit scope filters are validated by active membership, role assignment, permission, tenant and resource scope before query execution.
+Returns the authorized metric snapshots, caller scopes, organization IANA timezone, period, data_as_of and is_stale. Daily KPI boundaries and Web/Expo default date filters follow the organization timezone, including daylight-saving transitions. Maximum range is 366 days. If no scope is supplied, the service returns only the caller's assigned scopes so the UI can choose a valid initial scope. Explicit scope filters are validated by active membership, role assignment, permission, tenant and resource scope before query execution.
 
 ## Report runs
 
