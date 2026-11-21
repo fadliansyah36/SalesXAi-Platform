@@ -424,7 +424,6 @@ export function CompanyPortalApp() {
           : title.includes('area manager') ? 'Area Manager'
           : title.includes('direktur') ? 'Direktur Operasional' : 'Sales Rep';
         const branchId = asText(team?.branch_id);
-        const branch = nextBranches.find((item) => item.id === branchId);
         return {
           id: asText(profile.id), userId, teamId: asText(profile.team_id), managerUserId: asText(profile.manager_user_id) || undefined,
           name: asText(profile.display_name) || asText(member?.display_name) || asText(member?.email) || 'User',
