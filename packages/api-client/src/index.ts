@@ -734,6 +734,16 @@ export class SalesXApiClient {
     return()=>{stopped=true;clear();if(timer)clearTimeout(timer);socket?.close();};
   }
 
+  subscribeSmartRewardBroadcast(organizationId:string,supabaseUrl:string,publishableKey:string,onEvent:(event:{organization_id:string;resource:string;record_id:string;operation:string;occurred_at:string;status?:string|null;event_id?:string})=>void,onReconnect?:()=>void):()=>void{
+    let stopped=false,attempt=0,socket:WebSocket|null=null,heartbeat:ReturnType<typeof setInterval>|null=null,timer:ReturnType<typeof setTimeout>|null=null;
+    const seen=new Set<string>();
+    const emit=(event:{organization_id:string;resource:string;record_id:string;operation:string;occurred_at:string;status?:string|null;event_id?:string})=>{const key=event.event_id??[event.organization_id,event.resource,event.record_id,event.operation,event.status??"",event.occurred_at].join("|");if(seen.has(key))return;seen.add(key);if(seen.size>512){const first=seen.values().next().value;if(first)seen.delete(first);}if(event.organization_id===organizationId)onEvent(event);};
+    const clear=()=>{if(heartbeat)clearInterval(heartbeat);heartbeat=null;};
+    const schedule=()=>{if(stopped)return;attempt+=1;timer=setTimeout(()=>void connect(),Math.min(30000,1000*2**Math.min(attempt,5)));};
+    const connect=async()=>{if(stopped)return;try{const reconnecting=attempt>0;const token=await this.auth.getAccessToken()??await this.auth.refreshAccessToken();if(!token)throw new Error("Realtime access token is unavailable.");const base=(supabaseUrl.endsWith("/")?supabaseUrl.slice(0,-1):supabaseUrl).replace(/^https:/,"wss:").replace(/^http:/,"ws:");socket=new WebSocket(base+"/realtime/v1/websocket?apikey="+encodeURIComponent(publishableKey)+"&vsn=2.0.0");socket.onopen=()=>{attempt=0;if(reconnecting)onReconnect?.();const joinRef="1";socket?.send(JSON.stringify({topic:"realtime:tenant:"+organizationId+":smartreward",event:"phx_join",payload:{config:{broadcast:{ack:false,self:false},presence:{key:""},postgres_changes:[],private:true},access_token:token},ref:joinRef,join_ref:joinRef}));let ref=1;heartbeat=setInterval(()=>{if(socket?.readyState===WebSocket.OPEN)socket.send(JSON.stringify({topic:"phoenix",event:"heartbeat",payload:{},ref:String(++ref),join_ref:null}));},25000);};socket.onmessage=(message)=>{try{const frame=JSON.parse(String(message.data));if(frame.event==="phx_error"||frame.event==="phx_close"){socket?.close();return;}if(frame.event==="broadcast"&&frame.payload?.event==="smartreward.changed")emit(frame.payload.payload);}catch{}};socket.onerror=()=>socket?.close();socket.onclose=()=>{clear();schedule();};}catch{clear();schedule();}};
+    void connect();return()=>{stopped=true;clear();if(timer)clearTimeout(timer);socket?.close();};
+  }
+
   signOut(scope: "local" | "global" | "others" = "local"): Promise<void> {
     return this.request<void>("/api/v1/auth/sign-out", {
       method: "POST",
