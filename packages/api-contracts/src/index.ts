@@ -360,3 +360,6 @@ export interface SmartRewardRealtimeEvent {event_id?:string;organization_id:stri
 export interface RewardApprovalHistory {id:UUID;from_status:string|null;to_status:string;actor_user_id:UUID;reason:string;occurred_at:ISODateTime;}
 
 export interface PlatformSmartRewardOverviewRow {organization_id:UUID;organization_name:string;earned_points:number;redeemed_points:number;outstanding_points:number;expired_points:number;adjusted_points:number;reversed_points:number;incentive_achievements:number;pending_redemptions:number;pending_approvals:number;participants:number;}
+
+export interface RewardProgressItem {program_id:UUID;program_name:string;rule_id:UUID;rule_name:string;event_key:string;period_days:number;points_earned:number;points_limit:number|null;points_remaining:number|null;metric_achieved:string|number;target_metric:string|number|null;progress_percent:string|number|null;requires_approval:boolean;}
+export interface RewardProgressResponse {organization_id:UUID;participant_user_id:UUID;items:RewardProgressItem[];}
