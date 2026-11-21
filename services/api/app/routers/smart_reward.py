@@ -123,6 +123,28 @@ async def request_approval(organization_id:UUID,payload:RewardApprovalWrite,prin
 async def decide_approval(organization_id:UUID,approval_id:UUID,payload:RewardApprovalDecision,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartreward.approvals.decide")),db:SmartRewardRepository=Depends(get_smart_reward_repository)):
  smart_reward_service._tenant(organization_id,tenant); return await smart_reward_approval_service.decide(db,organization_id,principal.user_id,approval_id,payload)
 
+def _reward_event_audience(scopes):
+    """Resolve the narrowest event audience from active role assignments."""
+    tenant_roles = {"tenant_owner", "company_admin", "principal_user", "distributor_user"}
+    tenant_scope = any(
+        scope["role_key"] in tenant_roles
+        and scope["scope_type"] in {"tenant", "organization"}
+        for scope in scopes
+    )
+    branch_ids = sorted({
+        str(scope["scope_id"])
+        for scope in scopes
+        if scope["role_key"] == "supervisor"
+        and scope["scope_type"] == "branch"
+        and scope["scope_id"] is not None
+    })
+    catalog_scope = any(
+        scope["permission_key"] in {"smartreward:program:read", "smartreward:catalog:read"}
+        for scope in scopes
+    )
+    return tenant_scope, branch_ids, catalog_scope
+
+
 @router.get("/{organization_id}/smart-reward/events")
 async def reward_events(organization_id:UUID,after:str|None=None,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartreward.events.read")),db:SmartRewardRepository=Depends(get_smart_reward_repository)):
  smart_reward_service._tenant(organization_id,tenant)
@@ -133,10 +155,7 @@ async def reward_events(organization_id:UUID,after:str|None=None,principal:Princ
    and ura.starts_at<=now() and (ura.expires_at is null or ura.expires_at>now())
    and rp.permission_key in ('smartreward:ledger:read','smartreward:redemption:read','smartreward:approval:read','smartreward:program:read','smartreward:catalog:read')""",organization_id,principal.user_id)
  if not scopes: raise APIError(403,"reward_event_scope_forbidden","Reward event subscription is not authorized.")
- role_keys={x["role_key"] for x in scopes}
- tenant_scope=bool(role_keys.intersection({"tenant_owner","company_admin","principal_user","distributor_user"}))
- branch_ids=[str(x["scope_id"]) for x in scopes if x["role_key"]=="supervisor" and x["scope_type"]=="branch"]
- catalog_scope=any(x["permission_key"] in {"smartreward:program:read","smartreward:catalog:read"} for x in scopes)
+ tenant_scope,branch_ids,catalog_scope=_reward_event_audience(scopes)
  actor_id=str(principal.user_id)
  cursor_time=await db.fetchval("select now()");cursor_id=UUID(int=0)
  if after:
