@@ -123,7 +123,7 @@ export async function ensureLocationDeviceId(){
 export async function syncLocationAccessToken(token:string|null){
  if(token)await SecureStore.setItemAsync(TOKEN_KEY,token);else await SecureStore.deleteItemAsync(TOKEN_KEY);
 }
-export async function startLocationTracking(api:SalesXApiClient,organizationId:string,accessToken:string,deviceId:string,actorUserId:string,shiftId?:string|null){
+export async function startLocationTracking(api:SalesXApiClient,organizationId:string,accessToken:string,deviceId:string,actorUserId:string,shiftId:string){
  if(!shiftId)throw new Error("Shift kerja aktif wajib tersedia sebelum pelacakan lokasi dimulai.");
  if(!(await TaskManager.isAvailableAsync()))throw new Error("Background TaskManager tidak tersedia. Gunakan native development/production build, bukan web runtime.");
  const foreground=await Location.requestForegroundPermissionsAsync();
