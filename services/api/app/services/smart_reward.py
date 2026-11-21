@@ -138,6 +138,8 @@ class SmartRewardService:
    old=await db.fetchrow("select * from public.reward_redemptions where organization_id=$1 and participant_user_id=$2 and idempotency_key=$3",org,actor,p.idempotency_key)
    if old:return dict(old)
    a,b=await self._account(db,org,actor)
+   old=await db.fetchrow("select * from public.reward_redemptions where organization_id=$1 and participant_user_id=$2 and idempotency_key=$3",org,actor,p.idempotency_key)
+   if old:return dict(old)
    item=await db.fetchrow("select * from public.reward_catalog_items where organization_id=$1 and id=$2 and status='active' and (starts_at is null or starts_at<=now()) and (ends_at is null or ends_at>now()) for update",org,p.catalog_item_id)
    if not item:raise APIError(404,"reward_item_unavailable","Reward item is unavailable.")
    elig=item["eligibility"] or {}
@@ -255,6 +257,8 @@ class SmartRewardService:
   async with db.transaction():
    old=await db.fetchrow("select * from public.reward_points_ledger where organization_id=$1 and id=$2 for update",org,eid)
    if not old:raise APIError(404,"reward_ledger_entry_not_found","Ledger entry not found.")
+   replay=await db.fetchrow("select * from public.reward_points_ledger where organization_id=$1 and participant_user_id=$2 and idempotency_key=$3",org,old["participant_user_id"],p.idempotency_key)
+   if replay:return dict(replay)
    if await db.fetchval("select exists(select 1 from public.reward_points_ledger where reversal_of=$1)",eid):raise APIError(409,"reward_entry_already_reversed","Entry already reversed.")
    a,b=await self._account(db,org,old["participant_user_id"]);delta=-int(old["points_delta"]);after=b+delta
    if after<0:raise APIError(409,"reward_reversal_insufficient_balance","Reversal would make balance negative.")
