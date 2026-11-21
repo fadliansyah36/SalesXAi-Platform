@@ -89,10 +89,10 @@ class SmartRewardService:
     period_days=max(1,min(int(cfg.get("period_days",30)),366))
     totals=await db.fetchrow("""select
      coalesce(sum(case when l.entry_type='earn' then l.points_delta
-      when l.entry_type='reversal' and original.metadata->>'rule_id'=$3 then l.points_delta else 0 end),0)::bigint points_earned,
+      when l.entry_type='reversal' and original.metadata->>'rule_id'=$3 and original.occurred_at>=now()-make_interval(days=>$4) then l.points_delta else 0 end),0)::bigint points_earned,
      coalesce(sum(case when l.entry_type='earn' and l.metadata->>'rule_id'=$3
        then coalesce(nullif(l.metadata->>'metric','')::numeric,0)
-      when l.entry_type='reversal' and original.metadata->>'rule_id'=$3
+      when l.entry_type='reversal' and original.metadata->>'rule_id'=$3 and original.occurred_at>=now()-make_interval(days=>$4)
        then -coalesce(nullif(original.metadata->>'metric','')::numeric,0) else 0 end),0) metric_achieved
      from public.reward_points_ledger l left join public.reward_points_ledger original on original.id=l.reversal_of
      where l.organization_id=$1 and l.participant_user_id=$2
