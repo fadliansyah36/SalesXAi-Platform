@@ -45,10 +45,59 @@ class SmartRewardService:
   r=await db.fetchrow("""update public.reward_incentive_rules set code=$3,name=$4,event_key=$5,priority=$6,rule_config=$7::jsonb,points_per_unit=$8,fixed_points=$9,max_points=$10,requires_approval=$11,status=$12,updated_by=$13,updated_at=now() where organization_id=$1 and id=$2 returning *""",org,rid,p.code.upper(),p.name,p.event_key,p.priority,json.dumps(p.rule_config),p.points_per_unit,p.fixed_points,p.max_points,p.requires_approval,p.status,actor)
   if not r: raise APIError(404,"reward_rule_not_found","Rule not found.")
   await self._audit(db,org,actor,"rule.updated","reward_incentive_rule",rid); return dict(r)
- async def catalog(self,db:SmartRewardRepository,org,page,size,category):
-  total=await db.fetchval("select count(*) from public.reward_catalog_items where organization_id=$1 and ($2::text is null or category=$2)",org,category)
-  rows=await db.fetch("select * from public.reward_catalog_items where organization_id=$1 and ($2::text is null or category=$2) order by created_at desc limit $3 offset $4",org,category,size,(page-1)*size)
-  return {"items":[dict(r) for r in rows],"page":page,"page_size":size,"total":total}
+ async def catalog(self,db:SmartRewardRepository,org,page,size,category,actor):
+  async with db.transaction():
+   member=await db.fetchrow("select branch_id from public.organization_memberships where organization_id=$1 and user_id=$2 and status='active'",org,actor)
+   role_rows=await db.fetch("""select r.key from public.user_role_assignments ura join public.roles r on r.id=ura.role_id
+    join public.organization_memberships m on m.id=ura.membership_id where m.organization_id=$1 and m.user_id=$2
+     and m.status='active' and ura.revoked_at is null and ura.starts_at<=now() and (ura.expires_at is null or ura.expires_at>now())""",org,actor)
+   role_keys={x["key"] for x in role_rows}
+   account=await db.fetchrow("select id from public.reward_accounts where organization_id=$1 and participant_user_id=$2",org,actor)
+   balance=0
+   if account:
+    _,balance=await self._account(db,org,actor)
+   total=await db.fetchval("select count(*) from public.reward_catalog_items where organization_id=$1 and ($2::text is null or category=$2)",org,category)
+   rows=await db.fetch("select *,now() db_now from public.reward_catalog_items where organization_id=$1 and ($2::text is null or category=$2) order by created_at desc limit $3 offset $4",org,category,size,(page-1)*size)
+   items=[]
+   for row in rows:
+    item=dict(row);elig=item.get("eligibility") or {};program_audience={}
+    reason=None
+    if not member: reason="membership_required"
+    elif item["status"]!="active": reason="catalog_inactive"
+    elif item["starts_at"] is not None and item["starts_at"]>item["db_now"]: reason="catalog_not_started"
+    elif item["ends_at"] is not None and item["ends_at"]<=item["db_now"]: reason="catalog_expired"
+    available=None if item["quantity_total"] is None else max(0,int(item["quantity_total"])-int(item["quantity_reserved"])-int(item["quantity_fulfilled"]))
+    if reason is None and available is not None and available<=0: reason="out_of_stock"
+    if reason is None and item["program_id"] is not None:
+     program=await db.fetchrow("select audience,status,starts_at,ends_at,now() db_now from public.reward_programs where organization_id=$1 and id=$2",org,item["program_id"])
+     if not program or program["status"]!="active" or program["starts_at"]>program["db_now"] or program["ends_at"]<=program["db_now"]:
+      reason="reward_program_inactive"
+     else: program_audience=program["audience"] or {}
+    allowed_roles=set(elig.get("roles",[]))|set(program_audience.get("roles",[]))
+    allowed_branches=set(elig.get("branch_ids",[]))|set(program_audience.get("branch_ids",[]))
+    allowed_users=set(elig.get("user_ids",[]))|set(program_audience.get("user_ids",[]))
+    if reason is None and allowed_roles and not role_keys.intersection(allowed_roles): reason="role_ineligible"
+    if reason is None and allowed_branches and (member["branch_id"] is None or str(member["branch_id"]) not in allowed_branches): reason="branch_ineligible"
+    if reason is None and allowed_users and str(actor) not in allowed_users: reason="participant_ineligible"
+    if reason is None and int(elig.get("minimum_balance",0))>balance: reason="insufficient_minimum_balance"
+    period_days=max(1,min(int(elig.get("period_days",30)),366))
+    period_remaining=None
+    if elig.get("max_per_user_per_period") is not None:
+     used=int(await db.fetchval("""select coalesce(sum(quantity),0) from public.reward_redemptions
+      where organization_id=$1 and participant_user_id=$2 and catalog_item_id=$3 and status<>'rejected'
+       and requested_at>=now()-make_interval(days=>$4)""",org,actor,item["id"],period_days) or 0)
+     period_remaining=max(0,int(elig["max_per_user_per_period"])-used)
+     if reason is None and period_remaining<=0: reason="participant_period_limit"
+    if elig.get("max_total_per_period") is not None:
+     used_total=int(await db.fetchval("""select coalesce(sum(quantity),0) from public.reward_redemptions
+      where organization_id=$1 and catalog_item_id=$2 and status<>'rejected'
+       and requested_at>=now()-make_interval(days=>$3)""",org,item["id"],period_days) or 0)
+     if reason is None and used_total>=int(elig["max_total_per_period"]): reason="catalog_period_limit"
+    if reason is None and balance<int(item["points_cost"]): reason="insufficient_points"
+    item.pop("db_now",None);item.update({"eligible":reason is None,"eligibility_reason":reason,
+     "available_stock":available,"points_balance":balance,"period_remaining":period_remaining})
+    items.append(item)
+   return {"items":items,"page":page,"page_size":size,"total":total}
  async def create_catalog_item(self,db:SmartRewardRepository,org,actor,p):
   r=await db.fetchrow("""insert into public.reward_catalog_items(organization_id,program_id,code,name,description,category,points_cost,quantity_total,starts_at,ends_at,eligibility,metadata,status,created_by,updated_by)
    values($1,$2,$3,$4,$5,$6,$7,$8,$9::timestamptz,$10::timestamptz,$11::jsonb,$12::jsonb,$13,$14,$14) returning *""",org,p.program_id,p.code.upper(),p.name,p.description,p.category,p.points_cost,p.quantity_total,p.starts_at,p.ends_at,json.dumps(p.eligibility),json.dumps(p.metadata),p.status,actor)
