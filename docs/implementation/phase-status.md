@@ -1285,3 +1285,23 @@ See `docs/implementation/phase-05-smartorder-status.md` for the current implemen
 - Super Admin platform-scope governance and cross-organization principal program management remain incomplete.
 
 **Next execution:** finish SmartReward authorization and manager workflows, implement the missing expiry/approval/eligibility/reporting lifecycle, wire the shared typed client into all existing portal screens and Expo, add private Realtime consumers, then run the focused engineering validation matrix. Phase 07 remains LOCKED.
+
+
+
+
+## Phase 06 — final implementation and release-gate addendum (2026-11-21)
+
+This addendum supersedes the older Phase 06 foundation-only blocker list above. The detailed implementation inventory and evidence are maintained in `docs/implementation/phase-06-smartreward-status.md`.
+
+**Current status: IN_PROGRESS — code and focused CI validation are substantially complete; production release is pending. Phase 07 remains LOCKED.**
+
+- Backend now includes server-side program/rule/catalog CRUD, supported-source incentive calculation, role/branch/user/program/period/limit eligibility, approval request/decision/history, manual-earning fail-closed behavior, FIFO point lots and scheduled expiration ledger issuance, redemption reserve/decision/cancel/fulfillment, immutable ledger compensation, and tenant/period/branch/platform reporting.
+- API surface contains 24 tenant SmartReward routes plus the platform overview route; 25 SmartReward action contracts are registered in the API action matrix. Pydantic response schemas and shared TypeScript contracts/client are wired.
+- Customer, Sales, Supervisor, Company, Principal, Distributor and Super Admin Web routes use the API-backed SmartReward workspace/platform overview. Local mock points/voucher mutations were removed. Native Expo Mobile Sales includes progress, balance/expiration, ledger, eligible catalog, redemption and permission-gated approval/fulfillment actions.
+- Private database broadcasts cover reward lifecycle changes. Web uses the private, server-authorized SSE event stream with replay/deduplication/reconnect; Expo uses private participant Broadcast and scoped SSE for manager roles.
+- Supabase migration ledger: 16/16 Phase 06 migrations applied and reconciled; 13/13 reward tables have RLS; no anon/authenticated table grants; Security Advisor zero lints; Performance Advisor zero unindexed-FK warnings; expiration and outbox-retention cron jobs active.
+- CI evidence: API workflow 114 tests/Ruff/API image build successful; 8/8 portal typecheck/lint/build and Expo typecheck/Android export successful; production container/CSS runtime validation passed for all three portal groups and all eight Web routes. See Phase 06 status document for run IDs.
+- Railway production build configuration for the existing four services is retained. Website, Customer and Company now select the explicit monorepo-root Dockerfiles; API retains `services/api/Dockerfile`. CSS-aware health checks verify grouped routes and static stylesheets. Latest API and portal deployment IDs are still **QUEUED**, not SUCCESS; live services therefore still serve earlier successful commits.
+- Supabase currently has zero reward accounts/ledger rows. Zero balance mismatches over zero accounts is not evidence of populated transaction or concurrency validation. No production load test or authenticated cross-tenant browser session is claimed. SMTP and Google OAuth credentials remain deferred.
+
+**Release gate:** do not mark Phase 06 COMPLETED and do not start Phase 07 until the latest `salesx-api`, `salesx-website`, `salesx-customer`, and `salesx-company` deployments report SUCCESS, their health checks pass, and the remaining populated-data/runtime evidence is closed. Next phase after closure: **Phase 07 — Realtime Location & Route History**.
