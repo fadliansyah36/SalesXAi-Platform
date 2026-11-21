@@ -98,6 +98,7 @@ class AnalyticsService:
         )
         if not artifact:
             raise APIError(404,"analytics_report_not_available","The requested report is unavailable or not authorized.")
+        await self.repository.record_report_access(connection,organization_id,principal.user_id,report_run_id,"signed_url_issued")
         signed=await asyncio.to_thread(self._create_signed_url,artifact["artifact_path"])
         return {"report_run_id":str(report_run_id),"download_url":signed,"expires_in_seconds":60}
 
