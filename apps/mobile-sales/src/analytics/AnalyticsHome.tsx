@@ -56,14 +56,18 @@ export function AnalyticsHome({auth}:{auth:AuthProps}){
   return()=>clearInterval(timer);
  },[api,reports]);
 
+ const visibleMetrics=useMemo(()=>{
+  if(!scopeType)return [];
+  return (data?.metrics??[]).filter(item=>item.scope_type===scopeType&&(scopeType==="tenant"||!scopeId||item.scope_id===scopeId));
+ },[data,scopeType,scopeId]);
  const metrics=useMemo(()=>{
   const map=new Map<string,number>();
-  for(const item of data?.metrics??[])map.set(item.metric_key,(map.get(item.metric_key)??0)+Number(item.metric_value));
+  for(const item of visibleMetrics)map.set(item.metric_key,(map.get(item.metric_key)??0)+Number(item.metric_value));
   return [...map.entries()].map(([key,value])=>({key,value}));
- },[data]);
+ },[visibleMetrics]);
  const chart=useMemo(()=>{
   return ["orders.count","visits.completed"].map(key=>{
-   const points=(data?.metrics??[]).filter(item=>item.metric_key===key).sort((a,b)=>a.period_start.localeCompare(b.period_start));
+   const points=visibleMetrics.filter(item=>item.metric_key===key).sort((a,b)=>a.period_start.localeCompare(b.period_start));
    const max=Math.max(1,...points.map(item=>Number(item.metric_value)));
    return {key,points:points.slice(-10),max};
   }).filter(group=>group.points.length>0);
@@ -134,7 +138,7 @@ export function AnalyticsHome({auth}:{auth:AuthProps}){
    </NativeStack>)}
    <NativeStack gap="2">
     <NativeText weight="semibold">Rincian KPI</NativeText>
-    {(data?.metrics??[]).slice(-8).map((item,index)=><NativeInline key={item.metric_key+item.period_start+index} style={{justifyContent:"space-between",paddingVertical:6,borderBottomWidth:1,borderBottomColor:colors.border}}>
+    {visibleMetrics.slice(-8).map((item,index)=><NativeInline key={item.metric_key+item.period_start+index} style={{justifyContent:"space-between",paddingVertical:6,borderBottomWidth:1,borderBottomColor:colors.border}}>
      <NativeStack gap="1"><NativeText>{item.metric_key}</NativeText><NativeText variant="caption" color={colors.textMuted}>{item.period_start} · {item.scope_type}</NativeText></NativeStack>
      <NativeText weight="bold">{formatValue(Number(item.metric_value))}</NativeText>
     </NativeInline>)}
