@@ -76,7 +76,7 @@ jobs:
           cache-dependency-path: services/api/pyproject.toml
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: 3.2.0
       - name: Create ephemeral local Supabase config
         run: |
           cat > supabase/config.toml <<'EOF'
@@ -118,7 +118,7 @@ jobs:
             exit 1
           }
       - name: Apply the repository migration ledger to local Supabase
-        run: supabase db reset --local
+        run: supabase db reset
       - name: Resolve isolated database URL
         run: |
           DB_URL="$(supabase status -o env | sed -n 's/^DB_URL="\(.*\)"$/\1/p')"
