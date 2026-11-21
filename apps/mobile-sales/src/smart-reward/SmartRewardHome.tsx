@@ -10,8 +10,8 @@ export function SmartRewardHome({auth}:{auth:Auth}){
  const api=useMemo(()=>client&&org?createSmartRewardApi(client,org):null,[client,org]);
  const [balance,setBalance]=useState<RewardBalance|null>(null),[catalog,setCatalog]=useState<RewardCatalogItem[]>([]),[ledger,setLedger]=useState<RewardLedgerEntry[]>([]),[redemptions,setRedemptions]=useState<RewardRedemption[]>([]);
  const [busy,setBusy]=useState(false),[notice,setNotice]=useState(""),[error,setError]=useState("");
- const canRealtime=can("smartreward.ledger.read")||can("smartreward.redemptions.read");
  const can=(id:string)=>auth.canPerformApiAction(id as never);
+ const canRealtime=can("smartreward.ledger.read")||can("smartreward.redemptions.read");
  const refresh=useCallback(async()=>{
   if(!api||auth.status!=="authenticated")return;
   const jobs:Promise<void>[]=[];
