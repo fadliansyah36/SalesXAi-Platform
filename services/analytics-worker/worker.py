@@ -51,6 +51,12 @@ async def run_once() -> int:
                     start_date,
                     end_date,
                 )
+                await connection.fetchval(
+                    "select public.analytics_refresh_period_rollups($1,$2,$3)",
+                    organization["id"],
+                    start_date,
+                    end_date,
+                )
             completed += 1
         logger.info(
             "analytics_refresh_completed",
