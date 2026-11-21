@@ -5,6 +5,8 @@ import type { SQLiteDatabase } from "expo-sqlite";
 import * as SecureStore from "expo-secure-store";
 import type { SalesXApiClient } from "@salesx-ai/api-client";
 import { createLocationApi } from "@salesx-ai/api-client";
+import { isValidMapCoordinate } from "../../../../packages/maps/src";
+import type { MapPolyline } from "../../../../packages/maps/src";
 
 export const LOCATION_TASK_NAME="salesx-location-background-v1";
 const DB_NAME="salesx-location-outbox.db";
@@ -91,6 +93,27 @@ TaskManager.defineTask(LOCATION_TASK_NAME,async({data,error})=>{
  const locations=(data as {locations?:Location.LocationObject[]}|undefined)?.locations??[];
  await storeLocations(locations);
 });
+export async function getLocalLocationRoute(organizationId:string,actorUserId:string):Promise<MapPolyline[]>{
+ const db=await database();
+ const latest=await db.getAllAsync<{session_id:string}>(
+  "SELECT session_id FROM location_outbox WHERE organization_id=? AND actor_user_id=? AND session_id IS NOT NULL ORDER BY created_at DESC LIMIT 1",
+  organizationId,actorUserId
+ );
+ const sessionId=latest[0]?.session_id;
+ if(!sessionId)return [];
+ const rows=await db.getAllAsync<{payload:string}>(
+  "SELECT payload FROM location_outbox WHERE organization_id=? AND actor_user_id=? AND session_id=? ORDER BY created_at ASC LIMIT 1000",
+  organizationId,actorUserId,sessionId
+ );
+ const coordinates=rows.flatMap(row=>{
+  try{
+   const point=JSON.parse(row.payload) as {latitude?:number;longitude?:number};
+   const coordinate={lat:Number(point.latitude),lng:Number(point.longitude)};
+   return isValidMapCoordinate(coordinate)?[coordinate]:[];
+  }catch{return [];}
+ });
+ return coordinates.length>1?[{id:sessionId,coordinates}]:[];
+}
 export async function ensureLocationDeviceId(){
  const key=DEVICE_KEY;let value=await SecureStore.getItemAsync(key);
  if(!value){value="salesx-"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,12);await SecureStore.setItemAsync(key,value);}
