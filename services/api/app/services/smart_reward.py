@@ -69,10 +69,14 @@ class SmartRewardService:
     available=None if item["quantity_total"] is None else max(0,int(item["quantity_total"])-int(item["quantity_reserved"])-int(item["quantity_fulfilled"]))
     if reason is None and available is not None and available<=0: reason="out_of_stock"
     if reason is None and item["program_id"] is not None:
-     program=await db.fetchrow("select audience,status,starts_at,ends_at,now() db_now from public.reward_programs where organization_id=$1 and id=$2",org,item["program_id"])
+     program=await db.fetchrow("select audience,customer_segment_id,status,starts_at,ends_at,now() db_now from public.reward_programs where organization_id=$1 and id=$2",org,item["program_id"])
      if not program or program["status"]!="active" or program["starts_at"]>program["db_now"] or program["ends_at"]<=program["db_now"]:
       reason="reward_program_inactive"
      else: program_audience=program["audience"] or {}
+    required_segment=item.get("customer_segment_id") or (program["customer_segment_id"] if item["program_id"] is not None and program else None)
+    if reason is None and required_segment is not None:
+     in_segment=await db.fetchval("select exists(select 1 from public.reward_customer_segment_members sm join public.reward_customer_segments sg on sg.organization_id=sm.organization_id and sg.id=sm.segment_id where sm.organization_id=$1 and sm.segment_id=$2 and sm.participant_user_id=$3 and sm.status='active' and (sm.expires_at is null or sm.expires_at>now()) and sg.status='active' and (sg.starts_at is null or sg.starts_at<=now()) and (sg.ends_at is null or sg.ends_at>now()))",org,required_segment,actor)
+     if not in_segment: reason="customer_segment_required"
     allowed_roles=set(elig.get("roles",[]))|set(program_audience.get("roles",[]))
     allowed_branches=set(elig.get("branch_ids",[]))|set(program_audience.get("branch_ids",[]))
     allowed_users=set(elig.get("user_ids",[]))|set(program_audience.get("user_ids",[]))
@@ -205,7 +209,7 @@ class SmartRewardService:
   async with db.transaction():
    old=await db.fetchrow("select * from public.reward_points_ledger where organization_id=$1 and participant_user_id=$2 and idempotency_key=$3",org,p.participant_user_id,p.idempotency_key)
    if old:return dict(old)
-   program=await db.fetchrow("select audience,configuration,status,starts_at,ends_at,now() db_now from public.reward_programs where organization_id=$1 and id=$2 for share",org,p.program_id)
+   program=await db.fetchrow("select audience,configuration,customer_segment_id,status,starts_at,ends_at,now() db_now from public.reward_programs where organization_id=$1 and id=$2 for share",org,p.program_id)
    if not program or program["status"]!="active" or program["starts_at"]>program["db_now"] or program["ends_at"]<=program["db_now"]: raise APIError(409,"reward_program_inactive","Program is not active.")
    rule=await db.fetchrow("select * from public.reward_incentive_rules where organization_id=$1 and id=$2 and program_id=$3 and status='active' for update",org,p.rule_id,p.program_id)
    if not rule: raise APIError(404,"reward_rule_not_found","Active rule not found.")
@@ -213,6 +217,10 @@ class SmartRewardService:
    if not membership: raise APIError(422,"reward_participant_not_member","Participant must be an active organization member.")
    roles=await db.fetch("select r.key from public.user_role_assignments ura join public.roles r on r.id=ura.role_id join public.organization_memberships m on m.id=ura.membership_id where m.organization_id=$1 and m.user_id=$2 and m.status='active' and ura.revoked_at is null and ura.starts_at<=now() and (ura.expires_at is null or ura.expires_at>now())",org,p.participant_user_id)
    role_keys={x["key"] for x in roles}; audience=program["audience"] or {}; cfg=rule["rule_config"] or {}
+   required_segment=rule["customer_segment_id"] or program["customer_segment_id"]
+   if required_segment is not None:
+    in_segment=await db.fetchval("select exists(select 1 from public.reward_customer_segment_members sm join public.reward_customer_segments sg on sg.organization_id=sm.organization_id and sg.id=sm.segment_id where sm.organization_id=$1 and sm.segment_id=$2 and sm.participant_user_id=$3 and sm.status='active' and (sm.expires_at is null or sm.expires_at>now()) and sg.status='active' and (sg.starts_at is null or sg.starts_at<=now()) and (sg.ends_at is null or sg.ends_at>now()))",org,required_segment,p.participant_user_id)
+    if not in_segment: raise APIError(403,"reward_customer_segment_required","Participant is not an active member of the required customer segment.")
    allowed_roles=set(audience.get("roles",[]))|set(cfg.get("eligible_roles",[]))
    allowed_users=set(audience.get("user_ids",[])); allowed_branches=set(audience.get("branch_ids",[]))|set(cfg.get("eligible_branch_ids",[]))
    if allowed_roles and not role_keys.intersection(allowed_roles): raise APIError(403,"reward_role_ineligible","Participant role is outside the program audience.")
@@ -250,6 +258,9 @@ class SmartRewardService:
    item=await db.fetchrow("select * from public.reward_catalog_items where organization_id=$1 and id=$2 and status='active' and (starts_at is null or starts_at<=now()) and (ends_at is null or ends_at>now()) for update",org,p.catalog_item_id)
    if not item:raise APIError(404,"reward_item_unavailable","Reward item is unavailable.")
    elig=item["eligibility"] or {}
+   if item["customer_segment_id"] is not None:
+    in_segment=await db.fetchval("select exists(select 1 from public.reward_customer_segment_members sm join public.reward_customer_segments sg on sg.organization_id=sm.organization_id and sg.id=sm.segment_id where sm.organization_id=$1 and sm.segment_id=$2 and sm.participant_user_id=$3 and sm.status='active' and (sm.expires_at is null or sm.expires_at>now()) and sg.status='active' and (sg.starts_at is null or sg.starts_at<=now()) and (sg.ends_at is null or sg.ends_at>now()))",org,item["customer_segment_id"],actor)
+    if not in_segment: raise APIError(403,"reward_customer_segment_required","Participant is not an active member of the required customer segment.")
    if elig.get("minimum_balance") and b<int(elig["minimum_balance"]):raise APIError(403,"reward_eligibility_denied","Minimum balance is not met.")
    member=await db.fetchrow("select branch_id from public.organization_memberships where organization_id=$1 and user_id=$2 and status='active'",org,actor)
    if not member: raise APIError(422,"reward_participant_not_member","Participant must be an active organization member.")
