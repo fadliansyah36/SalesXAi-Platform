@@ -38,11 +38,13 @@ async def analytics_dashboard(
     period_start:date=Query(...),
     period_end:date=Query(...),
     grain:Literal["day","week","month"]="day",
+    scope_type:Literal["tenant","branch","team","territory","user"]|None=None,
+    scope_id:UUID|None=None,
     principal:Principal=Depends(get_current_principal),
     tenant:TenantContext=Depends(require_api_action("analytics.dashboard.read")),
     connection:asyncpg.Connection=Depends(get_connection),
 ):
-    return await analytics_service.dashboard(connection,organization_id,tenant,principal,period_start,period_end,grain)
+    return await analytics_service.dashboard(connection,organization_id,tenant,principal,period_start,period_end,grain,scope_type,scope_id)
 
 
 @router.get("/{organization_id}/analytics/reports")
