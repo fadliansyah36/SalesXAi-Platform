@@ -31,9 +31,7 @@ export function SmartRewardWorkspace(){
  useEffect(()=>{void refresh();},[refresh]);
  useEffect(()=>{
   if(!client||!org||auth.status!=="authenticated"||!canRealtime)return;
-  const url=process.env.NEXT_PUBLIC_SUPABASE_URL??"",key=process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY??"";
-  if(!url||!key)return;
-  return client.subscribeSmartRewardBroadcast(org,url,key,()=>void refresh(),()=>void refresh());
+  return client.subscribeSmartRewardEvents(org,()=>void refresh(),()=>void refresh());
  },[client,org,auth.status,canRealtime,refresh]);
  const run=async(fn:()=>Promise<unknown>,message:string)=>{setBusy(true);setError("");setNotice("");try{await fn();setNotice(message);await refresh();}catch(e){setError(e instanceof Error?e.message:"Permintaan SmartReward gagal.");}finally{setBusy(false);}};
  const tabs:Tab[]=["overview","catalog","history",...(can("smartreward.programs.read")?["programs" as const]:[]),...(can("smartreward.reports.read")?["reports" as const]:[]),...(canApprovalRead?["approvals" as const]:[])];
