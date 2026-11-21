@@ -7,7 +7,7 @@ import {ensureLocationDeviceId,flushLocationOutbox,getLocalLocationRoute,startLo
 import {LocationMap} from "./LocationMap";
 import type {MapCoordinate,MapPolyline} from "../../../../packages/maps/src";
 
-export function LocationTrackingControl({api,organizationId,accessToken,actorUserId,shiftId}:{api:SalesXApiClient|null;organizationId:string|null;accessToken:string|null;actorUserId:string|null;shiftId?:string|null}){
+export function LocationTrackingControl({api,organizationId,accessToken,actorUserId,shiftId,shiftContextReady}:{api:SalesXApiClient|null;organizationId:string|null;accessToken:string|null;actorUserId:string|null;shiftId:string|null;shiftContextReady:boolean}){
  const {colors}=useNativeTheme();const stopRequested=useRef(false);const [consent,setConsent]=useState(false);const [active,setActive]=useState(false);const [busy,setBusy]=useState(false);const [notice,setNotice]=useState("");const [currentCoordinate,setCurrentCoordinate]=useState<MapCoordinate|null>(null);const [currentRoute,setCurrentRoute]=useState<MapPolyline[]>([]);
  useEffect(()=>{void (async()=>{setActive(await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK_NAME));})();},[]);
  useEffect(()=>{
