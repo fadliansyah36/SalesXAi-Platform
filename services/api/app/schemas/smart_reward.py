@@ -18,6 +18,16 @@ class RewardProgramWrite(BaseModel):
   if a.tzinfo is None or b.tzinfo is None or b<=a: raise ValueError("Timezone-aware period with ends_at after starts_at is required")
   return self
 
+class RewardProgramPatch(BaseModel):
+ model_config=ConfigDict(extra="forbid")
+ code:str|None=None; name:str|None=None; description:str|None=None
+ program_type:Literal["loyalty","incentive","campaign"]|None=None
+ reward_type:Literal["points","tier","voucher"]|None=None
+ starts_at:str|None=None; ends_at:str|None=None
+ status:Literal["draft","active","paused","completed","archived"]|None=None
+ audience:dict[str,Any]|None=None; configuration:dict[str,Any]|None=None
+ customer_segment_id:UUID|None=None
+
 class RewardRuleWrite(BaseModel):
  model_config=ConfigDict(extra="forbid")
  code:str=Field(min_length=2,max_length=60); name:str=Field(min_length=2,max_length=180)
@@ -27,6 +37,18 @@ class RewardRuleWrite(BaseModel):
  fixed_points:int=Field(default=0,ge=0,le=1000000000); max_points:int|None=Field(default=None,ge=0)
  requires_approval:bool=False; status:Literal["active","inactive","archived"]="active"; customer_segment_id:UUID|None=None
 
+class RewardRulePatch(BaseModel):
+ model_config=ConfigDict(extra="forbid")
+ code:str|None=None; name:str|None=None
+ event_key:Literal["order.completed","visit.completed","target.achieved","manual.approved"]|None=None
+ priority:int|None=Field(default=None,ge=0,le=10000)
+ rule_config:dict[str,Any]|None=None
+ points_per_unit:Decimal|None=Field(default=None,ge=0,max_digits=18,decimal_places=4)
+ fixed_points:int|None=Field(default=None,ge=0,le=1000000000)
+ max_points:int|None=None; requires_approval:bool|None=None
+ status:Literal["active","inactive","archived"]|None=None
+ customer_segment_id:UUID|None=None
+
 class RewardCatalogWrite(BaseModel):
  model_config=ConfigDict(extra="forbid")
  program_id:UUID|None=None; code:str=Field(min_length=2,max_length=60); name:str=Field(min_length=2,max_length=180)
@@ -34,6 +56,17 @@ class RewardCatalogWrite(BaseModel):
  quantity_total:int|None=Field(default=None,ge=0); starts_at:str|None=None; ends_at:str|None=None
  eligibility:dict[str,Any]=Field(default_factory=dict); metadata:dict[str,Any]=Field(default_factory=dict); customer_segment_id:UUID|None=None
  status:Literal["draft","active","paused","out_of_stock","archived"]="draft"
+
+class RewardCatalogPatch(BaseModel):
+ model_config=ConfigDict(extra="forbid")
+ program_id:UUID|None=None; code:str|None=None; name:str|None=None
+ description:str|None=None; category:str|None=None
+ points_cost:int|None=Field(default=None,gt=0,le=1000000000)
+ quantity_total:int|None=Field(default=None,ge=0)
+ starts_at:str|None=None; ends_at:str|None=None
+ eligibility:dict[str,Any]|None=None; metadata:dict[str,Any]|None=None
+ customer_segment_id:UUID|None=None
+ status:Literal["draft","active","paused","out_of_stock","archived"]|None=None
 
 class RewardEarnWrite(BaseModel):
  model_config=ConfigDict(extra="forbid")
