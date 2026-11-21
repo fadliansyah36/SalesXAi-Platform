@@ -346,7 +346,7 @@ export interface RewardApprovalRequest {
  participant_user_id:UUID;program_id:UUID|null;rule_id:UUID|null;source_type:string|null;source_id:UUID|null;
  points_requested:number;metric_value:string|number;requested_by:UUID;idempotency_key:string;
  status:"pending"|"approved"|"rejected"|"cancelled";request_reason:string;decision_reason:string|null;
- decided_by:UUID|null;decided_at:ISODateTime|null;ledger_entry_id:UUID|null;created_at:ISODateTime;updated_at:ISODateTime;
+ decided_by:UUID|null;decided_at:ISODateTime|null;ledger_entry_id:UUID|null;history?:RewardApprovalHistory[];created_at:ISODateTime;updated_at:ISODateTime;
 }
 export interface RewardApprovalWrite {
  request_type:"manual_earning"|"rule_earning";participant_user_id:UUID;program_id:UUID;rule_id:UUID;
