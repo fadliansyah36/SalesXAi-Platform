@@ -205,3 +205,15 @@ The latest main commit 823072c is a test-only follow-up in `services/api/tests/t
 - Supabase confirms 17 Phase 06 migrations including customer segments; Security Advisor returned zero lints. Customer segment tables and permission keys exist. Production reward and segment row counts remain zero.
 
 **Phase 06 remains IN_PROGRESS; Phase 07 remains LOCKED.**
+
+
+## Final continuation checkpoint — 2026-11-21
+
+- Final API source after the latest segment eligibility correction: `53f81413b03b3960a31c453ae50ee358d0bc41b1`.
+- Latest portal UI source: `b2dd365e930c8c5216402bbda0ef36484e9e7889` (the later API-only correction does not change portal files).
+- Latest Railway API deployment: `ef89372c-0dba-4f9e-b45d-245a803e41cd`, source `53f81413`, status QUEUED. Latest portal deployments remain queued on source `b2dd365e`: Website `e790cd63-0959-436e-bad1-b7c3fc7b8e3b`, Customer `64cf1a75-4f25-4cc6-801a-b1e1d6a6afcf`, Company `bb8eb2ee-1549-49bd-8562-4cacbfba104d`. No latest-source deployment success is claimed.
+- Existing successful production deployments from earlier commits remain live until these queued releases settle. Railway environment currently reports the four required services in DEPLOYING state.
+- Current code has not yet been validated by a fresh API/portal/Expo CI run after the Customer Segment additions. Previous 115 API tests and 8/8 portal/Expo build results are historical baseline evidence only.
+- No production reward account, ledger, redemption, lot, approval or segment fixture was created. Populated-ledger evidence, concurrency, cross-tenant and private Realtime session tests remain open. Do not seed fake production data or use a real user account.
+
+**Phase 06 remains IN_PROGRESS; Phase 07 remains LOCKED.**
