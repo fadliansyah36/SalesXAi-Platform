@@ -25,6 +25,7 @@ export function SmartRewardWorkspace(){
   setLoading(false);
  },[api,auth.status,auth.contextEpoch,auth.activeOrganizationId,auth.context]);
  useEffect(()=>{void refresh();},[refresh]);
+ useEffect(()=>{\n  if(!client||!org||auth.status!=="authenticated"||!canRealtime)return;\n  const url=process.env.NEXT_PUBLIC_SUPABASE_URL??"",key=process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY??"";\n  if(!url||!key)return;\n  return client.subscribeSmartRewardBroadcast(org,url,key,()=>void refresh(),()=>void refresh());\n },[client,org,auth.status,canRealtime,refresh]);
  const run=async(fn:()=>Promise<unknown>,message:string)=>{setBusy(true);setError("");setNotice("");try{await fn();setNotice(message);await refresh();}catch(e){setError(e instanceof Error?e.message:"Permintaan SmartReward gagal.");}finally{setBusy(false);}};
  const tabs:Tab[]=["overview","catalog","history",...(can("smartreward.programs.read")?["programs" as const]:[]),...(can("smartreward.reports.read")?["reports" as const]:[])];
  if(!org)return <section className="rounded-2xl border p-6"><h1 className="text-xl font-semibold">SmartReward</h1><p className="mt-2 text-sm text-slate-500">Pilih organisasi aktif untuk memuat reward.</p></section>;
