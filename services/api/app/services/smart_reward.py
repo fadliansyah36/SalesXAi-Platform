@@ -158,8 +158,22 @@ class SmartRewardService:
    await db.execute("insert into public.reward_redemption_history(organization_id,redemption_id,to_status,actor_user_id,metadata) values($1,$2,'requested',$3,$4::jsonb)",org,red["id"],actor,json.dumps({"ledger_id":str(led["id"])}))
    await self._audit(db,org,actor,"redemption.requested","reward_redemption",red["id"],meta={"points":cost}); return dict(red)
  async def redemptions(self,db,org,user,page,size):
-  total=await db.fetchval("select count(*) from public.reward_redemptions where organization_id=$1 and participant_user_id=$2",org,user)
-  rows=await db.fetch("select r.*,c.code catalog_code,c.name catalog_name,c.category from public.reward_redemptions r join public.reward_catalog_items c on c.organization_id=r.organization_id and c.id=r.catalog_item_id where r.organization_id=$1 and r.participant_user_id=$2 order by r.requested_at desc limit $3 offset $4",org,user,size,(page-1)*size)
+  scopes=await db.fetch("""select r.key role_key,ura.scope_type,ura.scope_id from public.organization_memberships m
+   join public.user_role_assignments ura on ura.membership_id=m.id join public.roles r on r.id=ura.role_id
+   where m.organization_id=$1 and m.user_id=$2 and m.status='active' and ura.revoked_at is null
+    and ura.starts_at<=now() and (ura.expires_at is null or ura.expires_at>now())""",org,user)
+  roles={x["role_key"] for x in scopes}
+  if roles.intersection({"tenant_owner","company_admin","principal_user"}):
+   where="organization_id=$1";args=[org]
+  elif "supervisor" in roles:
+   branches=[x["scope_id"] for x in scopes if x["role_key"]=="supervisor" and x["scope_type"]=="branch"]
+   if branches:
+    where="organization_id=$1 and participant_user_id in (select user_id from public.organization_memberships where organization_id=$1 and branch_id=any($2::uuid[]))";args=[org,branches]
+   else: where="organization_id=$1 and participant_user_id=$2";args=[org,user]
+  else:
+   where="organization_id=$1 and participant_user_id=$2";args=[org,user]
+  total=await db.fetchval("select count(*) from public.reward_redemptions where "+where,*args)
+  rows=await db.fetch("select r.*,c.code catalog_code,c.name catalog_name,c.category from public.reward_redemptions r join public.reward_catalog_items c on c.organization_id=r.organization_id and c.id=r.catalog_item_id where "+where+" order by r.requested_at desc limit $"+str(len(args)+1)+" offset $"+str(len(args)+2),*args,size,(page-1)*size)
   return {"items":[dict(r) for r in rows],"page":page,"page_size":size,"total":total}
  async def _refund(self,db,org,actor,row,reason,key):
   original=await db.fetchrow("select * from public.reward_points_ledger where organization_id=$1 and reference_type='redemption' and reference_id=$2 and entry_type='redemption' for update",org,row["id"])
@@ -172,7 +186,18 @@ class SmartRewardService:
  async def decide_redemption(self,db,org,actor,rid,p):
   async with db.transaction():
    row=await db.fetchrow("select * from public.reward_redemptions where organization_id=$1 and id=$2 for update",org,rid)
-   if not row or row["status"]!="requested":raise APIError(409,"reward_redemption_transition_invalid","Only requested redemption can be decided.")
+   if not row: raise APIError(404,"reward_redemption_not_found","Redemption not found.")
+   scopes=await db.fetch("""select r.key role_key,ura.scope_type,ura.scope_id from public.organization_memberships m
+    join public.user_role_assignments ura on ura.membership_id=m.id join public.roles r on r.id=ura.role_id
+    where m.organization_id=$1 and m.user_id=$2 and m.status='active' and ura.revoked_at is null
+     and ura.starts_at<=now() and (ura.expires_at is null or ura.expires_at>now())""",org,actor)
+   roles={x["role_key"] for x in scopes}
+   if not roles.intersection({"tenant_owner","company_admin","supervisor","principal_user"}): raise APIError(403,"reward_redemption_decision_forbidden","Redemption approver role is required.")
+   if "supervisor" in roles and not roles.intersection({"tenant_owner","company_admin","principal_user"}):
+    branches={x["scope_id"] for x in scopes if x["role_key"]=="supervisor" and x["scope_type"]=="branch"}
+    participant_branch=await db.fetchval("select branch_id from public.organization_memberships where organization_id=$1 and user_id=$2 and status='active'",org,row["participant_user_id"])
+    if participant_branch not in branches: raise APIError(403,"reward_redemption_scope_forbidden","Redemption is outside the supervisor branch scope.")
+   if row["status"]!="requested":raise APIError(409,"reward_redemption_transition_invalid","Only requested redemption can be decided.")
    if p.decision=="rejected":
     await self._refund(db,org,actor,row,p.reason or "Rejected","reject:"+str(rid))
     await db.execute("update public.reward_catalog_items set quantity_reserved=quantity_reserved-$3 where organization_id=$1 and id=$2",org,row["catalog_item_id"],row["quantity"])
