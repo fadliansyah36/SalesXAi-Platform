@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
+import { usePortalRouteGuard } from '@/components/auth/usePortalRouteGuard';
 import Link from 'next/link';
 import {
   Home,
@@ -117,6 +118,7 @@ export type DistributorTab =
 
 export function DistributorPortalApp() {
   const auth = useSalesXAuth();
+  usePortalRouteGuard("distributor");
   const { theme, toggleTheme } = useTheme();
 
   // Auth state
