@@ -59,6 +59,12 @@ export function AnalyticsWorkspace({compact=false}:{compact?:boolean}){
   for(const item of visibleMetrics)latest.set(item.metric_key,(latest.get(item.metric_key)??0)+Number(item.metric_value));
   return [...latest.entries()].map(([key,value])=>({key,value}));
  },[visibleMetrics]);
+ const chartGroups=useMemo(()=>["orders.count","orders.gross_value","visits.completed","visits.productive"].map(key=>{
+  const byPeriod=new Map<string,number>();
+  for(const item of visibleMetrics)if(item.metric_key===key)byPeriod.set(item.period_start,(byPeriod.get(item.period_start)??0)+Number(item.metric_value));
+  const points=[...byPeriod.entries()].sort(([a],[b])=>a.localeCompare(b)).slice(-14);
+  return {key,points,max:Math.max(1,...points.map(([,value])=>value))};
+ }).filter(group=>group.points.length>0),[visibleMetrics]);
 
  const requestExport=async()=>{
   if(!api)return;
@@ -113,6 +119,17 @@ export function AnalyticsWorkspace({compact=false}:{compact?:boolean}){
    </div>)}
    {!loading&&latestMetrics.length===0&&<p className="col-span-full rounded-xl border border-dashed border-[var(--color-border)] p-4 text-xs text-[var(--color-text-muted)]">Belum ada snapshot untuk periode dan cakupan ini. Worker refresh akan mengisi data setelah sumber transaksi tersedia.</p>}
   </div>
+  {chartGroups.length>0&&<div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+   {chartGroups.map(group=><div key={group.key} className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-3">
+    <div className="mb-3 flex items-center justify-between"><h3 className="text-xs font-bold text-[var(--color-text-primary)]">{group.key}</h3><span className="text-[10px] text-[var(--color-text-muted)]">{group.points.length} periode terakhir</span></div>
+    <div role="img" aria-label={`Grafik ${group.key} untuk ${group.points.length} periode`} className="flex h-28 items-end gap-1 border-b border-[var(--color-border)] pb-1">
+     {group.points.map(([period,value])=><div key={period} className="flex h-full min-w-0 flex-1 flex-col justify-end" title={period+": "+numberValue(value)}>
+      <div className="w-full rounded-t bg-[#348CB2]" style={{height:`${Math.max(3,(value/group.max)*100)}%`}} />
+     </div>)}
+    </div>
+    <div className="mt-2 flex justify-between text-[9px] text-[var(--color-text-muted)]"><span>{group.points[0]?.[0]}</span><span>{group.points.at(-1)?.[0]}</span></div>
+   </div>)}
+  </div>}
   <div className="overflow-x-auto rounded-xl border border-[var(--color-border)]">
    <table className="w-full min-w-[720px] text-left text-xs">
     <thead className="bg-[var(--color-surface-muted)] text-[var(--color-text-secondary)]"><tr><th className="p-3">Metric</th><th className="p-3">Periode</th><th className="p-3">Scope</th><th className="p-3 text-right">Nilai</th><th className="p-3">Calculated</th></tr></thead>
