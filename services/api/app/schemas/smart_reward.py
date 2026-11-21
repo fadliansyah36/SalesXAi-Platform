@@ -47,7 +47,7 @@ class RewardRedemptionWrite(BaseModel):
 
 class RewardRedemptionDecision(BaseModel):
  model_config=ConfigDict(extra="forbid")
- decision:Literal["approved","rejected"]; reason:str|None=Field(default=None,min_length=3,max_length=1000)
+ decision:Literal["approved","rejected"]; reason:str=Field(min_length=5,max_length=1000)
 
 class RewardFulfillmentWrite(BaseModel):
  model_config=ConfigDict(extra="forbid")
