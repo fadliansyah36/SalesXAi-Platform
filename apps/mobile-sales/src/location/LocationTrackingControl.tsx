@@ -1,15 +1,37 @@
-import React,{useEffect,useState} from "react";
+import React,{useEffect,useRef,useState} from "react";
 import {AppState,Pressable} from "react-native";
 import * as Location from "expo-location";
 import type {SalesXApiClient} from "@salesx-ai/api-client";
 import {NativeInline,NativeStack,NativeSurface,NativeText,useNativeTheme} from "@salesx-ai/design-system/native";
-import {ensureLocationDeviceId,flushLocationOutbox,getLocalLocationRoute,startLocationTracking,stopLocationTracking,syncLocationAccessToken,syncPendingLocationStop,LOCATION_TASK_NAME} from "./locationTracking";
+import {ensureLocationDeviceId,flushLocationOutbox,getLocalLocationRoute,startLocationTracking,stopLocationTracking,syncLocationAccessToken,syncPendingLocationStop,getStoredLocationShiftId,LOCATION_TASK_NAME} from "./locationTracking";
 import {LocationMap} from "./LocationMap";
 import type {MapCoordinate,MapPolyline} from "../../../../packages/maps/src";
 
 export function LocationTrackingControl({api,organizationId,accessToken,actorUserId,shiftId}:{api:SalesXApiClient|null;organizationId:string|null;accessToken:string|null;actorUserId:string|null;shiftId?:string|null}){
- const {colors}=useNativeTheme();const [consent,setConsent]=useState(false);const [active,setActive]=useState(false);const [busy,setBusy]=useState(false);const [notice,setNotice]=useState("");const [currentCoordinate,setCurrentCoordinate]=useState<MapCoordinate|null>(null);const [currentRoute,setCurrentRoute]=useState<MapPolyline[]>([]);
+ const {colors}=useNativeTheme();const previousShiftId=useRef<string|null>(null);const [consent,setConsent]=useState(false);const [active,setActive]=useState(false);const [busy,setBusy]=useState(false);const [notice,setNotice]=useState("");const [currentCoordinate,setCurrentCoordinate]=useState<MapCoordinate|null>(null);const [currentRoute,setCurrentRoute]=useState<MapPolyline[]>([]);
  useEffect(()=>{void (async()=>{setActive(await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK_NAME));})();},[]);
+ useEffect(()=>{
+  const previous=previousShiftId.current;
+  previousShiftId.current=shiftId;
+  if(previous&&!shiftId&&active&&api&&organizationId){
+   setBusy(true);
+   void stopLocationTracking(api,organizationId).catch(error=>{
+    setNotice(error instanceof Error?error.message:"Shift berakhir; penghentian tracking menunggu sinkronisasi.");
+   }).finally(()=>{setActive(false);setConsent(false);setBusy(false);});
+  }
+ },[active,api,organizationId,shiftId]);
+ useEffect(()=>{
+  if(!shiftContextReady||!active||!api||!organizationId||!shiftId)return;
+  void getStoredLocationShiftId().then(stored=>{
+   if(stored&&stored!==shiftId){
+    setBusy(true);
+    return stopLocationTracking(api,organizationId).catch(error=>{
+     setNotice(error instanceof Error?error.message:"Sesi lokasi tidak cocok dengan shift aktif dan menunggu sinkronisasi.");
+    }).finally(()=>{setActive(false);setConsent(false);setBusy(false);});
+   }
+  });
+ },[active,api,organizationId,shiftContextReady,shiftId]);
+
  useEffect(()=>{
   if(!active){setCurrentCoordinate(null);return;}
   let mounted=true;
@@ -34,6 +56,7 @@ export function LocationTrackingControl({api,organizationId,accessToken,actorUse
  },[api,organizationId]);
  const toggle=async()=>{
   if(!api||!organizationId||!accessToken||!actorUserId)return;
+  if(!active&&!shiftId){setNotice("Mulai shift kerja terlebih dahulu sebelum mengaktifkan pelacakan lokasi.");return;}
   setBusy(true);setNotice("");
   try{
    if(active){await stopLocationTracking(api,organizationId);setActive(false);setConsent(false);setNotice("Pelacakan dihentikan. Data tertunda akan disinkronkan saat jaringan tersedia.");}
@@ -52,12 +75,12 @@ export function LocationTrackingControl({api,organizationId,accessToken,actorUse
     <NativeText variant="title" weight="semibold">Pelacakan lokasi kerja</NativeText>
     <NativeText variant="caption" color={active?colors.success:colors.textSecondary}>{active?"AKTIF":"NONAKTIF"}</NativeText>
    </NativeInline>
-   <NativeText color={colors.textSecondary}>Lokasi GPS hanya dikumpulkan setelah Anda menyetujui dan memberikan izin perangkat. Data disimpan sementara secara lokal ketika offline dan dikirim ke FastAPI saat koneksi tersedia.</NativeText>
+   <NativeText color={colors.textSecondary}>Lokasi GPS hanya dikumpulkan setelah persetujuan dan izin perangkat, terikat pada shift kerja aktif. Tracking berhenti saat shift berakhir; data offline disinkronkan melalui FastAPI saat jaringan tersedia.</NativeText>
    <LocationMap center={currentCoordinate??currentRoute[0]?.coordinates[currentRoute[0].coordinates.length-1]??null} routes={currentRoute} />
    {!active&&<Pressable onPress={()=>setConsent(v=>!v)} style={{padding:12,borderRadius:12,borderWidth:1,borderColor:consent?colors.primary:colors.border}}>
     <NativeText color={consent?colors.primary:colors.textPrimary}> {consent?"✓ ":"□ "}Saya menyetujui pelacakan lokasi selama sesi kerja dan memahami bahwa saya dapat menghentikannya.</NativeText>
    </Pressable>}
-   <Pressable disabled={busy||!api||!organizationId||!accessToken||!actorUserId||(!active&&!consent)} onPress={()=>void toggle()} style={{padding:14,borderRadius:12,backgroundColor:active?colors.surfaceMuted:colors.primarySubtle,borderWidth:active?1:0,borderColor:colors.border,opacity:busy?0.6:1}}>
+   <Pressable disabled={busy||!api||!organizationId||!accessToken||!actorUserId||(!active&&(!consent||!shiftContextReady||!shiftId))} onPress={()=>void toggle()} style={{padding:14,borderRadius:12,backgroundColor:active?colors.surfaceMuted:colors.primarySubtle,borderWidth:active?1:0,borderColor:colors.border,opacity:busy?0.6:1}}>
     <NativeText weight="semibold" color={colors.textPrimary}>{busy?"Memproses…":active?"Hentikan pelacakan":"Mulai pelacakan lokasi"}</NativeText>
    </Pressable>
    {!!notice&&<NativeText variant="caption" color={colors.textSecondary}>{notice}</NativeText>}
