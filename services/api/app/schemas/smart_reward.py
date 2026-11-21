@@ -184,3 +184,62 @@ class RewardProgressItemResponse(BaseModel):
 class RewardProgressResponse(BaseModel):
  model_config=ConfigDict(extra="allow")
  organization_id:UUID; participant_user_id:UUID; items:list[RewardProgressItemResponse]
+
+
+class RewardCustomerSegmentCriteria(BaseModel):
+ model_config=ConfigDict(extra="forbid")
+ roles:list[str]=Field(default_factory=list,max_length=50)
+ branch_ids:list[UUID]=Field(default_factory=list,max_length=500)
+ user_ids:list[UUID]=Field(default_factory=list,max_length=500)
+ minimum_points_balance:int=Field(default=0,ge=0,le=1000000000)
+
+class RewardCustomerSegmentWrite(BaseModel):
+ model_config=ConfigDict(extra="forbid")
+ code:str=Field(min_length=2,max_length=60)
+ name:str=Field(min_length=2,max_length=180)
+ description:str|None=None
+ status:Literal["draft","active","paused","archived"]="draft"
+ membership_mode:Literal["manual","rule_based","hybrid"]="hybrid"
+ criteria:RewardCustomerSegmentCriteria=Field(default_factory=RewardCustomerSegmentCriteria)
+ starts_at:datetime|None=None
+ ends_at:datetime|None=None
+ @model_validator(mode="after")
+ def validate_period(self):
+  if self.starts_at and self.ends_at and self.ends_at<=self.starts_at:
+   raise ValueError("ends_at must be after starts_at")
+  return self
+
+class RewardCustomerSegmentMemberWrite(BaseModel):
+ model_config=ConfigDict(extra="forbid")
+ participant_user_id:UUID
+ expires_at:datetime|None=None
+
+class RewardCustomerSegmentResponse(BaseModel):
+ model_config=ConfigDict(extra="allow")
+ id:UUID
+ organization_id:UUID
+ code:str
+ name:str
+ description:str|None=None
+ status:str
+ membership_mode:str
+ criteria:dict[str,Any]
+ starts_at:datetime|None=None
+ ends_at:datetime|None=None
+ created_by:UUID
+ updated_by:UUID
+ created_at:datetime
+ updated_at:datetime
+
+class RewardCustomerSegmentMemberResponse(BaseModel):
+ model_config=ConfigDict(extra="allow")
+ id:UUID
+ organization_id:UUID
+ segment_id:UUID
+ participant_user_id:UUID
+ membership_source:str
+ status:str
+ matched_criteria:dict[str,Any]
+ joined_at:datetime
+ expires_at:datetime|None=None
+ updated_at:datetime
