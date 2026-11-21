@@ -13,13 +13,13 @@ Supabase project ref: eyofuiyxalbehbqoaeny
 | Phase 02 — Identity, Tenant & Authorization Foundation | COMPLETED |
 | Phase 03 — Master Data Foundation | COMPLETED |
 | Phase 04 — SmartTeam Operations | COMPLETED — closure addendum supersedes historical entries below |
-| Phase 05 — SmartOrder | IN_PROGRESS — implementation substantially integrated; final latest-commit CI and Railway rollout verification remain |
+| Phase 05 — SmartOrder | COMPLETED — closure evidence recorded 2026-11-21; Phase 06 remains LOCKED pending explicit next-phase instruction |
 
 **Migration ledger:** 67 remote applied versions and 67 local migration files, all exact version/name pairs matching: Phase 00 = 2, Phase 02 = 14, Phase 03 = 10, Phase 04 = 10, Phase 05 = 31. Latest Phase 05 migration: `20261121005322_p05_realtime_auth_rls_initplan`. No historical migration was edited or replayed.
 
 **Live database:** 57/57 public tables have RLS enabled, 57 public policies are present, and 306 public indexes exist. SmartOrder has 27 broadcast triggers and 3 private `realtime.messages` policies. Supabase Security Advisor: 0 lints. Performance Advisor: 0 WARN findings, including 0 unindexed-FK and 0 auth-RLS-initplan warnings; 172 unused-index INFO notices remain informational for the new low-volume schema. The private SmartTeam evidence bucket remains private.
 
-**Current code/contract evidence:** Python API and TypeScript client action registries are aligned at 130/130 actions (no missing or extra IDs); SmartOrder router exposes 52 routes. Latest code commit `2848e2778a8fbc340fe18fa7676885cd0ae81fd0` passed 100 API tests, compileall, Ruff, Web typecheck/lint and Expo typecheck/build. The eight-portal build matrix and Expo foundation/workspace workflow also passed. Railway `salesx-api` is SUCCESS with `/readyz` HTTP 200; `salesx-customer` and `salesx-website` are SUCCESS on the latest UI commit `0286cfe3b179d94c3e7767c4794c17ced94de1f5`. `salesx-company` is still BUILDING on that UI commit, so Phase 05 remains IN_PROGRESS until that service rollout settles.
+**Current code/contract evidence:** Python API and TypeScript client action registries are aligned at 130/130 actions (no missing or extra IDs); SmartOrder router exposes 52 routes. Latest code commit `2848e2778a8fbc340fe18fa7676885cd0ae81fd0` passed 100 API tests, compileall, Ruff, Web typecheck/lint and Expo typecheck/build. The eight-portal build matrix and Expo foundation/workspace workflow passed. All four required Railway services now report SUCCESS: `salesx-api` on `2848e2778a8fbc340fe18fa7676885cd0ae81fd0` with `/readyz` HTTP 200, and `salesx-customer`, `salesx-company`, `salesx-website` on UI commit `0286cfe3b179d94c3e7767c4794c17ced94de1f5`. Phase 05 is COMPLETED; Phase 06 — SmartReward remains LOCKED and has not been started.
 
 The dated Phase 02 PARTIAL / Phase 03 LOCKED and earlier Phase 04 IN_PROGRESS entries below are historical snapshots. The Phase 04 closure addendum and the latest Phase 05 continuation record are authoritative. Phase 06 — SmartReward remains LOCKED.
 
