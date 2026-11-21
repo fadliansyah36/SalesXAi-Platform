@@ -473,6 +473,20 @@ export function SalesPortalApp() {
     showToast(`${lead.businessName} dikonversi menjadi Outlet Binaan & siap dibuatkan Order.`);
   };
 
+  const filteredOutlets = useMemo(() => {
+    const q = outletSearch.trim().toLowerCase();
+    return outlets.filter((outlet) => {
+      const matchesText = !q || [outlet.name, outlet.city, outlet.address, outlet.picName]
+        .some((value) => String(value ?? "").toLowerCase().includes(q));
+      const matchesPriority = outletFilter === "all" ||
+        (outletFilter === "priority" && outlet.isPriority) ||
+        (outletFilter === "today" && outlet.visitToday);
+      const matchesCity = outletCityFilter === "Semua" || outlet.city === outletCityFilter;
+      const matchesCategory = outletCategoryFilter === "Semua" || outlet.category === outletCategoryFilter;
+      return matchesText && matchesPriority && matchesCity && matchesCategory;
+    });
+  }, [outlets, outletSearch, outletFilter, outletCityFilter, outletCategoryFilter]);
+
   const filteredProducts = products.filter((p) => {
     const matchText =
       p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
