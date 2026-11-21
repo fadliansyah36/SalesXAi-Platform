@@ -2294,7 +2294,9 @@ export function CustomerPortalApp() {
             <div className="space-y-5">
               <SmartRewardWorkspace />
             </div>
-          )}======================================================
+          )}
+
+          {/* ================================================================
            * SCREEN 12: LAINNYA (NOTIFIKASI, SUPPORT, PROFIL, WORKSPACE, KELUAR)
            * ================================================================ */}
           {activeTab === 'more' && (
