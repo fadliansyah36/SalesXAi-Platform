@@ -126,9 +126,16 @@ async def decide_approval(organization_id:UUID,approval_id:UUID,payload:RewardAp
 def _reward_event_audience(scopes):
     """Resolve the narrowest event audience from active role assignments."""
     tenant_roles = {"tenant_owner", "company_admin", "principal_user", "distributor_user"}
+    tenant_event_permissions = {
+        "smartreward:ledger:read",
+        "smartreward:redemption:read",
+        "smartreward:approval:read",
+        "smartreward:report:read",
+    }
     tenant_scope = any(
         scope["role_key"] in tenant_roles
         and scope["scope_type"] in {"tenant", "organization"}
+        and scope["permission_key"] in tenant_event_permissions
         for scope in scopes
     )
     branch_ids = sorted({
@@ -136,10 +143,17 @@ def _reward_event_audience(scopes):
         for scope in scopes
         if scope["role_key"] == "supervisor"
         and scope["scope_type"] == "branch"
+        and scope["permission_key"] in tenant_event_permissions
         and scope["scope_id"] is not None
     })
-    catalog_scope = any(
-        scope["permission_key"] in {"smartreward:program:read", "smartreward:catalog:read"}
+    catalog_scope = tenant_scope and any(
+        scope["role_key"] in tenant_roles
+        and scope["scope_type"] in {"tenant", "organization"}
+        and scope["permission_key"] in {
+            "smartreward:program:read",
+            "smartreward:rule:read",
+            "smartreward:catalog:read",
+        }
         for scope in scopes
     )
     return tenant_scope, branch_ids, catalog_scope
@@ -167,8 +181,16 @@ async def reward_events(organization_id:UUID,after:str|None=None,principal:Princ
   while True:
    rows=await db.fetch("""select id,occurred_at,payload from public.reward_event_outbox where organization_id=$1
     and event_type='smartreward.changed' and (occurred_at>$2 or (occurred_at=$2 and id>$3))
-    and ($4::boolean or payload->>'participant_user_id'=$5 or payload->>'requested_by'=$5 or payload->>'branch_id'=any($6::text[]) or ($7::boolean and payload->>'resource'=any($8::text[])))
-    order by occurred_at,id limit 100""",organization_id,cursor_time,cursor_id,tenant_scope,actor_id,branch_ids,catalog_scope,['reward_programs','reward_incentive_rules','reward_catalog_items'])
+    and (
+      payload->>'participant_user_id'=$5
+      or payload->>'requested_by'=$5
+      or payload->>'branch_id'=any($6::text[])
+      or ($4::boolean and payload->>'resource'=any($7::text[]))
+      or ($8::boolean and payload->>'resource'=any($9::text[]))
+    )
+    order by occurred_at,id limit 100""",organization_id,cursor_time,cursor_id,tenant_scope,actor_id,branch_ids,
+    ['reward_points_ledger','reward_redemptions','reward_approval_requests'],catalog_scope,
+    ['reward_programs','reward_incentive_rules','reward_catalog_items'])
    if not rows:
     yield ": keepalive\n\n";await asyncio.sleep(3);continue
    for row in rows:
