@@ -162,3 +162,18 @@ The latest main commit 823072c is a test-only follow-up in `services/api/tests/t
 5. SMTP and Google OAuth secrets remain intentionally deferred; no placeholder credentials were added.
 
 **Closure rule:** Phase 06 stays IN_PROGRESS and Phase 07 stays LOCKED until populated ledger evidence, reconciliation, live concurrency, authenticated cross-tenant/private-Realtime validation and remaining PRD submodule gaps are closed. Next phase after closure: **Phase 07 — Realtime Location & Route History**.
+
+
+## Latest-source UI release continuation — 2026-11-21
+
+- Source commit: `627ce255e770e2712a479cff9ce3d6b5c08f17c7` (main). This change adds explicit Tailwind v4 `@source` roots for the shared app, Website, Sales Portal, root components and shared design-system/token packages. The missing explicit monorepo source roots are the leading code-level explanation for a stylesheet that loads but omits layout utility classes; this is a targeted source correction, not a visual redesign.
+- Railway latest-source deployments for the portal group all report SUCCESS on this exact SHA:
+  - `salesx-website`: `041b40bf-9a86-4813-beab-68a331c42bd8` — SUCCESS, gateway starts Website and Sales child Next servers.
+  - `salesx-customer`: `a0610b6f-8642-4a04-b2a1-c88ad1a1ee57` — SUCCESS, customer gateway starts Next server.
+  - `salesx-company`: `b98a72dc-6902-4d14-91cf-de91751dc021` — SUCCESS, gateway starts Company, Distributor, Principal, Supervisor and Super Admin child Next servers.
+- The required `salesx-api` deployment remains SUCCESS at `9da9cb24-196d-41ca-b093-f11066e78dd2`, source `823072c098dcbee285d5a0157e33fa47b6371075`. Commit 627ce255 changes only shared Web CSS; Railway correctly skipped an API redeploy. Its latest API code SHA remains 823072c.
+- GitHub combined status for commit 627ce255 reports success for all four required Railway services; Railway environment status independently confirms all four required services ONLINE with 1/1 running replica.
+- Website and Sales Portal Next builds both report “Compiled successfully”; the Company build reports successful compilation for all five grouped child portals. Deployment logs show the expected gateway route groups and each Next server Ready.
+- The CSS source correction is now deployed. However, the connected Railway tools do not expose a browser screenshot/computed-style inspection, and this execution environment cannot resolve the public Railway domain directly. Therefore the visual appearance on a handset is not claimed as independently confirmed. A successful CSS/JS HTTP health probe is not the same as a manual visual rendering review.
+- Supabase row counts were re-read after the release: organizations 0, profiles 0, reward_accounts 0, reward_points_ledger 0, reward_redemptions 0, reward_point_lots 0, reward_approval_requests 0, reward_audit_events 0. No production data was seeded.
+- Phase 06 remains IN_PROGRESS. Populated-ledger evidence, authenticated test identities/tenant, live concurrency and cross-tenant/private-Realtime tests remain blocked; Customer Segment is still a PRD 5.3 gap. Phase 07 remains LOCKED.
