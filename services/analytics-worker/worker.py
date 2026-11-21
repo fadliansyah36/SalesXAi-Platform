@@ -95,7 +95,7 @@ async def process_export(connection: asyncpg.Connection, job: asyncpg.Record):
            from public.analytics_metric_snapshots s
            join public.analytics_metric_definitions d on d.metric_key=s.metric_key
            where s.organization_id=$1 and s.period_grain=$2
-             and s.period_start between $3 and $4
+             and s.period_end >= $3 and s.period_start <= $4
              and (($5='tenant' and s.scope_type='tenant') or
                   ($5<>'tenant' and s.scope_type=$5 and s.scope_id=$6))
            order by s.period_start,s.metric_key,s.scope_type,s.scope_id""",
@@ -125,7 +125,7 @@ async def process_export(connection: asyncpg.Connection, job: asyncpg.Record):
         """update public.analytics_report_exports
            set status='completed',artifact_path=$2,artifact_bytes=$3,row_count=$4,
                data_as_of=(select max(calculated_at) from public.analytics_metric_snapshots
-                 where organization_id=$5 and period_grain=$6 and period_start between $7 and $8),
+                 where organization_id=$5 and period_grain=$6 and period_end >= $7 and period_start <= $8),
                completed_at=now(),lease_owner=null,lease_expires_at=null,updated_at=now()
            where id=$1""",
         export_id, path, len(data), len(rows), run["organization_id"],
