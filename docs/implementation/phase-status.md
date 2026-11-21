@@ -1345,3 +1345,17 @@ API release on source `8bb17e30a94a1435da17a27383a14e52993643af` is SUCCESS with
 Added correct basePath-aligned SmartReward route aliases for Distributor, Principal, Supervisor and Super Admin after production route inspection found the old paths returned 404. The new Company deployment for source `3da8b210` is still QUEUED; Company route aliases are not considered live until Railway succeeds and HTTP/CSS/JS are verified. Website/Customer and API latest relevant deployments are already SUCCESS.
 
 Phase 06 remains IN_PROGRESS; Phase 07 remains LOCKED. Supabase staging and real-account tests are deferred to final integrated validation per the user's instruction.
+
+
+## Phase 07 authorization and implementation opening — 2026-11-21
+
+The execution decision in the latest user instruction explicitly authorizes Phase 07 implementation to proceed while Phase 06 validation gates remain open. This supersedes the earlier Phase 07 LOCKED sequencing note; it does not change Phase 06 DoD or mark Phase 06 complete.
+
+- Phase 06 SmartReward remains IN_PROGRESS. Customer Segment schema/API/UI and previous release evidence remain as recorded in `phase-06-smartreward-status.md`. Populated isolated ledger fixtures, reconciliation, concurrent transaction/idempotency proof and authenticated tenant/private-Realtime validation are still not evidenced. No staging database or fake production data was created.
+- Phase 07 Location Intelligence is now IN_PROGRESS (foundation slice only). Migration `20261121120000_p07_location_intelligence_foundation` was committed on main at source commit `ba05833092cec0aaf964bcd033760a7472d60b56` and applied successfully to Supabase ref `eyofuiyxalbehbqoaeny`.
+- The migration creates `location_tracking_sessions`, `location_points`, `location_geofences`, `location_geofence_events`, and `location_route_summaries`; uses PostGIS geography/geometry and GiST indexes; records consent, policy version, user/device/session identity, recorded/received timestamps, accuracy/source and client point idempotency; relates sessions to sales profiles and optional SmartTeam shifts; and constrains geofence references to tenant-owned outlets/territories.
+- All five location tables have RLS enabled, explicit deny policies for anon/authenticated, and service-role-only table grants. Seven location permission catalog keys were inserted. SQL re-read confirms all five tables exist with RLS enabled and all seven permission keys exist.
+- No location API router/service, shared location API client methods, Expo GPS task/consent/outbox, portal map/history UI, Realtime private channel policies or geofence/route processing worker is yet claimed complete by this migration alone. These are the next implementation slices.
+- The initial migration apply attempts exposed missing composite ownership uniqueness constraints; the migration source was corrected before the successful application. The applied migration was then verified by querying the resulting table inventory and RLS state.
+
+**Phase 07 remains IN_PROGRESS — schema foundation only. Phase 06 remains IN_PROGRESS.** Do not mark either phase complete from this checkpoint.
