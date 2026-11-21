@@ -1,7 +1,8 @@
 "use client";
 import { useEffect } from "react";
 import { APIProvider, Map as GoogleMap, Marker, useMap } from "@vis.gl/react-google-maps";
-import type { MapCoordinate, MapMarker, MapPolygon, MapPolyline, MapsRuntimeConfig } from "@/packages/maps/src";
+import { resolveMapsAdapter } from "@/packages/maps/src";
+import type { MapCoordinate, MapEvent, MapMarker, MapPolygon, MapPolyline, MapsRuntimeConfig } from "@/packages/maps/src";
 
 function MapOverlays({ routes, polygons }: { routes: MapPolyline[]; polygons: MapPolygon[] }) {
   const map = useMap();
@@ -47,7 +48,8 @@ export function GoogleMapsCanvas({ config, center, markers, routes, polygons, he
         gestureHandling="greedy" style={{ width: "100%", height: "100%" }}>
         <MapOverlays routes={routes} polygons={polygons} />
         {markers.map(marker => <Marker key={marker.id} position={marker.position}
-          title={marker.title} opacity={marker.tone === "stale" ? 0.55 : 1} />)}
+          title={marker.title} opacity={marker.tone === "stale" ? 0.55 : 1}
+          onClick={() => onMapEvent?.({type:"marker_press",markerId:marker.id,coordinate:marker.position})} />)}
       </GoogleMap>
     </APIProvider>
   </div>;
