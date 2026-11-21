@@ -9,6 +9,7 @@ from app.repositories.smart_reward import SmartRewardRepository
 from app.schemas.identity import AccountStatusUpdate, PlatformAuditLogResponse
 from app.schemas.master_data import MasterDataWrite, PlatformOrganizationStatusUpdate
 from app.schemas.smart_team import PlatformSmartTeamOverviewResponse
+from app.schemas.smart_reward import PlatformSmartRewardOverviewResponse
 from app.security.dependencies import Principal, require_api_action
 from app.services.account_administration import account_administration_service
 from app.services.organization_mutations import organization_mutation_service
@@ -19,7 +20,7 @@ from app.services.smart_team import smart_team_service
 router = APIRouter(prefix="/admin", tags=["platform-security"])
 
 
-@router.get("/smart-reward/overview")
+@router.get("/smart-reward/overview",response_model=PlatformSmartRewardOverviewResponse)
 async def list_platform_smartreward_overview(
     start_at: datetime | None = Query(default=None),
     end_at: datetime | None = Query(default=None),
