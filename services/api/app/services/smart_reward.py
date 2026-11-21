@@ -91,10 +91,10 @@ class SmartRewardService:
   raise APIError(422,"reward_source_invalid","Unsupported source type.")
  async def issue_points(self,db,org,actor,p):
   async with db.transaction():
-   if not await db.fetchval("select exists(select 1 from public.reward_programs where organization_id=$1 and id=$2 and status='active' and starts_at<=now() and ends_at>now())",org,p.program_id): raise APIError(409,"reward_program_inactive","Program is not active.")
-   rule=await db.fetchrow("select * from public.reward_incentive_rules where organization_id=$1 and id=$2 and program_id=$3 and status='active' for share",org,p.rule_id,p.program_id)
+   program=await db.fetchrow("select audience,configuration,status,starts_at,ends_at from public.reward_programs where organization_id=$1 and id=$2 for share",org,p.program_id)
+   if not program or program["status"]!="active" or program["starts_at"]>datetime.now(timezone.utc) or program["ends_at"]<=datetime.now(timezone.utc): raise APIError(409,"reward_program_inactive","Program is not active.")
+   rule=await db.fetchrow("select * from public.reward_incentive_rules where organization_id=$1 and id=$2 and program_id=$3 and status='active' for update",org,p.rule_id,p.program_id)
    if not rule: raise APIError(404,"reward_rule_not_found","Active rule not found.")
-   program=await db.fetchrow("select audience,configuration from public.reward_programs where organization_id=$1 and id=$2",org,p.program_id)
    membership=await db.fetchrow("select branch_id from public.organization_memberships where organization_id=$1 and user_id=$2 and status='active'",org,p.participant_user_id)
    if not membership: raise APIError(422,"reward_participant_not_member","Participant must be an active organization member.")
    roles=await db.fetch("select r.key from public.user_role_assignments ura join public.roles r on r.id=ura.role_id join public.organization_memberships m on m.id=ura.membership_id where m.organization_id=$1 and m.user_id=$2 and m.status='active' and ura.revoked_at is null and ura.starts_at<=now() and (ura.expires_at is null or ura.expires_at>now())",org,p.participant_user_id)
