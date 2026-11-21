@@ -46,8 +46,9 @@ class AnalyticsService:
             connection,organization_id,principal.user_id,period_start,period_end,grain,scope_type,scope_id
         )
         freshness=await self.repository.dashboard_freshness(connection,organization_id,period_start,period_end,grain)
+        timezone=await self.repository.organization_timezone(connection,organization_id)
         return {
-            "organization_id":organization_id,"period_start":period_start,"period_end":period_end,
+            "organization_id":organization_id,"timezone":timezone or "UTC","period_start":period_start,"period_end":period_end,
             "period_grain":grain,
             "scopes":[{"scope_type":r["scope_type"],"scope_id":r["scope_id"]} for r in scopes],
             "metrics":[dict(r) for r in metrics],"data_as_of":freshness,"is_stale":freshness is None,
