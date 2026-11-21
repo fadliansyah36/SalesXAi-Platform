@@ -13,27 +13,29 @@ type AuthProps={
 };
 
 const formatValue=(value:number)=>new Intl.NumberFormat("id-ID",{maximumFractionDigits:2}).format(value);
-const today=()=>new Date().toISOString().slice(0,10);
+const localDate=(value:Date)=>`${value.getFullYear()}-${String(value.getMonth()+1).padStart(2,"0")}-${String(value.getDate()).padStart(2,"0")}`;
+const today=()=>localDate(new Date());
 
 export function AnalyticsHome({auth}:{auth:AuthProps}){
  const {colors}=useNativeTheme();
  const [data,setData]=useState<AnalyticsDashboardResponse|null>(null);
  const [reports,setReports]=useState<AnalyticsReportRun[]>([]);
  const [days,setDays]=useState<7|30>(7);
- const [scopeType,setScopeType]=useState<ScopeType>("user");
+ const [scopeType,setScopeType]=useState<ScopeType|null>(null);
  const [scopeId,setScopeId]=useState<string|null>(null);
  const [busy,setBusy]=useState(false);
  const [exportBusy,setExportBusy]=useState(false);
  const [error,setError]=useState<string|null>(null);
  const end=today();
- const start=new Date(Date.now()-(days-1)*86400000).toISOString().slice(0,10);
+ const startDate=new Date();startDate.setDate(startDate.getDate()-(days-1));
+ const start=localDate(startDate);
  const api=useMemo(()=>auth.apiClient&&auth.activeOrganizationId?createAnalyticsApi(auth.apiClient,auth.activeOrganizationId):null,[auth.apiClient,auth.activeOrganizationId]);
 
  const refresh=useCallback(async()=>{
   if(!api)return;
   setBusy(true);setError(null);
   try{
-   const [result,history]=await Promise.all([api.dashboard(start,end,"day",scopeType,scopeId),api.reports()]);
+   const [result,history]=await Promise.all([api.dashboard(start,end,"day",scopeType??undefined,scopeId),api.reports()]);
    setData(result);setReports(history);
   }catch(cause){setError(cause instanceof Error?cause.message:"Ringkasan KPI tidak dapat dimuat.");}
   finally{setBusy(false);}
@@ -68,10 +70,10 @@ export function AnalyticsHome({auth}:{auth:AuthProps}){
  },[data]);
 
  const requestExport=async()=>{
-  if(!api||!auth.canPerformApiAction("analytics.reports.create"))return;
+  if(!api||!scopeType||!auth.canPerformApiAction("analytics.reports.create"))return;
   setExportBusy(true);setError(null);
   try{
-   const selected=(data?.scopes??[]).find(scope=>scope.scope_type===scopeType&&scope.scope_id===scopeId);
+   const selected=(data?.scopes??[]).find(scope=>scope.scope_type===scopeType&&(scopeType==="tenant"||scope.scope_id===scopeId));
    const result=await api.createReport({
     report_key:"operational-kpi",period_start:start,period_end:end,period_grain:"day",
     scope_type:scopeType,scope_id:scopeType==="tenant"?null:selected?.scope_id??scopeId,
@@ -101,6 +103,18 @@ export function AnalyticsHome({auth}:{auth:AuthProps}){
      <NativeText color={days===value?"#FFFFFF":colors.textSecondary} weight="semibold">{value} Hari</NativeText>
     </Pressable>)}
    </NativeInline>
+   {data?.scopes?.length>0&&<NativeStack gap="2">
+    <NativeText variant="caption" color={colors.textSecondary}>Cakupan KPI</NativeText>
+    <View style={{flexDirection:"row",flexWrap:"wrap",gap:6}}>
+     {data.scopes.map((scope,index)=>{
+      const selected=scope.scope_type===scopeType&&scope.scope_id===scopeId;
+      const label=scope.scope_type==="tenant"?"Organisasi":scope.scope_type==="branch"?"Cabang":scope.scope_type==="team"?"Tim":scope.scope_type==="territory"?"Teritori":"Salesperson";
+      return <Pressable key={scope.scope_type+":"+(scope.scope_id??"tenant")+":"+index} onPress={()=>{setScopeType(scope.scope_type);setScopeId(scope.scope_id);}} accessibilityRole="button" accessibilityState={{selected}} style={{paddingHorizontal:10,paddingVertical:7,borderRadius:10,borderWidth:1,borderColor:selected?colors.primary:colors.border,backgroundColor:selected?colors.primary:"transparent"}}>
+       <NativeText variant="caption" color={selected?"#FFFFFF":colors.textSecondary}>{label}{scope.scope_id?" · "+scope.scope_id.slice(0,8):""}</NativeText>
+      </Pressable>;
+     })}
+    </View>
+   </NativeStack>}
    {error&&<NativeText color="#B91C1C">{error}</NativeText>}
    <View style={{flexDirection:"row",flexWrap:"wrap",gap:8}}>
     {metrics.map(item=><View key={item.key} style={{width:"48%",padding:12,borderRadius:12,borderWidth:1,borderColor:colors.border}}>
