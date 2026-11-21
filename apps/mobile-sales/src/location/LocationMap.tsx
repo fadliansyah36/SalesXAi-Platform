@@ -1,13 +1,16 @@
 import React from "react";
 import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
 import MapView, { Marker, Polygon, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
-import type { MapCoordinate, MapPolygon, MapPolyline } from "../../../../packages/maps/src";
+import { resolveMapsAdapter, resolveMapsRuntimeConfig } from "../../../../packages/maps/src";
+import type { MapCoordinate, MapEvent, MapPolygon, MapPolyline } from "../../../../packages/maps/src";
 
 export function LocationMap({ center, routes = [], polygons = [],
-  enabled = process.env.EXPO_PUBLIC_GOOGLE_MAPS_ENABLED === "true" }: {
+  enabled = process.env.EXPO_PUBLIC_GOOGLE_MAPS_ENABLED === "true", onMapEvent }: {
   center: MapCoordinate | null; routes?: MapPolyline[]; polygons?: MapPolygon[]; enabled?: boolean;
+  onMapEvent?: (event: MapEvent) => void;
 }) {
-  if (!enabled || !center) return (
+  const mapConfig = resolveMapsRuntimeConfig("native", { EXPO_PUBLIC_GOOGLE_MAPS_ENABLED: enabled ? "true" : "false" });
+  if (!resolveMapsAdapter("native", mapConfig) || !center) return (
     <View style={styles.fallback} accessibilityRole="summary">
       <Text style={styles.title}>{center ? "Google Maps belum diaktifkan" : "Menunggu koordinat lokasi"}</Text>
       <Text style={styles.body}>{center
@@ -24,8 +27,10 @@ export function LocationMap({ center, routes = [], polygons = [],
   );
   return <MapView provider={PROVIDER_GOOGLE} style={styles.map}
     initialRegion={{ latitude: center.lat, longitude: center.lng, latitudeDelta: 0.012, longitudeDelta: 0.012 }}
-    showsUserLocation showsMyLocationButton toolbarEnabled>
-    <Marker coordinate={{ latitude: center.lat, longitude: center.lng }} title="Posisi perangkat" />
+    showsUserLocation showsMyLocationButton toolbarEnabled
+    onRegionChangeComplete={region => onMapEvent?.({type:"viewport_change",viewport:{center:{lat:region.latitude,lng:region.longitude}}})}>
+    <Marker coordinate={{ latitude: center.lat, longitude: center.lng }} title="Posisi perangkat"
+      onPress={() => onMapEvent?.({type:"marker_press",markerId:"device",coordinate:center})} />
     {routes.map(route => <Polyline key={route.id}
       coordinates={route.coordinates.map(point => ({ latitude: point.lat, longitude: point.lng }))}
       strokeColor="#348CB2" strokeWidth={4} />)}
