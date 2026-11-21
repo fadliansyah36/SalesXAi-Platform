@@ -1,7 +1,7 @@
 from __future__ import annotations
 import json
 from decimal import Decimal, ROUND_FLOOR
-import asyncpg
+from app.repositories.smart_reward import SmartRewardRepository
 from app.errors import APIError
 
 class SmartRewardService:
