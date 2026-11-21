@@ -1,5 +1,8 @@
+import asyncio,json
+from datetime import datetime,timezone
 from uuid import UUID
 from fastapi import APIRouter, Depends, Query
+from fastapi.responses import StreamingResponse
 import asyncpg
 from app.db import get_connection
 from app.security.dependencies import Principal,TenantContext,get_current_principal,require_api_action
@@ -79,3 +82,27 @@ async def request_approval(organization_id:UUID,payload:RewardApprovalWrite,prin
 @router.patch("/{organization_id}/smart-reward/approvals/{approval_id}")
 async def decide_approval(organization_id:UUID,approval_id:UUID,payload:RewardApprovalDecision,principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("smartreward.approvals.decide")),db:asyncpg.Connection=Depends(get_connection)):
  smart_reward_service._tenant(organization_id,tenant); return await smart_reward_approval_service.decide(db,organization_id,principal.user_id,approval_id,payload)
+
+@router.get("/{organization_id}/smart-reward/events")
+async def reward_events(organization_id:UUID,after:str|None=None,tenant:TenantContext=Depends(require_api_action("smartreward.events.read")),db:asyncpg.Connection=Depends(get_connection)):
+ smart_reward_service._tenant(organization_id,tenant)
+ cursor_time=datetime.now(timezone.utc);cursor_id=UUID(int=0)
+ if after:
+  try:
+   raw_time,raw_id=after.split("|",1);cursor_time=datetime.fromisoformat(raw_time.replace("Z","+00:00"));cursor_id=UUID(raw_id)
+  except (ValueError,TypeError): raise APIError(400,"reward_event_cursor_invalid","Realtime event cursor is invalid.")
+ async def stream():
+  nonlocal cursor_time,cursor_id
+  while True:
+   rows=await db.fetch("""select id,occurred_at,payload from public.reward_event_outbox where organization_id=$1
+    and event_type='smartreward.changed' and (occurred_at>$2 or (occurred_at=$2 and id>$3))
+    order by occurred_at,id limit 100""",organization_id,cursor_time,cursor_id)
+   if not rows:
+    yield ": keepalive\\n\\n";await asyncio.sleep(3);continue
+   for row in rows:
+    cursor_time=row["occurred_at"];cursor_id=row["id"]
+    payload=row["payload"]
+    if isinstance(payload,str): payload=json.loads(payload)
+    event_id=cursor_time.isoformat()+"|"+str(cursor_id)
+    yield "id: "+event_id+"\\nevent: smartreward.changed\\ndata: "+json.dumps(payload,default=str)+"\\n\\n"
+ return StreamingResponse(stream(),media_type="text/event-stream",headers={"Cache-Control":"no-cache, no-transform","X-Accel-Buffering":"no","Connection":"keep-alive"})
