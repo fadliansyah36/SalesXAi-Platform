@@ -13,7 +13,7 @@ The Supabase project owner or an explicitly authorized database operator must re
    - Allows participant self-topic, branch-supervisor topic, and tenant-management topic separately.
    - Matches each event's organization, participant/requester or branch identifier to the private topic and checks the exact resource-specific SmartReward read permission.
    - Depends on applied migration `20261121093654_p06_reward_realtime_payload_scope`, which adds minimal audience identifiers to the private event payload.
-   - The current applied migration `20261121104000_p06_reward_broadcast_disable_unsafe_tenant_topic` deliberately suppresses tenant-wide broadcasts while the legacy policy remains active.
+   - The current applied migration `20261121101601_p06_reward_broadcast_disable_unsafe_tenant_topic` deliberately suppresses tenant-wide broadcasts while the legacy policy remains active.
 2. `20261121100000_location_realtime_messages_owner_policy.sql`
    - Authorizes the private organization live-location topic.
    - Filters each payload to the actor's active organization membership, `location.live.read` permission and tenant/branch/team/territory scope.
