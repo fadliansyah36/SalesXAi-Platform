@@ -333,6 +333,32 @@ export interface SmartOrderUnit {id:UUID;code:string;name:string;symbol?:string|
 export interface SmartOrderRealtimeEvent {event_id?:UUID;organization_id:UUID;resource:string;record_id:UUID;order_id?:UUID|null;operation:"INSERT"|"UPDATE"|"DELETE";status?:string|null;occurred_at:string;}
 
 export type RewardProgramType="loyalty"|"incentive"|"campaign";
+export interface RewardProgramWrite {
+ code:string;name:string;description?:string|null;program_type:RewardProgramType;
+ reward_type:"points"|"tier"|"voucher";starts_at:ISODateTime;ends_at:ISODateTime;
+ status:"draft"|"active"|"paused"|"completed"|"archived";
+ audience?:Record<string,unknown>;configuration?:Record<string,unknown>;customer_segment_id?:UUID|null;
+}
+export interface RewardRuleWrite {
+ code:string;name:string;event_key:"order.completed"|"visit.completed"|"target.achieved"|"manual.approved";
+ priority?:number;rule_config?:Record<string,unknown>;points_per_unit?:number;fixed_points?:number;
+ max_points?:number|null;requires_approval?:boolean;status?:"active"|"inactive"|"archived";customer_segment_id?:UUID|null;
+}
+export interface RewardCatalogWrite {
+ program_id?:UUID|null;code:string;name:string;description?:string|null;category:string;points_cost:number;
+ quantity_total?:number|null;starts_at?:ISODateTime|null;ends_at?:ISODateTime|null;
+ eligibility?:Record<string,unknown>;metadata?:Record<string,unknown>;customer_segment_id?:UUID|null;
+ status?:"draft"|"active"|"paused"|"out_of_stock"|"archived";
+}
+export interface RewardEarnWrite {
+ program_id:UUID;rule_id:UUID;participant_user_id:UUID;source_type:"order"|"visit"|"target"|"manual";
+ source_id:UUID;idempotency_key:string;reason:string;metric_value?:number;
+}
+export interface RewardAdjustmentWrite {
+ participant_user_id:UUID;points_delta:number;reference_type:string;reference_id:UUID;
+ idempotency_key:string;reason:string;
+}
+export interface RewardReverseWrite {idempotency_key:string;reason:string;}
 export interface RewardProgram {id:UUID;organization_id:UUID;code:string;name:string;description:string|null;program_type:RewardProgramType;reward_type:"points"|"tier"|"voucher";starts_at:ISODateTime;ends_at:ISODateTime;status:"draft"|"active"|"paused"|"completed"|"archived";audience:Record<string,unknown>;configuration:Record<string,unknown>;customer_segment_id?:UUID|null;created_at:ISODateTime;updated_at:ISODateTime;}
 export interface RewardRule {id:UUID;organization_id:UUID;program_id:UUID;code:string;name:string;event_key:"order.completed"|"visit.completed"|"target.achieved"|"manual.approved";priority:number;rule_config:Record<string,unknown>;points_per_unit:string|number;fixed_points:number;max_points:number|null;requires_approval:boolean;status:"active"|"inactive"|"archived";customer_segment_id?:UUID|null;}
 export interface RewardCatalogItem {id:UUID;organization_id:UUID;program_id:UUID|null;code:string;name:string;description:string|null;category:string;points_cost:number;quantity_total:number|null;quantity_reserved:number;quantity_fulfilled:number;eligibility:Record<string,unknown>;metadata:Record<string,unknown>;customer_segment_id?:UUID|null;eligible?:boolean;eligibility_reason?:string|null;available_stock?:number|null;points_balance?:number;period_remaining?:number|null;catalog_period_remaining?:number|null;status:"draft"|"active"|"paused"|"out_of_stock"|"archived";}
