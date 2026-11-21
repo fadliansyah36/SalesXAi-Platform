@@ -45,7 +45,7 @@ class LocationRepositoryAndMigrationContracts(unittest.TestCase):
         cls.repository = (root / "app" / "repositories" / "location.py").read_text(encoding="utf-8")
         cls.migration = (
             root.parent.parent / "supabase" / "migrations"
-            / "20261121102500_p07_location_geofence_ordering_route_replay.sql"
+            / "20261121100848_p07_location_geofence_ordering_route_replay.sql"
         ).read_text(encoding="utf-8")
 
     def test_geofence_reads_are_assignment_scoped_and_auditable(self):
