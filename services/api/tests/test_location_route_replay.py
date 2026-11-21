@@ -67,6 +67,10 @@ class LocationRepositoryAndMigrationContracts(unittest.TestCase):
     def test_geofence_visibility_requires_exact_read_permission(self):
         self.assertIn("rp.permission_key='location.geofences.read'", self.repository)
 
+    def test_geofence_visibility_includes_assigned_supervisor_team(self):
+        self.assertIn("supervised_team.supervisor_user_id=$2", self.repository)
+        self.assertIn("supervised_profile.territory_id=coalesce(g.territory_id,o.territory_id)", self.repository)
+
     def test_out_of_order_points_cannot_rewind_geofence_state(self):
         self.assertIn("new.recorded_at<=prior.last_recorded_at", self.migration)
         self.assertIn("continue;", self.migration)
