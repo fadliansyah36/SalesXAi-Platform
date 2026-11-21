@@ -27,6 +27,8 @@ export function SmartRewardHome({auth}:{auth:Auth}){
  useEffect(()=>{void refresh();},[refresh]);
  useEffect(()=>{
   if(!client||!org||auth.status!=="authenticated"||!canRealtime)return;
+  const url=process.env.EXPO_PUBLIC_SUPABASE_URL??"",key=process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY??"";
+  if(url&&key)return client.subscribeSmartRewardBroadcast(org,url,key,()=>void refresh(),()=>void refresh());
   return client.subscribeSmartRewardEvents(org,()=>void refresh(),()=>void refresh());
  },[client,org,auth.status,canRealtime,refresh]);
  const redeem=async(item:RewardCatalogItem)=>{
