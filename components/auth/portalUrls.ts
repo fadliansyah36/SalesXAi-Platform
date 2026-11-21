@@ -19,25 +19,29 @@ export function getSalesXPortalUrl(portal:SalesXPortal):string{
 }
 
 export function getSalesXPortalUrlForPath(path:string):string{
- const normalized=path.replace(/\/$/,"")||"/";
- if(normalized==="/portal"||normalized.startsWith("/sales"))return getSalesXPortalUrl("sales");
+ const normalized=path.replace(/\\/$/,"")||"/";
+ if(normalized==="/portal"||normalized.startsWith("/portal/"))return website()+normalized;
+ if(normalized.startsWith("/sales"))return getSalesXPortalUrl("sales");
  if(normalized==="/customer")return getSalesXPortalUrl("customer");
+ if(normalized.startsWith("/customer/"))return customer()+normalized;
  if(normalized==="/company")return getSalesXPortalUrl("company");
- if(normalized==="/distributor"||normalized.startsWith("/distributor/"))return getSalesXPortalUrl("distributor");
- if(normalized==="/principal"||normalized.startsWith("/principal/"))return getSalesXPortalUrl("principal");
- if(normalized==="/supervisor"||normalized.startsWith("/supervisor/"))return getSalesXPortalUrl("supervisor");
- if(normalized==="/super-admin"||normalized.startsWith("/super-admin/")||normalized.startsWith("/admin"))return getSalesXPortalUrl("super_admin");
+ if(normalized.startsWith("/company/"))return company()+normalized;
+ if(normalized==="/distributor"||normalized.startsWith("/distributor/"))return company()+normalized;
+ if(normalized==="/principal"||normalized.startsWith("/principal/"))return company()+normalized;
+ if(normalized==="/supervisor"||normalized.startsWith("/supervisor/"))return company()+normalized;
+ if(normalized==="/super-admin"||normalized.startsWith("/super-admin/"))return company()+normalized;
+ if(normalized.startsWith("/admin"))return company()+"/super-admin"+normalized.slice("/admin".length);
  return website()+normalized;
 }
 
 export function getSalesXPortalKeyForPath(path:string):PortalKey|null{
  const normalized=path.replace(/\/$/,"")||"/";
  if(normalized==="/portal"||normalized.startsWith("/sales"))return "sales";
- if(normalized==="/customer")return "customer";
- if(normalized==="/company")return "company";
+ if(normalized==="/customer"||normalized.startsWith("/customer/"))return "customer";
+ if(normalized==="/company"||normalized.startsWith("/company/"))return "company";
  if(normalized==="/distributor"||normalized.startsWith("/distributor/"))return "distributor";
  if(normalized==="/principal"||normalized.startsWith("/principal/"))return "principal";
  if(normalized==="/supervisor"||normalized.startsWith("/supervisor/"))return "supervisor";
- if(normalized==="/super-admin"||normalized.startsWith("/admin"))return "super_admin";
+ if(normalized==="/super-admin"||normalized.startsWith("/super-admin/")||normalized.startsWith("/admin"))return "super_admin";
  return null;
 }
