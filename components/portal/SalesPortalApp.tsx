@@ -2,6 +2,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { usePortalRouteGuard } from '@/components/auth/usePortalRouteGuard';
+import { getSalesXPortalUrlForPath } from '@/components/auth/portalUrls';
 import { AnalyticsWorkspace } from '@/components/analytics/AnalyticsWorkspace';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -673,7 +674,7 @@ export function SalesPortalApp() {
         <div className="p-4 border-t border-[var(--color-border)] space-y-2.5">
           <div className="grid grid-cols-2 gap-1.5 text-[11px] font-semibold">
             {visiblePortalSwitchLinks.map(item => (
-              <Link key={item.href} href={item.href} className="rounded-lg border border-[var(--color-border)] py-1.5 text-center hover:bg-[var(--color-surface-muted)]">
+              <Link key={item.href} href={getSalesXPortalUrlForPath(item.href)} className="rounded-lg border border-[var(--color-border)] py-1.5 text-center hover:bg-[var(--color-surface-muted)]">
                 {item.label}
               </Link>
             ))}
