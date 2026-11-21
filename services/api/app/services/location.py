@@ -119,7 +119,7 @@ class LocationService:
                 if inserted: accepted += 1
                 else: duplicates += 1
             if shift["clock_out_at"] is not None:
-                completed = await location_repository.update_session(
+                await location_repository.update_session(
                     db, org, session_id, "completed", True, shift["clock_out_at"]
                 )
                 await location_repository.audit_session(
