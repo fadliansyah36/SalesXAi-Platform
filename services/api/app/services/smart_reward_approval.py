@@ -33,7 +33,7 @@ class SmartRewardApprovalService:
    if isinstance(item.get("history"),str): item["history"]=json.loads(item["history"])
    items.append(item)
   return {"items":items,"page":page,"page_size":size,"total":total}
- async def request(self,db:asyncpg.Connection,org:UUID,actor:UUID,p):
+ async def request(self,db:SmartRewardRepository,org:UUID,actor:UUID,p):
   async with db.transaction():
    actor_roles=await db.fetch("""select r.key from public.organization_memberships m join public.user_role_assignments ura on ura.membership_id=m.id
     join public.roles r on r.id=ura.role_id where m.organization_id=$1 and m.user_id=$2 and m.status='active'
@@ -97,7 +97,7 @@ class SmartRewardApprovalService:
    await db.execute("insert into public.reward_approval_history(organization_id,approval_request_id,to_status,actor_user_id,reason) values($1,$2,'pending',$3,$4)",org,row["id"],actor,p.reason)
    await smart_reward_service._audit(db,org,actor,"approval.requested","reward_approval_request",row["id"],p.reason,{"points":points,"request_type":p.request_type})
    return dict(row)
- async def decide(self,db:asyncpg.Connection,org:UUID,actor:UUID,approval_id:UUID,p):
+ async def decide(self,db:SmartRewardRepository,org:UUID,actor:UUID,approval_id:UUID,p):
   async with db.transaction():
    row=await db.fetchrow("select * from public.reward_approval_requests where organization_id=$1 and id=$2 for update",org,approval_id)
    if not row: raise APIError(404,"reward_approval_not_found","Approval request not found.")
