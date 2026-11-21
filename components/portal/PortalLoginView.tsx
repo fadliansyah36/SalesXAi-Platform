@@ -72,14 +72,20 @@ export function PortalLoginView({ onCompleteLogin }: PortalLoginViewProps) {
     const context = await auth.apiClient?.getAuthContext();
     if (!context) throw new Error('Konteks akses portal tidak dapat dimuat dari FastAPI.');
     const memberships = context.memberships.filter((membership) => membership.status === 'active');
-    for (const membership of memberships) {
-      const destination = getPreferredPortalPath([...context.platform_permissions, ...membership.permissions]);
-      if (!destination) continue;
+    const priority:Record<string,number>={"/company":0,"/supervisor":1,"/distributor":2,"/principal":3,"/portal":4,"/customer":5};
+    const candidates=memberships.map(membership=>({
+      membership,
+      destination:getPreferredPortalPath([...context.platform_permissions,...membership.permissions]),
+    })).filter((candidate):candidate is {membership:typeof memberships[number];destination:string}=>Boolean(candidate.destination))
+      .sort((a,b)=>(priority[a.destination]??99)-(priority[b.destination]??99));
+    const preferred=candidates[0];
+    if(preferred){
+      const {membership,destination}=preferred;
       auth.setActiveOrganization(membership.organization_id);
-      const targetPortal = getSalesXPortalKeyForPath(destination);
-      if (!targetPortal) continue;
-      if (targetPortal === "sales") return false;
-      const handoffUrl = await auth.createPortalHandoff(targetPortal,membership.organization_id);
+      const targetPortal=getSalesXPortalKeyForPath(destination);
+      if(!targetPortal)throw new Error("Portal tujuan tidak dikenali.");
+      if(targetPortal==="sales")return false;
+      const handoffUrl=await auth.createPortalHandoff(targetPortal,membership.organization_id);
       window.location.replace(handoffUrl);
       return true;
     }
