@@ -752,7 +752,7 @@ export class SalesXApiClient {
   }
 }
 
-export type {RewardProgram,RewardRule,RewardCatalogItem,RewardLedgerEntry,RewardBalance,RewardRedemption,RewardPage} from "@salesx-ai/api-contracts";
+export type {RewardProgram,RewardRule,RewardCatalogItem,RewardLedgerEntry,RewardBalance,RewardRedemption,RewardPage,RewardApprovalRequest,RewardApprovalWrite,RewardApprovalDecision} from "@salesx-ai/api-contracts";
 export function createSmartRewardApi(client:SalesXApiClient,organizationId:string){
  const base="/api/v1/organizations/"+encodeURIComponent(organizationId)+"/smart-reward";
  return {
@@ -776,5 +776,8 @@ export function createSmartRewardApi(client:SalesXApiClient,organizationId:strin
   adjust:(body:unknown)=>client.request<import("@salesx-ai/api-contracts").RewardLedgerEntry>(base+"/adjustments",{method:"POST",body:JSON.stringify(body)}),
   reverse:(id:string,body:unknown)=>client.request<import("@salesx-ai/api-contracts").RewardLedgerEntry>(base+"/ledger/"+encodeURIComponent(id)+"/reverse",{method:"POST",body:JSON.stringify(body)}),
   reports:(page=1,pageSize=25)=>client.request<Record<string,unknown>>(base+"/reports?page="+page+"&page_size="+pageSize),
+  approvals:(page=1,pageSize=25)=>client.request<import("@salesx-ai/api-contracts").RewardPage<import("@salesx-ai/api-contracts").RewardApprovalRequest>>(base+"/approvals?page="+page+"&page_size="+pageSize),
+  requestApproval:(body:import("@salesx-ai/api-contracts").RewardApprovalWrite)=>client.request<import("@salesx-ai/api-contracts").RewardApprovalRequest>(base+"/approvals",{method:"POST",body:JSON.stringify(body)}),
+  decideApproval:(id:string,body:import("@salesx-ai/api-contracts").RewardApprovalDecision)=>client.request<import("@salesx-ai/api-contracts").RewardApprovalRequest>(base+"/approvals/"+encodeURIComponent(id),{method:"PATCH",body:JSON.stringify(body)}),
  };
 }
