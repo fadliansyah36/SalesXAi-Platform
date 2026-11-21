@@ -22,7 +22,7 @@ def _device_id(request: Request)->str:
 @router.post("/{organization_id}/location/sessions",status_code=201)
 async def start_session(organization_id:UUID,payload:LocationSessionStart,principal:Principal=Depends(get_current_principal),
  tenant:TenantContext=Depends(require_api_action("location.sessions.start")),db:asyncpg.Connection=Depends(get_connection)):
- return await location_service.start(db,organization_id,tenant,principal.user_id,payload)
+ return await location_service.start(db,organization_id,tenant,principal.user_id,principal.session_id,payload)
 
 @router.patch("/{organization_id}/location/sessions/{session_id}")
 async def update_session(organization_id:UUID,session_id:UUID,payload:LocationSessionAction,principal:Principal=Depends(get_current_principal),
