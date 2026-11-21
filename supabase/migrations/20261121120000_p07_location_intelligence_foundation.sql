@@ -77,6 +77,7 @@ create table if not exists public.location_geofences (
   created_by uuid not null references public.profiles(id) on delete restrict,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
+  unique (organization_id,id),
   unique (organization_id,code),
   foreign key (organization_id,outlet_id) references public.outlets(organization_id,id) on delete restrict,
   foreign key (organization_id,territory_id) references public.territories(organization_id,id) on delete restrict,
