@@ -146,7 +146,10 @@ export async function startLocationTracking(api:SalesXApiClient,organizationId:s
  }
  return session;
 }
-export async function getStoredLocationShiftId(){return SecureStore.getItemAsync(SHIFT_KEY);}
+export async function getStoredLocationContext(){
+ const [organizationId,shiftId]=await Promise.all([SecureStore.getItemAsync(ORG_KEY),SecureStore.getItemAsync(SHIFT_KEY)]);
+ return {organizationId,shiftId};
+}
 export async function syncPendingLocationStop(api:SalesXApiClient,organizationId:string){
  const pending=await SecureStore.getItemAsync(STOP_PENDING_KEY),sessionId=await SecureStore.getItemAsync(SESSION_KEY);
  if(pending!=="true"||!sessionId)return;
