@@ -3,7 +3,7 @@
 Run only against a disposable local Supabase database:
 SALESX_TEST_DATABASE_URL=postgresql://...@127.0.0.1:54322/postgres
 The test intentionally skips remote/staging/production URLs and does not create login sessions.
-Fixture rows are unique and remain in the disposable database for reset after the test run.
+Fixture rows are unique and remain only in the disposable local Supabase stack, which the workflow stops after the test run.
 """
 from __future__ import annotations
 
@@ -106,32 +106,10 @@ class SmartRewardConcurrentRedemptionTests(unittest.IsolatedAsyncioTestCase):
         )
 
     async def asyncTearDown(self):
+        # The workflow creates a fresh local Supabase stack and stops it after
+        # this suite. Keep append-only ledger fixtures intact until that stack
+        # is discarded rather than disabling production integrity triggers.
         if getattr(self, "db", None):
-            if getattr(self, "organization_id", None):
-                await self.db.execute("ALTER TABLE public.reward_points_ledger DISABLE TRIGGER reward_ledger_immutable")
-                for table in (
-                    "reward_event_outbox",
-                    "reward_audit_events",
-                    "reward_point_lot_allocations",
-                    "reward_approval_history",
-                    "reward_approval_requests",
-                    "reward_redemptions",
-                    "reward_point_lots",
-                    "reward_points_ledger",
-                    "reward_accounts",
-                    "reward_catalog_items",
-                ):
-                    await self.db.execute(
-                        f"delete from public.{table} where organization_id=$1",
-                        self.organization_id,
-                    )
-                await self.db.execute(
-                    "delete from public.organization_memberships where organization_id=$1",
-                    self.organization_id,
-                )
-                await self.db.execute("delete from public.organizations where id=$1", self.organization_id)
-            if getattr(self, "user_id", None):
-                await self.db.execute("delete from auth.users where id=$1", self.user_id)
             await self.db.close()
 
     async def _redeem_pair(self, first_key: str, second_key: str):
