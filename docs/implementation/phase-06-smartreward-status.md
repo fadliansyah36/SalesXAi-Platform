@@ -8,7 +8,7 @@
 - Added isolated SQL fixture: supabase/tests/phase06_smartreward_ledger.sql.
 - The fixture was executed in a rollback-only database transaction. It verified ledger entries for earn, redemption, expiration, reversal (linked to the original redemption), and adjustment; ledger sum reconciliation to 850; duplicate idempotency rejection; and cross-tenant account-reference rejection. All fixture rows were rolled back.
 - Security Advisor reports 0 security lints; the latest Performance Advisor reports 0 unindexed foreign-key lints.
-- Existing private SmartReward Realtime authorization policy is present in realtime.messages.
+- An existing SmartReward Realtime policy is present but is not sufficient: it matches the tenant topic only and allows branch-scoped assignments to subscribe to the tenant-wide topic; participant/branch topics are not covered. A role-scope owner-pending replacement is prepared but not active.
 
 **Remaining Phase 06 gates:**
 1. Run the existing SmartReward API concurrency tests against an isolated test database using two real concurrent connections; the rollback-only fixture is not a substitute for this.
@@ -17,6 +17,14 @@
 4. Verify all portal and Expo SmartReward actions against their typed FastAPI contracts and the populated fixture.
 
 Do not mark Phase 06 COMPLETED until these gates have evidence.
+
+## 2026-11-21 continuation — concurrency and Realtime
+
+- Applied migration `20261121093654_p06_reward_realtime_payload_scope`. The private event payload now carries only organization, participant, requester and branch identifiers in addition to existing event/resource/status metadata. No profile or business PII is added.
+- Added `services/api/tests/test_smart_reward_concurrency_integration.py`: two independent PostgreSQL connections are synchronized at the initial idempotency lookup, then exercise the actual `smart_reward_service.redeem` transaction path. It covers same-key idempotency and distinct-key insufficient-balance serialization.
+- The integration test is deliberately restricted to a disposable local Supabase database via `SALESX_TEST_DATABASE_URL`; it was not executed in this environment. Existing static service tests prove `FOR UPDATE`, transaction and idempotency implementation, but are not live concurrent evidence.
+- Live `smartreward_private_read` was inspected directly. Its current predicate authorizes only `tenant:{org}:smartreward` and permits a branch-scoped assignment on that topic, which is broader than the participant/branch topic design. The corrected user/branch/tenant policy with payload/channel matching is prepared in `supabase/owner-pending/20261121101500_smartreward_realtime_role_scope_policy.sql`; it is not applied.
+- The current policy therefore does not satisfy the Phase 06 private Realtime Definition of Done. Owner-level authorization on `realtime.messages` is required before replacement and authenticated subscription tests can complete.
 
 ---
 
@@ -33,7 +41,7 @@ Latest main SHA before this tracker update: 823072c098dcbee285d5a0157e33fa47b637
 
 **IN_PROGRESS — FOUR-SERVICE RELEASE AND PORTAL RUNTIME VALIDATION PASS; POPULATED-DATA AND AUTHENTICATED SECURITY GATES REMAIN OPEN.**
 
-The four required Railway services are now ONLINE with successful latest deployments and health checks. Phase 06 remains IN_PROGRESS because the linked Supabase project has no organizations, Auth users, reward accounts or reward transactions; populated-ledger reconciliation and authenticated concurrency/cross-tenant tests therefore cannot be truthfully completed. Phase 07 remains LOCKED.
+The four required Railway services are now ONLINE with successful latest deployments and health checks. Phase 06 remains IN_PROGRESS because the linked Supabase project has no organizations, Auth users, reward accounts or reward transactions; populated-ledger reconciliation and authenticated concurrency/cross-tenant tests therefore cannot be truthfully completed. Phase 07 remains IN_PROGRESS.
 
 ## Implemented backend and lifecycle
 
@@ -198,7 +206,7 @@ The latest main commit 823072c is a test-only follow-up in `services/api/tests/t
 - Website and Sales Portal Next builds both report “Compiled successfully”; the Company build reports successful compilation for all five grouped child portals. Deployment logs show the expected gateway route groups and each Next server Ready.
 - The CSS source correction is now deployed. However, the connected Railway tools do not expose a browser screenshot/computed-style inspection, and this execution environment cannot resolve the public Railway domain directly. Therefore the visual appearance on a handset is not claimed as independently confirmed. A successful CSS/JS HTTP health probe is not the same as a manual visual rendering review.
 - Supabase row counts were re-read after the release: organizations 0, profiles 0, reward_accounts 0, reward_points_ledger 0, reward_redemptions 0, reward_point_lots 0, reward_approval_requests 0, reward_audit_events 0. No production data was seeded.
-- Phase 06 remains IN_PROGRESS. Populated-ledger evidence, authenticated test identities/tenant, live concurrency and cross-tenant/private-Realtime tests remain blocked; Customer Segment is still a PRD 5.3 gap. Phase 07 remains LOCKED.
+- Phase 06 remains IN_PROGRESS. Populated-ledger evidence, authenticated test identities/tenant, live concurrency and cross-tenant/private-Realtime tests remain blocked; Customer Segment is still a PRD 5.3 gap. Phase 07 remains IN_PROGRESS.
 
 
 ## Customer Segment implementation continuation — 2026-11-21
@@ -213,7 +221,7 @@ The latest main commit 823072c is a test-only follow-up in `services/api/tests/t
 - The current Railway environment has queued deployments for the newest API and three portal groups. The latest GitHub status contexts report SUCCESS, but Railway still reports queued/applying deployments, so latest-source production rollout is NOT claimed complete until the active deployment IDs settle and logs confirm the source SHA.
 - Remaining validation: no populated reward accounts or transaction fixtures exist; no populated ledger reconciliation, concurrent DB transaction test, isolated authenticated cross-tenant session, or Realtime denial session has been executed. These remain release blockers. Native Expo continues to use the shared SmartReward typed API for eligible catalog, balance, ledger and redemption; segment eligibility is enforced server-side. Native customer-segment authoring is not a Mobile Sales workflow.
 
-**Phase 06 remains IN_PROGRESS. Phase 07 remains LOCKED.**
+**Phase 06 remains IN_PROGRESS. Phase 07 remains IN_PROGRESS.**
 
 
 ## Segment CRUD, membership and analytics UI completion — 2026-11-21
@@ -226,7 +234,7 @@ The latest main commit 823072c is a test-only follow-up in `services/api/tests/t
 - Railway current latest deployments are still QUEUED (not live): API `fe707dc3-4569-41fa-9d59-fda4f6420e47` (source 90770cd1), Website `e790cd63-0959-436e-bad1-b7c3fc7b8e3b`, Customer `64cf1a75-4f25-4cc6-801a-b1e1d6a6afcf`, Company `bb8eb2ee-1540-49bd-8562-4cacbfba104d` (portal source b2dd365e). Latest-source release is therefore not marked deployed.
 - Supabase confirms 17 Phase 06 migrations including customer segments; Security Advisor returned zero lints. Customer segment tables and permission keys exist. Production reward and segment row counts remain zero.
 
-**Phase 06 remains IN_PROGRESS; Phase 07 remains LOCKED.**
+**Phase 06 remains IN_PROGRESS; Phase 07 remains IN_PROGRESS.**
 
 
 ## Final continuation checkpoint — 2026-11-21
@@ -238,7 +246,7 @@ The latest main commit 823072c is a test-only follow-up in `services/api/tests/t
 - Current code has not yet been validated by a fresh API/portal/Expo CI run after the Customer Segment additions. Previous 115 API tests and 8/8 portal/Expo build results are historical baseline evidence only.
 - No production reward account, ledger, redemption, lot, approval or segment fixture was created. Populated-ledger evidence, concurrency, cross-tenant and private Realtime session tests remain open. Do not seed fake production data or use a real user account.
 
-**Phase 06 remains IN_PROGRESS; Phase 07 remains LOCKED.**
+**Phase 06 remains IN_PROGRESS; Phase 07 remains IN_PROGRESS.**
 
 
 ## Release recovery checkpoint — 2026-11-21 (latest execution)
@@ -250,7 +258,7 @@ The latest main commit 823072c is a test-only follow-up in `services/api/tests/t
 - Supabase project `eyofuiyxalbehbqoaeny` remains ACTIVE_HEALTHY. The 17 Phase 06 migrations remain recorded, and Security Advisor returns zero lints. Read-only populated-row check still reports 0 organizations, 0 profiles, 0 reward accounts, 0 ledger entries, 0 redemptions, 0 point lots, 0 approvals, 0 reward audit events, 0 customer segments and 0 segment members. No production fixtures were created; no populated-ledger or concurrency claim is made.
 - A temporary Supabase development branch is the safe available path for isolated populated fixtures. Branch creation requires explicit cost confirmation at **US$0.01344 per hour**; no branch has been created pending that approval. No production data has been written.
 - No fresh API pytest/Ruff, portal typecheck/lint/build matrix or Expo typecheck/bundle export has been run on the current segment source. Historical CI baseline is not counted as current-source validation.
-- **Phase 06 remains IN_PROGRESS; Phase 07 remains LOCKED.** Remaining DoD: isolated fixture branch approval and execution; earning/redemption/expiration/reversal/adjustment reconciliation and concurrency/idempotency; authenticated cross-tenant/private Realtime tests; fresh current-source CI/build/Expo checks; portal asset HTTP verification beyond build/gateway readiness.
+- **Phase 06 remains IN_PROGRESS; Phase 07 remains IN_PROGRESS.** Remaining DoD: isolated fixture branch approval and execution; earning/redemption/expiration/reversal/adjustment reconciliation and concurrency/idempotency; authenticated cross-tenant/private Realtime tests; fresh current-source CI/build/Expo checks; portal asset HTTP verification beyond build/gateway readiness.
 
 
 ## Live portal asset verification — 2026-11-21
@@ -283,7 +291,7 @@ Validation evidence:
 
 No new Supabase migration was needed for these API/client integration fixes; the existing Phase 06 migration set remains applied. Do not interpret this code-level checkpoint as populated-ledger, real-account concurrency, or authenticated cross-tenant runtime test evidence.
 
-**Phase 06 remains IN_PROGRESS while current CI/build and latest-source Railway deployments complete. Phase 07 remains LOCKED.** Final real-account transaction and tenant authorization validation is deferred per the user's instruction.
+**Phase 06 remains IN_PROGRESS while current CI/build and latest-source Railway deployments complete. Phase 07 remains IN_PROGRESS.** Final real-account transaction and tenant authorization validation is deferred per the user's instruction.
 
 
 ## Latest API and portal build evidence — 2026-11-21
