@@ -35,6 +35,15 @@ export function AnalyticsWorkspace({compact=false}:{compact?:boolean}){
   finally{setLoading(false);}
  },[api,periodStart,periodEnd,grain]);
  useEffect(()=>{void refresh();},[refresh]);
+ useEffect(()=>{
+  if(!dashboard?.scopes.length||dashboard.scopes.some(scope=>scope.scope_type==="tenant"))return;
+  setScopeType(dashboard.scopes[0].scope_type);
+ },[dashboard]);
+ useEffect(()=>{
+  if(!api||!reports.some(report=>report.status==="queued"||report.status==="running"))return;
+  const timer=setInterval(()=>{void api.reports().then(setReports).catch(()=>undefined);},5000);
+  return()=>clearInterval(timer);
+ },[api,reports]);
 
  const visibleMetrics=useMemo(()=>{
   const values=dashboard?.metrics??[];
