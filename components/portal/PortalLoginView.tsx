@@ -81,7 +81,7 @@ export function PortalLoginView({ onCompleteLogin }: PortalLoginViewProps) {
       const destination = getPreferredPortalPath([...context.platform_permissions, ...membership.permissions]);
       if (destination) {
         auth.setActiveOrganization(membership.organization_id);
-        window.location.replace(destination);
+        window.location.replace(getSalesXPortalUrlForPath(destination));
         return true;
       }
     }
