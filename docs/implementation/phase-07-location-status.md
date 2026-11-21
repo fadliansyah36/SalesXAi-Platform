@@ -107,3 +107,15 @@
 2. Physical Expo device lifecycle evidence for background execution, OS suspension, permission revocation and offline resume/sync.
 
 **Phase 07 remains IN_PROGRESS.** The code, migrations, API, Expo build and portal integration are implemented; owner policy authorization and physical-device runtime evidence remain open.
+
+
+## Final deployment alignment — 2026-11-21
+
+Latest successful runtime source for the four designated Railway services is 833235184befbc2ed7ac41d161d07ab0d6fc188e. All services are connected to repository branch main without a pinned commit. The app-code snapshot is 27dc32b; subsequent commits 833235 and 261b are documentation-only. Railway watch patterns correctly skip docs-only changes, so no application code is omitted from the runtime.
+
+- salesx-api deployment bb101799-8d7c-46bd-bf4b-ac1d864da8af — SUCCESS
+- salesx-website deployment 491a7417-3825-418e-b319-1cfdd850405a — SUCCESS
+- salesx-customer deployment 760c94dc-9890-452c-ac1b-a14397bc6852 — SUCCESS
+- salesx-company deployment 42af78b1-8aaa-4c5b-b3d1-8232708b0822 — SUCCESS
+
+Live API readiness and all eight portal-group health probes returned healthy; no new service or database was created.

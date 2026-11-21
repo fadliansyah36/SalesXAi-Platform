@@ -1468,3 +1468,16 @@ Live API GET /readyz returned status=ready, database=connected, and source SHA 2
 - **Production Release — COMPLETED for the verified 27dc32b source snapshot:** all four named Railway services report SUCCESS and live runtime/UI health checks passed.
 
 Next phase after Phase 07 closure: **Phase 08 — Analytics & KPI Aggregation**.
+
+
+## Final deployment alignment addendum — 2026-11-21
+
+The latest successful runtime deployment for all four designated Railway services is source SHA 833235184befbc2ed7ac41d161d07ab0d6fc188e, branch main, with no commit pin. This SHA includes the completed application code snapshot 27dc32b plus documentation-only evidence updates. The later 261b588 commit also changed only documentation files, so Railway's service-specific watch patterns correctly skipped a redundant application rebuild.
+
+Current successful deployment IDs:
+- salesx-api: bb101799-8d7c-46bd-bf4b-ac1d864da8af
+- salesx-website: 491a7417-3825-418e-b319-1cfdd850405a
+- salesx-customer: 760c94dc-9890-452c-ac1b-a14397bc6852
+- salesx-company: 42af78b1-8aaa-4c5b-b3d1-8232708b0822
+
+Live API /readyz reports ready/database connected; website, customer and company /api/health probes report all eight portals healthy with root/deep-link/JS/CSS/manifest/service-worker HTTP 200.
