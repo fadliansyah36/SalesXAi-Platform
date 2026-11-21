@@ -26,6 +26,16 @@ class ApiActionContract:
 
 API_ACTION_MATRIX: tuple[ApiActionContract, ...] = (
     ApiActionContract(
+        "identity.portal.handoff.create","POST","/api/v1/auth/portal-handoffs",
+        "identity","portal_handoff_create","auth_portal_handoff",
+        "trusted_bff_and_verified_identity",None,"self","verified_session_and_bff_shared_secret",
+    ),
+    ApiActionContract(
+        "identity.portal.handoff.exchange","POST","/api/v1/auth/portal-handoffs/exchange",
+        "identity","portal_handoff_exchange","auth_portal_handoff",
+        "trusted_bff_only",None,"bff","shared_secret_and_single_use_ticket",
+    ),
+    ApiActionContract(
         "identity.context.read",
         "GET",
         "/api/v1/auth/me",
