@@ -476,7 +476,7 @@ export interface AnalyticsMetricPoint {
   dimensions:Record<string,unknown>; source_watermark:ISODateTime|null; calculated_at:ISODateTime;
 }
 export interface AnalyticsDashboardResponse {
-  organization_id:UUID; period_start:string; period_end:string; period_grain:AnalyticsPeriodGrain;
+  organization_id:UUID; timezone:string; period_start:string; period_end:string; period_grain:AnalyticsPeriodGrain;
   scopes:Array<{scope_type:AnalyticsScopeType;scope_id:UUID|null}>;
   metrics:AnalyticsMetricPoint[]; data_as_of:ISODateTime|null; is_stale:boolean;
 }
