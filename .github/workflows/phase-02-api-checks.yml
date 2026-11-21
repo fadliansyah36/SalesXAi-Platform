@@ -1,5 +1,9 @@
 name: SalesX-Ai Phase 02 API Checks
 
+concurrency:
+  group: phase-06-api-validation-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches: [main]
