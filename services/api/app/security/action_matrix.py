@@ -1085,6 +1085,7 @@ API_ACTION_MATRIX: tuple[ApiActionContract, ...] = (
     ApiActionContract("analytics.dashboard.read","GET","/api/v1/organizations/{organization_id}/analytics/dashboard","analytics","dashboard_read","analytics_metric_snapshot","tenant_permission:analytics:dashboard:read","analytics:dashboard:read","tenant","tenant_permission_and_assigned_scope"),
     ApiActionContract("analytics.reports.read","GET","/api/v1/organizations/{organization_id}/analytics/reports","analytics","reports_read","analytics_report_run","tenant_permission:analytics:reports:read","analytics:reports:read","tenant","tenant_permission_and_report_scope"),
     ApiActionContract("analytics.reports.create","POST","/api/v1/organizations/{organization_id}/analytics/reports","analytics","reports_create","analytics_report_run","tenant_permission:analytics:reports:manage","analytics:reports:manage","tenant","tenant_permission_and_assigned_scope"),
+    ApiActionContract("analytics.reports.download","GET","/api/v1/organizations/{organization_id}/analytics/reports/{report_run_id}/download","analytics","report_download","analytics_report_export","tenant_permission:analytics:reports:read","analytics:reports:read","tenant","tenant_permission_and_report_scope"),
 )
 
 
