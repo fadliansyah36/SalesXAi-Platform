@@ -212,7 +212,7 @@ async def execute_schedule(connection: asyncpg.Connection, job: asyncpg.Record, 
         return
     try:
         if job["job_type"] in {"refresh_daily", "refresh_weekly", "refresh_monthly"}:
-            lookback = int(job["parameters"].get("lookback_days", os.getenv("ANALYTICS_LOOKBACK_DAYS", "35")))
+            lookback = int(job["parameters"].get("lookback_days", os.getenv("ANALYTICS_LOOKBACK_DAYS", "366")))
             if lookback < 1 or lookback > 366:
                 raise ValueError("analytics_lookback_days_out_of_range")
             start, end = await refresh_organization(connection, job["organization_id"], lookback)
@@ -245,7 +245,7 @@ async def run_once() -> int:
     dsn = os.getenv("DATABASE_URL")
     if not dsn:
         raise RuntimeError("DATABASE_URL must point to the bound SalesX-Ai Supabase project.")
-    lookback = int(os.getenv("ANALYTICS_LOOKBACK_DAYS", "35"))
+    lookback = int(os.getenv("ANALYTICS_LOOKBACK_DAYS", "366"))
     if not 1 <= lookback <= 366:
         raise ValueError("ANALYTICS_LOOKBACK_DAYS must be between 1 and 366.")
     connection = await asyncpg.connect(
