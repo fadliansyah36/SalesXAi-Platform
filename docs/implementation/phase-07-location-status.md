@@ -2,6 +2,16 @@
 
 **Status: IN_PROGRESS — implementation is open; not complete.**
 
+## Google Maps foundation — 2026-11-21 continuation
+
+- Shared provider-neutral contracts: `packages/maps/src/index.ts` (coordinates, markers, polylines, polygons, runtime config, GeoJSON conversion and Haversine distance).
+- Web adapter: `components/location/GoogleMapsCanvas.tsx`, using existing `@vis.gl/react-google-maps`; `LocationWorkspace` now renders through the adapter.
+- Native Expo adapter: `apps/mobile-sales/src/location/LocationMap.tsx`, using `react-native-maps@1.29.11` and `PROVIDER_GOOGLE`. Expo config injects separately restricted Android/iOS keys only when configured. The tracking control renders current device coordinates after the consented tracking session is active.
+- FastAPI provider boundary: `GET /api/v1/maps/config` and `POST /api/v1/organizations/{organization_id}/maps/routes/compute`. Route computation uses only `GOOGLE_MAPS_SERVER_API_KEY` and fails closed when absent. Shared API contracts/client include route request/response.
+- Geofence list responses now include boundary GeoJSON; Web map overlays render authorized geofences and reconstructed route polylines.
+- Credential contract and activation sequence are documented in `docs/architecture/google-maps.md`. No fake key or map ID is used; no map tiles are claimed active.
+- Owner-gated Location Realtime SQL is prepared at `supabase/owner-pending/20261121100000_location_realtime_messages_owner_policy.sql` and is not applied. It filters private Broadcast subscriptions by organization, authenticated membership, location permission and branch/team/territory assignment.
+- Google Maps Foundation is code-ready for final credential activation, pending final GitHub CI evidence and actual credential activation.
 ## Applied database changes
 - 20261121082433_p07_location_intelligence_foundation: tracking sessions, points, geofences, geofence events and route summaries.
 - 20261121083536_p07_location_live_projection_geofence_realtime: latest-position projection, geofence presence state, access audit, PostGIS route/geofence processing, private Broadcast and server notification.
@@ -25,7 +35,7 @@
 - Four named Railway services are preserved. An additional @salesx-ai/mobile-sales Railway service already exists in the connected Railway project; it was not created or removed by this change.
 
 ## Realtime authorization limitation
-The trigger emits a private Broadcast to location:{organization_id}:live and a PostgreSQL notification. The current database connector principal cannot create a new policy on realtime.messages: that table is owned by supabase_realtime_admin, and the connected postgres principal cannot assume that role. The permission-checked FastAPI SSE endpoint is the current live-event delivery path. Direct Supabase private-channel subscription for Location remains blocked until an owner-level policy is added.
+The trigger emits a private Broadcast to location:{organization_id}:live and a PostgreSQL notification. The owner-gated policy source is prepared, but the current database connector principal cannot create a policy on realtime.messages because that table is owned by supabase_realtime_admin. The permission-checked FastAPI SSE endpoint remains the available live-event delivery path until the project owner applies the policy.
 
 ## Remaining implementation/verification gates
 1. Add the owner-authorized realtime.messages policy for location channels and verify subscription isolation.
@@ -82,6 +92,6 @@ PostGIS geography/geometry types and GiST indexes are installed. All five tables
 
 ## Not yet implemented / not claimed
 
-No FastAPI location router/application service/repository, OpenAPI endpoints, generated shared client methods, Expo background task/outbox, portal map/history integration, private Realtime authorization policy, geofence evaluator, route reconstruction worker, or authenticated tenant-isolation evidence is claimed complete in this checkpoint.
+The earlier initial checkpoint below is historical and is superseded by the current execution snapshot and Google Maps continuation above. Remaining gates are owner-level Realtime policy application and subscription isolation, device-level background lifecycle verification, offline/out-of-order batch verification, geofence and route reconstruction edge-case validation, and production deployment evidence.
 
 Phase 06 SmartReward remains IN_PROGRESS. Its populated ledger fixture/reconciliation, concurrency/idempotency and authenticated cross-tenant/private-Realtime gates remain separate open work. Phase 07 is authorized to proceed in parallel by the latest execution decision.
