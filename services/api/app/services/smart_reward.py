@@ -11,6 +11,7 @@ class SmartRewardService:
  async def _audit(self,db,org,actor,action,kind,rid,reason=None,meta=None):
   await db.execute("insert into public.reward_audit_events(organization_id,actor_user_id,action,resource_type,resource_id,reason,metadata) values($1,$2,$3,$4,$5,$6,$7::jsonb)",org,actor,action,kind,rid,reason,json.dumps(meta or {}))
  async def _account(self,db,org,user):
+  await db.fetchval("select public.process_reward_expirations(250)")
   if not await db.fetchval("select exists(select 1 from public.organization_memberships where organization_id=$1 and user_id=$2 and status='active')",org,user):
    raise APIError(422,"reward_participant_not_member","Participant must be an active organization member.")
   await db.execute("insert into public.reward_accounts(organization_id,participant_user_id) values($1,$2) on conflict do nothing",org,user)
@@ -57,16 +58,21 @@ class SmartRewardService:
   if not r: raise APIError(404,"reward_catalog_item_not_found","Item not found or committed stock would be violated.")
   await self._audit(db,org,actor,"catalog.updated","reward_catalog_item",iid); return dict(r)
  async def balance(self,db,org,user):
-  a,b=await self._account(db,org,user); return {"account_id":str(a["id"]),"organization_id":str(org),"participant_user_id":str(user),"points_balance":b}
+  a,b=await self._account(db,org,user)
+  expiry=await db.fetchrow("select min(expires_at) next_expiration_at,coalesce(sum(points_remaining) filter(where expires_at<=now()+interval '30 days'),0)::bigint expiring_points_30d from public.reward_point_lots where organization_id=$1 and account_id=$2 and points_remaining>0",org,a["id"])
+  return {"account_id":str(a["id"]),"organization_id":str(org),"participant_user_id":str(user),"points_balance":b,"next_expiration_at":expiry["next_expiration_at"],"expiring_points_30d":int(expiry["expiring_points_30d"])}
  async def ledger(self,db,org,user,page,size):
   a=await db.fetchrow("select id from public.reward_accounts where organization_id=$1 and participant_user_id=$2",org,user)
   if not a:return {"items":[],"page":page,"page_size":size,"total":0}
   total=await db.fetchval("select count(*) from public.reward_points_ledger where organization_id=$1 and account_id=$2",org,a["id"])
-  rows=await db.fetch("select id,entry_type,points_delta,balance_before,balance_after,source_type,source_id,reference_type,reference_id,actor_user_id,reason,occurred_at,metadata from public.reward_points_ledger where organization_id=$1 and account_id=$2 order by occurred_at desc,id desc limit $3 offset $4",org,a["id"],size,(page-1)*size)
+  rows=await db.fetch("select id,entry_type,points_delta,balance_before,balance_after,source_type,source_id,reference_type,reference_id,actor_user_id,reason,occurred_at,expires_at,metadata from public.reward_points_ledger where organization_id=$1 and account_id=$2 order by occurred_at desc,id desc limit $3 offset $4",org,a["id"],size,(page-1)*size)
   return {"items":[dict(r) for r in rows],"page":page,"page_size":size,"total":total}
  async def _source_metric(self,db,org,t,sid,user,metric):
   if t=="visit":
-   if not await db.fetchval("select exists(select 1 from public.smartteam_visits where organization_id=$1 and id=$2 and status='completed')",org,sid): raise APIError(422,"reward_source_not_eligible","Visit must be completed in this organization.")
+   visit=await db.fetchrow("select sales_profile_id from public.smartteam_visits where organization_id=$1 and id=$2 and status='completed'",org,sid)
+   if not visit: raise APIError(422,"reward_source_not_eligible","Visit must be completed in this organization.")
+   owner=await db.fetchval("select user_id from public.sales_profiles where organization_id=$1 and id=$2",org,visit["sales_profile_id"])
+   if owner!=user: raise APIError(403,"reward_source_owner_mismatch","Visit belongs to another participant.")
    return Decimal(1)
   if t=="order":
    r=await db.fetchrow("select grand_total,customer_user_id,channel from public.orders where organization_id=$1 and id=$2 and status in ('fulfilled','completed')",org,sid)
@@ -89,12 +95,31 @@ class SmartRewardService:
    if not await db.fetchval("select exists(select 1 from public.reward_programs where organization_id=$1 and id=$2 and status='active' and starts_at<=now() and ends_at>now())",org,p.program_id): raise APIError(409,"reward_program_inactive","Program is not active.")
    rule=await db.fetchrow("select * from public.reward_incentive_rules where organization_id=$1 and id=$2 and program_id=$3 and status='active' for share",org,p.rule_id,p.program_id)
    if not rule: raise APIError(404,"reward_rule_not_found","Active rule not found.")
+   program=await db.fetchrow("select audience,configuration from public.reward_programs where organization_id=$1 and id=$2",org,p.program_id)
+   membership=await db.fetchrow("select branch_id from public.organization_memberships where organization_id=$1 and user_id=$2 and status='active'",org,p.participant_user_id)
+   if not membership: raise APIError(422,"reward_participant_not_member","Participant must be an active organization member.")
+   roles=await db.fetch("select r.key from public.user_role_assignments ura join public.roles r on r.id=ura.role_id join public.organization_memberships m on m.id=ura.membership_id where m.organization_id=$1 and m.user_id=$2 and m.status='active' and ura.revoked_at is null and ura.starts_at<=now() and (ura.expires_at is null or ura.expires_at>now())",org,p.participant_user_id)
+   role_keys={x["key"] for x in roles}; audience=program["audience"] or {}; cfg=rule["rule_config"] or {}
+   allowed_roles=set(audience.get("roles",[]))|set(cfg.get("eligible_roles",[]))
+   allowed_users=set(audience.get("user_ids",[])); allowed_branches=set(audience.get("branch_ids",[]))|set(cfg.get("eligible_branch_ids",[]))
+   if allowed_roles and not role_keys.intersection(allowed_roles): raise APIError(403,"reward_role_ineligible","Participant role is outside the program audience.")
+   if allowed_users and str(p.participant_user_id) not in allowed_users: raise APIError(403,"reward_user_ineligible","Participant is outside the program audience.")
+   if allowed_branches and (membership["branch_id"] is None or str(membership["branch_id"]) not in allowed_branches): raise APIError(403,"reward_branch_ineligible","Participant branch is outside the program audience.")
    if {"order.completed":"order","visit.completed":"visit","target.achieved":"target","manual.approved":"manual"}[rule["event_key"]]!=p.source_type: raise APIError(422,"reward_event_mismatch","Source does not match incentive rule.")
    metric=await self._source_metric(db,org,p.source_type,p.source_id,p.participant_user_id,p.metric_value)
-   if metric<Decimal(str((rule["rule_config"] or {}).get("minimum_metric",0))): raise APIError(409,"reward_rule_not_satisfied","Source metric is below rule threshold.")
+   if metric<Decimal(str(cfg.get("minimum_metric",0))): raise APIError(409,"reward_rule_not_satisfied","Source metric is below rule threshold.")
    points=int(rule["fixed_points"])+int((metric*Decimal(str(rule["points_per_unit"]))).to_integral_value(rounding=ROUND_FLOOR))
    if rule["max_points"] is not None: points=min(points,int(rule["max_points"]))
    if points<=0 or rule["requires_approval"]: raise APIError(409,"reward_approval_or_points_required","Rule requires approval or calculates zero points.")
+   period_days=max(1,min(int(cfg.get("period_days",30)),366))
+   per_user=cfg.get("max_per_user_per_period")
+   if per_user is not None:
+    used=await db.fetchval("select coalesce(sum(points_delta),0) from public.reward_points_ledger where organization_id=$1 and participant_user_id=$2 and entry_type='earn' and metadata->>'rule_id'=$3 and occurred_at>=now()-make_interval(days=>$4)",org,p.participant_user_id,str(p.rule_id),period_days)
+    if int(used or 0)+points>int(per_user): raise APIError(409,"reward_user_period_limit","Participant incentive limit has been reached.")
+   total_limit=cfg.get("max_total_per_period")
+   if total_limit is not None:
+    used=await db.fetchval("select coalesce(sum(points_delta),0) from public.reward_points_ledger where organization_id=$1 and entry_type='earn' and metadata->>'rule_id'=$2 and occurred_at>=now()-make_interval(days=>$3)",org,str(p.rule_id),period_days)
+    if int(used or 0)+points>int(total_limit): raise APIError(409,"reward_program_period_limit","Program incentive limit has been reached.")
    a,b=await self._account(db,org,p.participant_user_id)
    old=await db.fetchrow("select * from public.reward_points_ledger where organization_id=$1 and participant_user_id=$2 and idempotency_key=$3",org,p.participant_user_id,p.idempotency_key)
    if old:return dict(old)
@@ -111,6 +136,17 @@ class SmartRewardService:
    if not item:raise APIError(404,"reward_item_unavailable","Reward item is unavailable.")
    elig=item["eligibility"] or {}
    if elig.get("minimum_balance") and b<int(elig["minimum_balance"]):raise APIError(403,"reward_eligibility_denied","Minimum balance is not met.")
+   member=await db.fetchrow("select branch_id from public.organization_memberships where organization_id=$1 and user_id=$2 and status='active'",org,actor)
+   if not member: raise APIError(422,"reward_participant_not_member","Participant must be an active organization member.")
+   roles=await db.fetch("select r.key from public.user_role_assignments ura join public.roles r on r.id=ura.role_id join public.organization_memberships m on m.id=ura.membership_id where m.organization_id=$1 and m.user_id=$2 and m.status='active' and ura.revoked_at is null and ura.starts_at<=now() and (ura.expires_at is null or ura.expires_at>now())",org,actor)
+   role_keys={x["key"] for x in roles}; allowed_roles=set(elig.get("roles",[])); allowed_branches=set(elig.get("branch_ids",[])); allowed_users=set(elig.get("user_ids",[]))
+   if allowed_roles and not role_keys.intersection(allowed_roles): raise APIError(403,"reward_role_ineligible","Participant role is not eligible for this catalog item.")
+   if allowed_branches and (member["branch_id"] is None or str(member["branch_id"]) not in allowed_branches): raise APIError(403,"reward_branch_ineligible","Participant branch is not eligible for this catalog item.")
+   if allowed_users and str(actor) not in allowed_users: raise APIError(403,"reward_user_ineligible","Participant is not eligible for this catalog item.")
+   period_days=max(1,min(int(elig.get("period_days",30)),366))
+   if elig.get("max_per_user_per_period") is not None:
+    used=await db.fetchval("select coalesce(sum(quantity),0) from public.reward_redemptions where organization_id=$1 and participant_user_id=$2 and catalog_item_id=$3 and status<>'rejected' and requested_at>=now()-make_interval(days=>$4)",org,actor,item["id"],period_days)
+    if int(used or 0)+p.quantity>int(elig["max_per_user_per_period"]): raise APIError(409,"reward_redemption_limit","Participant redemption limit has been reached.")
    cost=int(item["points_cost"])*p.quantity
    if b<cost:raise APIError(409,"insufficient_reward_points","Insufficient reward points.")
    if item["quantity_total"] is not None and int(item["quantity_total"])-int(item["quantity_reserved"])-int(item["quantity_fulfilled"])<p.quantity:raise APIError(409,"reward_out_of_stock","Reward is out of stock.")
@@ -183,11 +219,28 @@ class SmartRewardService:
     values($1,$2,$3,'reversal',$4,$5,$6,'ledger',$7,'ledger',$7,$8,$9,$10,$11) returning *""",org,a["id"],old["participant_user_id"],delta,b,after,eid,actor,p.idempotency_key,p.reason,eid)
    await db.execute("update public.reward_accounts set points_balance=$3,updated_at=now() where organization_id=$1 and id=$2",org,a["id"],after)
    await self._audit(db,org,actor,"points.reversed","reward_points_ledger",r["id"],p.reason,{"reversed_entry_id":str(eid)});return dict(r)
- async def report(self,db,org,page,size):
-  r=await db.fetchrow("""select coalesce(sum(case when entry_type='earn' then points_delta else 0 end),0)::bigint earned_points,
+ async def report(self,db,org,page,size,start_at=None,end_at=None,branch_id=None):
+  await db.fetchval("select public.process_reward_expirations(500)")
+  r=await db.fetchrow("""select
+   coalesce(sum(case when entry_type='earn' then points_delta else 0 end),0)::bigint earned_points,
    coalesce(sum(case when entry_type='redemption' then -points_delta else 0 end),0)::bigint redeemed_points,
+   coalesce(sum(case when entry_type='expiration' then -points_delta else 0 end),0)::bigint expired_points,
    coalesce(sum(case when entry_type='adjustment' then points_delta else 0 end),0)::bigint adjusted_points,
-   count(*) ledger_entries,count(distinct participant_user_id) participants from public.reward_points_ledger where organization_id=$1""",org)
+   coalesce(sum(case when entry_type='reversal' then points_delta else 0 end),0)::bigint reversed_points,
+   count(*) ledger_entries,count(distinct l.participant_user_id) participants,
+   count(*) filter(where entry_type='earn' and metadata ? 'rule_id')::bigint incentive_achievements
+   from public.reward_points_ledger l
+   left join public.organization_memberships m on m.organization_id=l.organization_id and m.user_id=l.participant_user_id
+   where l.organization_id=$1 and ($2::timestamptz is null or l.occurred_at>=$2) and ($3::timestamptz is null or l.occurred_at<$3) and ($4::uuid is null or m.branch_id=$4)""",org,start_at,end_at,branch_id)
   pending=await db.fetchval("select count(*) from public.reward_redemptions where organization_id=$1 and status in ('requested','approved')",org)
-  return {**dict(r),"pending_redemptions":pending,"page":page,"page_size":size}
+  approvals=await db.fetchval("select count(*) from public.reward_approval_requests where organization_id=$1 and status='pending'",org)
+  outstanding=await db.fetchval("select coalesce(sum(points_balance),0)::bigint from public.reward_accounts where organization_id=$1 and status='active'",org)
+  by_branch=await db.fetch("""select m.branch_id,coalesce(sum(case when l.entry_type='earn' then l.points_delta else 0 end),0)::bigint earned_points,
+   coalesce(sum(case when l.entry_type='redemption' then -l.points_delta else 0 end),0)::bigint redeemed_points,
+   coalesce(sum(case when l.entry_type='expiration' then -l.points_delta else 0 end),0)::bigint expired_points,
+   count(distinct l.participant_user_id)::bigint participants
+   from public.reward_points_ledger l join public.organization_memberships m on m.organization_id=l.organization_id and m.user_id=l.participant_user_id
+   where l.organization_id=$1 and ($2::timestamptz is null or l.occurred_at>=$2) and ($3::timestamptz is null or l.occurred_at<$3) and ($4::uuid is null or m.branch_id=$4)
+   group by m.branch_id order by m.branch_id limit $5 offset $6""",org,start_at,end_at,branch_id,size,(page-1)*size)
+  return {**dict(r),"outstanding_points":int(outstanding or 0),"pending_redemptions":pending,"pending_approvals":approvals,"by_branch":[dict(x) for x in by_branch],"page":page,"page_size":size,"period_start":start_at,"period_end":end_at}
 smart_reward_service=SmartRewardService()
