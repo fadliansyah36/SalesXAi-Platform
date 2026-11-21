@@ -48,7 +48,7 @@ class LocationService:
             except asyncpg.UniqueViolationError as exc:
                 raise APIError(409, "location_session_already_active", "A location session is already active for this user.") from exc
             await db.execute("""insert into public.admin_audit_logs(actor_user_id,organization_id,action,resource_type,resource_id,metadata)
-              values($1,$2,'location.session.started','location_session',$3,$4::jsonb)""",
+              values($1,$2,'location.session.started','location_session',$3::text,$4::jsonb)""",
               actor, org, row["id"], json.dumps({"device_id":payload.device_id,"consent_policy_version":payload.consent_policy_version}))
             return dict(row)
 
@@ -69,7 +69,7 @@ class LocationService:
               ended_at=case when $4 then now() else null end,updated_at=now()
               where organization_id=$1 and id=$2 returning *""", org, session_id, target, target in {"completed","revoked"})
             await db.execute("""insert into public.admin_audit_logs(actor_user_id,organization_id,action,resource_type,resource_id,metadata)
-              values($1,$2,$3,'location_session',$4,$5::jsonb)""", actor, org, "location.session."+payload.action, session_id, json.dumps({"reason":payload.reason}))
+              values($1,$2,$3,'location_session',$4::text,$5::jsonb)""", actor, org, "location.session."+payload.action, session_id, json.dumps({"reason":payload.reason}))
             return dict(updated)
 
     async def ingest(self, db, org, tenant, actor, session_id, device_id, payload):
@@ -141,12 +141,30 @@ class LocationService:
         start=from_date or (datetime.now(UTC).date()-timedelta(days=7)); end=to_date or datetime.now(UTC).date()
         if end<start or (end-start).days>31:
             raise APIError(422,"location_route_window_invalid","Route history window must be within 31 days.")
-        rows=await db.fetch("""select r.*,s.sales_profile_id,s.user_id from public.location_route_summaries r
+        rows=await db.fetch("""select r.id,r.organization_id,r.session_id,r.route_date,r.started_at,r.ended_at,r.point_count,r.distance_m,extensions.st_asgeojson(r.route)::json route_geojson,r.computed_at,s.sales_profile_id,s.user_id from public.location_route_summaries r
           join public.location_tracking_sessions s on s.organization_id=r.organization_id and s.id=r.session_id
           where r.organization_id=$1 and s.sales_profile_id=any($2::uuid[]) and ($3::uuid is null or s.sales_profile_id=$3)
           and r.route_date between $4 and $5 order by r.route_date desc,r.started_at desc""",org,ids,profile_id,start,end)
         await db.execute("""insert into public.location_access_audit(organization_id,actor_user_id,resource_type,action,filters)
           values($1,$2,'route_history','read',$3::jsonb)""",org,actor,json.dumps({"from_date":str(start),"to_date":str(end)}))
         return [dict(r) for r in rows]
+
+
+    async def geofence_events(self, db, org, tenant, actor, page=1, size=100):
+        self._tenant(org, tenant)
+        ids = await self.visible_profiles(db, org, actor)
+        rows = await db.fetch("""select e.id,e.geofence_id,g.name geofence_name,e.session_id,e.location_point_id,
+          e.event_type,e.occurred_at,s.sales_profile_id,s.user_id
+          from public.location_geofence_events e
+          join public.location_geofences g on g.organization_id=e.organization_id and g.id=e.geofence_id
+          join public.location_tracking_sessions s on s.organization_id=e.organization_id and s.id=e.session_id
+          where e.organization_id=$1 and s.sales_profile_id=any($2::uuid[])
+          order by e.occurred_at desc,e.id desc limit $3 offset $4""",org,ids,size,(page-1)*size)
+        total = await db.fetchval("""select count(*) from public.location_geofence_events e
+          join public.location_tracking_sessions s on s.organization_id=e.organization_id and s.id=e.session_id
+          where e.organization_id=$1 and s.sales_profile_id=any($2::uuid[])""",org,ids)
+        await db.execute("""insert into public.location_access_audit(organization_id,actor_user_id,resource_type,action,filters)
+          values($1,$2,'geofence','read',$3::jsonb)""",org,actor,json.dumps({"page":page,"page_size":size}))
+        return {"items":[dict(r) for r in rows],"page":page,"page_size":size,"total":int(total or 0)}
 
 location_service=LocationService()
