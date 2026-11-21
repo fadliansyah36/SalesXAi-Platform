@@ -47,7 +47,7 @@ async def history(organization_id:UUID,from_at:datetime|None=None,to_at:datetime
 
 @router.get("/{organization_id}/location/routes")
 async def routes(organization_id:UUID,from_date:date|None=None,to_date:date|None=None,sales_profile_id:UUID|None=None,
- principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("location.history.read")),
+ principal:Principal=Depends(get_current_principal),tenant:TenantContext=Depends(require_api_action("location.routes.read")),
  db:asyncpg.Connection=Depends(get_connection)):
  return {"items":await location_service.routes(db,organization_id,tenant,principal.user_id,from_date,to_date,sales_profile_id)}
 
@@ -80,7 +80,7 @@ async def geofence_events(organization_id:UUID,page:int=Query(1,ge=1),page_size:
 
 @router.get("/{organization_id}/location/events")
 async def events(organization_id:UUID,request:Request,principal:Principal=Depends(get_current_principal),
- tenant:TenantContext=Depends(require_api_action("location.live.read")),db:asyncpg.Connection=Depends(get_connection)):
+ tenant:TenantContext=Depends(require_api_action("location.events.read")),db:asyncpg.Connection=Depends(get_connection)):
  if tenant.organization_id!=organization_id: raise APIError(403,"tenant_scope_mismatch","Location access is restricted to the active organization.")
  queue:asyncio.Queue[dict]=asyncio.Queue(maxsize=128)
  def receive(_connection,_pid,_channel,payload:str):
