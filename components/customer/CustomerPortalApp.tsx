@@ -873,6 +873,7 @@ export function CustomerPortalApp() {
             );
           })}
           {auth.canPerformApiAction("smartorder.catalog.products.read") && <Link href="/customer/smart-order" className="mt-2 flex items-center gap-2.5 rounded-xl border border-[var(--color-border)] px-3 py-2.5 text-xs font-semibold text-[var(--color-text-secondary)]"><ShoppingCart className="h-4 w-4"/>SmartOrder</Link>}
+          {auth.canPerformApiAction("smartreward.catalog.read") && <Link href="/customer/smart-reward" className="mt-2 flex items-center gap-2.5 rounded-xl border border-[var(--color-border)] px-3 py-2.5 text-xs font-semibold text-[var(--color-text-secondary)]">SmartReward</Link>}
         </div>
 
         <div className="border-t border-[var(--color-border)] p-3.5 space-y-2 shrink-0">
