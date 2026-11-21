@@ -1,8 +1,6 @@
 import React,{useEffect,useState} from "react";
 import {AppState,Pressable} from "react-native";
-import * as SecureStore from "expo-secure-store";
 import * as Location from "expo-location";
-import * as TaskManager from "expo-task-manager";
 import type {SalesXApiClient} from "@salesx-ai/api-client";
 import {NativeInline,NativeStack,NativeSurface,NativeText,useNativeTheme} from "@salesx-ai/design-system/native";
 import {ensureLocationDeviceId,flushLocationOutbox,startLocationTracking,stopLocationTracking,syncLocationAccessToken,syncPendingLocationStop,LOCATION_TASK_NAME} from "./locationTracking";
