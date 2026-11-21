@@ -7,7 +7,7 @@ Supabase project: `eyofuiyxalbehbqoaeny`
 
 ## Status
 
-**IN_PROGRESS — NOT COMPLETED.** Phase 05 remains the active phase and Phase 06 stays locked. The latest continuation has implemented the cross-tenant commerce model, promotion ownership/redemption, partner approvals, product/SKU and price/promotion management workflows, multi-warehouse fulfillment, authorized Realtime fan-out, and Web/Expo integration. The remaining completion gate is the final latest-commit engineering workflow and confirmation that the four required Railway services finish their automatic rollout. Historical blocker lists below describe the earlier state and are superseded by the 2026-11-21 continuation record at the end of this file.
+**COMPLETED — 2026-11-21.** Phase 05 Definition of Done is satisfied by the implementation, database, API/client contract, cross-platform builds, latest API CI, and successful rollout of all four required Railway services. Phase 06 — SmartReward remains LOCKED and has not been started. Historical blocker lists below describe the earlier state and are superseded by the 2026-11-21 continuation and closure records at the end of this file.
 
 ## Implemented domain
 
@@ -158,10 +158,14 @@ Continue Phase 05 with the cross-tenant catalog/cart/inventory/fulfillment data 
 - Railway automatic rollout: `salesx-api` is `SUCCESS` on commit `2848e2778a8fbc340fe18fa7676885cd0ae81fd0`; runtime startup completed and `GET /readyz` returned **200 OK**. `salesx-customer` and `salesx-website` are `SUCCESS` on UI commit `0286cfe3b179d94c3e7767c4794c17ced94de1f5`. `salesx-company` is still `BUILDING` on that same UI commit; build logs show all included portal build commands progressing through image export, but there is no final deployment success yet. The four required Railway services remain the existing `salesx-api`, `salesx-website`, `salesx-customer` and `salesx-company`; no manual deployment or new service was created.
 - No staging, Product Owner Acceptance, real-world test, demo data, or fabricated credentials were introduced. SMTP and Google OAuth provider secrets remain deferred to deployment as instructed.
 
-### Remaining gate — Phase 05 stays IN_PROGRESS
+### Phase 05 closure — Definition of Done satisfied
 
-1. Let the latest API workflow finish on the latest `main` commit and repair any newly surfaced implementation error.
-2. Confirm the latest automatic Railway deployments for the four required services reach SUCCESS and API readiness is healthy.
-3. Reconcile the phase tracker with the final workflow/deployment evidence.
+- Latest API workflow `44847089631` on commit `2848e2778a8fbc340fe18fa7676885cd0ae81fd0`: **SUCCESS**, 100 tests, Python compileall, Ruff, Web auth typecheck/lint, Expo Sales typecheck/build.
+- Portal build matrix `44846605135`: **SUCCESS**, 8/8 portal builds on UI commit `0286cfe3b179d94c3e7767c4794c17ced94de1f5`.
+- Expo foundation/workspace workflow `44846605092`: **SUCCESS**, including Metro, Android/iOS exports and Turborepo workspace build.
+- Railway production: `salesx-api` **SUCCESS** on `2848e2778a8fbc340fe18fa7676885cd0ae81fd0`; `/readyz` returned **200 OK**. `salesx-customer`, `salesx-company`, `salesx-website` **SUCCESS** on `0286cfe3b179d94c3e7767c4794c17ced94de1f5`. No new service or manual deployment was created.
+- Supabase migration ledger **67/67 exact local/remote pairs**, Phase 05 **31/31**; 57/57 public tables RLS-enabled, 57 policies, 306 indexes, Security Advisor 0 lints and Performance Advisor 0 WARN findings.
+- API and TypeScript action matrices are **130/130 identical**; SmartOrder router exposes 52 routes.
+- No staging, PO acceptance, fabricated secrets or demo business data was introduced. SMTP and Google OAuth credentials remain deferred as instructed.
 
-No Phase 06 work is authorized by this status. Phase 06 — SmartReward remains LOCKED until Phase 05 meets its Definition of Done.
+**Phase tracker:** Phase 05 — SmartOrder = **COMPLETED**. Phase 06 — SmartReward remains **LOCKED / NOT STARTED** pending explicit next-phase instruction.
