@@ -15,6 +15,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV HOSTNAME=0.0.0.0
 COPY --from=build /workspace/infrastructure/scripts/portal-gateway.mjs ./infrastructure/scripts/portal-gateway.mjs
+COPY --from=build /workspace/infrastructure/scripts/verify-portal-static-runtime.mjs ./infrastructure/scripts/verify-portal-static-runtime.mjs
 COPY --from=build /workspace/apps/company-portal/.next/standalone ./apps/company-portal/.next/standalone
 COPY --from=build /workspace/apps/distributor-portal/.next/standalone ./apps/distributor-portal/.next/standalone
 COPY --from=build /workspace/apps/principal-portal/.next/standalone ./apps/principal-portal/.next/standalone
