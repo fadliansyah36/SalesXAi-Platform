@@ -156,7 +156,7 @@ export function PortalShell<T extends string>({
                 onClick={async()=>{
                   setHandoffBusy(item.href);
                   try{
-                    const destination=await auth.createPortalHandoff(PORTAL_KEY_BY_PATH[item.href]);
+                    const destination=await auth.createPortalHandoff(PORTAL_KEY_BY_PATH[item.href],auth.activeOrganizationId??"");
                     window.location.assign(destination);
                   }catch{
                     setHandoffBusy(null);
@@ -394,7 +394,7 @@ export function PortalShell<T extends string>({
                       setDrawerOpen(false);
                       setHandoffBusy(item.href);
                       try{
-                        const destination=await auth.createPortalHandoff(PORTAL_KEY_BY_PATH[item.href]);
+                        const destination=await auth.createPortalHandoff(PORTAL_KEY_BY_PATH[item.href],auth.activeOrganizationId??"");
                         window.location.assign(destination);
                       }catch{
                         setHandoffBusy(null);
