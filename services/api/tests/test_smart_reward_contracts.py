@@ -118,10 +118,12 @@ class SmartRewardSchemaTests(unittest.TestCase):
             available_stock=7,
             points_balance=50,
             period_remaining=1,
+            catalog_period_remaining=2,
         )
         self.assertFalse(item.eligible)
         self.assertEqual(item.eligibility_reason, "insufficient_points")
         self.assertEqual(item.available_stock, 7)
+        self.assertEqual(item.catalog_period_remaining, 2)
 
     def test_server_progress_response_carries_metric_and_period_progress(self):
         progress = RewardProgressResponse(
