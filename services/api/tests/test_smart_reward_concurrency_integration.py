@@ -107,6 +107,22 @@ class SmartRewardConcurrentRedemptionTests(unittest.IsolatedAsyncioTestCase):
     async def asyncTearDown(self):
         if getattr(self, "db", None):
             if getattr(self, "organization_id", None):
+                for table in (
+                    "reward_event_outbox",
+                    "reward_audit_events",
+                    "reward_point_lot_allocations",
+                    "reward_approval_history",
+                    "reward_approval_requests",
+                    "reward_redemptions",
+                    "reward_point_lots",
+                    "reward_points_ledger",
+                    "reward_accounts",
+                    "reward_catalog_items",
+                ):
+                    await self.db.execute(
+                        f"delete from public.{table} where organization_id=$1",
+                        self.organization_id,
+                    )
                 await self.db.execute(
                     "delete from public.organization_memberships where organization_id=$1",
                     self.organization_id,
