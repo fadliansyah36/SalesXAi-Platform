@@ -66,3 +66,26 @@ The service verifies the requested scope against active membership, role assignm
 ## Scheduling
 
 Each active organization receives an idempotent daily refresh schedule at 00:15 in its `organizations.timezone`. The first execution is due immediately after scheduler initialization; later runs follow the local daily schedule. The refresh updates daily tenant and scope snapshots, then weekly/monthly rollups. `analytics_scheduled_jobs` and `analytics_job_executions` retain due time, attempts, status, retry time and error metadata.
+
+
+## KPI definitions and attribution
+
+The metric catalog is the runtime source for display name, unit, aggregation and source-table provenance. Current deterministic definitions:
+
+| Metric | Formula | Available scope |
+|---|---|---|
+| `orders.count` | Count of orders excluding `cancelled`, `expired`, and `draft` | Tenant, branch, team, territory, salesperson |
+| `orders.gross_value` | Sum of `orders.grand_total` for the same eligible orders | Tenant, branch, team, territory, salesperson |
+| `visits.scheduled` | Count by `smartteam_visits.scheduled_at` date | Tenant, branch, team, territory, salesperson |
+| `visits.completed` | Count by `check_out_at` date | Tenant, branch, team, territory, salesperson |
+| `visits.productive` | Completed visits with `outcome='productive'` | Tenant, branch, team, territory, salesperson |
+| `outlets.covered` | Distinct outlet IDs with both check-in and check-out | Tenant, branch, team, territory, salesperson |
+| `inventory.available` | Sum of current `inventory_balances.available` | Tenant, branch |
+| `rewards.points_issued` | Sum of positive `reward_points_ledger.points_delta` | Tenant, branch, team, territory, salesperson |
+| `rewards.points_redeemed` | Sum of `reward_redemptions.points_reserved` for fulfilled redemptions | Tenant, branch, team, territory, salesperson |
+
+Orders are attributed through `orders.cart_id → carts.owner_user_id → sales_profiles.user_id`; branch comes from the active membership assignment, while team and territory come from the matching sales profile. Visits use their persisted branch/team IDs and the matching sales profile's territory/user. Reward activity is attributed to its participant user and current organization membership/profile. Every source query is constrained by the requested organization before aggregation.
+
+Daily outlet coverage is distinct per day. Weekly and monthly coverage is recomputed as a distinct outlet count over the whole period; daily distinct counts are never summed to approximate period coverage. Weekly/monthly additive metrics sum daily snapshots; inventory uses the last available daily snapshot in the period. Inventory is intentionally not attributed to a salesperson or team because its source of truth is warehouse/branch stock, not an individual sales owner.
+
+The dashboard's initial unfiltered request discovers only scopes assigned to the authenticated user. The UI then selects a valid assigned scope and reloads with explicit scope filters; it does not guess a tenant-wide scope for a salesperson.
