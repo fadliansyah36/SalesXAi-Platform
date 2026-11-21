@@ -1,4 +1,5 @@
-import asyncio,json
+import asyncio
+import json
 from datetime import datetime
 from uuid import UUID
 from fastapi import APIRouter, Depends, Query
@@ -91,7 +92,7 @@ async def reward_events(organization_id:UUID,after:str|None=None,tenant:TenantCo
  if after:
   try:
    raw_time,raw_id=after.split("|",1);cursor_time=datetime.fromisoformat(raw_time.replace("Z","+00:00"));cursor_id=UUID(raw_id)
-  except (ValueError,TypeError): raise APIError(400,"reward_event_cursor_invalid","Realtime event cursor is invalid.")
+  except (ValueError,TypeError): raise APIError(400,"reward_event_cursor_invalid","Realtime event cursor is invalid.") from None
  async def stream():
   nonlocal cursor_time,cursor_id
   while True:
