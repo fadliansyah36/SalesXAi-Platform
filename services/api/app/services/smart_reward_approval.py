@@ -116,7 +116,43 @@ class SmartRewardApprovalService:
     participant_branch=await db.fetchval("select branch_id from public.organization_memberships where organization_id=$1 and user_id=$2 and status='active'",org,row["participant_user_id"])
     if participant_branch not in allowed: raise APIError(403,"reward_approval_scope_forbidden","Approval request is outside the supervisor branch scope.")
    if p.decision=="approved":
-    a,b=await smart_reward_service._account(db,org,row["participant_user_id"]);after=b+int(row["points_requested"])
+    program=await db.fetchrow("select * from public.reward_programs where organization_id=$1 and id=$2 and status='active' and starts_at<=now() and ends_at>now() for share",org,row["program_id"])
+    rule=await db.fetchrow("select * from public.reward_incentive_rules where organization_id=$1 and id=$2 and program_id=$3 and status='active' for update",org,row["rule_id"],row["program_id"])
+    membership=await db.fetchrow("select branch_id from public.organization_memberships where organization_id=$1 and user_id=$2 and status='active'",org,row["participant_user_id"])
+    if not program or not rule or not membership: raise APIError(409,"reward_approval_eligibility_changed","Program, rule or participant membership is no longer eligible.")
+    role_rows=await db.fetch("""select r.key from public.user_role_assignments ura join public.roles r on r.id=ura.role_id
+     join public.organization_memberships m on m.id=ura.membership_id where m.organization_id=$1 and m.user_id=$2 and m.status='active'
+      and ura.revoked_at is null and ura.starts_at<=now() and (ura.expires_at is null or ura.expires_at>now())""",org,row["participant_user_id"])
+    roles={x["key"] for x in role_rows};audience=program["audience"] or {};cfg=rule["rule_config"] or {};branch=membership["branch_id"]
+    allowed_roles=set(audience.get("roles",[]))|set(cfg.get("eligible_roles",[]))
+    allowed_users=set(audience.get("user_ids",[]));allowed_branches=set(audience.get("branch_ids",[]))|set(cfg.get("eligible_branch_ids",[]))
+    if allowed_roles and not roles.intersection(allowed_roles): raise APIError(409,"reward_approval_eligibility_changed","Participant role is no longer eligible.")
+    if allowed_users and str(row["participant_user_id"]) not in allowed_users: raise APIError(409,"reward_approval_eligibility_changed","Participant is no longer in the program audience.")
+    if allowed_branches and (branch is None or str(branch) not in allowed_branches): raise APIError(409,"reward_approval_eligibility_changed","Participant branch is no longer eligible.")
+    if row["request_type"]=="manual_earning":
+     if rule["event_key"]!="manual.approved" or not rule["requires_approval"]: raise APIError(409,"reward_approval_eligibility_changed","Manual approval rule is no longer eligible.")
+     points=int(row["points_requested"])
+     if rule["max_points"] is not None and points>int(rule["max_points"]): raise APIError(409,"reward_approval_eligibility_changed","Requested points exceed the current rule cap.")
+    else:
+     expected={"order.completed":"order","visit.completed":"visit","target.achieved":"target"}.get(rule["event_key"])
+     if not rule["requires_approval"] or expected!=row["source_type"] or row["source_id"] is None: raise APIError(409,"reward_approval_eligibility_changed","Incentive source or approval policy is no longer eligible.")
+     metric=await smart_reward_service._source_metric(db,org,row["source_type"],row["source_id"],row["participant_user_id"],Decimal(str(row["metric_value"])))
+     if metric<Decimal(str(cfg.get("minimum_metric",0))): raise APIError(409,"reward_approval_eligibility_changed","Source metric no longer meets the incentive threshold.")
+     points=int(rule["fixed_points"])+int((metric*Decimal(str(rule["points_per_unit"]))).to_integral_value(rounding=ROUND_FLOOR))
+     if rule["max_points"] is not None: points=min(points,int(rule["max_points"]))
+    if points<=0 or points!=int(row["points_requested"]): raise APIError(409,"reward_approval_eligibility_changed","Approved points no longer match current eligibility.")
+    period_days=max(1,min(int(cfg.get("period_days",30)),366))
+    per_user=cfg.get("max_per_user_per_period")
+    if per_user is not None:
+     used=await db.fetchval("""select coalesce(sum(points_delta),0) from public.reward_points_ledger where organization_id=$1 and participant_user_id=$2
+      and entry_type='earn' and metadata->>'rule_id'=$3 and occurred_at>=now()-make_interval(days=>$4)""",org,row["participant_user_id"],str(row["rule_id"]),period_days)
+     if int(used or 0)+points>int(per_user): raise APIError(409,"reward_user_period_limit","Participant incentive limit was reached before approval.")
+    total_limit=cfg.get("max_total_per_period")
+    if total_limit is not None:
+     used=await db.fetchval("""select coalesce(sum(points_delta),0) from public.reward_points_ledger where organization_id=$1
+      and entry_type='earn' and metadata->>'rule_id'=$2 and occurred_at>=now()-make_interval(days=>$3)""",org,str(row["rule_id"]),period_days)
+     if int(used or 0)+points>int(total_limit): raise APIError(409,"reward_program_period_limit","Program incentive limit was reached before approval.")
+    a,b=await smart_reward_service._account(db,org,row["participant_user_id"]);after=b+points
     ledger=await db.fetchrow("""insert into public.reward_points_ledger(organization_id,account_id,participant_user_id,entry_type,points_delta,balance_before,balance_after,source_type,source_id,reference_type,reference_id,actor_user_id,idempotency_key,reason,metadata)
      values($1,$2,$3,'earn',$4,$5,$6,$7,$8,'reward_approval',$9,$10,$11,$12,$13::jsonb) returning *""",org,a["id"],row["participant_user_id"],row["points_requested"],b,after,row["source_type"] or "manual",row["source_id"] or row["id"],row["id"],actor,"approval:"+str(row["id"]),p.reason, json.dumps({"program_id":str(row["program_id"]),"rule_id":str(row["rule_id"]),"approval_request_id":str(row["id"]),"metric_value":str(row["metric_value"])}))
     await db.execute("update public.reward_accounts set points_balance=$3,updated_at=now() where organization_id=$1 and id=$2",org,a["id"],after)
