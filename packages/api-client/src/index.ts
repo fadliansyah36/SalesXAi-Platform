@@ -839,6 +839,7 @@ export function createLocationApi(client:SalesXApiClient,organizationId:string){
   history:(query:{from_at?:string;to_at?:string;sales_profile_id?:string;page?:number;page_size?:number}={})=>{const q=new URLSearchParams();for(const [k,v] of Object.entries(query))if(v!==undefined)q.set(k,String(v));return client.request<import("@salesx-ai/api-contracts").LocationHistoryPage>(base+"/history?"+q.toString());},
   routes:(query:{from_date?:string;to_date?:string;sales_profile_id?:string}={})=>{const q=new URLSearchParams();for(const [k,v] of Object.entries(query))if(v!==undefined)q.set(k,String(v));return client.request<{items:import("@salesx-ai/api-contracts").LocationRouteSummary[]}>(base+"/routes?"+q.toString());},
   geofences:()=>client.request<{items:import("@salesx-ai/api-contracts").LocationGeofence[]}>(base+"/geofences"),
+  geofenceEvents:(page=1,pageSize=100)=>client.request<import("@salesx-ai/api-contracts").LocationGeofenceEventPage>(base+"/geofence-events?page="+page+"&page_size="+pageSize),
   createGeofence:(body:import("@salesx-ai/api-contracts").LocationGeofenceWrite)=>client.request<import("@salesx-ai/api-contracts").LocationGeofence>(base+"/geofences",{method:"POST",body:JSON.stringify(body)}),
   subscribeEvents:(onEvent:(event:Record<string,unknown>)=>void,onReconnect?:()=>void):(()=>void)=>{
    const controller=new AbortController();
