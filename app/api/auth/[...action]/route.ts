@@ -27,12 +27,12 @@ function portalHandoffTarget(portal: string): PortalHandoffTarget | null {
   const customer = origin(process.env.NEXT_PUBLIC_SALESX_CUSTOMER_URL, "https://salesx-customer-production.up.railway.app");
   const company = origin(process.env.NEXT_PUBLIC_SALESX_COMPANY_URL, "https://salesx-company-production.up.railway.app");
   const targets: Record<string, PortalHandoffTarget> = {
-    sales: { origin: website, path: "/sales/portal" },
+    sales: { origin: website, path: "/portal" },
     customer: { origin: customer, path: "/" },
     company: { origin: company, path: "/" },
-    distributor: { origin: company, path: "/distributor/portal" },
-    principal: { origin: company, path: "/principal/portal" },
-    supervisor: { origin: company, path: "/supervisor/portal" },
+    distributor: { origin: company, path: "/distributor" },
+    principal: { origin: company, path: "/principal" },
+    supervisor: { origin: company, path: "/supervisor" },
   };
   return targets[portal] ?? null;
 }
