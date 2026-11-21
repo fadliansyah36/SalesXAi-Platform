@@ -99,7 +99,7 @@ Live verification:
 - API workflow run **44865292600**: 114 tests passed, Ruff clean, API package/container build successful.
 - Independent portal build run **44865381049**: all 8 Web portal workspaces passed typecheck/lint/build; Expo typecheck and Android bundle export passed.
 - Railway container/CSS runtime run **44865538227**: Website, Customer and Company production containers built; all 8 grouped portal routes returned linked CSS and standalone CSS containing canonical SalesX design tokens.
-- The final mobile manager event-scope adjustment is commit `c95d558a81c5a9058cde0daa351de555328b69e4`; its follow-up Expo validation is tracked separately before phase closure.
+- The final mobile manager event-scope adjustment is commit `c95d558a81c5a9058cde0daa351de555328b69e4`; follow-up Phase 02/API workflow run **44866343986** passed, including `mobile-sales-build` typecheck and Android bundle export. The latest independent portal build run **44866343983** passed all 8/8 portal jobs on the same source commit.
 - These are focused CI and schema validations. No populated production reward-account transaction, load/concurrency test or signed-in cross-tenant browser session was performed.
 
 ## Railway deployment and release evidence
