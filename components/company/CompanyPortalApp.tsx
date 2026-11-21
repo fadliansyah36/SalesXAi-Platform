@@ -61,7 +61,6 @@ import {
   INITIAL_NOTIFICATIONS,
   INITIAL_COMPANY_ATTENDANCE,
   INITIAL_GPS_AUDIT_LOGS,
-  CUSTOMER_INITIAL_VOUCHERS,
   formatRupiah,
   type BranchItem,
   type TerritoryItem,
@@ -3006,27 +3005,10 @@ export function CompanyPortalApp() {
               </div>
 
               {promoSubTab === 'Voucher' ? (
-                <div className="space-y-2.5">
-                  {CUSTOMER_INITIAL_VOUCHERS.map((vc) => (
-                    <div
-                      key={vc.id}
-                      className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4"
-                    >
-                      <div>
-                        <span className="rounded-lg bg-[#FFF7ED] dark:bg-[#431407]/40 px-2.5 py-1 font-mono text-xs font-bold text-[#F97316]">
-                          {vc.code}
-                        </span>
-                        <p className="text-sm font-bold mt-1.5">{vc.title}</p>
-                        <p className="text-xs text-[var(--color-text-muted)] tabular-nums">
-                          Min. Belanja {formatRupiah(vc.minSpend)} · Berlaku s/d{' '}
-                          {vc.validUntil}
-                        </p>
-                      </div>
-                      <span className="rounded-lg bg-[#ECFDF5] px-3 py-1.5 text-xs font-bold text-[#047857]">
-                        Aktif (SmartReward)
-                      </span>
-                    </div>
-                  ))}
+                <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 space-y-2.5">
+                  <h3 className="font-semibold">Voucher SmartReward</h3>
+                  <p className="text-sm text-[var(--color-text-secondary)]">Voucher dan reward catalog dikelola melalui backend SmartReward. Daftar voucher contoh tidak ditampilkan sebagai data aktif.</p>
+                  <Link href="/company/smart-reward" className="inline-flex rounded-lg border border-[var(--color-border)] px-3 py-2 text-xs font-semibold text-[var(--color-primary)]">Kelola katalog SmartReward</Link>
                 </div>
               ) : (
                 <div className="space-y-2.5">
