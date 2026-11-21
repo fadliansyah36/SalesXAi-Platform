@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     smtp_timeout_seconds: float = 10.0
     maps_provider: str = "google"
     google_maps_server_api_key: SecretStr | None = None
+    google_maps_places_api_key: SecretStr | None = None
     google_maps_language: str = "id"
     google_maps_region: str = "ID"
 
