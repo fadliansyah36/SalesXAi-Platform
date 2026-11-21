@@ -1,0 +1,79 @@
+-- OWNER-GATED MIGRATION — do not apply through the ordinary postgres connector.
+-- realtime.messages is owned by supabase_realtime_admin. Apply through the Supabase
+-- project owner/authorized database role after owner approval.
+-- Keeps participant, branch-supervisor and tenant-management topics separate.
+begin;
+drop policy if exists smartreward_private_read on realtime.messages;
+create policy smartreward_private_read on realtime.messages
+for select to authenticated
+using (
+  extension = 'broadcast'
+  and (
+    (
+      realtime.topic() ~ '^tenant:[0-9a-fA-F-]{36}:user:[0-9a-fA-F-]{36}:smartreward$'
+      and split_part(realtime.topic(), ':', 4) = (select auth.uid())::text
+      and exists (
+        select 1
+        from public.organization_memberships m
+        join public.user_role_assignments ura on ura.membership_id = m.id
+        join public.role_permissions rp on rp.role_id = ura.role_id
+        where m.user_id = (select auth.uid()) and m.status = 'active'
+          and m.organization_id = split_part(realtime.topic(), ':', 2)::uuid
+          and ura.revoked_at is null and ura.starts_at <= now()
+          and (ura.expires_at is null or ura.expires_at > now())
+          and rp.permission_key in (
+            'smartreward:ledger:read',
+            'smartreward:redemption:read',
+            'smartreward:approval:read'
+          )
+      )
+    )
+    or
+    (
+      realtime.topic() ~ '^tenant:[0-9a-fA-F-]{36}:branch:[0-9a-fA-F-]{36}:smartreward$'
+      and exists (
+        select 1
+        from public.organization_memberships m
+        join public.user_role_assignments ura
+          on ura.membership_id = m.id
+         and ura.scope_type = 'branch'
+         and ura.scope_id = split_part(realtime.topic(), ':', 4)::uuid
+        join public.roles r on r.id = ura.role_id and r.key = 'supervisor'
+        join public.role_permissions rp on rp.role_id = r.id
+        where m.user_id = (select auth.uid()) and m.status = 'active'
+          and m.organization_id = split_part(realtime.topic(), ':', 2)::uuid
+          and ura.revoked_at is null and ura.starts_at <= now()
+          and (ura.expires_at is null or ura.expires_at > now())
+          and rp.permission_key in (
+            'smartreward:ledger:read',
+            'smartreward:redemption:read',
+            'smartreward:approval:read'
+          )
+      )
+    )
+    or
+    (
+      realtime.topic() ~ '^tenant:[0-9a-fA-F-]{36}:smartreward$'
+      and exists (
+        select 1
+        from public.organization_memberships m
+        join public.user_role_assignments ura
+          on ura.membership_id = m.id and ura.scope_type in ('tenant', 'organization')
+        join public.roles r on r.id = ura.role_id
+        join public.role_permissions rp on rp.role_id = r.id
+        where m.user_id = (select auth.uid()) and m.status = 'active'
+          and m.organization_id = split_part(realtime.topic(), ':', 2)::uuid
+          and r.key in ('tenant_owner', 'company_admin', 'principal_user', 'distributor_user')
+          and ura.revoked_at is null and ura.starts_at <= now()
+          and (ura.expires_at is null or ura.expires_at > now())
+          and rp.permission_key in (
+            'smartreward:ledger:read',
+            'smartreward:redemption:read',
+            'smartreward:report:read',
+            'smartreward:approval:read'
+          )
+      )
+    )
+  )
+);
+commit;
