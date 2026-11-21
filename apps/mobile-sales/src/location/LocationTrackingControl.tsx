@@ -11,10 +11,12 @@ export function LocationTrackingControl({api,organizationId,accessToken,actorUse
  const {colors}=useNativeTheme();const stopRequested=useRef(false);const [consent,setConsent]=useState(false);const [active,setActive]=useState(false);const [busy,setBusy]=useState(false);const [notice,setNotice]=useState("");const [currentCoordinate,setCurrentCoordinate]=useState<MapCoordinate|null>(null);const [currentRoute,setCurrentRoute]=useState<MapPolyline[]>([]);
  useEffect(()=>{void (async()=>{setActive(await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK_NAME));})();},[]);
  useEffect(()=>{
-  if(!shiftContextReady||!active||!api||!organizationId||stopRequested.current)return;
+  if(!active||!api||!organizationId||stopRequested.current)return;
   stopRequested.current=true;
   void getStoredLocationContext().then(async stored=>{
-   if(!shiftId||stored.organizationId!==organizationId||(stored.shiftId&&stored.shiftId!==shiftId)){
+   const organizationChanged=stored.organizationId!==organizationId;
+   const shiftChanged=shiftContextReady&&(!shiftId||(stored.shiftId&&stored.shiftId!==shiftId));
+   if(organizationChanged||shiftChanged){
     setBusy(true);
     try{await stopLocationTracking(api,organizationId);}
     catch(error){setNotice(error instanceof Error?error.message:"Shift berakhir; penghentian tracking menunggu sinkronisasi.");}
