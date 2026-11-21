@@ -150,7 +150,7 @@ async def _run_export(connection:asyncpg.Connection,settings:Settings,job:asyncp
                   s.scope_id,s.metric_value,d.unit,s.source_watermark,s.calculated_at
            from public.analytics_metric_snapshots s
            join public.analytics_metric_definitions d on d.metric_key=s.metric_key
-           where s.organization_id=$1 and s.period_grain=$2 and s.period_start between $3 and $4
+           where s.organization_id=$1 and s.period_grain=$2 and s.period_end >= $3 and s.period_start <= $4
              and (($5='tenant' and s.scope_type='tenant') or ($5<>'tenant' and s.scope_type=$5 and s.scope_id=$6))
            order by s.period_start,s.metric_key,s.scope_type,s.scope_id""",
         run["organization_id"],run["period_grain"],run["period_start"],run["period_end"],run["scope_type"],run["scope_id"],
@@ -168,7 +168,7 @@ async def _run_export(connection:asyncpg.Connection,settings:Settings,job:asyncp
     await connection.execute(
         """update public.analytics_report_exports set status='completed',artifact_path=$2,artifact_bytes=$3,
            row_count=$4,data_as_of=(select max(calculated_at) from public.analytics_metric_snapshots
-             where organization_id=$5 and period_grain=$6 and period_start between $7 and $8),
+             where organization_id=$5 and period_grain=$6 and period_end >= $7 and period_start <= $8),
            completed_at=now(),lease_owner=null,lease_expires_at=null,updated_at=now() where id=$1""",
         job["id"],artifact,len(data),len(rows),run["organization_id"],run["period_grain"],run["period_start"],run["period_end"],
     )
