@@ -2,7 +2,7 @@
 
 **Status: IN_PROGRESS — not closed.**
 
-- 17 Phase 06 migrations are applied.
+- 18 Phase 06 migrations are applied.
 - Customer Segment schema, membership, program/rule eligibility and reporting foundation remain in place.
 - Existing SmartReward service paths use transaction-scoped account locking and idempotency constraints. Existing API tests include serialized/idempotent lifecycle assertions.
 - Added isolated SQL fixture: supabase/tests/phase06_smartreward_ledger.sql.
@@ -87,15 +87,17 @@ The current action matrix contains 25 SmartReward contracts including the platfo
 
 ## Private Realtime and event security
 
-- Database broadcast triggers cover ledger, redemption, approval, program, rule and catalog lifecycle changes. Topics are private and scoped to tenant, participant and branch.
-- Portal workspace uses the FastAPI private SSE event stream for server-authorized tenant/branch scope, with Last-Event-ID replay, reconnect and duplicate-event handling.
-- Expo uses private Supabase Broadcast for participant-scoped events when the public Realtime configuration is present; manager roles use the authorized SSE stream so branch/tenant events for other participants are not missed.
+- Database broadcast triggers cover ledger, redemption, approval, program, rule and catalog lifecycle changes. Private topics are emitted separately for participant, branch and tenant audiences.
+- Applied migration `20261121093654_p06_reward_realtime_payload_scope` adds only organization, participant, requester and branch identifiers to the minimal event/status payload so the owner policy can match event audience to topic.
+- The live `smartreward_private_read` policy currently matches only the tenant topic and permits branch-scoped assignments to subscribe to it. Participant/branch subscriptions are not currently authorized by that policy; the broad tenant-topic grant is not an acceptable substitute for branch filtering.
+- Corrected owner-gated policy source is prepared in `supabase/owner-pending/20261121101500_smartreward_realtime_role_scope_policy.sql`. It is not active because `realtime.messages` is owned by `supabase_realtime_admin`.
+- Portal workspace continues to use FastAPI private SSE for server-authorized tenant/branch scope, with Last-Event-ID replay, reconnect and duplicate-event handling. Do not enable direct participant/branch Supabase subscriptions until the owner policy is applied and authenticated allow/deny tests pass.
 - Broadcast payloads contain identifiers and status metadata only; clients re-fetch authoritative state from FastAPI.
 - Reward tables deny direct anon/authenticated business-table grants; authorization is enforced by API permissions, membership, ownership and tenant scope.
 
 ## Supabase migration and live schema evidence
 
-All **16/16 Phase 06 migrations** are applied and match the local migration ledger in project `eyofuiyxalbehbqoaeny`:
+All **18/18 Phase 06 migrations** are applied and match the local migration ledger in project `eyofuiyxalbehbqoaeny`:
 
 | Version | Migration |
 |---|---|
@@ -115,6 +117,8 @@ All **16/16 Phase 06 migrations** are applied and match the local migration ledg
 | 20261121025805 | p06_reward_outbox_owner_scope |
 | 20261121030129 | p06_reward_reporting_expiry_indexes |
 | 20261121030235 | p06_reward_outbox_retention |
+| 20261121054216 | p06_reward_customer_segments |
+| 20261121093654 | p06_reward_realtime_payload_scope |
 
 Live verification:
 - 13 reward tables; RLS enabled on 13/13.
