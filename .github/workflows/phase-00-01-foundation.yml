@@ -87,6 +87,9 @@ jobs:
         run: bun run typecheck
       - name: Verify Web lint
         run: bun run lint
+      - name: Verify Native ESLint
+        working-directory: apps/mobile-sales
+        run: bun run lint
       - name: Verify Native TypeScript
         run: bun run mobile:typecheck
       - name: Verify Expo SDK dependency compatibility
