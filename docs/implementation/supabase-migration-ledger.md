@@ -8,10 +8,10 @@
 
 ## Live ledger reconciliation
 
-- Total applied migrations: **92**
-- Latest applied version: **20261121101601**
+- Total applied migrations: **93**
+- Latest applied version: **20261121110006**
 - Phase 06 applied migrations: **19**
-- Phase 07 applied migrations: **6**
+- Phase 07 applied migrations: **7**
 - Public base tables: **80**
 - Public tables with RLS enabled: **80**
 - Security Advisor: **0 lints**
@@ -42,7 +42,7 @@
 | 20261121093654 | p06_reward_realtime_payload_scope |
 | 20261121101601 | p06_reward_broadcast_disable_unsafe_tenant_topic |
 
-## Phase 07 — applied versions (6)
+## Phase 07 — applied versions (7)
 
 | Version | Migration |
 |---|---|
@@ -52,6 +52,7 @@
 | 20261121084817 | p07_location_and_segment_fk_indexes |
 | 20261121085755 | p07_location_assignment_and_device_integrity |
 | 20261121100848 | p07_location_geofence_ordering_route_replay |
+| 20261121110006 | p07_location_tracking_sessions_require_shift |
 
 ## Owner-pending SQL — not applied
 
@@ -65,4 +66,4 @@ The connected SQL principal cannot assume the owner of `realtime.messages` (`sup
 
 ## Ledger integrity rule
 
-The two latest applied migration filenames in `supabase/migrations/` are aligned to the exact versions returned by `supabase_migrations.schema_migrations`. Do not add owner-pending SQL to the applied migration ledger or mark it applied before the project owner confirms execution.
+The latest applied migration filename `20261121110006_p07_location_tracking_sessions_require_shift.sql` is aligned to the exact version returned by `supabase_migrations.schema_migrations`. The rollback-only Phase 07 database lifecycle fixture is documented at `supabase/tests/phase07_location_lifecycle.sql` and is not a migration. Do not add owner-pending SQL to the applied migration ledger or mark it applied before the project owner confirms execution.
