@@ -354,3 +354,5 @@ export interface RewardApprovalWrite {
  metric_value?:number;idempotency_key:string;reason:string;
 }
 export interface RewardApprovalDecision {decision:"approved"|"rejected";reason:string;}
+
+export interface SmartRewardRealtimeEvent {event_id?:string;organization_id:string;resource:string;record_id:string;operation:string;status?:string|null;occurred_at:string;}
