@@ -16,6 +16,7 @@ class SmartOrderMigrationIndexTests(unittest.TestCase):
             "20261120182440_p05_realtime_tenant_role_scope.sql": "scope_type='tenant'",
             "20261120182536_p05_realtime_resource_and_partner_scope.sql": "payload->>'resource'",
             "20261120182937_p05_notify_smartorder_sse_events.sql": "pg_notify('smartorder_events'",
+            "20261121010512_p05_realtime_auth_rls_initplan.sql": "m.user_id=(select auth.uid())",
         }
         for filename, marker in expected.items():
             sql = (root / filename).read_text(encoding="utf-8")
