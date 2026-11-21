@@ -212,7 +212,7 @@ class SmartRewardRepositoryContractTests(unittest.TestCase):
     def test_balance_projection_and_expiration_read_share_one_transaction(self):
         balance = self.service.split("async def balance", 1)[1].split("async def progress", 1)[0]
         self.assertIn("async with db.transaction()", balance)
-        self.assertIn("process_reward_expirations", balance)
+        self.assertIn("self._account(db,org,user)", balance)
 
     def test_issuance_redemption_and_approval_are_serialized_and_idempotent(self):
         self.assertIn("for update", self.service.lower())
