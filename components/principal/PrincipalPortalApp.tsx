@@ -47,6 +47,7 @@ import { PluginActivationModal } from '@/components/design-system/PluginActivati
 import { PortalAiCoachModal } from '@/components/design-system/PortalAiCoachModal';
 import { SalesGoogleMap } from '@/components/maps/SalesGoogleMap';
 import { useSalesXAuth } from '@/components/providers/AppProviders';
+import { SmartRewardWorkspace } from '@/components/smart-reward/SmartRewardWorkspace';
 import { PortalSignupAction } from '@/components/auth/PortalSignupAction';
 import {
   formatRupiah,
@@ -109,7 +110,8 @@ export type PrincipalTab =
   | 'distributor_detail'
   | 'dist_orders'
   | 'analytics'
-  | 'ai_settings';
+  | 'ai_settings'
+  | 'smartreward';
 
 export function PrincipalPortalApp() {
   const auth = useSalesXAuth();
@@ -273,6 +275,7 @@ export function PrincipalPortalApp() {
       items: [
         { id: 'analytics', label: 'Sales-through & Analitik', icon: BarChart3 },
         { id: 'ai_settings', label: 'AI Insight & Akses', icon: Bot },
+        ...(auth.canPerformApiAction('smartreward.catalog.read') ? [{ id: 'smartreward' as PrincipalTab, label: 'SmartReward & Incentive', icon: Trophy }] : []),
       ],
     },
   ];
@@ -2351,6 +2354,7 @@ export function PrincipalPortalApp() {
           'Evaluasi kebijakan Pricing Policy & MOQ untuk peningkatan margin.',
         ]}
       />
-    </PortalShell>
+          {activeTab === 'smartreward' && <SmartRewardWorkspace />}
+</PortalShell>
   );
 }
