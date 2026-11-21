@@ -13,7 +13,8 @@
     "typecheck": "tsc --noEmit",
     "check-deps": "expo install --check",
     "config": "expo config --type public",
-    "verify-start": "node ./scripts/verify-start.mjs"
+    "verify-start": "node ./scripts/verify-start.mjs",
+    "lint": "eslint ."
   },
   "dependencies": {
     "@expo-google-fonts/jetbrains-mono": "^0.4.1",
