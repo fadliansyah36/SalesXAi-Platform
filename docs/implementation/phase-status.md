@@ -1325,3 +1325,14 @@ This addendum supersedes the older Phase 06 foundation-only blocker list above. 
 ## Portal static asset verification — 2026-11-21
 
 Live HTML returned HTTP 200 for Website, Sales, Customer, Company, Distributor, Principal, Supervisor and Super Admin (`/admin`). Referenced CSS assets returned HTTP 200 with `text/css`; page-specific JavaScript chunks returned HTTP 200 with `application/javascript`. The Super Admin route is `/admin`, not `/super-admin`. This is static asset delivery evidence, not authenticated interaction acceptance.
+
+
+## Phase 06 continuation checkpoint — 2026-11-21
+
+Per the user's latest direction, no Supabase staging branch or staging database test is to be performed; real-account transaction validation is deferred to the final integrated phase. No production fixtures were written.
+
+SmartReward integration was extended: typed mutation contracts, tenant-scoped locked PATCH merges for Program/Rule/Catalog, Customer Segment schema/response validation and shared permission action parity, Web and Expo redemption retry idempotency, Expo participant cancellation, and Super Admin global reward reporting. Latest relevant API commit is `3c28491de66fd3fae80ca47dd808d7eb679306bd`; latest Super Admin page commit is `8c4b711955427d29aed5bd55eeef9594f47fe9b0`.
+
+Python unit suite had 119 passing tests in the prior run; two Ruff unused-import findings were fixed. New partial-update merge tests and final-source CI/build are running. Railway's latest API deployment is queued, Company portal has a queued Super Admin page deployment, and earlier portal deployments are building. This is not yet a latest-source release confirmation.
+
+**Phase 06: IN_PROGRESS. Phase 07: LOCKED.**
