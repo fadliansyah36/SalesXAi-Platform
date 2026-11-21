@@ -41,6 +41,8 @@ class LocationRepository:
             exists(select 1 from public.organization_memberships m
               join public.user_role_assignments ura on ura.membership_id=m.id
               join public.roles r on r.id=ura.role_id
+              join public.role_permissions rp on rp.role_id=ura.role_id
+                and rp.permission_key='location.geofences.read'
               where m.organization_id=g.organization_id and m.user_id=$2 and m.status='active'
                 and ura.revoked_at is null and ura.starts_at<=now()
                 and (ura.expires_at is null or ura.expires_at>now())
@@ -48,18 +50,25 @@ class LocationRepository:
                 and ura.scope_type in ('tenant','organization') and ura.scope_id=g.organization_id)
             or exists(select 1 from public.organization_memberships m
               join public.user_role_assignments ura on ura.membership_id=m.id
+              join public.role_permissions rp on rp.role_id=ura.role_id
+                and rp.permission_key='location.geofences.read'
               where m.organization_id=g.organization_id and m.user_id=$2 and m.status='active'
                 and ura.revoked_at is null and ura.starts_at<=now()
                 and (ura.expires_at is null or ura.expires_at>now())
                 and ura.scope_type='branch' and ura.scope_id=coalesce(o.branch_id,t.branch_id))
             or exists(select 1 from public.organization_memberships m
               join public.user_role_assignments ura on ura.membership_id=m.id
+              join public.role_permissions rp on rp.role_id=ura.role_id
+                and rp.permission_key='location.geofences.read'
               where m.organization_id=g.organization_id and m.user_id=$2 and m.status='active'
                 and ura.revoked_at is null and ura.starts_at<=now()
                 and (ura.expires_at is null or ura.expires_at>now())
-                and ura.scope_type='territory' and ura.scope_id=coalesce(g.territory_id,o.territory_id))
+                and ura.scope_type='territory'
+                and ura.scope_id=coalesce(g.territory_id,o.territory_id))
             or exists(select 1 from public.organization_memberships m
               join public.user_role_assignments ura on ura.membership_id=m.id
+              join public.role_permissions rp on rp.role_id=ura.role_id
+                and rp.permission_key='location.geofences.read'
               join public.sales_profiles sp on sp.organization_id=g.organization_id
                 and sp.team_id=ura.scope_id and sp.status='active'
               where m.organization_id=g.organization_id and m.user_id=$2 and m.status='active'
