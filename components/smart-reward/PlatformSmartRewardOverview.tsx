@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useSalesXAuth } from "@/components/providers/AppProviders";
-import type { PlatformSmartRewardOverviewRow } from "@salesx-ai/api-contracts";
+import type { PlatformSmartRewardOverviewRow } from "@salesx-ai/api-client";
 
 const fmt=(value:number)=>new Intl.NumberFormat("id-ID").format(Number(value||0));
 export function PlatformSmartRewardOverview(){
