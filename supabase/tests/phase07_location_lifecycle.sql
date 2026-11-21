@@ -36,9 +36,6 @@ begin
      '{"provider":"email","providers":["email"]}'::jsonb,
      '{"display_name":"Phase 07 isolated GPS fixture"}'::jsonb,now(),now());
 
-  insert into public.profiles(id,email,display_name,status)
-  values(v_user,'phase07-'||v_user::text||'@salesx.invalid','Phase 07 isolated GPS fixture','active');
-
   insert into public.organizations(id,slug,name,status,created_by)
   values(v_org,'phase07-'||v_org::text,'Phase 07 isolated location fixture','active',v_user);
 
