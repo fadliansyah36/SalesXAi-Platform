@@ -896,9 +896,11 @@ export function createMapsApi(client:SalesXApiClient,organizationId:string){
 export function createAnalyticsApi(client:SalesXApiClient,organizationId:string){
  const base="/api/v1/organizations/"+encodeURIComponent(organizationId)+"/analytics";
  return {
-  dashboard:(periodStart:string,periodEnd:string,grain:"day"|"week"|"month"="day")=>
+  dashboard:(periodStart:string,periodEnd:string,grain:"day"|"week"|"month"="day",scopeType?:"tenant"|"branch"|"team"|"territory"|"user",scopeId?:string|null)=>
    client.request<import("@salesx-ai/api-contracts").AnalyticsDashboardResponse>(
-    base+"/dashboard?period_start="+encodeURIComponent(periodStart)+"&period_end="+encodeURIComponent(periodEnd)+"&grain="+grain
+    base+"/dashboard?period_start="+encodeURIComponent(periodStart)+"&period_end="+encodeURIComponent(periodEnd)+"&grain="+grain+
+    (scopeType?"&scope_type="+encodeURIComponent(scopeType):"")+
+    (scopeId?"&scope_id="+encodeURIComponent(scopeId):"")
    ),
   reports:()=>client.request<import("@salesx-ai/api-contracts").AnalyticsReportRun[]>(base+"/reports"),
   createReport:(payload:import("@salesx-ai/api-contracts").AnalyticsReportRunCreate)=>
