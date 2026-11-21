@@ -214,7 +214,6 @@ export function CompanyPortalApp() {
     {href:"/principal",label:"Principal",portal:"principal"},
     {href:"/supervisor",label:"Supervisor",portal:"supervisor"},
     {href:"/customer",label:"Customer",portal:"customer"},
-    {href:"/super-admin",label:"Super Admin",portal:"super_admin"},
   ] as const;
   // Authentication & Theme
   const authenticated = auth.status === 'authenticated';
