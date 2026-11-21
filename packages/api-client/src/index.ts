@@ -841,10 +841,37 @@ export function createLocationApi(client:SalesXApiClient,organizationId:string){
   geofences:()=>client.request<{items:import("@salesx-ai/api-contracts").LocationGeofence[]}>(base+"/geofences"),
   createGeofence:(body:import("@salesx-ai/api-contracts").LocationGeofenceWrite)=>client.request<import("@salesx-ai/api-contracts").LocationGeofence>(base+"/geofences",{method:"POST",body:JSON.stringify(body)}),
   subscribeEvents:(onEvent:(event:Record<string,unknown>)=>void,onReconnect?:()=>void):(()=>void)=>{
-   const tokenPromise=client.fetch("/api/v1/auth/me").then(()=>undefined).catch(()=>undefined);
-   let stopped=false;let source:EventSource|null=null;
-   void tokenPromise.then(()=>{if(stopped)return;const url=base+"/events";source=new EventSource(url);source.addEventListener("location.updated",(event)=>{try{onEvent(JSON.parse((event as MessageEvent).data));}catch{}});source.onerror=()=>{onReconnect?.();};});
-   return ()=>{stopped=true;source?.close();};
+   const controller=new AbortController();
+   const connect=async()=>{
+    let delay=1000;
+    while(!controller.signal.aborted){
+     try{
+      const response=await client.fetch(base+"/events",{signal:controller.signal});
+      if(!response.ok||!response.body)throw new Error("Location event stream unavailable.");
+      const reader=response.body.getReader(),decoder=new TextDecoder();let buffer="";
+      while(!controller.signal.aborted){
+       const part=await reader.read();if(part.done)break;
+       buffer+=decoder.decode(part.value,{stream:true});
+       let boundary=buffer.indexOf("\\n\\n");
+       while(boundary>=0){
+        const frame=buffer.slice(0,boundary);buffer=buffer.slice(boundary+2);
+        const eventName=frame.split("\\n").find(line=>line.startsWith("event:"))?.slice(6).trim();
+        const data=frame.split("\\n").filter(line=>line.startsWith("data:")).map(line=>line.slice(5).trim()).join("\\n");
+        if(eventName==="location.updated"&&data){try{onEvent(JSON.parse(data));}catch{}}
+        boundary=buffer.indexOf("\\n\\n");
+       }
+      }
+      delay=1000;
+     }catch(error){
+      if(controller.signal.aborted)break;
+      onReconnect?.();
+      await new Promise(resolve=>setTimeout(resolve,delay));
+      delay=Math.min(delay*2,30000);
+     }
+    }
+   };
+   void connect();
+   return ()=>controller.abort();
   },
  };
 }
