@@ -1,5 +1,5 @@
 import {useCallback,useEffect,useMemo,useState} from "react";
-import {Pressable,View} from "react-native";
+import {Pressable,TextInput,View} from "react-native";
 import {NativeStack,NativeSurface,NativeText,useNativeTheme} from "@salesx-ai/design-system/native";
 import {createSmartRewardApi,type RewardBalance,type RewardCatalogItem,type RewardLedgerEntry,type RewardRedemption,type RewardProgram,type RewardApprovalRequest,type RewardProgressItem} from "@salesx-ai/api-client";
 import {useMobileSalesAuth} from "../auth/useMobileSalesAuth";
@@ -11,7 +11,13 @@ export function SmartRewardHome({auth}:{auth:Auth}){
  const api=useMemo(()=>client&&org?createSmartRewardApi(client,org):null,[client,org]);
  const [balance,setBalance]=useState<RewardBalance|null>(null),[catalog,setCatalog]=useState<RewardCatalogItem[]>([]),[ledger,setLedger]=useState<RewardLedgerEntry[]>([]),[redemptions,setRedemptions]=useState<RewardRedemption[]>([]),[programs,setPrograms]=useState<RewardProgram[]>([]),[approvals,setApprovals]=useState<RewardApprovalRequest[]>([]),[progress,setProgress]=useState<RewardProgressItem[]>([]);
  const [busy,setBusy]=useState(false),[notice,setNotice]=useState(""),[error,setError]=useState("");
+ const [redemptionReasons,setRedemptionReasons]=useState<Record<string,string>>({});
+ const [fulfillmentRefs,setFulfillmentRefs]=useState<Record<string,string>>({});
+ const [approvalReasons,setApprovalReasons]=useState<Record<string,string>>({});
  const can=(id:string)=>auth.canPerformApiAction(id as never);
+ const canDecideRedemptions=can("smartreward.redemptions.decide");
+ const canFulfillRedemptions=can("smartreward.redemptions.fulfill");
+ const canDecideApprovals=can("smartreward.approvals.decide");
  const canRealtime=can("smartreward.ledger.read")||can("smartreward.redemptions.read");
  const refresh=useCallback(async()=>{
   if(!api||auth.status!=="authenticated")return;
@@ -33,12 +39,16 @@ export function SmartRewardHome({auth}:{auth:Auth}){
   if(url&&key)return client.subscribeSmartRewardBroadcast(org,auth.context!.user.id,url,key,()=>void refresh(),()=>void refresh());
   return client.subscribeSmartRewardEvents(org,()=>void refresh(),()=>void refresh());
  },[client,org,auth.status,canRealtime,refresh]);
- const redeem=async(item:RewardCatalogItem)=>{
+ const mutate=async(action:()=>Promise<unknown>,success:string)=>{
   if(!api)return;setBusy(true);setError("");setNotice("");
-  try{await api.redeem({catalog_item_id:item.id,quantity:1,idempotency_key:"expo-reward-"+Date.now()+"-"+Math.random().toString(36).slice(2)});setNotice("Permintaan penukaran dikirim.");await refresh();}
-  catch(e){setError(e instanceof Error?e.message:"Penukaran reward gagal.");}
+  try{await action();setNotice(success);await refresh();}
+  catch(e){setError(e instanceof Error?e.message:"Permintaan SmartReward gagal.");}
   finally{setBusy(false);}
  };
+ const redeem=async(item:RewardCatalogItem)=>mutate(
+  ()=>api!.redeem({catalog_item_id:item.id,quantity:1,idempotency_key:"expo-reward-"+Date.now()+"-"+Math.random().toString(36).slice(2)}),
+  "Permintaan penukaran dikirim."
+ );
  if(!org)return null;
  return <NativeStack gap="3">
   <NativeText variant="title" weight="semibold">SmartReward & Incentive</NativeText>
@@ -50,7 +60,13 @@ export function SmartRewardHome({auth}:{auth:Auth}){
   <NativeText variant="title" weight="semibold">Riwayat poin</NativeText>
   {ledger.slice(0,10).map(item=><View key={item.id} style={{paddingVertical:8,borderBottomWidth:1,borderBottomColor:colors.border}}><NativeText>{item.reason||item.entry_type} · {item.points_delta>0?"+":""}{fmt(item.points_delta)}</NativeText></View>)}
   <NativeText variant="title" weight="semibold">Status penukaran</NativeText>
-  {redemptions.map(item=><NativeSurface key={item.id} elevation="sm" radius="md" style={{padding:12}}><NativeText weight="semibold">{item.status}</NativeText><NativeText variant="caption" color={colors.textSecondary}>{item.quantity} item · {fmt(item.points_reserved)} poin</NativeText></NativeSurface>)}
-  {approvals.length>0&&<><NativeText variant="title" weight="semibold">Status approval</NativeText>{approvals.map(item=><NativeSurface key={item.id} elevation="sm" radius="md" style={{padding:12}}><NativeText weight="semibold">{item.status}</NativeText><NativeText variant="caption" color={colors.textSecondary}>{item.request_type} · {fmt(item.points_requested)} poin</NativeText></NativeSurface>)}</>}
+  {redemptions.map(item=><NativeSurface key={item.id} elevation="sm" radius="md" style={{padding:12}}><NativeStack gap="2">
+   <NativeText weight="semibold">{item.status}</NativeText>
+   <NativeText variant="caption" color={colors.textSecondary}>{item.quantity} item · {fmt(item.points_reserved)} poin</NativeText>
+   {item.fulfillment_reference&&<NativeText variant="caption" color={colors.textSecondary}>Referensi fulfillment: {item.fulfillment_reference}</NativeText>}
+   {item.status==="requested"&&canDecideRedemptions&&<><TextInput value={redemptionReasons[item.id]??""} onChangeText={value=>setRedemptionReasons(current=>({...current,[item.id]:value}))} placeholder="Alasan keputusan (min. 5 karakter)" placeholderTextColor={colors.textMuted} style={{borderWidth:1,borderColor:colors.border,borderRadius:10,padding:10,color:colors.textPrimary}}/><View style={{flexDirection:"row",gap:8}}><Pressable disabled={busy||(redemptionReasons[item.id]??"").trim().length<5} onPress={()=>void mutate(()=>api!.decide(item.id,{decision:"approved",reason:redemptionReasons[item.id]}),"Penukaran disetujui.")} style={{flex:1,padding:10,borderRadius:10,backgroundColor:colors.primary,opacity:busy?0.5:1}}><NativeText color={colors.surface} weight="semibold">Setujui</NativeText></Pressable><Pressable disabled={busy||(redemptionReasons[item.id]??"").trim().length<5} onPress={()=>void mutate(()=>api!.decide(item.id,{decision:"rejected",reason:redemptionReasons[item.id]}),"Penukaran ditolak.")} style={{flex:1,padding:10,borderRadius:10,borderWidth:1,borderColor:colors.border,opacity:busy?0.5:1}}><NativeText weight="semibold">Tolak</NativeText></Pressable></View></>}
+   {item.status==="approved"&&canFulfillRedemptions&&<><TextInput value={fulfillmentRefs[item.id]??""} onChangeText={value=>setFulfillmentRefs(current=>({...current,[item.id]:value}))} placeholder="Referensi fulfillment" placeholderTextColor={colors.textMuted} style={{borderWidth:1,borderColor:colors.border,borderRadius:10,padding:10,color:colors.textPrimary}}/><Pressable disabled={busy||(fulfillmentRefs[item.id]??"").trim().length<2} onPress={()=>void mutate(()=>api!.fulfill(item.id,{fulfillment_reference:fulfillmentRefs[item.id]}),"Reward ditandai telah dipenuhi.")} style={{padding:10,borderRadius:10,backgroundColor:colors.primary,opacity:busy?0.5:1}}><NativeText color={colors.surface} weight="semibold">Konfirmasi fulfillment</NativeText></Pressable></>}
+  </NativeStack></NativeSurface>)}
+  {approvals.length>0&&<><NativeText variant="title" weight="semibold">Status approval</NativeText>{approvals.map(item=><NativeSurface key={item.id} elevation="sm" radius="md" style={{padding:12}}><NativeStack gap="2"><NativeText weight="semibold">{item.status}</NativeText><NativeText variant="caption" color={colors.textSecondary}>{item.request_type} · {fmt(item.points_requested)} poin</NativeText><NativeText variant="caption" color={colors.textSecondary}>{item.request_reason}</NativeText>{item.decision_reason&&<NativeText variant="caption" color={colors.textSecondary}>Alasan keputusan: {item.decision_reason}</NativeText>}{item.status==="pending"&&canDecideApprovals&&<><TextInput value={approvalReasons[item.id]??""} onChangeText={value=>setApprovalReasons(current=>({...current,[item.id]:value}))} placeholder="Alasan keputusan (min. 5 karakter)" placeholderTextColor={colors.textMuted} style={{borderWidth:1,borderColor:colors.border,borderRadius:10,padding:10,color:colors.textPrimary}}/><View style={{flexDirection:"row",gap:8}}><Pressable disabled={busy||(approvalReasons[item.id]??"").trim().length<5} onPress={()=>void mutate(()=>api!.decideApproval(item.id,{decision:"approved",reason:approvalReasons[item.id]}),"Approval reward disetujui.")} style={{flex:1,padding:10,borderRadius:10,backgroundColor:colors.primary,opacity:busy?0.5:1}}><NativeText color={colors.surface} weight="semibold">Setujui</NativeText></Pressable><Pressable disabled={busy||(approvalReasons[item.id]??"").trim().length<5} onPress={()=>void mutate(()=>api!.decideApproval(item.id,{decision:"rejected",reason:approvalReasons[item.id]}),"Pengajuan reward ditolak.")} style={{flex:1,padding:10,borderRadius:10,borderWidth:1,borderColor:colors.border,opacity:busy?0.5:1}}><NativeText weight="semibold">Tolak</NativeText></Pressable></View></>}</NativeStack></NativeSurface>)}</>}
  </NativeStack>;
 }
