@@ -53,6 +53,7 @@ import { StatusTag } from '@/components/design-system/StatusTag';
 import { PluginActivationModal } from '@/components/design-system/PluginActivationModal';
 import { PortalAiCoachModal } from '@/components/design-system/PortalAiCoachModal';
 import { useSalesXAuth } from '@/components/providers/AppProviders';
+import { SmartRewardWorkspace } from '@/components/smart-reward/SmartRewardWorkspace';
 import { PortalSignupAction } from '@/components/auth/PortalSignupAction';
 import { SupabaseOtpLoginModal } from '@/components/auth/SupabaseOtpLoginModal';
 import {
@@ -108,7 +109,8 @@ export type SupervisorTab =
   | 'timeline'
   | 'alerts'
   | 'reports'
-  | 'settings';
+  | 'settings'
+  | 'smartreward';
 
 const LEGACY_SMARTTEAM_UI_ENABLED = false;
 
@@ -261,6 +263,7 @@ export function SupervisorPortalApp() {
         { id: 'timeline', label: 'Timeline Aktivitas', icon: CalendarClock },
         { id: 'alerts', label: 'Peringatan & Tindak Lanjut', icon: AlertTriangle },
         { id: 'reports', label: 'Laporan & AI Coach', icon: BarChart3 },
+        ...(auth.canPerformApiAction('smartreward.catalog.read') ? [{ id: 'smartreward' as SupervisorTab, label: 'SmartReward & Incentive', icon: Award }] : []),
       ],
     },
     {
@@ -2150,6 +2153,7 @@ export function SupervisorPortalApp() {
         ]}
         initialPrompt={aiInitialPrompt}
       />
-    </PortalShell>
+          {activeTab === 'smartreward' && <SmartRewardWorkspace />}
+</PortalShell>
   );
 }
