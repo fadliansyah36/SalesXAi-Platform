@@ -74,7 +74,7 @@ async def download_analytics_report(
     organization_id:UUID,
     report_run_id:UUID,
     principal:Principal=Depends(get_current_principal),
-    tenant:TenantContext=Depends(require_api_action("analytics.reports.read")),
+    tenant:TenantContext=Depends(require_api_action("analytics.reports.download")),
     connection:asyncpg.Connection=Depends(get_connection),
 ):
     return await analytics_service.download_report(connection,organization_id,tenant,principal,report_run_id)
