@@ -1,4 +1,11 @@
 import type { ExpoConfig } from 'expo/config';
+
+const androidMapsKey = process.env.GOOGLE_MAPS_ANDROID_API_KEY?.trim();
+const iosMapsKey = process.env.GOOGLE_MAPS_IOS_API_KEY?.trim();
+const mapsPlugin = ['react-native-maps', {
+  ...(androidMapsKey ? { androidGoogleMapsApiKey: androidMapsKey } : {}),
+  ...(iosMapsKey ? { iosGoogleMapsApiKey: iosMapsKey } : {}),
+}] as const;
 const config: ExpoConfig = {
   name: 'SalesX-Ai Mobile Sales',
   slug: 'salesx-ai-mobile-sales',
@@ -21,6 +28,6 @@ const config: ExpoConfig = {
     permissions: ['ACCESS_COARSE_LOCATION', 'ACCESS_FINE_LOCATION', 'ACCESS_BACKGROUND_LOCATION', 'FOREGROUND_SERVICE', 'FOREGROUND_SERVICE_LOCATION'],
   },
   assetBundlePatterns: ['**/*'],
-  plugins: ['expo-location', 'expo-sqlite', 'expo-image-picker', 'expo-document-picker'],
+  plugins: ['expo-location', 'expo-sqlite', 'expo-image-picker', 'expo-document-picker', mapsPlugin],
 };
 export default config;
